@@ -415,11 +415,11 @@ class ShapezGUI(QMainWindow):
         control_layout.addWidget(self.swap_btn, 2, 0)
         
         rotate_hbox = QHBoxLayout()
-        self.rotate_cw_btn = QPushButton("CW 회전")
+        self.rotate_cw_btn = QPushButton("90 회전")
         self.rotate_cw_btn.clicked.connect(lambda: self.on_rotate(True))
         rotate_hbox.addWidget(self.rotate_cw_btn)
         
-        self.rotate_ccw_btn = QPushButton("CCW 회전")
+        self.rotate_ccw_btn = QPushButton("270 회전")
         self.rotate_ccw_btn.clicked.connect(lambda: self.on_rotate(False))
         rotate_hbox.addWidget(self.rotate_ccw_btn)
         
@@ -592,16 +592,9 @@ class ShapezGUI(QMainWindow):
     def closeEvent(self, event):
         self.log("애플리케이션 종료 중... 백그라운드 스레드를 정리합니다.")
         
-        if self.rl_training_thread and self.rl_training_thread.isRunning():
-            self.rl_training_thread.stop()
-            self.rl_training_thread.wait()
-        
         if self.origin_finder_thread and self.origin_finder_thread.isRunning():
             self.origin_finder_thread.cancel()
             self.origin_finder_thread.wait()
-            
-        if self.rl_origin_finder_thread and self.rl_origin_finder_thread.isRunning():
-            self.rl_origin_finder_thread.wait()
 
         event.accept()
 
@@ -1433,23 +1426,23 @@ class ShapezGUI(QMainWindow):
         else:
             self.switch_to_single_mode()
         
-        self.log(f"메인 탭이 {tab_name}로 변경되었습니다.")
+        # self.log(f"메인 탭이 {tab_name}로 변경되었습니다.")
     
     def switch_to_batch_mode(self):
         """대량처리 모드로 전환"""
         # 버튼 텍스트 변경
-        self.destroy_half_btn.setText("절반 파괴기 (전체)")
-        self.push_pin_btn.setText("핀 푸셔 (전체)")
-        self.apply_physics_btn.setText("물리 적용 (전체)")
-        self.rotate_cw_btn.setText("CW 회전 (전체)")
-        self.rotate_ccw_btn.setText("CCW 회전 (전체)")
-        self.paint_btn.setText("칠하기 (전체)")
-        self.crystal_btn.setText("생성 (전체)")
-        self.classifier_btn.setText("분류기 (전체)")
+        self.destroy_half_btn.setText("절반 파괴기 (∀)")
+        self.push_pin_btn.setText("핀 푸셔 (∀)")
+        self.apply_physics_btn.setText("물리 적용 (∀)")
+        self.rotate_cw_btn.setText("90 회전")
+        self.rotate_ccw_btn.setText("270 회전")
+        self.paint_btn.setText("칠하기")
+        self.crystal_btn.setText("생성")
+        self.classifier_btn.setText("분류기 (∀)")
         
         # 스태커와 스와퍼 텍스트 변경 (비활성화하지 않음)
-        self.stack_btn.setText("스태커 (전체+B)")
-        self.swap_btn.setText("스와퍼 (전체↔B)")
+        self.stack_btn.setText("스태커 (∀+B)")
+        self.swap_btn.setText("스와퍼 (∀↔B)")
         self.apply_button.setEnabled(False)
         
         # 버튼 클릭 이벤트를 대량처리용으로 변경
@@ -1490,8 +1483,8 @@ class ShapezGUI(QMainWindow):
         self.destroy_half_btn.setText("절반 파괴기 (A)")
         self.push_pin_btn.setText("핀 푸셔 (A)")
         self.apply_physics_btn.setText("물리 적용 (A)")
-        self.rotate_cw_btn.setText("CW 회전")
-        self.rotate_ccw_btn.setText("CCW 회전")
+        self.rotate_cw_btn.setText("90 회전")
+        self.rotate_ccw_btn.setText("270 회전")
         self.paint_btn.setText("칠하기")
         self.crystal_btn.setText("생성")
         self.classifier_btn.setText("분류기 (A)")
@@ -1547,58 +1540,88 @@ class CustomTabWidget(QTabWidget):
 
 class DragDropTableWidget(QTableWidget):
     """드래그 앤 드롭을 지원하는 테이블 위젯"""
-    data_moved = pyqtSignal(int, int)  # from_row, to_row
+    rows_reordered = pyqtSignal(int, int) # 실제 데이터 리스트 순서 변경을 위한 시그널
     
     def __init__(self):
         super().__init__()
-        self.setDragDropMode(QTableWidget.DragDropMode.InternalMove)
-        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True) # 드롭 허용
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.drag_start_row = -1
-        self.drag_start_item = None
+        self.drag_start_point = QPoint() # 드래그 시작 위치 저장
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            item = self.itemAt(event.pos())
+            if item:
+                self.drag_start_row = item.row()
+                self.drag_start_point = event.pos() # 드래그 시작 위치 저장
+        super().mousePressEvent(event)
     
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton and self.drag_start_row != -1:
+            # 드래그 임계값 이상 이동했을 때만 드래그 시작
+            if (event.pos() - self.drag_start_point).manhattanLength() > QApplication.startDragDistance():
+                self.startDrag(Qt.DropAction.MoveAction)
+        super().mouseMoveEvent(event)
+
     def startDrag(self, supportedActions):
         """드래그 시작 시 호출"""
         selected_items = self.selectedItems()
         if selected_items:
-            self.drag_start_row = selected_items[0].row()
-            self.drag_start_item = self.item(self.drag_start_row, 1).text() if self.item(self.drag_start_row, 1) else ""
-            print(f"DEBUG: 드래그 시작 - row: {self.drag_start_row}, item: {self.drag_start_item}")
-        super().startDrag(supportedActions)
-    
-    def dropEvent(self, event):
-        """드롭 이벤트 처리"""
-        if event.source() == self and self.drag_start_row != -1:
-            # 드롭 위치 계산
-            drop_row = self.rowAt(event.position().toPoint().y())
-            if drop_row == -1:
-                drop_row = self.rowCount()
+            # 드래그할 항목의 MIME 데이터 생성 (여기서는 실제 데이터를 담지 않음, 그냥 신호용)
+            mimeData = QMimeData()
+            mimeData.setText(str(self.drag_start_row)) # 시작 행 정보를 MIME 데이터에 저장
             
-            print(f"DEBUG: 드롭 이벤트 - drag_start_row: {self.drag_start_row}, drop_row: {drop_row}")
+            drag = QDrag(self)
+            drag.setMimeData(mimeData)
+            # 드래그 아이콘 설정 (옵션)
+            # pixmap = QPixmap(self.grab(self.visualItemRect(self.item(self.drag_start_row, 0))))
+            # drag.setPixmap(pixmap)
             
-            # 아래로 드래그할 때 인덱스 조정
-            adjusted_drop_row = drop_row
-            if drop_row > self.drag_start_row:
-                adjusted_drop_row = drop_row - 1
-            
-            print(f"DEBUG: 조정된 드롭 위치 - adjusted_drop_row: {adjusted_drop_row}")
-            
-            # 드래그 시작 행과 조정된 드롭 행이 다를 때만 이동
-            if adjusted_drop_row != self.drag_start_row:
-                print(f"DEBUG: 시그널 발생 - from: {self.drag_start_row}, to: {adjusted_drop_row}")
-                # 데이터 이동 시그널 발생
-                self.data_moved.emit(self.drag_start_row, adjusted_drop_row)
-            else:
-                print(f"DEBUG: 같은 위치로 드롭, 이동하지 않음")
-            
-            event.accept()
+            drag.exec(Qt.DropAction.MoveAction)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasText(): # 텍스트 MIME 데이터 확인 (startDrag에서 설정한 것)
+            event.acceptProposedAction()
         else:
-            print(f"DEBUG: 드롭 이벤트 무시 - source: {event.source()}, drag_start_row: {self.drag_start_row}")
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.source() == self and event.mimeData().hasText():
+            from_row = int(event.mimeData().text()) # MIME 데이터에서 시작 행 가져오기
+            drop_pos_y = event.position().toPoint().y()
+            to_row = self.rowAt(drop_pos_y)
+            
+            if to_row == -1: # 테이블의 빈 공간에 드롭한 경우 맨 마지막으로 간주
+                to_row = self.rowCount() # 삽입될 위치는 현재 행 수와 같음
+
+            # from_row와 to_row가 다르고 유효한 범위 내에 있을 때만 처리
+            if from_row != to_row:
+                # 실제 데이터 리스트의 insert 위치는 pop 후의 인덱스를 고려해야 함
+                # 예를 들어, 5번 항목을 2번 위치로 옮기면, 5번은 pop 되고 2번에 insert됨
+                # 2번 항목을 5번 위치로 옮기면, 2번은 pop 되고 5번에 insert됨. 이때 5번 인덱스는 이미 한 칸 당겨진 상태.
+                # 간단하게는 from_row가 to_row보다 크면 to_row는 그대로, 작으면 to_row-1
+                adjusted_to_row = to_row
+                if from_row < to_row: # 아래로 이동하는 경우
+                    adjusted_to_row = to_row - 1
+
+                self.rows_reordered.emit(from_row, adjusted_to_row)
+                event.acceptProposedAction()
+            else:
+                event.ignore()
+        else:
             super().dropEvent(event)
         
         # 드래그 정보 초기화
         self.drag_start_row = -1
-        self.drag_start_item = None
+        self.drag_start_point = QPoint()
 
 class DataTabWidget(QWidget):
     """개별 데이터 탭 위젯"""
@@ -1618,7 +1641,7 @@ class DataTabWidget(QWidget):
         self.data_table.horizontalHeader().setStretchLastSection(True)
         self.data_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.data_table.customContextMenuRequested.connect(self.on_table_context_menu)
-        self.data_table.data_moved.connect(self.on_data_moved)
+        self.data_table.rows_reordered.connect(self.on_data_moved)
         layout.addWidget(self.data_table)
         
         # 단축키 설정
@@ -1665,34 +1688,27 @@ class DataTabWidget(QWidget):
     
     def on_data_moved(self, from_row, to_row):
         """드래그 앤 드롭으로 데이터 이동"""
-        print(f"DEBUG: on_data_moved 호출됨 - from_row: {from_row}, to_row: {to_row}, data_len: {len(self.data)}")
         
-        # 같은 위치로 이동하는 경우 아무것도 하지 않음
-        if from_row == to_row:
-            print(f"DEBUG: 같은 위치로 이동, 처리하지 않음")
-            return
-        
-        if 0 <= from_row < len(self.data) and 0 <= to_row < len(self.data):
-            # 단순히 두 항목의 위치를 바꿈 (스왑 방식)
-            print(f"DEBUG: 데이터 스왑 - {from_row}({self.data[from_row]}) <-> {to_row}({self.data[to_row]})")
-            self.data[from_row], self.data[to_row] = self.data[to_row], self.data[from_row]
+        # 같은 위치로 이동하는 경우 이미 dropEvent에서 걸러짐
+        # 여기서 다시 확인할 필요 없음
+
+        if 0 <= from_row < len(self.data) and 0 <= to_row <= len(self.data): # to_row는 마지막 위치 바로 다음까지 가능
+            # 데이터 삭제 후 해당 위치에 삽입
+            moved_item = self.data.pop(from_row)
             
-            print(f"DEBUG: 데이터 이동 완료 - 새로운 순서: {self.data}")
+            self.data.insert(to_row, moved_item)
             
-            # 테이블 업데이트
+            # 테이블 업데이트 (번호 열 갱신 및 버튼 상태 갱신 등을 위해 필요)
             self.update_table()
             
-            # GUI 뷰포트 강제 업데이트
-            self.data_table.viewport().update()
-            
-            # 이동된 행 선택
+            # 이동된 행을 선택 상태로 유지
             self.data_table.selectRow(to_row)
             
             main_window = self.get_main_window()
             if main_window:
-                main_window.log(f"항목이 {from_row + 1}번과 {to_row + 1}번 위치가 교체되었습니다.")
+                main_window.log(f"항목이 {from_row + 1}번에서 {to_row + 1}번으로 이동되었습니다.")
         else:
-            print(f"DEBUG: 잘못된 인덱스 - from_row: {from_row}, to_row: {to_row}, data_len: {len(self.data)}")
+            pass
     
     def on_paste_from_clipboard(self):
         """클립보드에서 데이터 붙여넣기"""
@@ -1754,6 +1770,11 @@ class DataTabWidget(QWidget):
             # 도형 코드 열
             code_item = QTableWidgetItem(shape_code)
             self.data_table.setItem(i, 1, code_item)
+
+            # 이전에 선택된 행이었으면 다시 선택
+            if i in selected_rows:
+                self.data_table.item(i, 0).setSelected(True)
+                self.data_table.item(i, 1).setSelected(True)
         
         # 첫 번째 열 너비 조정
         self.data_table.setColumnWidth(0, 60)
