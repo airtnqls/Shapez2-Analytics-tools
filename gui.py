@@ -552,6 +552,10 @@ class ShapezGUI(QMainWindow):
         self.reverse_btn.clicked.connect(self.on_reverse)
         data_process_layout.addWidget(self.reverse_btn, 2, 0)
         
+        self.claw_btn = QPushButton("Claw")
+        self.claw_btn.clicked.connect(self.on_claw)
+        data_process_layout.addWidget(self.claw_btn, 2, 1)
+        
         left_panel.addWidget(data_process_group)
         
         left_panel.addStretch(1); 
@@ -1553,6 +1557,8 @@ class ShapezGUI(QMainWindow):
                             simplified_layer += "-"
                         elif quadrant.shape == 'c':
                             simplified_layer += "S"  # 크리스탈을 S로 단순화
+                        elif quadrant.shape in ['C', 'R', 'W', 'S']:
+                            simplified_layer += "S"  # CRWS를 S로 단순화
                         elif quadrant.shape == 'P':
                             simplified_layer += "P"  # 핀은 그대로
                         else:
@@ -1606,7 +1612,7 @@ class ShapezGUI(QMainWindow):
                         elif quadrant.shape == 'P':
                             corner_chars.append("P")
                         else:
-                            corner_chars.append(quadrant.shape)
+                            corner_chars.append("S")
                     else:
                         corner_chars.append("-")
                 
@@ -1704,6 +1710,24 @@ class ShapezGUI(QMainWindow):
                 raise Exception(f"역순 변환 실패: {str(e)}")
         
         self.process_data_operation("역순", reverse_shape)
+    
+    def on_claw(self):
+        """Claw 버튼 클릭 시 호출 - claw_tracer.py 기능 수행"""
+        from claw_tracer import build_cutable_shape, build_pinable_shape
+        
+        def claw_shape(shape_code: str) -> str:
+            try:
+                # 첫 번째 문자에 따라 적절한 함수 선택
+                if shape_code.startswith('P'):
+                    return build_pinable_shape(shape_code)
+                elif shape_code.startswith('c'):
+                    return build_cutable_shape(shape_code)
+                else:
+                    return build_cutable_shape(shape_code)
+            except Exception as e:
+                raise Exception(f"Claw 처리 실패: {str(e)}")
+        
+        self.process_data_operation("Claw", claw_shape)
     
     def on_browse_file(self):
         """파일 찾아보기 대화상자 열기 및 자동 로드"""
@@ -1850,6 +1874,7 @@ class ShapezGUI(QMainWindow):
         self.corner_3q_btn.setText("3사분면 코너 (∀)")
         self.remove_impossible_btn.setText("불가능 제거 (∀)")
         self.reverse_btn.setText("역순 (∀)")
+        self.claw_btn.setText("Claw (∀)")
         
         # 데이터 처리 버튼들의 클릭 이벤트는 이미 대량처리를 지원하므로 그대로 유지
     
@@ -1907,6 +1932,7 @@ class ShapezGUI(QMainWindow):
         self.corner_3q_btn.setText("3사분면 코너")
         self.remove_impossible_btn.setText("불가능 제거")
         self.reverse_btn.setText("역순")
+        self.claw_btn.setText("Claw")
 
     def on_log_level_changed(self):
         """상세 로그 표시 설정이 변경되었을 때 로그를 다시 렌더링합니다."""
