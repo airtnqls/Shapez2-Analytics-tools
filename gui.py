@@ -8,11 +8,10 @@ from PyQt6.QtWidgets import (
     QLineEdit, QLabel, QFrame, QGridLayout, QTextEdit, QComboBox, QScrollArea,
     QGroupBox, QListWidget, QListWidgetItem, QProgressDialog, QCheckBox,
     QTabWidget, QMainWindow, QProgressBar, QSizePolicy, QFileDialog, QTableWidget,
-    QTableWidgetItem, QHeaderView, QMessageBox
+    QTableWidgetItem, QHeaderView, QMessageBox, QMenu, QTabBar
 )
-from PyQt6.QtGui import QFont, QColor, QIntValidator
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData
 import numpy as np
 
 # pyqtgraph 임포트
@@ -153,7 +152,9 @@ COLOR_MAP = {'r':'#E33','g':'#3E3','b':'#33E','m':'#E3E','c':'#3EE','y':'#EE3','
 class QuadrantWidget(QLabel):
     def __init__(self, quadrant: Optional[Quadrant]):
         super().__init__(); self.setFixedSize(30, 30); self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = self.font(); font.setPointSize(12); font.setBold(True); self.setFont(font)
+        font = QFont("맑은 고딕", 12)
+        font.setBold(True)
+        self.setFont(font)
         if quadrant:
             color_code = QColor(COLOR_MAP.get(quadrant.color, '#FFF'))
             if quadrant.shape == 'c':
@@ -282,6 +283,10 @@ class ShapezGUI(QMainWindow):
         self.setGeometry(100, 100, 1400, 800)
         self.setMinimumSize(1200, 700)
         
+        # 기본 폰트를 맑은 고딕으로 설정
+        default_font = QFont("맑은 고딕", 9)
+        QApplication.instance().setFont(default_font)
+        
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         
@@ -301,7 +306,7 @@ class ShapezGUI(QMainWindow):
 
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
-        self.log_output.setFont(QFont("Courier New", 10))
+        self.log_output.setFont(QFont("맑은 고딕", 9))
         self.log_output.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding
@@ -387,20 +392,62 @@ class ShapezGUI(QMainWindow):
         self.setup_enter_key_for_apply()
         
         control_group = QGroupBox("건물 작동"); control_layout = QGridLayout(control_group)
-        control_layout.addWidget(QPushButton("절반 파괴기 (A)", clicked=self.on_destroy_half), 0, 0)
-        control_layout.addWidget(QPushButton("스태커 (A가 아래)", clicked=self.on_stack), 0, 1)
-        control_layout.addWidget(QPushButton("핀 푸셔 (A)", clicked=self.on_push_pin), 1, 0)
-        control_layout.addWidget(QPushButton("물리 적용 (A)", clicked=self.on_apply_physics), 1, 1)
-        control_layout.addWidget(QPushButton("스와퍼 (A, B)", clicked=self.on_swap), 2, 0)
-        rotate_hbox = QHBoxLayout(); rotate_hbox.addWidget(QPushButton("CW 회전", clicked=lambda: self.on_rotate(True))); rotate_hbox.addWidget(QPushButton("CCW 회전", clicked=lambda: self.on_rotate(False)))
+        
+        # 건물 작동 버튼들을 저장
+        self.destroy_half_btn = QPushButton("절반 파괴기 (A)")
+        self.destroy_half_btn.clicked.connect(self.on_destroy_half)
+        control_layout.addWidget(self.destroy_half_btn, 0, 0)
+        
+        self.stack_btn = QPushButton("스태커 (A가 아래)")
+        self.stack_btn.clicked.connect(self.on_stack)
+        control_layout.addWidget(self.stack_btn, 0, 1)
+        
+        self.push_pin_btn = QPushButton("핀 푸셔 (A)")
+        self.push_pin_btn.clicked.connect(self.on_push_pin)
+        control_layout.addWidget(self.push_pin_btn, 1, 0)
+        
+        self.apply_physics_btn = QPushButton("물리 적용 (A)")
+        self.apply_physics_btn.clicked.connect(self.on_apply_physics)
+        control_layout.addWidget(self.apply_physics_btn, 1, 1)
+        
+        self.swap_btn = QPushButton("스와퍼 (A, B)")
+        self.swap_btn.clicked.connect(self.on_swap)
+        control_layout.addWidget(self.swap_btn, 2, 0)
+        
+        rotate_hbox = QHBoxLayout()
+        self.rotate_cw_btn = QPushButton("CW 회전")
+        self.rotate_cw_btn.clicked.connect(lambda: self.on_rotate(True))
+        rotate_hbox.addWidget(self.rotate_cw_btn)
+        
+        self.rotate_ccw_btn = QPushButton("CCW 회전")
+        self.rotate_ccw_btn.clicked.connect(lambda: self.on_rotate(False))
+        rotate_hbox.addWidget(self.rotate_ccw_btn)
+        
         control_layout.addLayout(rotate_hbox, 2, 1)
-        paint_hbox = QHBoxLayout(); self.paint_color = QComboBox(); self.paint_color.addItems(Quadrant.VALID_COLORS)
-        paint_hbox.addWidget(QLabel("페인터:")); paint_hbox.addWidget(self.paint_color); paint_hbox.addWidget(QPushButton("칠하기", clicked=self.on_paint))
+        
+        paint_hbox = QHBoxLayout()
+        paint_hbox.addWidget(QLabel("페인터:"))
+        self.paint_color = QComboBox()
+        self.paint_color.addItems(Quadrant.VALID_COLORS)
+        paint_hbox.addWidget(self.paint_color)
+        self.paint_btn = QPushButton("칠하기")
+        self.paint_btn.clicked.connect(self.on_paint)
+        paint_hbox.addWidget(self.paint_btn)
         control_layout.addLayout(paint_hbox, 3, 0, 1, 2)
-        crystal_hbox = QHBoxLayout(); self.crystal_color = QComboBox(); self.crystal_color.addItems([c for c in Quadrant.VALID_COLORS if c != 'u'])
-        crystal_hbox.addWidget(QLabel("크리스탈 생성:")); crystal_hbox.addWidget(self.crystal_color); crystal_hbox.addWidget(QPushButton("생성", clicked=self.on_crystal_gen))
+        
+        crystal_hbox = QHBoxLayout()
+        crystal_hbox.addWidget(QLabel("크리스탈 생성:"))
+        self.crystal_color = QComboBox()
+        self.crystal_color.addItems([c for c in Quadrant.VALID_COLORS if c != 'u'])
+        crystal_hbox.addWidget(self.crystal_color)
+        self.crystal_btn = QPushButton("생성")
+        self.crystal_btn.clicked.connect(self.on_crystal_gen)
+        crystal_hbox.addWidget(self.crystal_btn)
         control_layout.addLayout(crystal_hbox, 4, 0, 1, 2)
-        control_layout.addWidget(QPushButton("분류기 (A)", clicked=self.on_classifier), 5, 0)
+        
+        self.classifier_btn = QPushButton("분류기 (A)")
+        self.classifier_btn.clicked.connect(self.on_classifier)
+        control_layout.addWidget(self.classifier_btn, 5, 0)
         
         # 적용 버튼 추가
         self.apply_button = QPushButton("적용 (출력→입력)")
@@ -488,46 +535,50 @@ class ShapezGUI(QMainWindow):
         file_layout.addLayout(file_select_layout)
         batch_layout.addWidget(file_group)
         
-        # 로드된 데이터 표시 그룹
-        data_group = QGroupBox("로드된 데이터")
+        # 데이터 탭 위젯
+        data_group = QGroupBox("데이터")
         data_layout = QVBoxLayout(data_group)
         
-        # 데이터 테이블
-        self.data_table = QTableWidget()
-        self.data_table.setColumnCount(2)
-        self.data_table.setHorizontalHeaderLabels(["번호", "도형 코드"])
-        self.data_table.horizontalHeader().setStretchLastSection(True)
-        self.data_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        data_layout.addWidget(self.data_table)
+        # 커스텀 탭 위젯 생성
+        self.data_tabs = CustomTabWidget()
+        self.data_tabs.tab_close_requested.connect(self.on_data_tab_close)
+        data_layout.addWidget(self.data_tabs)
         
-        # 데이터 조작 버튼들
-        data_buttons_layout = QHBoxLayout()
-        self.clear_data_button = QPushButton("데이터 지우기")
-        self.clear_data_button.clicked.connect(self.on_clear_data)
-        self.clear_data_button.setEnabled(False)
-        data_buttons_layout.addWidget(self.clear_data_button)
+        # 새 탭 추가 버튼
+        new_tab_button = QPushButton("+ 새 탭")
+        new_tab_button.clicked.connect(self.on_add_new_data_tab)
+        data_layout.addWidget(new_tab_button)
         
-        data_buttons_layout.addStretch()
-        
-        self.process_selected_button = QPushButton("선택된 항목 처리")
-        self.process_selected_button.clicked.connect(self.on_process_selected)
-        self.process_selected_button.setEnabled(False)
-        data_buttons_layout.addWidget(self.process_selected_button)
-        
-        data_layout.addLayout(data_buttons_layout)
         batch_layout.addWidget(data_group)
         
+        # 초기 탭 생성
+        self.add_data_tab("샘플", ["CuCuCuCu", "RrRrRrRr", "P-P-P-P-"])
+        
         # 대량처리 변수 초기화
-        self.batch_data = []  # 로드된 도형 데이터
         self.selected_file_path = None
         
         right_tabs.addTab(batch_tab_widget, "대량처리")
         
+        # 탭 변경 이벤트 연결
+        right_tabs.currentChanged.connect(self.on_main_tab_changed)
+        self.main_tabs = right_tabs  # 메인 탭 위젯 저장
+        
         main_content_hbox.addWidget(right_tabs, 2) # 중앙 컨텐츠 영역
 
         # 로그 창 (맨 오른쪽, 세로로 길게)
-        log_vbox = QVBoxLayout() 
-        log_vbox.addWidget(QLabel("<b>로그</b>"))
+        log_vbox = QVBoxLayout()
+        
+        # 로그 헤더와 클리어 버튼
+        log_header_layout = QHBoxLayout()
+        log_header_layout.addWidget(QLabel("<b>로그</b>"))
+        log_header_layout.addStretch()
+        
+        log_clear_button = QPushButton("지우기")
+        log_clear_button.setMaximumWidth(60)
+        log_clear_button.clicked.connect(self.on_clear_log)
+        log_header_layout.addWidget(log_clear_button)
+        
+        log_vbox.addLayout(log_header_layout)
         log_vbox.addWidget(self.log_output, 1)
         main_content_hbox.addLayout(log_vbox, 1) # 로그 영역
 
@@ -701,14 +752,12 @@ class ShapezGUI(QMainWindow):
     def on_classifier(self):
         if s := self._get_input_shape(self.input_a):
             try:
-                classification_result = s.classifier()
+                classification_result, classification_reason = s.classifier()
                 
-                # shape.py의 classifier는 이제 문자열을 반환함
-                result_text = f"분류: {classification_result}"
+                # 분류 결과와 사유를 함께 표시
+                result_text = f"분류: {classification_result} (사유: {classification_reason})"
                 
-                self.log(f"분류 결과: {classification_result}")
-                
-                # 분류 결과를 출력 영역에 텍스트로 표시
+                # 분류 결과를 출력 영역에 텍스트로 표시 (로그는 display_outputs 내부에서 처리)
                 self.display_outputs([], result_text)
                 
             except Exception as e:
@@ -956,8 +1005,8 @@ class ShapezGUI(QMainWindow):
                         elif operation == "crystal_generator": actual_shape = shape_a.crystal_generator(params['color'])
                         elif operation == "rotate": actual_shape = shape_a.rotate(params.get('clockwise', True))
                         elif operation == "classifier":
-                            # classifier 연산은 이제 문자열을 반환함
-                            result_string = shape_a.classifier()
+                            # classifier 연산은 이제 (분류결과, 사유) 튜플을 반환함
+                            result_string, reason = shape_a.classifier()
                             expected = test.get('expected', "")
                             
                             # 예상 문자열이 결과 문자열에 포함되어 있는지 검사
@@ -965,7 +1014,7 @@ class ShapezGUI(QMainWindow):
                                 passed_count += 1
                                 self.log(f"✅ 통과: {name}")
                             else:
-                                self.log(f"❌ 실패: {name}\n  - 입력A: {input_a_str}\n  - 예상: {expected}\n  - 실제: {result_string}")
+                                self.log(f"❌ 실패: {name}\n  - 입력A: {input_a_str}\n  - 예상: {expected}\n  - 실제: {result_string} (사유: {reason})")
                             continue
                         else: raise ValueError(f"연산 '{operation}'은 입력 A만으로는 수행할 수 없습니다.")
                     
@@ -1179,6 +1228,120 @@ class ShapezGUI(QMainWindow):
 
     # =================== 대량처리 관련 메서드들 ===================
     
+    def add_data_tab(self, tab_name: str, data: list):
+        """새로운 데이터 탭 추가"""
+        tab_widget = DataTabWidget(tab_name, data)
+        self.data_tabs.addTab(tab_widget, tab_name)
+        self.data_tabs.setCurrentWidget(tab_widget)
+        return tab_widget
+    
+    def get_current_data_tab(self):
+        """현재 활성 데이터 탭 반환"""
+        return self.data_tabs.currentWidget()
+    
+    def on_data_tab_close(self, index):
+        """데이터 탭 닫기"""
+        if self.data_tabs.count() <= 1:
+            QMessageBox.warning(self, "경고", "마지막 탭은 닫을 수 없습니다.")
+            return
+        
+        tab_name = self.data_tabs.tabText(index)
+        self.data_tabs.removeTab(index)
+        self.log(f"데이터 탭 '{tab_name}' 닫힘")
+    
+    def on_add_new_data_tab(self):
+        """새로운 데이터 탭 추가"""
+        new_tab_name = f"데이터 {self.data_tabs.count() + 1}"
+        self.add_data_tab(new_tab_name, [])
+        self.log(f"새 데이터 탭 '{new_tab_name}' 추가")
+    
+    def on_batch_operation(self, operation_name: str):
+        """현재 탭의 모든 데이터에 대해 건물 작동 연산 수행"""
+        current_tab = self.get_current_data_tab()
+        if not current_tab or not current_tab.data:
+            QMessageBox.information(self, "알림", "처리할 데이터가 없습니다.")
+            return
+        
+        self.log(f"'{current_tab.tab_name}' 탭의 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
+        
+        # 결과 데이터 저장
+        result_data = []
+        error_count = 0
+        
+        for i, shape_code in enumerate(current_tab.data):
+            try:
+                shape = Shape.from_string(shape_code)
+                result_shape = None
+                
+                if operation_name == "destroy_half":
+                    result_shape = shape.destroy_half()
+                elif operation_name == "push_pin":
+                    result_shape = shape.push_pin()
+                elif operation_name == "apply_physics":
+                    result_shape = shape.apply_physics()
+                elif operation_name == "rotate_cw":
+                    result_shape = shape.rotate(True)
+                elif operation_name == "rotate_ccw":
+                    result_shape = shape.rotate(False)
+                elif operation_name == "paint":
+                    result_shape = shape.paint(self.paint_color.currentText())
+                elif operation_name == "crystal_generator":
+                    result_shape = shape.crystal_generator(self.crystal_color.currentText())
+                elif operation_name == "classifier":
+                    classification_result, classification_reason = shape.classifier()
+                    result_data.append(f"{classification_result} ({classification_reason})")
+                    continue
+                elif operation_name == "stack":
+                    # 입력 B에 있는 도형과 스택
+                    input_b_text = self.input_b.text().strip()
+                    if not input_b_text:
+                        result_data.append("오류: 입력 B가 비어있음")
+                        error_count += 1
+                        continue
+                    try:
+                        shape_b = Shape.from_string(input_b_text)
+                        result_shape = Shape.stack(shape, shape_b)
+                    except Exception as e:
+                        result_data.append(f"오류: 입력 B 파싱 실패 - {str(e)}")
+                        error_count += 1
+                        continue
+                elif operation_name == "swap":
+                    # 입력 B에 있는 도형과 스왑
+                    input_b_text = self.input_b.text().strip()
+                    if not input_b_text:
+                        result_data.append("오류: 입력 B가 비어있음")
+                        error_count += 1
+                        continue
+                    try:
+                        shape_b = Shape.from_string(input_b_text)
+                        result_a, result_b = Shape.swap(shape, shape_b)
+                        # 스왑은 두 개의 결과를 생성하므로 둘 다 추가
+                        result_data.append(f"A: {repr(result_a)}")
+                        result_data.append(f"B: {repr(result_b)}")
+                        continue
+                    except Exception as e:
+                        result_data.append(f"오류: 입력 B 파싱 실패 - {str(e)}")
+                        error_count += 1
+                        continue
+                
+                if result_shape is not None:
+                    result_data.append(repr(result_shape))
+                else:
+                    result_data.append("오류: 결과 없음")
+                    error_count += 1
+                    
+            except Exception as e:
+                result_data.append(f"오류: {str(e)}")
+                error_count += 1
+        
+        # 결과를 새 탭에 표시
+        result_tab_name = f"{current_tab.tab_name}_{operation_name}"
+        self.add_data_tab(result_tab_name, result_data)
+        
+        self.log(f"대량처리 완료: {len(result_data)}개 결과 생성, {error_count}개 오류")
+        if error_count > 0:
+            QMessageBox.warning(self, "경고", f"{error_count}개 항목에서 오류가 발생했습니다.")
+    
     def on_browse_file(self):
         """파일 찾아보기 대화상자 열기"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1215,21 +1378,374 @@ class ShapezGUI(QMainWindow):
                 QMessageBox.warning(self, "경고", "파일에 유효한 도형 코드가 없습니다.")
                 return
             
-            # 데이터 저장 및 테이블 업데이트
-            self.batch_data = shape_codes
-            self.update_data_table()
+            # 새 탭에 데이터 로드
+            import os
+            tab_name = os.path.splitext(os.path.basename(self.selected_file_path))[0]
+            self.add_data_tab(tab_name, shape_codes)
             
-            self.log(f"파일 로드 완료: {len(shape_codes)}개의 도형 코드를 불러왔습니다.")
+            self.log(f"파일 로드 완료: {len(shape_codes)}개의 도형 코드를 새 탭 '{tab_name}'에 불러왔습니다.")
             
         except Exception as e:
             QMessageBox.critical(self, "오류", f"파일 로드 중 오류 발생:\n{str(e)}")
             self.log(f"파일 로드 오류: {str(e)}")
     
+    def on_table_context_menu(self, position: QPoint):
+        """테이블에 우클릭 메뉴 추가 (기존 메서드 유지)"""
+        current_tab = self.get_current_data_tab()
+        if current_tab:
+            current_tab.on_table_context_menu(position)
+    
+    def on_copy_shape_code_to_input_a(self):
+        """선택된 행의 도형 코드를 입력 A에 복사 (기존 메서드 유지)"""
+        current_tab = self.get_current_data_tab()
+        if current_tab:
+            current_tab.on_copy_to_input_a()
+    
     def update_data_table(self):
-        """데이터 테이블 업데이트"""
-        self.data_table.setRowCount(len(self.batch_data))
+        """데이터 테이블 업데이트 (기존 메서드 - 호환성 유지)"""
+        current_tab = self.get_current_data_tab()
+        if current_tab:
+            current_tab.update_table()
+    
+    def on_clear_data(self):
+        """데이터 지우기 (기존 메서드 - 호환성 유지)"""
+        current_tab = self.get_current_data_tab()
+        if current_tab:
+            current_tab.on_clear_data()
+    
+    def on_process_selected(self):
+        """선택된 항목 처리 (기존 메서드 - 호환성 유지)"""
+        current_tab = self.get_current_data_tab()
+        if current_tab:
+            current_tab.on_process_selected()
+    
+    def on_clear_log(self):
+        """로그 창 클리어"""
+        self.log_output.clear()
+        self.log("로그가 지워졌습니다.")
+
+    def on_main_tab_changed(self, index):
+        """메인 탭 변경 시 호출"""
+        tab_name = self.main_tabs.tabText(index)
         
-        for i, shape_code in enumerate(self.batch_data):
+        if tab_name == "대량처리":
+            self.switch_to_batch_mode()
+        else:
+            self.switch_to_single_mode()
+        
+        self.log(f"메인 탭이 {tab_name}로 변경되었습니다.")
+    
+    def switch_to_batch_mode(self):
+        """대량처리 모드로 전환"""
+        # 버튼 텍스트 변경
+        self.destroy_half_btn.setText("절반 파괴기 (전체)")
+        self.push_pin_btn.setText("핀 푸셔 (전체)")
+        self.apply_physics_btn.setText("물리 적용 (전체)")
+        self.rotate_cw_btn.setText("CW 회전 (전체)")
+        self.rotate_ccw_btn.setText("CCW 회전 (전체)")
+        self.paint_btn.setText("칠하기 (전체)")
+        self.crystal_btn.setText("생성 (전체)")
+        self.classifier_btn.setText("분류기 (전체)")
+        
+        # 스태커와 스와퍼 텍스트 변경 (비활성화하지 않음)
+        self.stack_btn.setText("스태커 (전체+B)")
+        self.swap_btn.setText("스와퍼 (전체↔B)")
+        self.apply_button.setEnabled(False)
+        
+        # 버튼 클릭 이벤트를 대량처리용으로 변경
+        self.destroy_half_btn.clicked.disconnect()
+        self.destroy_half_btn.clicked.connect(lambda: self.on_batch_operation("destroy_half"))
+        
+        self.push_pin_btn.clicked.disconnect()
+        self.push_pin_btn.clicked.connect(lambda: self.on_batch_operation("push_pin"))
+        
+        self.apply_physics_btn.clicked.disconnect()
+        self.apply_physics_btn.clicked.connect(lambda: self.on_batch_operation("apply_physics"))
+        
+        self.rotate_cw_btn.clicked.disconnect()
+        self.rotate_cw_btn.clicked.connect(lambda: self.on_batch_operation("rotate_cw"))
+        
+        self.rotate_ccw_btn.clicked.disconnect()
+        self.rotate_ccw_btn.clicked.connect(lambda: self.on_batch_operation("rotate_ccw"))
+        
+        self.paint_btn.clicked.disconnect()
+        self.paint_btn.clicked.connect(lambda: self.on_batch_operation("paint"))
+        
+        self.crystal_btn.clicked.disconnect()
+        self.crystal_btn.clicked.connect(lambda: self.on_batch_operation("crystal_generator"))
+        
+        self.classifier_btn.clicked.disconnect()
+        self.classifier_btn.clicked.connect(lambda: self.on_batch_operation("classifier"))
+        
+        # 스태커와 스와퍼를 대량처리용으로 연결
+        self.stack_btn.clicked.disconnect()
+        self.stack_btn.clicked.connect(lambda: self.on_batch_operation("stack"))
+        
+        self.swap_btn.clicked.disconnect()
+        self.swap_btn.clicked.connect(lambda: self.on_batch_operation("swap"))
+    
+    def switch_to_single_mode(self):
+        """단일 모드로 전환"""
+        # 버튼 텍스트 복원
+        self.destroy_half_btn.setText("절반 파괴기 (A)")
+        self.push_pin_btn.setText("핀 푸셔 (A)")
+        self.apply_physics_btn.setText("물리 적용 (A)")
+        self.rotate_cw_btn.setText("CW 회전")
+        self.rotate_ccw_btn.setText("CCW 회전")
+        self.paint_btn.setText("칠하기")
+        self.crystal_btn.setText("생성")
+        self.classifier_btn.setText("분류기 (A)")
+        
+        # 스태커와 스와퍼 텍스트 복원
+        self.stack_btn.setText("스태커 (A+B)")
+        self.swap_btn.setText("스와퍼 (A↔B)")
+        
+        # 버튼 클릭 이벤트를 단일 모드용으로 복원
+        self.destroy_half_btn.clicked.disconnect()
+        self.destroy_half_btn.clicked.connect(self.on_destroy_half)
+        
+        self.push_pin_btn.clicked.disconnect()
+        self.push_pin_btn.clicked.connect(self.on_push_pin)
+        
+        self.apply_physics_btn.clicked.disconnect()
+        self.apply_physics_btn.clicked.connect(self.on_apply_physics)
+        
+        self.rotate_cw_btn.clicked.disconnect()
+        self.rotate_cw_btn.clicked.connect(lambda: self.on_rotate(True))
+        
+        self.rotate_ccw_btn.clicked.disconnect()
+        self.rotate_ccw_btn.clicked.connect(lambda: self.on_rotate(False))
+        
+        self.paint_btn.clicked.disconnect()
+        self.paint_btn.clicked.connect(self.on_paint)
+        
+        self.crystal_btn.clicked.disconnect()
+        self.crystal_btn.clicked.connect(self.on_crystal_gen)
+        
+        self.classifier_btn.clicked.disconnect()
+        self.classifier_btn.clicked.connect(self.on_classifier)
+        
+        # 스태커와 스와퍼를 단일 모드용으로 복원
+        self.stack_btn.clicked.disconnect()
+        self.stack_btn.clicked.connect(self.on_stack)
+        
+        self.swap_btn.clicked.disconnect()
+        self.swap_btn.clicked.connect(self.on_swap)
+
+class CustomTabWidget(QTabWidget):
+    """탭 삭제 가능한 커스텀 탭 위젯"""
+    tab_close_requested = pyqtSignal(int)
+    
+    def __init__(self):
+        super().__init__()
+        self.setTabsClosable(True)
+        self.tabCloseRequested.connect(self.on_tab_close_requested)
+    
+    def on_tab_close_requested(self, index):
+        if self.count() > 1:  # 최소 1개 탭은 유지
+            self.tab_close_requested.emit(index)
+
+class DragDropTableWidget(QTableWidget):
+    """드래그 앤 드롭을 지원하는 테이블 위젯"""
+    data_moved = pyqtSignal(int, int)  # from_row, to_row
+    
+    def __init__(self):
+        super().__init__()
+        self.setDragDropMode(QTableWidget.DragDropMode.InternalMove)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.drag_start_row = -1
+        self.drag_start_item = None
+    
+    def startDrag(self, supportedActions):
+        """드래그 시작 시 호출"""
+        selected_items = self.selectedItems()
+        if selected_items:
+            self.drag_start_row = selected_items[0].row()
+            self.drag_start_item = self.item(self.drag_start_row, 1).text() if self.item(self.drag_start_row, 1) else ""
+            print(f"DEBUG: 드래그 시작 - row: {self.drag_start_row}, item: {self.drag_start_item}")
+        super().startDrag(supportedActions)
+    
+    def dropEvent(self, event):
+        """드롭 이벤트 처리"""
+        if event.source() == self and self.drag_start_row != -1:
+            # 드롭 위치 계산
+            drop_row = self.rowAt(event.position().toPoint().y())
+            if drop_row == -1:
+                drop_row = self.rowCount()
+            
+            print(f"DEBUG: 드롭 이벤트 - drag_start_row: {self.drag_start_row}, drop_row: {drop_row}")
+            
+            # 아래로 드래그할 때 인덱스 조정
+            adjusted_drop_row = drop_row
+            if drop_row > self.drag_start_row:
+                adjusted_drop_row = drop_row - 1
+            
+            print(f"DEBUG: 조정된 드롭 위치 - adjusted_drop_row: {adjusted_drop_row}")
+            
+            # 드래그 시작 행과 조정된 드롭 행이 다를 때만 이동
+            if adjusted_drop_row != self.drag_start_row:
+                print(f"DEBUG: 시그널 발생 - from: {self.drag_start_row}, to: {adjusted_drop_row}")
+                # 데이터 이동 시그널 발생
+                self.data_moved.emit(self.drag_start_row, adjusted_drop_row)
+            else:
+                print(f"DEBUG: 같은 위치로 드롭, 이동하지 않음")
+            
+            event.accept()
+        else:
+            print(f"DEBUG: 드롭 이벤트 무시 - source: {event.source()}, drag_start_row: {self.drag_start_row}")
+            super().dropEvent(event)
+        
+        # 드래그 정보 초기화
+        self.drag_start_row = -1
+        self.drag_start_item = None
+
+class DataTabWidget(QWidget):
+    """개별 데이터 탭 위젯"""
+    def __init__(self, tab_name="새 탭", data=None):
+        super().__init__()
+        self.tab_name = tab_name
+        self.data = data or []
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        
+        # 데이터 테이블
+        self.data_table = DragDropTableWidget()
+        self.data_table.setColumnCount(2)
+        self.data_table.setHorizontalHeaderLabels(["번호", "도형 코드"])
+        self.data_table.horizontalHeader().setStretchLastSection(True)
+        self.data_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.data_table.customContextMenuRequested.connect(self.on_table_context_menu)
+        self.data_table.data_moved.connect(self.on_data_moved)
+        layout.addWidget(self.data_table)
+        
+        # 단축키 설정
+        self.setup_shortcuts()
+        
+        # 버튼 레이아웃
+        button_layout = QHBoxLayout()
+        
+        # 저장 버튼
+        self.save_button = QPushButton("저장")
+        self.save_button.clicked.connect(self.on_save_data)
+        button_layout.addWidget(self.save_button)
+        
+        # 데이터 지우기 버튼
+        self.clear_button = QPushButton("데이터 지우기")
+        self.clear_button.clicked.connect(self.on_clear_data)
+        button_layout.addWidget(self.clear_button)
+        
+        button_layout.addStretch()
+        
+        # 선택된 항목 처리 버튼
+        self.process_button = QPushButton("선택된 항목 처리")
+        self.process_button.clicked.connect(self.on_process_selected)
+        button_layout.addWidget(self.process_button)
+        
+        layout.addLayout(button_layout)
+        
+        # 초기 데이터 업데이트
+        self.update_table()
+    
+    def setup_shortcuts(self):
+        """단축키 설정"""
+        # Ctrl+C: 클립보드로 복사
+        self.copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
+        self.copy_shortcut.activated.connect(self.on_copy_to_clipboard)
+        
+        # Ctrl+V: 클립보드에서 붙여넣기
+        self.paste_shortcut = QShortcut(QKeySequence.StandardKey.Paste, self)
+        self.paste_shortcut.activated.connect(self.on_paste_from_clipboard)
+        
+        # Delete: 선택된 항목 삭제
+        self.delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
+        self.delete_shortcut.activated.connect(self.on_delete_selected)
+    
+    def on_data_moved(self, from_row, to_row):
+        """드래그 앤 드롭으로 데이터 이동"""
+        print(f"DEBUG: on_data_moved 호출됨 - from_row: {from_row}, to_row: {to_row}, data_len: {len(self.data)}")
+        
+        # 같은 위치로 이동하는 경우 아무것도 하지 않음
+        if from_row == to_row:
+            print(f"DEBUG: 같은 위치로 이동, 처리하지 않음")
+            return
+        
+        if 0 <= from_row < len(self.data) and 0 <= to_row < len(self.data):
+            # 단순히 두 항목의 위치를 바꿈 (스왑 방식)
+            print(f"DEBUG: 데이터 스왑 - {from_row}({self.data[from_row]}) <-> {to_row}({self.data[to_row]})")
+            self.data[from_row], self.data[to_row] = self.data[to_row], self.data[from_row]
+            
+            print(f"DEBUG: 데이터 이동 완료 - 새로운 순서: {self.data}")
+            
+            # 테이블 업데이트
+            self.update_table()
+            
+            # GUI 뷰포트 강제 업데이트
+            self.data_table.viewport().update()
+            
+            # 이동된 행 선택
+            self.data_table.selectRow(to_row)
+            
+            main_window = self.get_main_window()
+            if main_window:
+                main_window.log(f"항목이 {from_row + 1}번과 {to_row + 1}번 위치가 교체되었습니다.")
+        else:
+            print(f"DEBUG: 잘못된 인덱스 - from_row: {from_row}, to_row: {to_row}, data_len: {len(self.data)}")
+    
+    def on_paste_from_clipboard(self):
+        """클립보드에서 데이터 붙여넣기"""
+        app = QApplication.instance()
+        if not app:
+            return
+            
+        clipboard_text = app.clipboard().text().strip()
+        if not clipboard_text:
+            return
+        
+        # \n으로 분리하여 각 줄을 데이터로 추가
+        lines = clipboard_text.split('\n')
+        valid_lines = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('#'):
+                valid_lines.append(line)
+        
+        if not valid_lines:
+            return
+        
+        # 삽입 위치 결정
+        insert_position = len(self.data)  # 기본값: 맨 아래
+        
+        # 선택된 항목이 있으면 그 아래에 삽입
+        selected_rows = set()
+        for item in self.data_table.selectedItems():
+            selected_rows.add(item.row())
+        
+        if selected_rows:
+            insert_position = max(selected_rows) + 1
+        
+        # 데이터 삽입
+        for i, line in enumerate(valid_lines):
+            self.data.insert(insert_position + i, line)
+        
+        self.update_table()
+        
+        main_window = self.get_main_window()
+        if main_window:
+            main_window.log(f"{len(valid_lines)}개 항목이 {insert_position + 1}번 위치에 추가되었습니다.")
+    
+    def update_table(self):
+        """테이블 업데이트"""
+        # 현재 선택된 행들을 기억
+        selected_rows = set()
+        for item in self.data_table.selectedItems():
+            selected_rows.add(item.row())
+        
+        self.data_table.setRowCount(len(self.data))
+        
+        for i, shape_code in enumerate(self.data):
             # 번호 열
             number_item = QTableWidgetItem(str(i + 1))
             number_item.setFlags(number_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
@@ -1243,53 +1759,178 @@ class ShapezGUI(QMainWindow):
         self.data_table.setColumnWidth(0, 60)
         
         # 버튼 상태 업데이트
-        has_data = len(self.batch_data) > 0
-        self.clear_data_button.setEnabled(has_data)
-        self.process_selected_button.setEnabled(has_data)
+        has_data = len(self.data) > 0
+        self.clear_button.setEnabled(has_data)
+        self.process_button.setEnabled(has_data)
+        self.save_button.setEnabled(has_data)
     
-    def on_clear_data(self):
-        """데이터 테이블 지우기"""
-        reply = QMessageBox.question(
-            self, "확인", 
-            "로드된 모든 데이터를 지우시겠습니까?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
+    def on_table_context_menu(self, position):
+        """테이블 우클릭 메뉴"""
+        menu = QMenu(self.data_table)
         
-        if reply == QMessageBox.StandardButton.Yes:
-            self.batch_data.clear()
-            self.data_table.setRowCount(0)
-            self.clear_data_button.setEnabled(False)
-            self.process_selected_button.setEnabled(False)
-            self.log("대량처리 데이터가 지워졌습니다.")
+        # 클립보드 관련 기능들
+        paste_action = menu.addAction("붙여넣기 (Ctrl+V)")
+        paste_action.triggered.connect(self.on_paste_from_clipboard)
+        
+        if self.data_table.selectedItems():
+            menu.addSeparator()
+            
+            # 복사 관련 기능들
+            clipboard_action = menu.addAction("복사 (Ctrl+C)")
+            clipboard_action.triggered.connect(self.on_copy_to_clipboard)
+            
+            copy_action = menu.addAction("입력 A로 복사")
+            copy_action.triggered.connect(self.on_copy_to_input_a)
+            
+            menu.addSeparator()
+            
+            # 삭제 기능
+            delete_action = menu.addAction("삭제 (Del)")
+            delete_action.triggered.connect(self.on_delete_selected)
+        
+        menu.exec(self.data_table.mapToGlobal(position))
     
-    def on_process_selected(self):
-        """선택된 항목 처리"""
+    def on_copy_to_input_a(self):
+        """선택된 항목을 입력 A로 복사"""
+        selected_rows = set()
+        for item in self.data_table.selectedItems():
+            selected_rows.add(item.row())
+        
+        if selected_rows:
+            first_row = min(selected_rows)
+            if first_row < len(self.data):
+                shape_code = self.data[first_row]
+                # 메인 윈도우의 입력 A에 복사
+                main_window = self.get_main_window()
+                if main_window:
+                    main_window.input_a.setText(shape_code)
+    
+    def on_copy_to_clipboard(self):
+        """선택된 항목들을 클립보드로 복사"""
+        selected_rows = set()
+        for item in self.data_table.selectedItems():
+            selected_rows.add(item.row())
+        
+        if selected_rows:
+            selected_codes = []
+            for row in sorted(selected_rows):
+                if row < len(self.data):
+                    selected_codes.append(self.data[row])
+            
+            if selected_codes:
+                clipboard_text = '\n'.join(selected_codes)
+                app = QApplication.instance()
+                if app:
+                    app.clipboard().setText(clipboard_text)
+                    main_window = self.get_main_window()
+                    if main_window:
+                        main_window.log(f"{len(selected_codes)}개 항목이 클립보드에 복사되었습니다.")
+    
+    def on_delete_selected(self):
+        """선택된 항목들을 삭제"""
         selected_rows = set()
         for item in self.data_table.selectedItems():
             selected_rows.add(item.row())
         
         if not selected_rows:
-            QMessageBox.information(self, "알림", "처리할 항목을 선택해주세요.")
             return
         
-        # 선택된 행들을 정렬
-        selected_rows = sorted(selected_rows)
+        reply = QMessageBox.question(
+            self, "확인", 
+            f"선택된 {len(selected_rows)}개 항목을 삭제하시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
         
-        self.log(f"선택된 {len(selected_rows)}개 항목 처리 시작:")
+        if reply == QMessageBox.StandardButton.Yes:
+            # 역순으로 정렬하여 인덱스 변경 문제 방지
+            for row in sorted(selected_rows, reverse=True):
+                if row < len(self.data):
+                    del self.data[row]
+            
+            self.update_table()
+            main_window = self.get_main_window()
+            if main_window:
+                main_window.log(f"{len(selected_rows)}개 항목이 삭제되었습니다.")
+    
+    def get_main_window(self):
+        """메인 윈도우 참조 가져오기"""
+        widget = self
+        while widget:
+            if isinstance(widget, ShapezGUI):
+                return widget
+            widget = widget.parent()
+        return None
+    
+    def on_save_data(self):
+        """데이터를 파일로 저장"""
+        if not self.data:
+            QMessageBox.information(self, "알림", "저장할 데이터가 없습니다.")
+            return
         
-        for row in selected_rows:
-            if row < len(self.batch_data):
-                shape_code = self.batch_data[row]
-                self.log(f"  - {row + 1}번: {shape_code}")
-                
-                # 도형 코드 검증
-                try:
-                    shape = Shape.from_string(shape_code)
-                    self.log(f"    ✅ 유효한 도형: {repr(shape)}")
-                except Exception as e:
-                    self.log(f"    ❌ 오류: {str(e)}")
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "데이터 저장",
+            f"data/{self.tab_name}.txt",
+            "텍스트 파일 (*.txt);;모든 파일 (*.*)"
+        )
         
-        self.log("선택된 항목 처리 완료.")
+        if file_path:
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    for shape_code in self.data:
+                        f.write(f"{shape_code}\n")
+                QMessageBox.information(self, "완료", f"데이터가 저장되었습니다:\n{file_path}")
+                main_window = self.get_main_window()
+                if main_window:
+                    main_window.log(f"데이터 저장 완료: {file_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "오류", f"저장 중 오류 발생:\n{str(e)}")
+    
+    def on_clear_data(self):
+        """데이터 지우기"""
+        reply = QMessageBox.question(
+            self, "확인", 
+            "이 탭의 모든 데이터를 지우시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.data.clear()
+            self.update_table()
+            main_window = self.get_main_window()
+            if main_window:
+                main_window.log(f"탭 '{self.tab_name}' 데이터가 지워졌습니다.")
+    
+    def on_process_selected(self):
+        """선택된 항목 처리 (기존 기능 유지)"""
+        selected_rows = set()
+        for item in self.data_table.selectedItems():
+            selected_rows.add(item.row())
+        
+        if not selected_rows:
+            QMessageBox.information(self, "알림", "처리할 항목을 선택하세요.")
+            return
+        
+        selected_codes = [self.data[row] for row in sorted(selected_rows) if row < len(self.data)]
+        
+        # 유효성 검사
+        invalid_codes = []
+        for code in selected_codes:
+            try:
+                Shape.from_string(code)
+            except Exception:
+                invalid_codes.append(code)
+        
+        if invalid_codes:
+            QMessageBox.warning(self, "경고", 
+                f"다음 도형 코드가 유효하지 않습니다:\n{', '.join(invalid_codes[:5])}"
+                + (f"\n... 외 {len(invalid_codes)-5}개" if len(invalid_codes) > 5 else ""))
+        else:
+            QMessageBox.information(self, "완료", f"{len(selected_codes)}개의 도형 코드가 유효합니다.")
+        
+        main_window = self.get_main_window()
+        if main_window:
+            main_window.log(f"선택된 {len(selected_codes)}개 항목 처리 완료")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

@@ -8,4 +8,9 @@ CuCuCuCu:RrRrRrRr:GgGgGgGg
 CbCbCbCb:RgRgRgRg
 --Cr--Cr:----CuCu
 CuRuCuRu
-SrSrSrSr:CgCgCgCg:RbRbRbRb 
+SrSrSrSr:CgCgCgCg:RbRbRbRb
+# 콜론 없이 5글자 이상 테스트 케이스
+SSSSS
+CCCCC
+PPPPP
+SSSSSS 

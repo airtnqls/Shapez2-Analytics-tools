@@ -45,7 +45,7 @@ class Shape:
         else:
             raise ValueError("Shape 초기화는 레이어 리스트 또는 문자열만 허용됩니다.")
 
-    def classifier(self) -> str:
+    def classifier(self) -> tuple[str, str]:
         # 각 레이어를 4개의 도형 문자로 변환 (색상 생략)
         result = []
         for layer in self.layers:
@@ -67,11 +67,21 @@ class Shape:
         
         # 리스트를 콜론으로 구분된 문자열로 변환
         shape_string = ":".join(result)
-        return analyze_shape(shape_string)
+        return analyze_shape(shape_string, self)
 
     @classmethod
     def from_string(cls, code: str) -> Shape:
         if not code: return Shape([])
+        
+        # 콜론이 없고 5글자 이상인 경우, 색상코드가 없을 때만 각 글자를 콜론으로 구분하여 처리
+        if ':' not in code and len(code) >= 5:
+            # 색상코드 확인 (u r b g y m c w)
+            color_codes = set('urbgymcw')
+            has_color_code = any(char in color_codes for char in code)
+            
+            if not has_color_code:
+                code = ':'.join(code)
+                print(code)
         
         def expand_short_code(short_code):
             """4글자 이하 코드를 8글자 코드로 확장"""
