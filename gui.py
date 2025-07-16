@@ -276,6 +276,62 @@ class InputHistory:
             return self.history[self.current_index]
         return ("", "")
 
+class DataHistory:
+    """데이터 탭의 히스토리를 관리하는 클래스"""
+    def __init__(self, max_size=50):
+        self.max_size = max_size
+        self.history = []
+        self.current_index = -1
+        
+    def add_entry(self, data, operation_name=""):
+        """새로운 데이터 상태를 히스토리에 추가"""
+        # 데이터를 복사하여 저장 (참조 문제 방지)
+        entry = (data.copy(), operation_name)
+        
+        # 현재 항목과 동일하면 추가하지 않음
+        if self.history and self.current_index >= 0 and self.history[self.current_index][0] == data:
+            return
+            
+        # 현재 위치 이후의 히스토리 삭제 (새로운 분기 생성)
+        if self.current_index < len(self.history) - 1:
+            self.history = self.history[:self.current_index + 1]
+            
+        self.history.append(entry)
+        self.current_index = len(self.history) - 1
+        
+        # 최대 크기 초과 시 오래된 항목 제거
+        if len(self.history) > self.max_size:
+            self.history.pop(0)
+            self.current_index -= 1
+            
+    def can_undo(self):
+        """Undo 가능 여부 확인"""
+        return self.current_index > 0
+        
+    def can_redo(self):
+        """Redo 가능 여부 확인"""
+        return self.current_index < len(self.history) - 1
+        
+    def undo(self):
+        """이전 항목으로 이동"""
+        if self.can_undo():
+            self.current_index -= 1
+            return self.history[self.current_index]
+        return None
+        
+    def redo(self):
+        """다음 항목으로 이동"""
+        if self.can_redo():
+            self.current_index += 1
+            return self.history[self.current_index]
+        return None
+        
+    def get_current(self):
+        """현재 항목 반환"""
+        if 0 <= self.current_index < len(self.history):
+            return self.history[self.current_index]
+        return ([], "")
+
 class ShapezGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -1255,6 +1311,9 @@ class ShapezGUI(QMainWindow):
             QMessageBox.information(self, "알림", "처리할 데이터가 없습니다.")
             return
         
+        # 작업 전 현재 상태를 히스토리에 저장
+        current_tab.add_to_data_history(f"작업 전 ({operation_name})")
+        
         self.log(f"'{current_tab.tab_name}' 탭의 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
         
         # 결과 데이터 저장
@@ -1327,9 +1386,12 @@ class ShapezGUI(QMainWindow):
                 result_data.append(f"오류: {str(e)}")
                 error_count += 1
         
-        # 결과를 새 탭에 표시
-        result_tab_name = f"{current_tab.tab_name}_{operation_name}"
-        self.add_data_tab(result_tab_name, result_data)
+        # 현재 탭의 데이터를 결과로 교체
+        current_tab.data = result_data
+        current_tab.update_table()
+        
+        # 작업 완료 후 히스토리에 추가
+        current_tab.add_to_data_history(f"{operation_name} 완료")
         
         self.log(f"대량처리 완료: {len(result_data)}개 결과 생성, {error_count}개 오류")
         if error_count > 0:
@@ -1405,12 +1467,6 @@ class ShapezGUI(QMainWindow):
         current_tab = self.get_current_data_tab()
         if current_tab:
             current_tab.on_clear_data()
-    
-    def on_process_selected(self):
-        """선택된 항목 처리 (기존 메서드 - 호환성 유지)"""
-        current_tab = self.get_current_data_tab()
-        if current_tab:
-            current_tab.on_process_selected()
     
     def on_clear_log(self):
         """로그 창 클리어"""
@@ -1629,7 +1685,16 @@ class DataTabWidget(QWidget):
         super().__init__()
         self.tab_name = tab_name
         self.data = data or []
+        
+        # 데이터 히스토리 관리 객체 생성
+        self.data_history = DataHistory(50)
+        self.history_update_in_progress = False  # 히스토리 업데이트 중 플래그
+        
         self.setup_ui()
+        
+        # 초기 데이터를 히스토리에 추가
+        if self.data:
+            self.data_history.add_entry(self.data, "초기 데이터")
     
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -1637,7 +1702,7 @@ class DataTabWidget(QWidget):
         # 데이터 테이블
         self.data_table = DragDropTableWidget()
         self.data_table.setColumnCount(2)
-        self.data_table.setHorizontalHeaderLabels(["번호", "도형 코드"])
+        self.data_table.setHorizontalHeaderLabels(["유효성", "도형 코드"])
         self.data_table.horizontalHeader().setStretchLastSection(True)
         self.data_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.data_table.customContextMenuRequested.connect(self.on_table_context_menu)
@@ -1654,6 +1719,26 @@ class DataTabWidget(QWidget):
         self.save_button = QPushButton("저장")
         self.save_button.clicked.connect(self.on_save_data)
         button_layout.addWidget(self.save_button)
+        
+        # 복제 버튼
+        self.clone_button = QPushButton("복제")
+        self.clone_button.clicked.connect(self.on_clone_tab)
+        button_layout.addWidget(self.clone_button)
+        
+        # 데이터 히스토리 Undo/Redo 버튼
+        self.data_undo_button = QPushButton("↶")
+        self.data_undo_button.setMaximumWidth(30)
+        self.data_undo_button.setToolTip("데이터 Undo (Ctrl+Shift+Z)")
+        self.data_undo_button.clicked.connect(self.on_data_undo)
+        self.data_undo_button.setEnabled(False)
+        button_layout.addWidget(self.data_undo_button)
+        
+        self.data_redo_button = QPushButton("↷")
+        self.data_redo_button.setMaximumWidth(30)
+        self.data_redo_button.setToolTip("데이터 Redo (Ctrl+Shift+Y)")
+        self.data_redo_button.clicked.connect(self.on_data_redo)
+        self.data_redo_button.setEnabled(False)
+        button_layout.addWidget(self.data_redo_button)
         
         # 데이터 지우기 버튼
         self.clear_button = QPushButton("데이터 지우기")
@@ -1685,6 +1770,13 @@ class DataTabWidget(QWidget):
         # Delete: 선택된 항목 삭제
         self.delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
         self.delete_shortcut.activated.connect(self.on_delete_selected)
+        
+        # 데이터 히스토리 단축키
+        self.data_undo_shortcut = QShortcut(QKeySequence("Ctrl+Shift+Z"), self)
+        self.data_undo_shortcut.activated.connect(self.on_data_undo)
+        
+        self.data_redo_shortcut = QShortcut(QKeySequence("Ctrl+Shift+Y"), self)
+        self.data_redo_shortcut.activated.connect(self.on_data_redo)
     
     def on_data_moved(self, from_row, to_row):
         """드래그 앤 드롭으로 데이터 이동"""
@@ -1700,6 +1792,9 @@ class DataTabWidget(QWidget):
             
             # 테이블 업데이트 (번호 열 갱신 및 버튼 상태 갱신 등을 위해 필요)
             self.update_table()
+            
+            # 히스토리에 추가
+            self.add_to_data_history(f"이동 ({from_row + 1}→{to_row + 1})")
             
             # 이동된 행을 선택 상태로 유지
             self.data_table.selectRow(to_row)
@@ -1748,6 +1843,9 @@ class DataTabWidget(QWidget):
         
         self.update_table()
         
+        # 히스토리에 추가
+        self.add_to_data_history(f"붙여넣기 ({len(valid_lines)}개)")
+        
         main_window = self.get_main_window()
         if main_window:
             main_window.log(f"{len(valid_lines)}개 항목이 {insert_position + 1}번 위치에 추가되었습니다.")
@@ -1784,6 +1882,10 @@ class DataTabWidget(QWidget):
         self.clear_button.setEnabled(has_data)
         self.process_button.setEnabled(has_data)
         self.save_button.setEnabled(has_data)
+        self.clone_button.setEnabled(has_data)
+        
+        # 데이터 히스토리 버튼 상태 업데이트
+        self.update_data_history_buttons()
     
     def on_table_context_menu(self, position):
         """테이블 우클릭 메뉴"""
@@ -1869,6 +1971,10 @@ class DataTabWidget(QWidget):
                     del self.data[row]
             
             self.update_table()
+            
+            # 히스토리에 추가
+            self.add_to_data_history(f"삭제 ({len(selected_rows)}개)")
+            
             main_window = self.get_main_window()
             if main_window:
                 main_window.log(f"{len(selected_rows)}개 항목이 삭제되었습니다.")
@@ -1918,6 +2024,10 @@ class DataTabWidget(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             self.data.clear()
             self.update_table()
+            
+            # 히스토리에 추가
+            self.add_to_data_history("모든 데이터 지우기")
+            
             main_window = self.get_main_window()
             if main_window:
                 main_window.log(f"탭 '{self.tab_name}' 데이터가 지워졌습니다.")
@@ -1952,6 +2062,62 @@ class DataTabWidget(QWidget):
         main_window = self.get_main_window()
         if main_window:
             main_window.log(f"선택된 {len(selected_codes)}개 항목 처리 완료")
+
+    def on_clone_tab(self):
+        """현재 탭을 복제"""
+        main_window = self.get_main_window()
+        if main_window:
+            # 현재 데이터를 복사
+            cloned_data = self.data.copy()
+            
+            # 새 탭 이름 생성
+            clone_tab_name = f"{self.tab_name}_복제"
+            
+            # 새 탭 추가
+            main_window.add_data_tab(clone_tab_name, cloned_data)
+            
+            main_window.log(f"탭 '{self.tab_name}'이 '{clone_tab_name}'로 복제되었습니다. ({len(cloned_data)}개 항목)")
+        else:
+            QMessageBox.warning(self, "오류", "메인 윈도우를 찾을 수 없습니다.")
+
+    def on_data_undo(self):
+        """데이터 Undo"""
+        entry = self.data_history.undo()
+        if entry is not None:
+            data, operation_name = entry
+            self.history_update_in_progress = True
+            self.data = data.copy()
+            self.update_table()
+            self.history_update_in_progress = False
+            
+            main_window = self.get_main_window()
+            if main_window:
+                main_window.log(f"데이터 Undo: {operation_name}")
+    
+    def on_data_redo(self):
+        """데이터 Redo"""
+        entry = self.data_history.redo()
+        if entry is not None:
+            data, operation_name = entry
+            self.history_update_in_progress = True
+            self.data = data.copy()
+            self.update_table()
+            self.history_update_in_progress = False
+            
+            main_window = self.get_main_window()
+            if main_window:
+                main_window.log(f"데이터 Redo: {operation_name}")
+    
+    def add_to_data_history(self, operation_name=""):
+        """현재 데이터 상태를 히스토리에 추가"""
+        if not self.history_update_in_progress:
+            self.data_history.add_entry(self.data, operation_name)
+            self.update_data_history_buttons()
+
+    def update_data_history_buttons(self):
+        """데이터 히스토리 버튼 상태 업데이트"""
+        self.data_undo_button.setEnabled(self.data_history.can_undo())
+        self.data_redo_button.setEnabled(self.data_history.can_redo())
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

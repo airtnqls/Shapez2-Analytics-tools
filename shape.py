@@ -79,7 +79,12 @@ class Shape:
             color_codes = set('urbgymcw')
             has_color_code = any(char in color_codes for char in code)
             
-            if not has_color_code:
+            # P와 -로만 구성되고 8글자이며 짝수번째가 전부 -인 경우는 콜론으로 구분하지 않음
+            is_p_dash_pattern = (len(code) == 8 and 
+                               set(code) <= {'P', '-'} and 
+                               all(code[i] == '-' for i in range(1, 8, 2)))
+            
+            if not has_color_code and not is_p_dash_pattern:
                 code = ':'.join(code)
                 print(code)
         
