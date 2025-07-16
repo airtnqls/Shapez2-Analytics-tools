@@ -86,7 +86,7 @@ class Shape:
             
             if not has_color_code and not is_p_dash_pattern:
                 code = ':'.join(code)
-                print(code)
+                # 디버그용 출력 (상세 로그에서만 표시)
         
         def expand_short_code(short_code):
             """4글자 이하 코드를 8글자 코드로 확장"""
@@ -572,7 +572,7 @@ class ReverseTracer:
             if len(empty_slots) < d: break
             
             if worker and hasattr(worker, 'log'):
-                worker.log(f"  -> [{op_name}] 불안정 후보 탐색 (조각 {d}개 추가):")
+                worker.log(f"  -> [{op_name}] 불안정 후보 탐색 (조각 {d}개 추가):", verbose=True)
 
             combinations = itertools.combinations(empty_slots, d)
             for i, slot_combo in enumerate(combinations):
@@ -589,7 +589,7 @@ class ReverseTracer:
                         unstable.layers[l].quadrants[q] = Quadrant(piece_type, color)
                     
                     if worker and hasattr(worker, 'log'):
-                        worker.log(f"    - 검사: {repr(unstable)}")
+                        worker.log(f"    - 검사: {repr(unstable)}", verbose=True)
 
                     if repr(unstable.apply_physics()) == target_repr:
                         if repr(unstable) != target_repr:
@@ -606,7 +606,7 @@ class ReverseTracer:
                         unstable.layers[l] = Layer([Quadrant(piece_type, color)]*4)
                         
                         if worker and hasattr(worker, 'log'):
-                            worker.log(f"  -> [{op_name}] 전체 레이어 낙하 검사: {l+1}층 ({repr(unstable)})")
+                            worker.log(f"  -> [{op_name}] 전체 레이어 낙하 검사: {l+1}층 ({repr(unstable)})", verbose=True)
 
                         if repr(unstable.apply_physics()) == target_repr:
                             if repr(unstable) != target_repr:
@@ -626,14 +626,14 @@ class ReverseTracer:
         present_pieces.sort(key=lambda x: -x[0])
 
         if worker and hasattr(worker, 'log'):
-            worker.log(f"  -> [apply_physics] 기존 조각 재배치 탐색 (최대 {search_depth}개 이동):")
+            worker.log(f"  -> [apply_physics] 기존 조각 재배치 탐색 (최대 {search_depth}개 이동):", verbose=True)
 
         for d in range(1, search_depth + 1):
             if len(present_pieces) < d:
                 break
 
             if worker and hasattr(worker, 'log'):
-                worker.log(f"    - {d}개 조각 이동 조합 탐색 중...")
+                worker.log(f"    - {d}개 조각 이동 조합 탐색 중...", verbose=True)
             
             log_counter = 0
 
@@ -699,7 +699,7 @@ class ReverseTracer:
                     
                     log_counter += 1
                     if worker and hasattr(worker, 'log') and (log_counter < 20 or log_counter % 200 == 0):
-                        worker.log(f"      - 검사 ({d}개 이동, 유효성 통과): {repr(candidate)}")
+                                                  worker.log(f"      - 검사 ({d}개 이동, 유효성 통과): {repr(candidate)}", verbose=True)
 
                     if repr(candidate.apply_physics()) == target_repr:
                         cand_repr = repr(candidate)
@@ -710,7 +710,7 @@ class ReverseTracer:
                             candidates.append(candidate)
         
         if worker and hasattr(worker, 'log'):
-             worker.log(f"    - 재배치 탐색 완료. 최종 후보 {len(candidates)}개.")
+                             worker.log(f"    - 재배치 탐색 완료. 최종 후보 {len(candidates)}개.", verbose=True)
 
         return candidates
 
@@ -721,7 +721,7 @@ class ReverseTracer:
         
         # 1. 원본 기둥 후보 자체를 검사합니다.
         if worker and hasattr(worker, 'log'):
-            worker.log(f"      - 검사 (기본 기둥): {repr(base_candidate)}")
+                                worker.log(f"      - 검사 (기본 기둥): {repr(base_candidate)}", verbose=True)
         if repr(base_candidate.push_pin()) == target_repr:
             if worker and hasattr(worker, 'log'):
                 worker.log(f"      ✅ 천장 기둥 후보 발견: {repr(base_candidate)}")
@@ -746,7 +746,7 @@ class ReverseTracer:
                 connected_slots.add((l_p - 1, q_p))
         
         if worker and hasattr(worker, 'log') and connected_slots:
-            worker.log(f"        -> 기둥에 연결된 추가 파괴 구조물 탐색 (연결점 {len(connected_slots)}개)...")
+                                    worker.log(f"        -> 기둥에 연결된 추가 파괴 구조물 탐색 (연결점 {len(connected_slots)}개)...", verbose=True)
 
         for l, q in connected_slots:
             if worker and worker.is_cancelled: raise InterruptedError
@@ -764,7 +764,7 @@ class ReverseTracer:
                 variation.layers[l].quadrants[q] = Quadrant('c', 'y')
                 
                 if worker and hasattr(worker, 'log'):
-                    worker.log(f"          - 검사 (c@({l},{q}), 기존 {top_piece.shape}@({l+1},{q})): {repr(variation)}")
+                                                worker.log(f"          - 검사 (c@({l},{q}), 기존 {top_piece.shape}@({l+1},{q})): {repr(variation)}", verbose=True)
 
                 # push_pin을 적용하여 목표와 일치하는지 확인
                 if repr(variation.push_pin()) == target_repr:
@@ -781,7 +781,7 @@ class ReverseTracer:
         
         target_repr = repr(target)
         
-        if worker and hasattr(worker, 'log'): worker.log(f"  -> [apply_physics] 원본 안정성 검사: {repr(target)}")
+        if worker and hasattr(worker, 'log'): worker.log(f"  -> [apply_physics] 원본 안정성 검사: {repr(target)}", verbose=True)
 
         for height in range(1, max_physics_height + 1):
             if worker and worker.is_cancelled: raise InterruptedError
@@ -789,7 +789,7 @@ class ReverseTracer:
             lifted_layers = [Layer([None] * 4) for _ in range(height)] + [l.copy() for l in target.layers]
             lifted_shape = Shape(lifted_layers)
             
-            if worker and hasattr(worker, 'log'): worker.log(f"  -> [apply_physics] {height}칸 인상 검사: {repr(lifted_shape)}")
+            if worker and hasattr(worker, 'log'): worker.log(f"  -> [apply_physics] {height}칸 인상 검사: {repr(lifted_shape)}", verbose=True)
 
             if repr(lifted_shape.apply_physics()) == target_repr:
                 candidates.append(lifted_shape)
@@ -812,7 +812,7 @@ class ReverseTracer:
                 final_candidates.append(c)
                 seen_reprs.add(cand_repr)
             elif worker and hasattr(worker, 'log'):
-                worker.log(f"    - ⚠️ 검증 실패: {cand_repr}  -> 물리 적용 후: {repr(c.apply_physics())}")
+                                    worker.log(f"    - ⚠️ 검증 실패: {cand_repr}  -> 물리 적용 후: {repr(c.apply_physics())}", verbose=True)
 
         return [("apply_physics", c) for c in final_candidates]
 
@@ -827,7 +827,7 @@ class ReverseTracer:
             p = target._get_piece(0, q)
             if p and p.shape != 'P':
                 if worker and hasattr(worker, 'log'):
-                    worker.log(f"  -> [push_pin] 0층에 핀이 아닌 조각({p.shape})이 있어 건너뜀.")
+                    worker.log(f"  -> [push_pin] 0층에 핀이 아닌 조각({p.shape})이 있어 건너뜀.", verbose=True)
                 return []
     
     
@@ -836,24 +836,24 @@ class ReverseTracer:
 
         # 1. 기본 후보: 파괴가 없었다고 가정한 가장 간단한 케이스
         s_initial_guess = Shape([l.copy() for l in target.layers[1:]])
-        if worker and hasattr(worker, 'log'): worker.log(f"  -> [push_pin] 안정된 원형(핀 제거) 검사: {repr(s_initial_guess)}")
+        if worker and hasattr(worker, 'log'): worker.log(f"  -> [push_pin] 안정된 원형(핀 제거) 검사: {repr(s_initial_guess)}", verbose=True)
         if repr(s_initial_guess.push_pin()) == target_repr:
             candidates.append(s_initial_guess)
             # 이 기본 후보를 기반으로 불안정한 다른 형태들도 탐색
-            if worker and hasattr(worker, 'log'): worker.log(f"  -> [push_pin] 기본 원형의 불안정 후보 탐색 (물리 역연산):")
+            if worker and hasattr(worker, 'log'): worker.log(f"  -> [push_pin] 기본 원형의 불안정 후보 탐색 (물리 역연산):", verbose=True)
             unstable_origins_tuples = ReverseTracer.inverse_apply_physics(s_initial_guess, search_depth, max_physics_height, worker)
             candidates.extend([shape for _, shape in unstable_origins_tuples])
 
         # 2. 파괴된 크리스탈 기둥 역추적 (천장에 닿고, 기존 조각을 덮어쓰지 않음)
         if worker and hasattr(worker, 'log'):
-            worker.log(f"  -> [push_pin] 파괴된 천장 크리스탈 기둥 역추적 시도:")
+            worker.log(f"  -> [push_pin] 파괴된 천장 크리스탈 기둥 역추적 시도:", verbose=True)
         
         s_base = Shape([l.copy() for l in target.layers[1:]])
 
         # search_depth만큼의 기둥을 세웁니다. 최대 4개.
         for d in range(1, min(search_depth, 4) + 1):
             if worker and hasattr(worker, 'log'): 
-                worker.log(f"    - {d}개 천장 기둥 추가 조합 탐색 중...")
+                worker.log(f"    - {d}개 천장 기둥 추가 조합 탐색 중...", verbose=True)
 
             # 기둥을 세울 사분면 조합
             for q_combo in itertools.combinations(range(4), d):
@@ -926,7 +926,7 @@ class ReverseTracer:
             if any(q and q.shape == 'c' for l in top_candidate.layers for q in l.quadrants): continue
 
             if top_candidate.is_stable():
-                 if worker and hasattr(worker, 'log'): worker.log(f"  -> [stack] 분할 후 안정성 검사 (B:{repr(bottom_candidate)}, T:{repr(top_candidate)})")
+                 if worker and hasattr(worker, 'log'): worker.log(f"  -> [stack] 분할 후 안정성 검사 (B:{repr(bottom_candidate)}, T:{repr(top_candidate)})", verbose=True)
                  if repr(Shape.stack(bottom_candidate, top_candidate)) == target_repr:
                      if repr(bottom_candidate) and repr(top_candidate):
                         candidates.append(("stack", (bottom_candidate, top_candidate)))
@@ -934,7 +934,7 @@ class ReverseTracer:
             unstable_tops = ReverseTracer._find_unstable_by_adding(top_candidate, search_depth, worker, op_name="stack")
             for unstable_top in unstable_tops:
                 if worker and worker.is_cancelled: raise InterruptedError
-                if worker and hasattr(worker, 'log'): worker.log(f"  -> [stack] 불안정한 상단 검사 (B:{repr(bottom_candidate)}, T:{repr(unstable_top)})")
+                if worker and hasattr(worker, 'log'): worker.log(f"  -> [stack] 불안정한 상단 검사 (B:{repr(bottom_candidate)}, T:{repr(unstable_top)})", verbose=True)
                 if repr(Shape.stack(bottom_candidate, unstable_top)) == target_repr:
                     if repr(bottom_candidate) and repr(unstable_top):
                         candidates.append(("stack", (bottom_candidate, unstable_top)))
@@ -949,7 +949,7 @@ class ReverseTracer:
             # 새로운 인덱스 매핑에서 서쪽 절반: 2=BL, 3=TL
             if target._get_piece(l, 2) is not None or target._get_piece(l, 3) is not None:
                 if worker and hasattr(worker, 'log'):
-                    worker.log(f"  -> [destroy_half] (회전 {rotation_count}) 좌측 절반이 비어있지 않아 건너뜀.")
+                    worker.log(f"  -> [destroy_half] (회전 {rotation_count}) 좌측 절반이 비어있지 않아 건너뜀.", verbose=True)
                 return []
                 
         candidates = []
@@ -961,7 +961,7 @@ class ReverseTracer:
             if (p := target._get_piece(l_idx, 0)): layer.quadrants[3] = p.copy()  # TR -> TL
             if (p := target._get_piece(l_idx, 1)): layer.quadrants[2] = p.copy()  # BR -> BL
         
-        if worker and hasattr(worker, 'log'): worker.log(f"  -> [destroy_half] 대칭 후보 검사: {repr(symmetric_candidate)}")
+        if worker and hasattr(worker, 'log'): worker.log(f"  -> [destroy_half] 대칭 후보 검사: {repr(symmetric_candidate)}", verbose=True)
         if repr(symmetric_candidate.destroy_half()) == target_repr:
             origin = symmetric_candidate
             for _ in range(rotation_count): origin = origin.rotate(clockwise=False)
@@ -976,7 +976,7 @@ class ReverseTracer:
         for d in range(1, search_depth + 1):
             if len(empty_slots) < d: break
 
-            if worker and hasattr(worker, 'log'): worker.log(f"  -> [destroy_half] 파괴된 부분 조각 추가 탐색 (조각 {d}개):")
+            if worker and hasattr(worker, 'log'): worker.log(f"  -> [destroy_half] 파괴된 부분 조각 추가 탐색 (조각 {d}개):", verbose=True)
 
             combinations = itertools.combinations(empty_slots, d)
             for i, slot_combo in enumerate(combinations):
@@ -991,7 +991,7 @@ class ReverseTracer:
                         while len(unstable.layers) <= l: unstable.layers.append(Layer([None]*4))
                         unstable.layers[l].quadrants[q] = Quadrant(piece_type, color)
                     
-                    if worker and hasattr(worker, 'log'): worker.log(f"    - 검사: {repr(unstable)}")
+                    if worker and hasattr(worker, 'log'): worker.log(f"    - 검사: {repr(unstable)}", verbose=True)
                     if repr(unstable.destroy_half()) == target_repr:
                         origin = unstable
                         for _ in range(rotation_count): origin = origin.rotate(clockwise=False)
@@ -1007,21 +1007,21 @@ class ReverseTracer:
         crystal_coords = [(l,q) for l, layer in enumerate(target.layers) for q, quad in enumerate(layer.quadrants) if quad and quad.shape == 'c']
         
         if not crystal_coords and worker and hasattr(worker, 'log'):
-            worker.log("  -> [crystal_generator] 목표에 크리스탈이 없어 탐색 종료.")
+            worker.log("  -> [crystal_generator] 목표에 크리스탈이 없어 탐색 종료.", verbose=True)
 
         for l, q in crystal_coords:
             if worker and worker.is_cancelled: raise InterruptedError
             origin_candidate = target.copy()
             origin_candidate.layers[l].quadrants[q] = None
             
-            if worker and hasattr(worker, 'log'): worker.log(f"  -> [crystal_generator] ({l},{q}) 크리스탈 제거 후 검사: {repr(origin_candidate)}")
+            if worker and hasattr(worker, 'log'): worker.log(f"  -> [crystal_generator] ({l},{q}) 크리스탈 제거 후 검사: {repr(origin_candidate)}", verbose=True)
             
             for color in [c for c in Quadrant.VALID_COLORS if c != 'u']:
                 if repr(origin_candidate.crystal_generator(color)) == target_repr:
                     candidates.append(origin_candidate.apply_physics())
                     
                     if worker and hasattr(worker, 'log'):
-                        worker.log(f"  -> [crystal_generator] 최상층에 불안정한 크리스탈 추가 탐색...")
+                        worker.log(f"  -> [crystal_generator] 최상층에 불안정한 크리스탈 추가 탐색...", verbose=True)
                     
                     top_layer_idx = Shape.MAX_LAYERS - 1
                     empty_slots_on_top = []
@@ -1042,7 +1042,7 @@ class ReverseTracer:
                                 unstable.layers[l_unstable].quadrants[q_unstable] = Quadrant('c', 'y') 
 
                             if worker and hasattr(worker, 'log'):
-                                worker.log(f"    - 천장 검사: {repr(unstable)}")
+                                worker.log(f"    - 천장 검사: {repr(unstable)}", verbose=True)
                             
                             if repr(unstable.crystal_generator(color)) == target_repr:
                                 candidates.append(unstable)
@@ -1072,7 +1072,7 @@ class ReverseTracer:
         for a_guess, b_guess in potential_pairs:
             if worker and worker.is_cancelled: raise InterruptedError
             
-            if worker and hasattr(worker, 'log'): worker.log(f"  -> [swap] 분할/재조합 후보 검사 (A:{repr(a_guess)}, B:{repr(b_guess)})")
+            if worker and hasattr(worker, 'log'): worker.log(f"  -> [swap] 분할/재조합 후보 검사 (A:{repr(a_guess)}, B:{repr(b_guess)})", verbose=True)
 
             res_a, res_b = Shape.swap(a_guess, b_guess)
             

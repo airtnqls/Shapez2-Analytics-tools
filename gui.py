@@ -1,5 +1,6 @@
 import sys
 import json
+import html
 from typing import List, Tuple, Optional
 from collections import deque
 
@@ -47,15 +48,28 @@ class OriginFinderThread(QThread):
         self.candidates = []
         self.log_buffer = []
 
-    def log(self, msg: str):
+    def log(self, msg: str, verbose=False):
         if self.log_enabled:
-            self.log_buffer.append(msg)
+            # 로그 레벨에 따라 메시지에 마킹 추가
+            if verbose:
+                msg = f"[VERBOSE] {msg}"
+            self.log_buffer.append((msg, verbose))
             if len(self.log_buffer) >= self.LOG_BUFFER_SIZE:
                 self._flush_log_buffer()
+    
+    def log_verbose(self, msg: str):
+        self.log(msg, verbose=True)
 
     def _flush_log_buffer(self):
         if self.log_buffer:
-            self.log_message.emit("\n".join(self.log_buffer))
+            # 로그 레벨에 따라 필터링하여 메인 윈도우로 전송
+            messages_to_send = []
+            for msg, is_verbose in self.log_buffer:
+                # 모든 메시지를 전송 (메인 윈도우에서 필터링)
+                messages_to_send.append(msg)
+            
+            if messages_to_send:
+                self.log_message.emit("\n".join(messages_to_send))
             self.log_buffer.clear()
 
     def run(self):
@@ -350,12 +364,15 @@ class ShapezGUI(QMainWindow):
         self.input_history = InputHistory(100)
         self.history_update_in_progress = False  # 히스토리 업데이트 중 플래그
         
+        # 출력 결과 추적 변수
+        self.current_outputs = []  # [(title, shape), ...] 형태로 저장
+        
+        # 로그 저장 변수
+        self.log_entries = []  # [(message, is_verbose), ...] 형태로 저장
+        
         self.initUI()
         self.origin_finder_thread = None
         self.total_training_episodes = 0
-        
-        # 출력 결과 추적 변수
-        self.current_outputs = []  # [(title, shape), ...] 형태로 저장
 
     def initUI(self):
         main_layout = QVBoxLayout(self.central_widget)
@@ -393,9 +410,7 @@ class ShapezGUI(QMainWindow):
         mode_layout.addWidget(QLabel("최대 역 물리 높이:"), 2, 0)
         mode_layout.addWidget(self.max_physics_height_input, 2, 1)
 
-        self.log_checkbox = QCheckBox("상세 로그 보기")
-        self.log_checkbox.setChecked(True)
-        mode_layout.addWidget(self.log_checkbox, 3, 0, 1, 2)
+
 
         left_panel.addWidget(mode_group)
 
@@ -513,6 +528,32 @@ class ShapezGUI(QMainWindow):
         
         left_panel.addWidget(control_group)
         
+        # 추가 데이터 처리 컨테이너
+        data_process_group = QGroupBox("데이터 처리")
+        data_process_layout = QGridLayout(data_process_group)
+        
+        self.simplify_btn = QPushButton("단순화")
+        self.simplify_btn.clicked.connect(self.on_simplify)
+        data_process_layout.addWidget(self.simplify_btn, 0, 0)
+        
+        self.detail_btn = QPushButton("세부화")
+        self.detail_btn.clicked.connect(self.on_detail)
+        data_process_layout.addWidget(self.detail_btn, 0, 1)
+        
+        self.corner_3q_btn = QPushButton("3사분면 코너")
+        self.corner_3q_btn.clicked.connect(self.on_corner_3q)
+        data_process_layout.addWidget(self.corner_3q_btn, 1, 0)
+        
+        self.remove_impossible_btn = QPushButton("불가능 제거")
+        self.remove_impossible_btn.clicked.connect(self.on_remove_impossible)
+        data_process_layout.addWidget(self.remove_impossible_btn, 1, 1)
+        
+        self.reverse_btn = QPushButton("역순")
+        self.reverse_btn.clicked.connect(self.on_reverse)
+        data_process_layout.addWidget(self.reverse_btn, 2, 0)
+        
+        left_panel.addWidget(data_process_group)
+        
         left_panel.addStretch(1); 
         main_content_hbox.addLayout(left_panel)
         
@@ -583,11 +624,6 @@ class ShapezGUI(QMainWindow):
         self.browse_button.clicked.connect(self.on_browse_file)
         file_select_layout.addWidget(self.browse_button)
         
-        self.load_button = QPushButton("불러오기")
-        self.load_button.clicked.connect(self.on_load_file)
-        self.load_button.setEnabled(False)
-        file_select_layout.addWidget(self.load_button)
-        
         file_layout.addLayout(file_select_layout)
         batch_layout.addWidget(file_group)
         
@@ -629,6 +665,12 @@ class ShapezGUI(QMainWindow):
         log_header_layout.addWidget(QLabel("<b>로그</b>"))
         log_header_layout.addStretch()
         
+        # 상세 로그 보기 체크박스
+        self.log_checkbox = QCheckBox("상세 로그 보기")
+        self.log_checkbox.setChecked(False)  # 기본값을 비활성화로 변경
+        self.log_checkbox.stateChanged.connect(self.on_log_level_changed)
+        log_header_layout.addWidget(self.log_checkbox)
+        
         log_clear_button = QPushButton("지우기")
         log_clear_button.setMaximumWidth(60)
         log_clear_button.clicked.connect(self.on_clear_log)
@@ -640,7 +682,7 @@ class ShapezGUI(QMainWindow):
 
         main_layout.addLayout(main_content_hbox, 1)
 
-        self.log(f"시뮬레이터 준비 완료. 자동 테스트는 tests.json 파일을 사용합니다.")
+        self.log_verbose(f"시뮬레이터 준비 완료. 자동 테스트는 tests.json 파일을 사용합니다.")
         
         # 초기 입력 표시
         self.update_input_display()
@@ -654,8 +696,43 @@ class ShapezGUI(QMainWindow):
 
         event.accept()
 
-    def log(self, message): self.log_output.append(message)
+    def log(self, message, verbose=False):
+        """로그 메시지를 출력합니다.
+        
+        Args:
+            message: 출력할 메시지
+            verbose: 상세 로그 여부 (기본값: False)
+        """
+        # 모든 로그를 저장
+        self.log_entries.append((message, verbose))
+        
+        # 현재 설정에 따라 표시 여부 결정
+        if verbose and hasattr(self, 'log_checkbox') and not self.log_checkbox.isChecked():
+            return  # 상세 로그가 비활성화되어 있으면 verbose 로그는 출력하지 않음
+        
+        if verbose:
+            # 상세 로그는 진한 회색으로 표시 (HTML 이스케이프 처리)
+            escaped_message = html.escape(message)
+            self.log_output.append(f'<span style="color: #666666;">{escaped_message}</span>')
+        else:
+            # 일반 로그는 기본 색상
+            self.log_output.append(message)
     
+    def log_verbose(self, message):
+        """상세 로그 메시지를 출력합니다."""
+        self.log(message, verbose=True)
+    
+    def handle_origin_finder_log(self, message):
+        """OriginFinderThread로부터 받은 로그 메시지를 처리합니다."""
+        lines = message.split('\n')
+        for line in lines:
+            if line.startswith('[VERBOSE]'):
+                # [VERBOSE] 태그를 제거하고 상세 로그로 처리
+                clean_message = line[9:].strip()  # '[VERBOSE] ' 제거
+                self.log_verbose(clean_message)
+            else:
+                self.log(line)
+
     def _calculate_complexity(self, origin_shape: object) -> int:
         """복잡도를 계산합니다 (총 조각 수 기준)."""
         total_pieces = 0
@@ -828,17 +905,17 @@ class ShapezGUI(QMainWindow):
             # 단일 출력: 입력 A에 적용하고 입력 B는 비움
             self.input_a.setText(repr(output_shapes[0]))
             self.input_b.clear()
-            self.log(f"출력을 입력 A에 적용: {repr(output_shapes[0])}")
+            self.log_verbose(f"출력을 입력 A에 적용: {repr(output_shapes[0])}")
         elif len(output_shapes) == 2:
             # 이중 출력: 첫 번째는 입력 A, 두 번째는 입력 B에 적용
             self.input_a.setText(repr(output_shapes[0]))
             self.input_b.setText(repr(output_shapes[1]))
-            self.log(f"출력을 입력에 적용: A={repr(output_shapes[0])}, B={repr(output_shapes[1])}")
+            self.log_verbose(f"출력을 입력에 적용: A={repr(output_shapes[0])}, B={repr(output_shapes[1])}")
         else:
             # 3개 이상의 출력: 처음 두 개만 사용
             self.input_a.setText(repr(output_shapes[0]))
             self.input_b.setText(repr(output_shapes[1]))
-            self.log(f"출력 중 처음 2개를 입력에 적용: A={repr(output_shapes[0])}, B={repr(output_shapes[1])}")
+            self.log_verbose(f"출력 중 처음 2개를 입력에 적용: A={repr(output_shapes[0])}, B={repr(output_shapes[1])}")
     
     def on_find_origin(self):
         self.origin_list.clear()
@@ -870,7 +947,7 @@ class ShapezGUI(QMainWindow):
         self.origin_finder_thread = OriginFinderThread(target_shape, ReverseTracer.MAX_SEARCH_DEPTH, max_physics_height, log_enabled)
         self.origin_finder_thread.progress.connect(self.update_progress_dialog)
         self.origin_finder_thread.finished.connect(self.on_find_origin_finished)
-        self.origin_finder_thread.log_message.connect(self.log)
+        self.origin_finder_thread.log_message.connect(self.handle_origin_finder_log)
         self.origin_finder_thread.candidate_found.connect(self.on_candidate_found)
         self.progress_dialog.canceled.connect(self.origin_finder_thread.cancel)
         
@@ -965,21 +1042,21 @@ class ShapezGUI(QMainWindow):
     def on_origin_selected(self, item):
         op_name, origin_shape = item.data(Qt.ItemDataRole.UserRole)
         
-        self.log(f"선택된 후보 로드: [{op_name}]")
+        self.log_verbose(f"선택된 후보 로드: [{op_name}]")
         
         if isinstance(origin_shape, tuple):
             shape_a, shape_b = origin_shape
             self.input_a.setText(repr(shape_a))
             self.input_b.setText(repr(shape_b))
-            self.log(f"  -> 입력 A: {repr(shape_a)}")
-            self.log(f"  -> 입력 B: {repr(shape_b)}")
+            self.log_verbose(f"  -> 입력 A: {repr(shape_a)}")
+            self.log_verbose(f"  -> 입력 B: {repr(shape_b)}")
             
             self.display_outputs([("선택된 후보 A", shape_a), ("선택된 후보 B", shape_b)])
 
         else:
             self.input_a.setText(repr(origin_shape))
             self.input_b.clear()
-            self.log(f"  -> 입력 A: {repr(origin_shape)}")
+            self.log_verbose(f"  -> 입력 A: {repr(origin_shape)}")
 
             self.display_outputs([("선택된 후보", origin_shape)])
         
@@ -993,7 +1070,7 @@ class ShapezGUI(QMainWindow):
                 self.max_depth_input.setText(str(new_depth))
             
             ReverseTracer.MAX_SEARCH_DEPTH = new_depth
-            self.log(f"최대 탐색 깊이가 {new_depth}로 설정되었습니다.")
+            self.log_verbose(f"최대 탐색 깊이가 {new_depth}로 설정되었습니다.")
         except ValueError:
             self.log("🔥 오류: 최대 탐색 깊이는 숫자로 입력해야 합니다. 1로 설정합니다.")
             ReverseTracer.MAX_SEARCH_DEPTH = 1
@@ -1003,11 +1080,11 @@ class ShapezGUI(QMainWindow):
         text = self.max_layers_combo.currentText()
         new_max = int(text.split(" ")[0])
         Shape.MAX_LAYERS = new_max
-        self.log(f"최대 층수가 {new_max}층으로 설정되었습니다.") 
+        self.log_verbose(f"최대 층수가 {new_max}층으로 설정되었습니다.") 
 
     
     def run_forward_tests(self):
-        self.log_output.clear(); self.log("=== 전체 정방향 테스트 시작 (tests.json) ===")
+        self.clear_log(); self.log("=== 전체 정방향 테스트 시작 (tests.json) ===")
         try:
             with open('tests.json', 'r', encoding='utf-8') as f: test_suites = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError) as e: self.log(f"🔥 테스트 파일 오류: {e}"); return
@@ -1037,7 +1114,7 @@ class ShapezGUI(QMainWindow):
                         expected_a_code, expected_b_code = repr(expected_a_shape), repr(expected_b_shape)
 
                         if actual_a_code == expected_a_code and actual_b_code == expected_b_code:
-                            passed_count += 1; self.log(f"✅ 통과: {name}")
+                            passed_count += 1; self.log_verbose(f"✅ 통과: {name}")
                         else: self.log(f"❌ 실패: {name}\n  - 입력A: {input_a_str}\n  - 입력B: {input_b_str}\n  - 예상A: {expected_a_code}\n  - 실제A: {actual_a_code}\n  - 예상B: {expected_b_code}\n  - 실제B: {actual_b_code}")
                         continue
                     
@@ -1061,7 +1138,7 @@ class ShapezGUI(QMainWindow):
                             # 예상 문자열이 결과 문자열에 포함되어 있는지 검사
                             if expected in result_string:
                                 passed_count += 1
-                                self.log(f"✅ 통과: {name}")
+                                self.log_verbose(f"✅ 통과: {name}")
                             else:
                                 self.log(f"❌ 실패: {name}\n  - 입력A: {input_a_str}\n  - 예상: {expected}\n  - 실제: {result_string} (사유: {reason})")
                             continue
@@ -1072,7 +1149,7 @@ class ShapezGUI(QMainWindow):
                     expected_code = repr(expected_shape)
 
                     if actual_code == expected_code:
-                        passed_count += 1; self.log(f"✅ 통과: {name}")
+                        passed_count += 1; self.log_verbose(f"✅ 통과: {name}")
                     else: self.log(f"❌ 실패: {name}\n  - 입력A: {input_a_str}\n  - 예상: {expected_code}\n  - 실제: {actual_code}")
                 except Exception as e:
                     self.log(f"🔥 오류: {name} - {e.__class__.__name__}: {e}")
@@ -1081,7 +1158,7 @@ class ShapezGUI(QMainWindow):
         self.log(f"\n=== {summary} ==="); self.test_results_label.setText(summary)
 
     def run_reverse_tests(self):
-        self.log_output.clear()
+        self.clear_log()
         self.log("=== 전체 역연산 테스트 시작 (tests.json) ===")
         try:
             with open('tests.json', 'r', encoding='utf-8') as f:
@@ -1175,7 +1252,7 @@ class ShapezGUI(QMainWindow):
             
             if found_match:
                 passed_count += 1
-                self.log(f"✅ 통과: {test_name}")
+                self.log_verbose(f"✅ 통과: {test_name}")
             else:
                 self.log(f"❌ 실패: {test_name}")
                 self.log(f"  - 목표: {target_shape_str}")
@@ -1314,7 +1391,7 @@ class ShapezGUI(QMainWindow):
         # 작업 전 현재 상태를 히스토리에 저장
         current_tab.add_to_data_history(f"작업 전 ({operation_name})")
         
-        self.log(f"'{current_tab.tab_name}' 탭의 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
+        self.log_verbose(f"'{current_tab.tab_name}' 탭의 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
         
         # 결과 데이터 저장
         result_data = []
@@ -1397,8 +1474,239 @@ class ShapezGUI(QMainWindow):
         if error_count > 0:
             QMessageBox.warning(self, "경고", f"{error_count}개 항목에서 오류가 발생했습니다.")
     
+    def process_data_operation(self, operation_name: str, process_func):
+        """데이터 처리 작업의 공통 로직"""
+        # 대량처리 탭이 활성화되어 있으면 대량처리만 실행 (입력 A/B 무시)
+        current_main_tab = self.main_tabs.tabText(self.main_tabs.currentIndex())
+        if current_main_tab == "대량처리":
+            current_tab = self.get_current_data_tab()
+            if not current_tab or not current_tab.data:
+                if input_a_str or input_b_str:
+                    self.log(f"{operation_name} 완료 (입력만 처리)")
+                else:
+                    QMessageBox.information(self, "알림", "처리할 데이터가 없습니다.")
+                return
+            
+            # 작업 전 현재 상태를 히스토리에 저장
+            current_tab.add_to_data_history(f"작업 전 ({operation_name})")
+            
+            self.log_verbose(f"'{current_tab.tab_name}' 탭의 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
+            
+            # 결과 데이터 저장
+            result_data = []
+            error_count = 0
+            
+            for i, shape_code in enumerate(current_tab.data):
+                try:
+                    result = process_func(shape_code)
+                    result_data.append(result)
+                except Exception as e:
+                    result_data.append(f"오류: {str(e)}")
+                    error_count += 1
+            
+            # 현재 탭의 데이터를 결과로 교체
+            current_tab.data = result_data
+            current_tab.update_table()
+            
+            # 작업 완료 후 히스토리에 추가
+            current_tab.add_to_data_history(f"{operation_name} 완료")
+            
+            if error_count > 0:
+                self.log(f"{operation_name} 완료: {len(result_data)}개 결과 생성, {error_count}개 오류")
+            else:
+                self.log(f"{operation_name} 완료: {len(result_data)}개 결과 생성")
+        else:
+            # 분석 도구 탭에서는 입력 A/B 처리
+            input_a_str = self.input_a.text().strip()
+            input_b_str = self.input_b.text().strip()
+            
+            if input_a_str:
+                try:
+                    result_a = process_func(input_a_str)
+                    self.input_a.setText(result_a)
+                    self.log_verbose(f"입력 A에 {operation_name} 적용: {result_a}")
+                except Exception as e:
+                    self.log(f"입력 A {operation_name} 오류: {str(e)}")
+            
+            if input_b_str:
+                try:
+                    result_b = process_func(input_b_str)
+                    self.input_b.setText(result_b)
+                    self.log_verbose(f"입력 B에 {operation_name} 적용: {result_b}")
+                except Exception as e:
+                    self.log(f"입력 B {operation_name} 오류: {str(e)}")
+            
+            if input_a_str or input_b_str:
+                self.log(f"{operation_name} 완료 (입력만 처리)")
+    
+    def on_simplify(self):
+        """단순화 버튼 클릭 시 호출 - CuCuCuP- 같은 구조를 SSSP로 단순화"""
+        def simplify_shape(shape_code: str) -> str:
+            try:
+                shape = Shape.from_string(shape_code)
+                # 각 레이어를 단순화된 형태로 변환
+                simplified_layers = []
+                for layer in shape.layers:
+                    simplified_layer = ""
+                    for quadrant in layer.quadrants:
+                        if quadrant is None:
+                            simplified_layer += "-"
+                        elif quadrant.shape == 'c':
+                            simplified_layer += "S"  # 크리스탈을 S로 단순화
+                        elif quadrant.shape == 'P':
+                            simplified_layer += "P"  # 핀은 그대로
+                        else:
+                            simplified_layer += quadrant.shape  # 다른 도형은 그대로
+                    simplified_layers.append(simplified_layer)
+                
+                return ":".join(simplified_layers)
+            except Exception as e:
+                raise Exception(f"단순화 실패: {str(e)}")
+        
+        self.process_data_operation("단순화", simplify_shape)
+    
+    def on_detail(self):
+        """세부화 버튼 클릭 시 호출 - SSSP를 CuCuCuP-로 세부화 (from_string 논리와 동일)"""
+        def detail_shape(shape_code: str) -> str:
+            try:
+                # from_string의 expand_short_code 로직을 사용
+                if ':' not in shape_code and len(shape_code) >= 5:
+                    # 색상코드 확인
+                    color_codes = set('urbgymcw')
+                    has_color_code = any(char in color_codes for char in shape_code)
+                    
+                    # P와 -로만 구성되고 8글자이며 짝수번째가 전부 -인 경우는 콜론으로 구분하지 않음
+                    is_p_dash_pattern = (len(shape_code) == 8 and 
+                                       set(shape_code) <= {'P', '-'} and 
+                                       all(shape_code[i] == '-' for i in range(1, 8, 2)))
+                    
+                    if not has_color_code and not is_p_dash_pattern:
+                        shape_code = ':'.join(shape_code)
+                
+                # Shape 객체로 변환 후 다시 문자열로 변환 (정규화)
+                shape = Shape.from_string(shape_code)
+                return repr(shape)
+            except Exception as e:
+                raise Exception(f"세부화 실패: {str(e)}")
+        
+        self.process_data_operation("세부화", detail_shape)
+    
+    def on_corner_3q(self):
+        """3사분면 코너 버튼 클릭 시 호출 - 3사분면만 가져와서 한줄로 단순화"""
+        def corner_3q_shape(shape_code: str) -> str:
+            try:
+                shape = Shape.from_string(shape_code)
+                # 각 레이어의 3사분면(인덱스 2)만 추출
+                corner_chars = []
+                for layer in shape.layers:
+                    if len(layer.quadrants) > 2 and layer.quadrants[2] is not None:
+                        quadrant = layer.quadrants[2]
+                        if quadrant.shape == 'c':
+                            corner_chars.append("c")
+                        elif quadrant.shape == 'P':
+                            corner_chars.append("P")
+                        else:
+                            corner_chars.append(quadrant.shape)
+                    else:
+                        corner_chars.append("-")
+                
+                return "".join(corner_chars)
+            except Exception as e:
+                raise Exception(f"3사분면 코너 추출 실패: {str(e)}")
+        
+        self.process_data_operation("3사분면 코너", corner_3q_shape)
+    
+    def on_remove_impossible(self):
+        """불가능 제거 버튼 클릭 시 호출 - 불가능한 패턴이거나 오류 발생시 제거"""
+        from shape_analyzer import analyze_shape, ShapeType
+        
+        # 대량처리 탭이 활성화되어 있으면 대량처리만 실행 (입력 A/B 무시)
+        current_main_tab = self.main_tabs.tabText(self.main_tabs.currentIndex())
+        if current_main_tab == "대량처리":
+            current_tab = self.get_current_data_tab()
+            if not current_tab or not current_tab.data:
+                if input_a_str or input_b_str:
+                    self.log("불가능 제거 완료 (입력만 처리)")
+                else:
+                    QMessageBox.information(self, "알림", "처리할 데이터가 없습니다.")
+                return
+            
+            # 작업 전 현재 상태를 히스토리에 저장
+            current_tab.add_to_data_history("작업 전 (불가능 제거)")
+            
+            self.log_verbose(f"'{current_tab.tab_name}' 탭의 {len(current_tab.data)}개 항목에서 불가능 패턴 제거 수행")
+            
+            # 유효한 데이터만 필터링
+            valid_data = []
+            removed_count = 0
+            
+            for i, shape_code in enumerate(current_tab.data):
+                try:
+                    shape = Shape.from_string(shape_code)
+                    classification, reason = analyze_shape(shape_code, shape)
+                    if classification != ShapeType.IMPOSSIBLE.value:
+                        valid_data.append(shape_code)
+                    else:
+                        removed_count += 1
+                        self.log_verbose(f"제거됨: {shape_code} ({reason})")
+                except Exception as e:
+                    removed_count += 1
+                    self.log_verbose(f"오류로 제거됨: {shape_code} ({str(e)})")
+            
+            # 현재 탭의 데이터를 필터링된 결과로 교체
+            current_tab.data = valid_data
+            current_tab.update_table()
+            
+            # 작업 완료 후 히스토리에 추가
+            current_tab.add_to_data_history("불가능 제거 완료")
+            
+            self.log(f"불가능 제거 완료: {len(valid_data)}개 유효, {removed_count}개 제거")
+        else:
+            # 분석 도구 탭에서는 입력 A/B 처리
+            input_a_str = self.input_a.text().strip()
+            input_b_str = self.input_b.text().strip()
+            
+            if input_a_str:
+                try:
+                    shape = Shape.from_string(input_a_str)
+                    classification, reason = analyze_shape(input_a_str, shape)
+                    if classification == ShapeType.IMPOSSIBLE.value:
+                        self.input_a.setText("")
+                        self.log(f"입력 A 불가능 패턴 제거: {reason}")
+                    else:
+                        self.log_verbose(f"입력 A 유효함: {classification}")
+                except Exception as e:
+                    self.input_a.setText("")
+                    self.log(f"입력 A 오류로 제거: {str(e)}")
+            
+            if input_b_str:
+                try:
+                    shape = Shape.from_string(input_b_str)
+                    classification, reason = analyze_shape(input_b_str, shape)
+                    if classification == ShapeType.IMPOSSIBLE.value:
+                        self.input_b.setText("")
+                        self.log(f"입력 B 불가능 패턴 제거: {reason}")
+                    else:
+                        self.log_verbose(f"입력 B 유효함: {classification}")
+                except Exception as e:
+                    self.input_b.setText("")
+                    self.log(f"입력 B 오류로 제거: {str(e)}")
+            
+            if input_a_str or input_b_str:
+                self.log("불가능 제거 완료 (입력만 처리)")
+    
+    def on_reverse(self):
+        """역순 버튼 클릭 시 호출 - 데이터들의 문자를 역순으로 배치"""
+        def reverse_shape(shape_code: str) -> str:
+            try:
+                return shape_code[::-1]  # 문자열을 역순으로 변환
+            except Exception as e:
+                raise Exception(f"역순 변환 실패: {str(e)}")
+        
+        self.process_data_operation("역순", reverse_shape)
+    
     def on_browse_file(self):
-        """파일 찾아보기 대화상자 열기"""
+        """파일 찾아보기 대화상자 열기 및 자동 로드"""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "도형 데이터 파일 선택",
@@ -1410,16 +1718,14 @@ class ShapezGUI(QMainWindow):
             self.selected_file_path = file_path
             self.file_path_label.setText(file_path)
             self.file_path_label.setStyleSheet("color: black;")
-            self.load_button.setEnabled(True)
-            self.log(f"파일 선택됨: {file_path}")
+            self.log_verbose(f"파일 선택됨: {file_path}")
+            # 파일 선택 후 자동으로 로드
+            self.load_file(file_path)
     
-    def on_load_file(self):
-        """선택된 파일 로드"""
-        if not self.selected_file_path:
-            return
-            
+    def load_file(self, file_path):
+        """파일 로드"""
         try:
-            with open(self.selected_file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
             
             # 빈 줄과 주석(#으로 시작) 제거
@@ -1435,7 +1741,7 @@ class ShapezGUI(QMainWindow):
             
             # 새 탭에 데이터 로드
             import os
-            tab_name = os.path.splitext(os.path.basename(self.selected_file_path))[0]
+            tab_name = os.path.splitext(os.path.basename(file_path))[0]
             self.add_data_tab(tab_name, shape_codes)
             
             self.log(f"파일 로드 완료: {len(shape_codes)}개의 도형 코드를 새 탭 '{tab_name}'에 불러왔습니다.")
@@ -1443,6 +1749,11 @@ class ShapezGUI(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "오류", f"파일 로드 중 오류 발생:\n{str(e)}")
             self.log(f"파일 로드 오류: {str(e)}")
+    
+    def on_load_file(self):
+        """선택된 파일 로드 (호환성 유지)"""
+        if self.selected_file_path:
+            self.load_file(self.selected_file_path)
     
     def on_table_context_menu(self, position: QPoint):
         """테이블에 우클릭 메뉴 추가 (기존 메서드 유지)"""
@@ -1470,8 +1781,8 @@ class ShapezGUI(QMainWindow):
     
     def on_clear_log(self):
         """로그 창 클리어"""
-        self.log_output.clear()
-        self.log("로그가 지워졌습니다.")
+        self.clear_log()
+        self.log_verbose("로그가 지워졌습니다.")
 
     def on_main_tab_changed(self, index):
         """메인 탭 변경 시 호출"""
@@ -1532,6 +1843,15 @@ class ShapezGUI(QMainWindow):
         
         self.swap_btn.clicked.disconnect()
         self.swap_btn.clicked.connect(lambda: self.on_batch_operation("swap"))
+        
+        # 데이터 처리 버튼들을 대량처리용으로 연결
+        self.simplify_btn.setText("단순화 (∀)")
+        self.detail_btn.setText("세부화 (∀)")
+        self.corner_3q_btn.setText("3사분면 코너 (∀)")
+        self.remove_impossible_btn.setText("불가능 제거 (∀)")
+        self.reverse_btn.setText("역순 (∀)")
+        
+        # 데이터 처리 버튼들의 클릭 이벤트는 이미 대량처리를 지원하므로 그대로 유지
     
     def switch_to_single_mode(self):
         """단일 모드로 전환"""
@@ -1580,6 +1900,40 @@ class ShapezGUI(QMainWindow):
         
         self.swap_btn.clicked.disconnect()
         self.swap_btn.clicked.connect(self.on_swap)
+        
+        # 데이터 처리 버튼들 텍스트 복원
+        self.simplify_btn.setText("단순화")
+        self.detail_btn.setText("세부화")
+        self.corner_3q_btn.setText("3사분면 코너")
+        self.remove_impossible_btn.setText("불가능 제거")
+        self.reverse_btn.setText("역순")
+
+    def on_log_level_changed(self):
+        """상세 로그 표시 설정이 변경되었을 때 로그를 다시 렌더링합니다."""
+        self.refresh_log_display()
+        self.log_verbose(f"상세 로그 레벨이 {'활성화' if self.log_checkbox.isChecked() else '비활성화'}되었습니다.")
+    
+    def clear_log(self):
+        """로그 창과 저장된 로그 엔트리들을 모두 지웁니다."""
+        self.log_entries.clear()
+        self.log_output.clear()
+    
+    def refresh_log_display(self):
+        """저장된 로그 엔트리들을 현재 설정에 따라 다시 표시합니다."""
+        self.log_output.clear()
+        
+        for message, is_verbose in self.log_entries:
+            # 상세 로그가 비활성화되어 있고 verbose 로그면 건너뛰기
+            if is_verbose and hasattr(self, 'log_checkbox') and not self.log_checkbox.isChecked():
+                continue
+                
+            if is_verbose:
+                # 상세 로그는 진한 회색으로 표시 (HTML 이스케이프 처리)
+                escaped_message = html.escape(message)
+                self.log_output.append(f'<span style="color: #666666;">{escaped_message}</span>')
+            else:
+                # 일반 로그는 기본 색상
+                self.log_output.append(message)
 
 class CustomTabWidget(QTabWidget):
     """탭 삭제 가능한 커스텀 탭 위젯"""
@@ -1690,6 +2044,9 @@ class DataTabWidget(QWidget):
         self.data_history = DataHistory(50)
         self.history_update_in_progress = False  # 히스토리 업데이트 중 플래그
         
+        # 비교 테이블 여부 플래그
+        self.is_comparison_table = False
+        
         self.setup_ui()
         
         # 초기 데이터를 히스토리에 추가
@@ -1707,6 +2064,7 @@ class DataTabWidget(QWidget):
         self.data_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.data_table.customContextMenuRequested.connect(self.on_table_context_menu)
         self.data_table.rows_reordered.connect(self.on_data_moved)
+        self.data_table.itemChanged.connect(self.on_table_item_changed)
         layout.addWidget(self.data_table)
         
         # 단축키 설정
@@ -1717,8 +2075,15 @@ class DataTabWidget(QWidget):
         
         # 저장 버튼
         self.save_button = QPushButton("저장")
-        self.save_button.clicked.connect(self.on_save_data)
+        self.save_button.setToolTip("현재 탭을 data/{탭제목}.txt에 저장 (Ctrl+S)")
+        self.save_button.clicked.connect(self.on_save_data_auto)
         button_layout.addWidget(self.save_button)
+        
+        # 다른 이름으로 저장 버튼
+        self.save_as_button = QPushButton("다른 이름으로 저장")
+        self.save_as_button.setToolTip("파일 대화상자를 통해 저장 (Ctrl+Shift+S)")
+        self.save_as_button.clicked.connect(self.on_save_data_as)
+        button_layout.addWidget(self.save_as_button)
         
         # 복제 버튼
         self.clone_button = QPushButton("복제")
@@ -1745,6 +2110,11 @@ class DataTabWidget(QWidget):
         self.clear_button.clicked.connect(self.on_clear_data)
         button_layout.addWidget(self.clear_button)
         
+        # 비교 버튼
+        self.compare_button = QPushButton("비교")
+        self.compare_button.clicked.connect(self.on_compare_data)
+        button_layout.addWidget(self.compare_button)
+        
         button_layout.addStretch()
         
         # 선택된 항목 처리 버튼
@@ -1755,6 +2125,23 @@ class DataTabWidget(QWidget):
         layout.addLayout(button_layout)
         
         # 초기 데이터 업데이트
+        self.update_table()
+    
+    def setup_comparison_table(self):
+        """비교 결과용 3열 테이블 설정"""
+        self.is_comparison_table = True
+        
+        # 테이블을 3열로 재구성
+        self.data_table.setColumnCount(3)
+        self.data_table.setHorizontalHeaderLabels(["데이터A", "데이터B", "비교결과"])
+        self.data_table.horizontalHeader().setStretchLastSection(False)
+        
+        # 열 너비 설정
+        self.data_table.setColumnWidth(0, 200)
+        self.data_table.setColumnWidth(1, 200)
+        self.data_table.setColumnWidth(2, 80)
+        
+        # 테이블 업데이트
         self.update_table()
     
     def setup_shortcuts(self):
@@ -1777,6 +2164,13 @@ class DataTabWidget(QWidget):
         
         self.data_redo_shortcut = QShortcut(QKeySequence("Ctrl+Shift+Y"), self)
         self.data_redo_shortcut.activated.connect(self.on_data_redo)
+        
+        # 저장 단축키
+        self.save_shortcut = QShortcut(QKeySequence.StandardKey.Save, self)  # Ctrl+S
+        self.save_shortcut.activated.connect(self.on_save_data_auto)
+        
+        self.save_as_shortcut = QShortcut(QKeySequence.StandardKey.SaveAs, self)  # Ctrl+Shift+S
+        self.save_as_shortcut.activated.connect(self.on_save_data_as)
     
     def on_data_moved(self, from_row, to_row):
         """드래그 앤 드롭으로 데이터 이동"""
@@ -1801,9 +2195,79 @@ class DataTabWidget(QWidget):
             
             main_window = self.get_main_window()
             if main_window:
-                main_window.log(f"항목이 {from_row + 1}번에서 {to_row + 1}번으로 이동되었습니다.")
+                main_window.log_verbose(f"항목이 {from_row + 1}번에서 {to_row + 1}번으로 이동되었습니다.")
         else:
             pass
+    
+    def on_table_item_changed(self, item):
+        """테이블 아이템이 변경되었을 때 호출"""
+        if self.history_update_in_progress:
+            return  # 히스토리 업데이트 중에는 무시
+        
+        row = item.row()
+        column = item.column()
+        
+        if 0 <= row < len(self.data):
+            if self.is_comparison_table:
+                # 비교 테이블인 경우 3열 처리
+                new_text = item.text().strip()
+                
+                # 현재 데이터를 탭으로 분리
+                parts = self.data[row].split('\t')
+                data_a = parts[0] if len(parts) > 0 else ""
+                data_b = parts[1] if len(parts) > 1 else ""
+                comparison = parts[2] if len(parts) > 2 else ""
+                
+                # 변경된 열에 따라 업데이트
+                old_value = ""
+                if column == 0:  # 데이터A 열
+                    old_value = data_a
+                    data_a = new_text
+                elif column == 1:  # 데이터B 열
+                    old_value = data_b
+                    data_b = new_text
+                elif column == 2:  # 비교결과 열
+                    old_value = comparison
+                    comparison = new_text
+                
+                # 변경사항이 있는 경우에만 처리
+                if new_text != old_value:
+                    # 데이터 업데이트
+                    self.data[row] = f"{data_a}\t{data_b}\t{comparison}"
+                    
+                    # 비교 결과에 따라 색상 업데이트
+                    if column == 2:  # 비교결과 열인 경우
+                        if comparison == "1":
+                            item.setBackground(QColor(200, 255, 200))  # 연한 초록색
+                        elif comparison == "0":
+                            item.setBackground(QColor(255, 200, 200))  # 연한 빨간색
+                        else:
+                            item.setBackground(QColor(255, 255, 255))  # 흰색
+                    
+                    # 히스토리에 추가
+                    column_names = ["데이터A", "데이터B", "비교결과"]
+                    self.add_to_data_history(f"편집 ({row + 1}번 {column_names[column]}: {old_value} → {new_text})")
+                    
+                    main_window = self.get_main_window()
+                    if main_window:
+                        main_window.log_verbose(f"{row + 1}번 {column_names[column]}이 '{old_value}'에서 '{new_text}'로 변경되었습니다.")
+            else:
+                # 일반 테이블인 경우 도형 코드 열(1번 열)만 처리
+                if column == 1:
+                    new_text = item.text().strip()
+                    old_text = self.data[row]
+                    
+                    # 변경사항이 있는 경우에만 처리
+                    if new_text != old_text:
+                        # 데이터 업데이트
+                        self.data[row] = new_text
+                        
+                        # 히스토리에 추가
+                        self.add_to_data_history(f"편집 ({row + 1}번: {old_text} → {new_text})")
+                        
+                        main_window = self.get_main_window()
+                        if main_window:
+                            main_window.log_verbose(f"{row + 1}번 항목이 '{old_text}'에서 '{new_text}'로 변경되었습니다.")
     
     def on_paste_from_clipboard(self):
         """클립보드에서 데이터 붙여넣기"""
@@ -1848,7 +2312,7 @@ class DataTabWidget(QWidget):
         
         main_window = self.get_main_window()
         if main_window:
-            main_window.log(f"{len(valid_lines)}개 항목이 {insert_position + 1}번 위치에 추가되었습니다.")
+            main_window.log_verbose(f"{len(valid_lines)}개 항목이 {insert_position + 1}번 위치에 추가되었습니다.")
     
     def update_table(self):
         """테이블 업데이트"""
@@ -1859,29 +2323,63 @@ class DataTabWidget(QWidget):
         
         self.data_table.setRowCount(len(self.data))
         
-        for i, shape_code in enumerate(self.data):
-            # 번호 열
-            number_item = QTableWidgetItem(str(i + 1))
-            number_item.setFlags(number_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.data_table.setItem(i, 0, number_item)
-            
-            # 도형 코드 열
-            code_item = QTableWidgetItem(shape_code)
-            self.data_table.setItem(i, 1, code_item)
+        if self.is_comparison_table:
+            # 비교 테이블인 경우 3열로 표시
+            for i, data_line in enumerate(self.data):
+                # 탭 구분자로 분리
+                parts = data_line.split('\t')
+                data_a = parts[0] if len(parts) > 0 else ""
+                data_b = parts[1] if len(parts) > 1 else ""
+                comparison = parts[2] if len(parts) > 2 else ""
+                
+                # 데이터A 열
+                data_a_item = QTableWidgetItem(data_a)
+                self.data_table.setItem(i, 0, data_a_item)
+                
+                # 데이터B 열
+                data_b_item = QTableWidgetItem(data_b)
+                self.data_table.setItem(i, 1, data_b_item)
+                
+                # 비교결과 열
+                comparison_item = QTableWidgetItem(comparison)
+                # 비교 결과에 따라 색상 설정
+                if comparison == "1":
+                    comparison_item.setBackground(QColor(200, 255, 200))  # 연한 초록색
+                elif comparison == "0":
+                    comparison_item.setBackground(QColor(255, 200, 200))  # 연한 빨간색
+                self.data_table.setItem(i, 2, comparison_item)
+                
+                # 이전에 선택된 행이었으면 다시 선택
+                if i in selected_rows:
+                    self.data_table.item(i, 0).setSelected(True)
+                    self.data_table.item(i, 1).setSelected(True)
+                    self.data_table.item(i, 2).setSelected(True)
+        else:
+            # 일반 테이블인 경우 2열로 표시
+            for i, shape_code in enumerate(self.data):
+                # 번호 열
+                number_item = QTableWidgetItem(str(i + 1))
+                number_item.setFlags(number_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.data_table.setItem(i, 0, number_item)
+                
+                # 도형 코드 열
+                code_item = QTableWidgetItem(shape_code)
+                self.data_table.setItem(i, 1, code_item)
 
-            # 이전에 선택된 행이었으면 다시 선택
-            if i in selected_rows:
-                self.data_table.item(i, 0).setSelected(True)
-                self.data_table.item(i, 1).setSelected(True)
-        
-        # 첫 번째 열 너비 조정
-        self.data_table.setColumnWidth(0, 60)
+                                # 이전에 선택된 행이었으면 다시 선택
+                if i in selected_rows:
+                    self.data_table.item(i, 0).setSelected(True)
+                    self.data_table.item(i, 1).setSelected(True)
+            
+            # 첫 번째 열 너비 조정
+            self.data_table.setColumnWidth(0, 60)
         
         # 버튼 상태 업데이트
         has_data = len(self.data) > 0
         self.clear_button.setEnabled(has_data)
         self.process_button.setEnabled(has_data)
         self.save_button.setEnabled(has_data)
+        self.save_as_button.setEnabled(has_data)
         self.clone_button.setEnabled(has_data)
         
         # 데이터 히스토리 버튼 상태 업데이트
@@ -1938,7 +2436,12 @@ class DataTabWidget(QWidget):
             selected_codes = []
             for row in sorted(selected_rows):
                 if row < len(self.data):
-                    selected_codes.append(self.data[row])
+                    if self.is_comparison_table:
+                        # 비교 테이블인 경우 이미 탭으로 구분된 데이터 사용
+                        selected_codes.append(self.data[row])
+                    else:
+                        # 일반 테이블인 경우 기존 방식
+                        selected_codes.append(self.data[row])
             
             if selected_codes:
                 clipboard_text = '\n'.join(selected_codes)
@@ -1947,7 +2450,7 @@ class DataTabWidget(QWidget):
                     app.clipboard().setText(clipboard_text)
                     main_window = self.get_main_window()
                     if main_window:
-                        main_window.log(f"{len(selected_codes)}개 항목이 클립보드에 복사되었습니다.")
+                        main_window.log_verbose(f"{len(selected_codes)}개 항목이 클립보드에 복사되었습니다.")
     
     def on_delete_selected(self):
         """선택된 항목들을 삭제"""
@@ -1977,7 +2480,7 @@ class DataTabWidget(QWidget):
             
             main_window = self.get_main_window()
             if main_window:
-                main_window.log(f"{len(selected_rows)}개 항목이 삭제되었습니다.")
+                main_window.log_verbose(f"{len(selected_rows)}개 항목이 삭제되었습니다.")
     
     def get_main_window(self):
         """메인 윈도우 참조 가져오기"""
@@ -1988,15 +2491,47 @@ class DataTabWidget(QWidget):
             widget = widget.parent()
         return None
     
-    def on_save_data(self):
-        """데이터를 파일로 저장"""
+    def on_save_data_auto(self):
+        """현재 탭을 data/{탭제목}.txt에 자동 저장 (덮어쓰기)"""
+        if not self.data:
+            QMessageBox.information(self, "알림", "저장할 데이터가 없습니다.")
+            return
+        
+        import os
+        
+        # data 폴더가 없으면 생성
+        data_dir = "data"
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+        
+        # 파일명에서 특수문자 제거
+        safe_filename = "".join(c for c in self.tab_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        file_path = os.path.join(data_dir, f"{safe_filename}.txt")
+        
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                for shape_code in self.data:
+                    f.write(f"{shape_code}\n")
+            
+            main_window = self.get_main_window()
+            if main_window:
+                main_window.log(f"데이터 저장 완료: {file_path}")
+                
+            # 간단한 알림 (선택사항)
+            QMessageBox.information(self, "완료", f"데이터가 저장되었습니다:\n{file_path}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "오류", f"저장 중 오류 발생:\n{str(e)}")
+    
+    def on_save_data_as(self):
+        """데이터를 다른 이름으로 저장"""
         if not self.data:
             QMessageBox.information(self, "알림", "저장할 데이터가 없습니다.")
             return
         
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "데이터 저장",
+            "다른 이름으로 저장",
             f"data/{self.tab_name}.txt",
             "텍스트 파일 (*.txt);;모든 파일 (*.*)"
         )
@@ -2009,7 +2544,7 @@ class DataTabWidget(QWidget):
                 QMessageBox.information(self, "완료", f"데이터가 저장되었습니다:\n{file_path}")
                 main_window = self.get_main_window()
                 if main_window:
-                    main_window.log(f"데이터 저장 완료: {file_path}")
+                    main_window.log_verbose(f"다른 이름으로 저장 완료: {file_path}")
             except Exception as e:
                 QMessageBox.critical(self, "오류", f"저장 중 오류 발생:\n{str(e)}")
     
@@ -2030,7 +2565,89 @@ class DataTabWidget(QWidget):
             
             main_window = self.get_main_window()
             if main_window:
-                main_window.log(f"탭 '{self.tab_name}' 데이터가 지워졌습니다.")
+                main_window.log_verbose(f"탭 '{self.tab_name}' 데이터가 지워졌습니다.")
+    
+    def on_compare_data(self):
+        """현재 탭과 다음 탭의 데이터를 비교"""
+        main_window = self.get_main_window()
+        if not main_window:
+            return
+        
+        # 현재 탭 인덱스 찾기
+        current_index = -1
+        for i in range(main_window.data_tabs.count()):
+            if main_window.data_tabs.widget(i) == self:
+                current_index = i
+                break
+        
+        if current_index == -1:
+            QMessageBox.warning(self, "오류", "현재 탭을 찾을 수 없습니다.")
+            return
+        
+        # 다음 탭 확인
+        next_index = current_index + 1
+        if next_index >= main_window.data_tabs.count():
+            QMessageBox.information(self, "알림", "비교할 다음 탭이 없습니다.")
+            return
+        
+        next_tab = main_window.data_tabs.widget(next_index)
+        if not next_tab:
+            QMessageBox.warning(self, "오류", "다음 탭을 찾을 수 없습니다.")
+            return
+        
+        # 데이터 비교
+        current_data = self.data
+        next_data = next_tab.data
+        
+        if not current_data and not next_data:
+            QMessageBox.information(self, "알림", "비교할 데이터가 없습니다.")
+            return
+        
+        # 비교 결과 저장
+        comparison_results = []
+        same_count = 0
+        diff_count = 0
+        
+        max_length = max(len(current_data), len(next_data))
+        
+        for i in range(max_length):
+            current_item = current_data[i] if i < len(current_data) else ""
+            next_item = next_data[i] if i < len(next_data) else ""
+            
+            is_same = current_item == next_item
+            comparison_value = "1" if is_same else "0"
+            
+            if is_same:
+                same_count += 1
+            else:
+                diff_count += 1
+            
+            # 결과 데이터 생성 (현재 탭 데이터, 다음 탭 데이터, 비교 결과)
+            comparison_results.append(f"{current_item}\t{next_item}\t{comparison_value}")
+        
+        # 로그 출력
+        main_window.log(f"데이터 비교 완료: 같음 {same_count}개, 다름 {diff_count}개")
+        main_window.log_verbose(f"'{self.tab_name}' 탭과 '{next_tab.tab_name}' 탭 비교 결과:")
+        
+        # 상세 비교 결과 로그 (상세 로그로만 출력)
+        for i, result in enumerate(comparison_results[:10]):  # 처음 10개만 로그로 출력
+            parts = result.split('\t')
+            current_item, next_item, comparison = parts[0], parts[1], parts[2]
+            if comparison == "0":  # 다른 경우만 상세 로그로 출력
+                main_window.log_verbose(f"[{i}] '{current_item}' ≠ '{next_item}'")
+        
+        if len(comparison_results) > 10:
+            main_window.log_verbose(f"... 외 {len(comparison_results) - 10}개")
+        
+        # 새 데이터 탭 생성
+        new_tab_name = f"비교결과_{self.tab_name}_vs_{next_tab.tab_name}"
+        new_tab = main_window.add_data_tab(new_tab_name, comparison_results)
+        
+        # 비교 결과 탭을 3열 구조로 설정
+        if new_tab:
+            new_tab.setup_comparison_table()
+        
+        main_window.log(f"비교 결과가 새 탭 '{new_tab_name}'에 저장되었습니다.")
     
     def on_process_selected(self):
         """선택된 항목 처리 (기존 기능 유지)"""
@@ -2061,7 +2678,7 @@ class DataTabWidget(QWidget):
         
         main_window = self.get_main_window()
         if main_window:
-            main_window.log(f"선택된 {len(selected_codes)}개 항목 처리 완료")
+            main_window.log_verbose(f"선택된 {len(selected_codes)}개 항목 처리 완료")
 
     def on_clone_tab(self):
         """현재 탭을 복제"""
@@ -2076,7 +2693,7 @@ class DataTabWidget(QWidget):
             # 새 탭 추가
             main_window.add_data_tab(clone_tab_name, cloned_data)
             
-            main_window.log(f"탭 '{self.tab_name}'이 '{clone_tab_name}'로 복제되었습니다. ({len(cloned_data)}개 항목)")
+            main_window.log_verbose(f"탭 '{self.tab_name}'이 '{clone_tab_name}'로 복제되었습니다. ({len(cloned_data)}개 항목)")
         else:
             QMessageBox.warning(self, "오류", "메인 윈도우를 찾을 수 없습니다.")
 
@@ -2092,7 +2709,7 @@ class DataTabWidget(QWidget):
             
             main_window = self.get_main_window()
             if main_window:
-                main_window.log(f"데이터 Undo: {operation_name}")
+                main_window.log_verbose(f"데이터 Undo: {operation_name}")
     
     def on_data_redo(self):
         """데이터 Redo"""
@@ -2106,7 +2723,7 @@ class DataTabWidget(QWidget):
             
             main_window = self.get_main_window()
             if main_window:
-                main_window.log(f"데이터 Redo: {operation_name}")
+                main_window.log_verbose(f"데이터 Redo: {operation_name}")
     
     def add_to_data_history(self, operation_name=""):
         """현재 데이터 상태를 히스토리에 추가"""
