@@ -76,7 +76,7 @@ class Shape:
         # 콜론이 없고 5글자 이상인 경우, 색상코드가 없을 때만 각 글자를 콜론으로 구분하여 처리
         if ':' not in code and len(code) >= 5:
             # 색상코드 확인 (u r b g y m c w)
-            color_codes = set('urbgymcw')
+            color_codes = set('urbgymw')
             has_color_code = any(char in color_codes for char in code)
             
             # P와 -로만 구성되고 8글자이며 짝수번째가 전부 -인 경우는 콜론으로 구분하지 않음
@@ -411,7 +411,7 @@ class Shape:
             # 시계방향: TR→BR→BL→TL→TR (0→1→2→3→0)
             # 반시계방향: TR→TL→BL→BR→TR (0→3→2→1→0)
             layer.quadrants = [q[3], q[0], q[1], q[2]] if clockwise else [q[1], q[2], q[3], q[0]]
-        return s.apply_physics()
+        return s #.apply_physics()
     
     @staticmethod
     def stack(bottom: Shape, top: Shape) -> Shape:

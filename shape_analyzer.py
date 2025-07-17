@@ -61,7 +61,8 @@ def check_impossible_patterns(pillars: list[str]) -> bool:
         r'^P*-+c',      # 2-1: 시작이 P*, 그 다음 -+, 그 다음 c
         r'[^P]P.*c',    # 2-2: P가 아닌 문자 다음에 P, 그 다음 임의 문자들, 그 다음 c
         r'c-.*c',       # 2-3: c 다음에 -, 그 다음 임의 문자들, 그 다음 c
-        r'c.-+c'        # 2-4: c 다음에 임의 문자 1개, 그 다음 -+, 그 다음 c
+        r'c.-+c',       # 2-4: c 다음에 임의 문자 1개, 그 다음 -+, 그 다음 c
+        r'^c.*-S-+c',       # 2-5: 시작이 c 그 다음 임의 문자들, 그 다음 -S, 그 다음 -+, 그 다음 c
     ]
     
     for pillar in pillars:
@@ -92,7 +93,8 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
             (r'^P*-+c', "코너 룰1. ^P*-+c"),
             (r'[^P]P.*c', "코너 룰2. [^P]P.*c"),
             (r'c-.*c', "코너 룰3. c-.*c"),
-            (r'c.-+c', "코너 룰4. c.-+c")
+            (r'c.-+c', "코너 룰4. c.-+c"),
+            (r'^c.*-S-+c', "코너 룰5. ^c.*-S-+c")
         ]
         
         for pillar_idx, pillar in enumerate(pillars):

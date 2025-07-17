@@ -536,7 +536,7 @@ class ShapezGUI(QMainWindow):
         self.simplify_btn.clicked.connect(self.on_simplify)
         data_process_layout.addWidget(self.simplify_btn, 0, 0)
         
-        self.detail_btn = QPushButton("세부화")
+        self.detail_btn = QPushButton("구체화")
         self.detail_btn.clicked.connect(self.on_detail)
         data_process_layout.addWidget(self.detail_btn, 0, 1)
         
@@ -1572,30 +1572,20 @@ class ShapezGUI(QMainWindow):
         self.process_data_operation("단순화", simplify_shape)
     
     def on_detail(self):
-        """세부화 버튼 클릭 시 호출 - SSSP를 CuCuCuP-로 세부화 (from_string 논리와 동일)"""
+        """구체화 버튼 클릭 시 호출 - SSSP를 CuCuCuP-로 구체화 (from_string 논리와 동일)"""
         def detail_shape(shape_code: str) -> str:
             try:
-                # from_string의 expand_short_code 로직을 사용
-                if ':' not in shape_code and len(shape_code) >= 5:
-                    # 색상코드 확인
-                    color_codes = set('urbgymcw')
-                    has_color_code = any(char in color_codes for char in shape_code)
-                    
-                    # P와 -로만 구성되고 8글자이며 짝수번째가 전부 -인 경우는 콜론으로 구분하지 않음
-                    is_p_dash_pattern = (len(shape_code) == 8 and 
-                                       set(shape_code) <= {'P', '-'} and 
-                                       all(shape_code[i] == '-' for i in range(1, 8, 2)))
-                    
-                    if not has_color_code and not is_p_dash_pattern:
-                        shape_code = ':'.join(shape_code)
-                
                 # Shape 객체로 변환 후 다시 문자열로 변환 (정규화)
                 shape = Shape.from_string(shape_code)
+                # 모든 레이어의 2사분면(인덱스 1)에 Cu 추가
+                for layer in shape.layers:
+                    if layer.quadrants[1] is None:
+                        layer.quadrants[1] = Quadrant('C', 'u')
                 return repr(shape)
             except Exception as e:
-                raise Exception(f"세부화 실패: {str(e)}")
+                raise Exception(f"구체화 실패: {str(e)}")
         
-        self.process_data_operation("세부화", detail_shape)
+        self.process_data_operation("구체화", detail_shape)
     
     def on_corner_3q(self):
         """3사분면 코너 버튼 클릭 시 호출 - 3사분면만 가져와서 한줄로 단순화"""
@@ -1870,7 +1860,7 @@ class ShapezGUI(QMainWindow):
         
         # 데이터 처리 버튼들을 대량처리용으로 연결
         self.simplify_btn.setText("단순화 (∀)")
-        self.detail_btn.setText("세부화 (∀)")
+        self.detail_btn.setText("구체화 (∀)")
         self.corner_3q_btn.setText("3사분면 코너 (∀)")
         self.remove_impossible_btn.setText("불가능 제거 (∀)")
         self.reverse_btn.setText("역순 (∀)")
@@ -1928,7 +1918,7 @@ class ShapezGUI(QMainWindow):
         
         # 데이터 처리 버튼들 텍스트 복원
         self.simplify_btn.setText("단순화")
-        self.detail_btn.setText("세부화")
+        self.detail_btn.setText("구체화")
         self.corner_3q_btn.setText("3사분면 코너")
         self.remove_impossible_btn.setText("불가능 제거")
         self.reverse_btn.setText("역순")
@@ -2185,10 +2175,10 @@ class DataTabWidget(QWidget):
         self.delete_shortcut.activated.connect(self.on_delete_selected)
         
         # 데이터 히스토리 단축키
-        self.data_undo_shortcut = QShortcut(QKeySequence("Ctrl+Shift+Z"), self)
+        self.data_undo_shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
         self.data_undo_shortcut.activated.connect(self.on_data_undo)
         
-        self.data_redo_shortcut = QShortcut(QKeySequence("Ctrl+Shift+Y"), self)
+        self.data_redo_shortcut = QShortcut(QKeySequence("Ctrl+Y"), self)
         self.data_redo_shortcut.activated.connect(self.on_data_redo)
         
         # 저장 단축키

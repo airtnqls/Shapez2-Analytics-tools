@@ -252,29 +252,30 @@ def build_pinable_shape(s):
         results.append(f"{dChar}{cChar}{aChar}{bChar}")
     return ':'.join(results)
 
-# example.txt에서 줄 읽기
-with open("data/example.txt", "r", encoding="utf-8") as f:
-    lines = [line.strip() for line in f if line.strip()]
+if __name__ == "__main__":
+    # example.txt에서 줄 읽기
+    with open("data/example.txt", "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
 
-print(f"읽어온 줄 수: {len(lines)}")
+    print(f"읽어온 줄 수: {len(lines)}")
 
-# 각 줄에 대해 build_shape 실행 및 결과 저장
-output_lines = []
-for i, line in enumerate(lines):
-    if line[0] == 'P':
-        result = build_pinable_shape(line)
-    elif line[0] == 'c':
-        result = build_cutable_shape(line)
-    else:
-        result = build_cutable_shape(line)
-    output_lines.append(result)
-    print(f"처리 중 ({i+1}/{len(lines)}): {line} -> {result}")
+    # 각 줄에 대해 build_shape 실행 및 결과 저장
+    output_lines = []
+    for i, line in enumerate(lines):
+        if line[0] == 'P':
+            result = build_pinable_shape(line)
+        elif line[0] == 'c':
+            result = build_cutable_shape(line)
+        else:
+            result = build_cutable_shape(line)
+        output_lines.append(result)
+        print(f"처리 중 ({i+1}/{len(lines)}): {line} -> {result}")
 
-print(f"생성된 결과 수: {len(output_lines)}")
+    print(f"생성된 결과 수: {len(output_lines)}")
 
-# 결과를 텍스트 파일로 저장
-with open("data/derived_combinations_len6.txt", "w", encoding="utf-8") as f:
-    for out in output_lines:
-        f.write(out + "\n")
+    # 결과를 텍스트 파일로 저장
+    with open("data/derived_combinations_len6.txt", "w", encoding="utf-8") as f:
+        for out in output_lines:
+            f.write(out + "\n")
 
-print(f"파일에 저장된 결과 수: {len(output_lines)}")
+    print(f"파일에 저장된 결과 수: {len(output_lines)}")

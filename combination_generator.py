@@ -5,11 +5,12 @@ from typing import List
 def check_single_string_patterns(string: str) -> bool:
     """단일 문자열에 대한 불가능한 패턴들을 검사"""
     patterns = [
+        r'-P',           # 추가: -P 패턴도 불가능
         r'^P*-+c',      # 2-1: 시작이 P*, 그 다음 -+, 그 다음 c
         r'[^P]P.*c',    # 2-2: P가 아닌 문자 다음에 P, 그 다음 임의 문자들, 그 다음 c
         r'c-.*c',       # 2-3: c 다음에 -, 그 다음 임의 문자들, 그 다음 c
         r'c.-+c',       # 2-4: c 다음에 임의 문자 1개, 그 다음 -+, 그 다음 c
-        r'-P'           # 추가: -P 패턴도 불가능
+        r'^S*-?S*c.*-S-+c',       # 2-5: 복잡한 패턴
     ]
     
     for pattern in patterns:
