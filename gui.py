@@ -9,10 +9,11 @@ from PyQt6.QtWidgets import (
     QLineEdit, QLabel, QFrame, QGridLayout, QTextEdit, QComboBox, QScrollArea,
     QGroupBox, QListWidget, QListWidgetItem, QProgressDialog, QCheckBox,
     QTabWidget, QMainWindow, QProgressBar, QSizePolicy, QFileDialog, QTableWidget,
-    QTableWidgetItem, QHeaderView, QMessageBox, QMenu, QTabBar, QGraphicsDropShadowEffect
+    QTableWidgetItem, QHeaderView, QMessageBox, QMenu, QTabBar, QGraphicsDropShadowEffect,
+    QGraphicsScene, QGraphicsView, QGraphicsWidget, QGraphicsProxyWidget
 )
-from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer
+from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF
 import numpy as np
 
 # pyqtgraph 임포트
@@ -24,6 +25,7 @@ except ImportError:
 
 # shape.py에서 백엔드 클래스를 임포트합니다.
 from shape import Quadrant, Shape, ReverseTracer, InterruptedError
+from process_tree_solver import process_tree_solver, ProcessNode
 
 # ==============================================================================
 #  GUI 프론트엔드
@@ -676,6 +678,48 @@ class ShapezGUI(QMainWindow):
         self.selected_file_path = None
         
         right_tabs.addTab(batch_tab_widget, "대량처리")
+        
+        # 공정트리 탭 추가
+        process_tree_tab_widget = QWidget()
+        process_tree_layout = QVBoxLayout(process_tree_tab_widget)
+        
+        # 입력 그룹
+        tree_input_group = QGroupBox("공정 트리 분석")
+        tree_input_layout = QVBoxLayout(tree_input_group)
+        
+        # 설명 라벨
+        description_label = QLabel("입력 A의 도형을 만들기까지의 공정을 트리 형태로 시각화합니다.")
+        description_label.setStyleSheet("color: #666; font-style: italic; margin-bottom: 10px;")
+        tree_input_layout.addWidget(description_label)
+        
+        # 분석 버튼
+        analyze_button = QPushButton("공정 트리 생성")
+        analyze_button.clicked.connect(self.on_generate_process_tree)
+        tree_input_layout.addWidget(analyze_button)
+        
+        process_tree_layout.addWidget(tree_input_group)
+        
+        # 트리 표시 영역
+        tree_display_group = QGroupBox("공정 트리")
+        tree_display_layout = QVBoxLayout(tree_display_group)
+        
+        # 스크롤 영역을 QGraphicsView로 변경
+        self.tree_graphics_view = QGraphicsView()
+        self.tree_graphics_view.setMinimumHeight(400)
+        self.tree_graphics_view.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        self.tree_graphics_view.setRenderHint(self.tree_graphics_view.renderHints())
+        
+        # QGraphicsScene for tree visualization  
+        self.tree_scene = QGraphicsScene()
+        self.tree_graphics_view.setScene(self.tree_scene)
+        
+        tree_display_layout.addWidget(self.tree_graphics_view)
+        process_tree_layout.addWidget(tree_display_group)
+        
+        right_tabs.addTab(process_tree_tab_widget, "공정트리")
+        
+        # 공정트리 초기화 - 빈 메시지 표시
+        self._clear_process_tree()
         
         # 탭 변경 이벤트 연결
         right_tabs.currentChanged.connect(self.on_main_tab_changed)
@@ -1860,10 +1904,582 @@ class ShapezGUI(QMainWindow):
         
         if tab_name == "대량처리":
             self.switch_to_batch_mode()
+        elif tab_name == "공정트리":
+            # 공정트리 탭으로 전환시 특별한 처리 없음
+            pass
         else:
             self.switch_to_single_mode()
         
         # self.log(f"메인 탭이 {tab_name}로 변경되었습니다.")
+    
+    def on_generate_process_tree(self):
+        """공정 트리 생성 버튼 클릭 시 호출 (최적화)"""
+        try:
+            # 입력 A에서 도형 코드 가져오기
+            input_shape_code = self.input_a.text().strip()
+            if not input_shape_code:
+                self.log("입력 A에 도형 코드를 입력해주세요.")
+                return
+            
+            self.log(f"공정 트리 생성: {input_shape_code}")
+            
+            # 공정 트리 계산 (최적화)
+            root_node = process_tree_solver.solve_process_tree(input_shape_code)
+            
+            if root_node is None:
+                self.log("유효하지 않은 도형입니다.")
+                # 빈 scene만 표시
+                self.tree_scene.clear()
+                text_item = self.tree_scene.addText("유효하지 않은 도형입니다.")
+                text_item.setPos(-100, 50)
+                text_item.setDefaultTextColor(QColor(200, 50, 50))
+                return
+            
+            # 트리 시각화 (최적화된 버전)
+            self._display_process_tree(root_node)
+            self.log("완료")
+            
+        except Exception as e:
+            self.log(f"트리 생성 오류: {str(e)[:50]}...")  # 오류 메시지 축약
+            # 오류 메시지 표시
+            self.tree_scene.clear()
+            text_item = self.tree_scene.addText("트리 생성 중 오류가 발생했습니다.")
+            text_item.setPos(-150, 50)
+            text_item.setDefaultTextColor(QColor(200, 50, 50))
+    
+    def _display_process_tree(self, root_node: ProcessNode):
+        """유동적 크기 기반 트리 시각화"""
+        # scene 완전 초기화
+        self.tree_scene.clear()
+        
+        # 1단계: 노드 위젯들을 생성하고 임시 위치에 배치하여 실제 크기 측정
+        node_widgets = {}
+        node_sizes = {}
+        
+        levels = process_tree_solver.get_tree_levels(root_node)
+        for level_nodes in levels:
+            for node in level_nodes:
+                widget = self._create_process_node_widget(node)
+                proxy = self.tree_scene.addWidget(widget)
+                proxy.setPos(0, 0)  # 임시 위치
+                
+                # 위젯 크기 측정을 위해 강제 업데이트
+                widget.adjustSize()
+                size = widget.size()
+                
+                node_widgets[node] = proxy
+                node_sizes[node] = (size.width(), size.height())
+        
+        # 2단계: 실제 크기를 바탕으로 유동적 위치 계산
+        node_positions = self._calculate_flexible_positions(root_node, node_sizes)
+        
+        # 3단계: 계산된 위치로 노드들 재배치
+        for node, (x, y) in node_positions.items():
+            if node in node_widgets:
+                node_widgets[node].setPos(x, y)
+        
+        # 4단계: 실제 노드 크기 기반으로 화살표 그리기
+        self._draw_flexible_arrows(root_node, node_positions, node_sizes)
+        
+        # scene 크기 최적화
+        self.tree_scene.setSceneRect(self.tree_scene.itemsBoundingRect().adjusted(-30, -30, 30, 30))
+    
+    def _calculate_tree_positions_optimized(self, root_node: ProcessNode):
+        """동적 위치 계산으로 자연스러운 트리 구조 구현"""
+        positions = {}
+        levels = process_tree_solver.get_tree_levels(root_node)
+        
+        node_width = 160   # 가로 간격 더 증가 (겹침 완전 방지)
+        node_height = 140  # 세로 간격 더 증가 (세로 겹침 방지)
+        
+        # 하위 레벨부터 상위 레벨로 역순 계산 (bottom-up)
+        for level_idx in reversed(range(len(levels))):
+            level_nodes = levels[level_idx]
+            y = level_idx * node_height
+            
+            if level_idx == len(levels) - 1:
+                # 최하위 레벨 (기본 원료들): 균등 분산 배치
+                if len(level_nodes) == 1:
+                    positions[level_nodes[0]] = (0, y)
+                else:
+                    total_width = (len(level_nodes) - 1) * node_width
+                    start_x = -total_width / 2
+                    for node_idx, node in enumerate(level_nodes):
+                        x = start_x + node_idx * node_width
+                        positions[node] = (x, y)
+            else:
+                # 상위 레벨: 자식 노드들의 중앙에 배치
+                for node in level_nodes:
+                    if node.inputs:
+                        # 자식 노드들의 x 좌표 평균 계산
+                        child_x_positions = [positions[child][0] for child in node.inputs if child in positions]
+                        if child_x_positions:
+                            avg_x = sum(child_x_positions) / len(child_x_positions)
+                            positions[node] = (avg_x, y)
+                        else:
+                            positions[node] = (0, y)
+                    else:
+                        positions[node] = (0, y)
+                
+                # 같은 레벨의 노드들이 겹치지 않도록 조정
+                self._adjust_same_level_positions(level_nodes, positions, node_width)
+        
+        return positions
+    
+    def _adjust_same_level_positions(self, level_nodes, positions, min_spacing):
+        """같은 레벨 노드들의 겹침 방지"""
+        if len(level_nodes) <= 1:
+            return
+            
+        # x 좌표로 정렬
+        sorted_nodes = sorted(level_nodes, key=lambda n: positions[n][0])
+        
+        # 겹침 해결
+        for i in range(1, len(sorted_nodes)):
+            current_node = sorted_nodes[i]
+            prev_node = sorted_nodes[i-1]
+            
+            current_x, current_y = positions[current_node]
+            prev_x, prev_y = positions[prev_node]
+            
+            # 최소 간격보다 가까우면 조정
+            if current_x - prev_x < min_spacing:
+                new_x = prev_x + min_spacing
+                positions[current_node] = (new_x, current_y)
+    
+    def _calculate_tree_positions(self, root_node: ProcessNode):
+        """기존 호환성을 위한 래퍼 함수"""
+        return self._calculate_tree_positions_optimized(root_node)
+    
+    def _calculate_flexible_positions(self, root_node: ProcessNode, node_sizes):
+        """간단하고 확실한 겹침 방지 위치 계산 (동적 세로 간격)"""
+        positions = {}
+        levels = process_tree_solver.get_tree_levels(root_node)
+        
+        # 간격 설정
+        horizontal_gap = 40   # 가로 간격 
+        base_vertical_gap = 30  # 기본 세로 간격
+        
+        # 각 레벨의 최대 높이를 계산하여 동적 Y 좌표 결정
+        level_y_positions = self._calculate_dynamic_level_heights(levels, node_sizes, base_vertical_gap)
+        
+        # 각 레벨을 독립적으로 처리 (bottom-up)
+        for level_idx in reversed(range(len(levels))):
+            level_nodes = levels[level_idx]
+            base_y = level_y_positions[level_idx]
+            
+            if level_idx == len(levels) - 1:
+                # 최하위 레벨: 단순 가로 배치
+                self._layout_nodes_horizontally(level_nodes, node_sizes, positions, base_y, horizontal_gap)
+            else:
+                # 상위 레벨: 자식들 기준으로 배치하되 겹침 완전 방지
+                self._layout_parent_nodes(level_nodes, node_sizes, positions, base_y, horizontal_gap)
+        
+        return positions
+    
+    def _calculate_dynamic_level_heights(self, levels, node_sizes, base_gap):
+        """각 레벨의 최대 노드 높이를 고려하여 동적으로 Y 좌표 계산"""
+        level_y_positions = {}
+        
+        # 위 레벨부터 아래로 내려가면서 Y 좌표 계산
+        for level_idx in range(len(levels)):
+            level_nodes = levels[level_idx]
+            
+            if level_idx == 0:
+                # 최상위 레벨은 Y=0에서 시작
+                level_y_positions[level_idx] = 0
+            else:
+                # 현재 레벨보다 위 레벨의 최대 높이 구하기
+                upper_level_idx = level_idx - 1
+                upper_level_nodes = levels[upper_level_idx]
+                
+                # 위 레벨에서 가장 높은 노드의 높이 찾기
+                max_height_above = 0
+                for node in upper_level_nodes:
+                    if node in node_sizes:
+                        _, height = node_sizes[node]
+                        max_height_above = max(max_height_above, height)
+                
+                # 현재 레벨의 Y 좌표 = 위 레벨 Y + (위 레벨 최대 높이 + 간격)
+                current_y = level_y_positions[upper_level_idx] + max_height_above + base_gap
+                level_y_positions[level_idx] = current_y
+        
+        return level_y_positions
+    
+    def _layout_nodes_horizontally(self, nodes, node_sizes, positions, y, gap):
+        """노드들을 가로로 배치 (겹침 절대 없음)"""
+        if not nodes:
+            return
+            
+        # 전체 폭 계산
+        total_width = sum(node_sizes[node][0] for node in nodes) + gap * (len(nodes) - 1)
+        start_x = -total_width / 2
+        
+        current_x = start_x
+        for node in nodes:
+            width, height = node_sizes[node]
+            positions[node] = (current_x, y)
+            current_x += width + gap
+    
+    def _layout_parent_nodes(self, nodes, node_sizes, positions, base_y, gap):
+        """부모 노드들을 자식들 기준으로 배치하되 겹침 방지"""
+        if not nodes:
+            return
+            
+        # 1단계: 이상적인 위치 계산 (자식들의 중앙)
+        ideal_positions = []
+        for node in nodes:
+            if node.inputs:
+                child_centers = []
+                for child in node.inputs:
+                    if child in positions:
+                        child_x, child_y = positions[child]
+                        child_width, child_height = node_sizes[child]
+                        child_center_x = child_x + child_width / 2
+                        child_centers.append(child_center_x)
+                
+                if child_centers:
+                    avg_center_x = sum(child_centers) / len(child_centers)
+                    node_width = node_sizes[node][0]
+                    ideal_x = avg_center_x - node_width / 2
+                    ideal_positions.append((node, ideal_x))
+                else:
+                    ideal_positions.append((node, 0))
+            else:
+                ideal_positions.append((node, 0))
+        
+        # 2단계: x 좌표로 정렬
+        ideal_positions.sort(key=lambda x: x[1])
+        
+        # 3단계: 겹침 해결하면서 실제 위치 배정
+        actual_positions = []
+        for i, (node, ideal_x) in enumerate(ideal_positions):
+            node_width = node_sizes[node][0]
+            
+            if i == 0:
+                # 첫 번째 노드는 이상적 위치 그대로
+                actual_x = ideal_x
+            else:
+                # 이전 노드와 겹치지 않도록 조정
+                prev_node, prev_x = actual_positions[-1]
+                prev_width = node_sizes[prev_node][0]
+                min_x = prev_x + prev_width + gap
+                
+                # 이상적 위치와 최소 위치 중 더 큰 값 선택
+                actual_x = max(ideal_x, min_x)
+            
+            actual_positions.append((node, actual_x))
+            positions[node] = (actual_x, base_y)
+    
+
+    
+    def _draw_flexible_arrows(self, root_node: ProcessNode, positions, node_sizes):
+        """실제 노드 크기 기반 화살표 그리기"""
+        import math
+        
+        def draw_connections_recursive(node):
+            if not node.inputs:
+                return
+                
+            parent_pos = positions[node]
+            parent_width, parent_height = node_sizes[node]
+            
+            for child_node in node.inputs:
+                if child_node not in positions:
+                    continue
+                    
+                child_pos = positions[child_node]
+                child_width, child_height = node_sizes[child_node]
+                
+                # 연결점 계산 (실제 노드 크기 기반)
+                parent_center_x = parent_pos[0] + parent_width / 2
+                parent_bottom_y = parent_pos[1] + parent_height
+                
+                child_center_x = child_pos[0] + child_width / 2
+                child_top_y = child_pos[1]
+                
+                # 화살표 여백
+                arrow_margin = 8
+                
+                # 연결선 시작점과 끝점
+                x1, y1 = parent_center_x, parent_bottom_y
+                x2, y2 = child_center_x, child_top_y - arrow_margin
+                
+                # 연결선 그리기
+                pen = QPen(QColor(100, 100, 100), 2)
+                line = self.tree_scene.addLine(x1, y1, x2, y2, pen)
+                
+                # 화살표 그리기
+                self._draw_arrow_head(x1, y1, x2, y2)
+                
+                # 재귀 호출
+                draw_connections_recursive(child_node)
+        
+        draw_connections_recursive(root_node)
+    
+    def _draw_arrow_head(self, x1, y1, x2, y2):
+        """화살표 머리 그리기"""
+        import math
+        
+        dx = x2 - x1
+        dy = y2 - y1
+        
+        if dx == 0 and dy == 0:
+            return
+            
+        length = math.sqrt(dx*dx + dy*dy)
+        if length == 0:
+            return
+            
+        unit_x = dx / length
+        unit_y = dy / length
+        
+        arrow_length = 10
+        arrow_angle = math.pi / 4  # 45도
+        
+        # 화살표 꼭짓점 계산
+        arrow_x1 = x2 - arrow_length * (unit_x * math.cos(arrow_angle) - unit_y * math.sin(arrow_angle))
+        arrow_y1 = y2 - arrow_length * (unit_y * math.cos(arrow_angle) + unit_x * math.sin(arrow_angle))
+        arrow_x2 = x2 - arrow_length * (unit_x * math.cos(arrow_angle) + unit_y * math.sin(arrow_angle))
+        arrow_y2 = y2 - arrow_length * (unit_y * math.cos(arrow_angle) - unit_x * math.sin(arrow_angle))
+        
+        # 화살표 삼각형
+        arrow_polygon = QPolygonF([
+            QPointF(x2, y2),
+            QPointF(arrow_x1, arrow_y1),
+            QPointF(arrow_x2, arrow_y2)
+        ])
+        
+        arrow_pen = QPen(QColor(80, 80, 80), 1)
+        arrow_brush = QColor(80, 80, 80)
+        self.tree_scene.addPolygon(arrow_polygon, arrow_pen, arrow_brush)
+    
+    def _draw_tree_connections_with_arrows(self, root_node: ProcessNode, positions):
+        """정확한 화살표 연결선 그리기 (노드 경계 고려)"""
+        import math
+        
+        # 노드 크기 상수 (실제 위젯 크기 추정)
+        NODE_WIDTH = 120
+        NODE_HEIGHT = 70
+        
+        def draw_connections_recursive(node):
+            if not node.inputs:
+                return
+                
+            parent_pos = positions[node]
+            for child_node in node.inputs:
+                child_pos = positions[child_node]
+                
+                # 연결선 좌표 계산 (노드 경계 기준)
+                parent_center_x = parent_pos[0] + NODE_WIDTH / 2
+                parent_bottom_y = parent_pos[1] + NODE_HEIGHT
+                
+                child_center_x = child_pos[0] + NODE_WIDTH / 2  
+                child_top_y = child_pos[1]
+                
+                # 연결선 시작점과 끝점
+                x1, y1 = parent_center_x, parent_bottom_y
+                x2, y2 = child_center_x, child_top_y
+                
+                # 화살표 머리가 노드 경계에 닿지 않도록 끝점 조정
+                arrow_margin = 8  # 화살표와 노드 사이 여백
+                dx = x2 - x1
+                dy = y2 - y1
+                
+                if dy != 0:  # 세로 방향이 있을 때만 조정
+                    length = math.sqrt(dx*dx + dy*dy)
+                    if length > 0:
+                        unit_x = dx / length
+                        unit_y = dy / length
+                        
+                        # 끝점을 노드 경계에서 여백만큼 떨어뜨림
+                        x2_adj = x2 - unit_x * arrow_margin
+                        y2_adj = y2 - unit_y * arrow_margin
+                    else:
+                        x2_adj, y2_adj = x2, y2
+                else:
+                    x2_adj, y2_adj = x2, y2 - arrow_margin
+                
+                # 연결선 그리기 (조정된 끝점까지)
+                pen = QPen(QColor(100, 100, 100), 2)
+                line = self.tree_scene.addLine(x1, y1, x2_adj, y2_adj, pen)
+                
+                # 화살표 머리 그리기 (작고 날렵하게)
+                arrow_length = 10
+                arrow_angle = math.pi / 4  # 45도 (더 날카롭게)
+                
+                # 화살표 방향 재계산
+                dx_arrow = x2_adj - x1
+                dy_arrow = y2_adj - y1
+                
+                if dx_arrow != 0 or dy_arrow != 0:
+                    length_arrow = math.sqrt(dx_arrow*dx_arrow + dy_arrow*dy_arrow)
+                    unit_x_arrow = dx_arrow / length_arrow
+                    unit_y_arrow = dy_arrow / length_arrow
+                    
+                    # 화살표 꼭짓점 계산
+                    arrow_tip_x, arrow_tip_y = x2_adj, y2_adj
+                    
+                    arrow_x1 = arrow_tip_x - arrow_length * (unit_x_arrow * math.cos(arrow_angle) - unit_y_arrow * math.sin(arrow_angle))
+                    arrow_y1 = arrow_tip_y - arrow_length * (unit_y_arrow * math.cos(arrow_angle) + unit_x_arrow * math.sin(arrow_angle))
+                    arrow_x2 = arrow_tip_x - arrow_length * (unit_x_arrow * math.cos(arrow_angle) + unit_y_arrow * math.sin(arrow_angle))
+                    arrow_y2 = arrow_tip_y - arrow_length * (unit_y_arrow * math.cos(arrow_angle) - unit_x_arrow * math.sin(arrow_angle))
+                    
+                    # 화살표 삼각형 그리기
+                    arrow_polygon = QPolygonF([
+                        QPointF(arrow_tip_x, arrow_tip_y),
+                        QPointF(arrow_x1, arrow_y1),
+                        QPointF(arrow_x2, arrow_y2)
+                    ])
+                    
+                    # 화살표 색상과 스타일
+                    arrow_pen = QPen(QColor(80, 80, 80), 1)
+                    arrow_brush = QColor(80, 80, 80)
+                    arrow = self.tree_scene.addPolygon(arrow_polygon, arrow_pen, arrow_brush)
+                
+                # 재귀적으로 자식 노드들의 연결선도 그림
+                draw_connections_recursive(child_node)
+        
+        draw_connections_recursive(root_node)
+    
+    def _draw_tree_connections(self, root_node: ProcessNode, positions):
+        """기존 호환성을 위한 래퍼 함수"""
+        self._draw_tree_connections_with_arrows(root_node, positions)
+    
+    def _create_process_node_widget(self, node: ProcessNode) -> QWidget:
+        """개별 공정 노드 위젯 생성 (자동 크기 조정으로 도형이 잘 보이게, border 1줄, 툴팁/클립보드 지원)"""
+        from PyQt6.QtWidgets import QApplication
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # 도형 시각화
+        if node.shape_obj:
+            shape_widget = ShapeWidget(node.shape_obj, compact=True)
+            shape_widget.setStyleSheet("background-color: white; border: 1px solid #999; border-radius: 4px; padding: 4px;")
+            shape_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+            layout.addWidget(shape_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        else:
+            error_widget = QLabel("?")
+            error_widget.setStyleSheet("color: red; font-size: 24px; border: 1px solid #999; border-radius: 4px; background-color: white; padding: 15px;")
+            error_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(error_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # 컨테이너도 자동 크기 조정
+        container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+        
+        # 컨테이너 border 제거, 배경만 약간 투명하게
+        container.setStyleSheet("""
+            QWidget {
+                background-color: rgba(255, 255, 255, 240);
+                border: none;
+                border-radius: 6px;
+            }
+        """)
+        
+        # 툴팁 텍스트 구성
+        shape_name = getattr(node.shape_obj, 'name', None) or "(이름 없음)"
+        tooltip = f"공정: {node.operation}\n도형코드: {node.shape_code}"
+        if shape_name:
+            tooltip += f"\n도형명: {shape_name}"
+        container.setToolTip(tooltip)
+        
+        # 클릭 시 도형코드 클립보드 복사 + 안내 메시지
+        def on_click(event):
+            clipboard = QApplication.instance().clipboard()
+            clipboard.setText(node.shape_code)
+            # 안내 메시지 (QToolTip 사용)
+            from PyQt6.QtWidgets import QToolTip
+            QToolTip.showText(event.globalPosition().toPoint(), "도형코드가 복사되었습니다!", container)
+        container.mouseReleaseEvent = on_click
+        
+        return container
+    
+    def _clear_process_tree(self):
+        """공정 트리 표시 영역을 완전히 지우기 (최적화)"""
+        # QGraphicsScene 완전 초기화
+        self.tree_scene.clear()
+        
+        # 복잡한 예시 트리 표시 (초기화 시에만)
+        if not hasattr(self, '_tree_initialized'):
+            self._show_example_tree()
+            self._tree_initialized = True
+    
+    def _show_example_tree(self):
+        """복잡한 구조의 예시 트리를 표시 (데이터 기반 구현)"""
+        try:
+            # 복잡한 4레벨 예시 트리 데이터 정의
+            example_tree_data = {
+                "shape_code": "CuCuCuCu:RrRrRrRr:CcCcCcCc:P-P-P-P-",
+                "operation": "최종목표", 
+                "inputs": [
+                    {
+                        "shape_code": "CuCuCuCu:RrRrRrRr:CcCcCcCc",
+                        "operation": "2차조합",
+                        "inputs": [
+                            {
+                                "shape_code": "CuCuCuCu:RrRrRrRr", 
+                                "operation": "1차가공",
+                                "inputs": [
+                                    {"shape_code": "CuCuCuCu", "operation": "원료", "inputs": []},
+                                    {"shape_code": "RrRrRrRr", "operation": "원료", "inputs": []}
+                                ]
+                            },
+                            {
+                                "shape_code": "CcCcCcCc:SsSsSsSs",
+                                "operation": "1차가공", 
+                                "inputs": [
+                                    {"shape_code": "CcCcCcCc", "operation": "원료", "inputs": []},
+                                    {"shape_code": "SsSsSsSs", "operation": "원료", "inputs": []}
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "shape_code": "P-P-P-P-:Cu------:Rr------",
+                        "operation": "2차조합",
+                        "inputs": [
+                            {
+                                "shape_code": "P-P-P-P-:Cu------",
+                                "operation": "1차가공",
+                                "inputs": [
+                                    {"shape_code": "P-P-P-P-", "operation": "원료", "inputs": []},
+                                    {"shape_code": "Cu------", "operation": "원료", "inputs": []}
+                                ]
+                            },
+                            {
+                                "shape_code": "Rr------:CcCcCcCc", 
+                                "operation": "1차가공",
+                                "inputs": [
+                                    {"shape_code": "Rr------", "operation": "원료", "inputs": []},
+                                    {"shape_code": "CcCcCcCc", "operation": "원료", "inputs": []}  # 재사용
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            
+            # 데이터를 ProcessNode 트리로 변환
+            root_node = process_tree_solver.create_tree_from_data(example_tree_data)
+            
+            # 플렉서블 시스템으로 트리 표시
+            self._display_process_tree(root_node)
+            
+            # 설명 텍스트 추가
+            desc_text = self.tree_scene.addText("복잡한 예시 트리입니다. '공정트리 생성'으로 실제 트리를 생성하세요.", 
+                                              QFont("Arial", 10))
+            desc_text.setPos(-150, -50)
+            desc_text.setDefaultTextColor(QColor(100, 100, 100))
+            
+        except Exception as e:
+            print(f"예시 트리 생성 오류: {e}")
+            import traceback
+            traceback.print_exc()
+    
+
     
     def switch_to_batch_mode(self):
         """대량처리 모드로 전환"""
