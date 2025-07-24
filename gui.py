@@ -9,10 +9,10 @@ from PyQt6.QtWidgets import (
     QLineEdit, QLabel, QFrame, QGridLayout, QTextEdit, QComboBox, QScrollArea,
     QGroupBox, QListWidget, QListWidgetItem, QProgressDialog, QCheckBox,
     QTabWidget, QMainWindow, QProgressBar, QSizePolicy, QFileDialog, QTableWidget,
-    QTableWidgetItem, QHeaderView, QMessageBox, QMenu, QTabBar
+    QTableWidgetItem, QHeaderView, QMessageBox, QMenu, QTabBar, QGraphicsDropShadowEffect
 )
 from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer
 import numpy as np
 
 # pyqtgraph 임포트
@@ -164,7 +164,7 @@ class OriginFinderThread(QThread):
 COLOR_MAP = {'r':'#E33','g':'#3E3','b':'#33E','m':'#E3E','c':'#3EE','y':'#EE3','u':'#BBB','w':'#FFF','C':'#CDD'}
 
 class QuadrantWidget(QLabel):
-    def __init__(self, quadrant: Optional[Quadrant]):
+    def __init__(self, quadrant: Optional[Quadrant], compact=False):
         super().__init__(); self.setFixedSize(30, 30); self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font = QFont("맑은 고딕", 12)
         font.setBold(True)
@@ -186,10 +186,18 @@ class QuadrantWidget(QLabel):
         else: self.setStyleSheet("background-color: #333; border: 1px solid #555;")
 
 class ShapeWidget(QFrame):
-    def __init__(self, shape: Shape):
+    def __init__(self, shape: Shape, compact=False):
         super().__init__(); self.setFrameShape(QFrame.Shape.StyledPanel); layout = QVBoxLayout(self)
-        layout.setSpacing(1); layout.setContentsMargins(3, 3, 3, 3)
-        layout.setAlignment(Qt.AlignmentFlag.AlignBottom)  # 아래 정렬
+        if compact:
+            layout.setSpacing(0)
+            layout.setContentsMargins(2, 2, 2, 2)
+            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 중앙 정렬
+            self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        else:
+            layout.setSpacing(1)
+            layout.setContentsMargins(3, 3, 3, 3)
+            layout.setAlignment(Qt.AlignmentFlag.AlignBottom)  # 아래 정렬
+        self.compact = compact
         
         clean_shape = shape.copy()
         while len(clean_shape.layers) > 0 and clean_shape.layers[-1].is_empty():
@@ -203,37 +211,51 @@ class ShapeWidget(QFrame):
         for i in reversed(range(len(clean_shape.layers))):
             layer = clean_shape.layers[i]
             
-            # 층 번호와 사분면을 가로로 배치하기 위한 컨테이너
-            layer_row = QHBoxLayout()
-            layer_row.setSpacing(2)
-            
-            # 층 번호 라벨 (왼쪽에 표시)
-            layer_label = QLabel(f"<b>{i+1}F</b>")
-            layer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layer_label.setFixedWidth(30)  # 고정 너비 설정
-            layer_row.addWidget(layer_label)
-            
-            # 각 층의 사분면을 담는 박스 컨테이너
-            layer_container = QFrame()
-            layer_container.setFrameShape(QFrame.Shape.NoFrame)
-            layer_container.setLineWidth(0)
-            layer_layout = QVBoxLayout(layer_container)
-            layer_layout.setSpacing(0)
-            layer_layout.setContentsMargins(1, 1, 1, 1)
-            
-            # 1x4 가로 배치로 사분면 배치 (1사분면부터 4사분면까지)
-            quad_layout = QHBoxLayout()
-            quad_layout.setSpacing(0)
-            # 사분면 순서: 1=TR, 2=TL, 3=BR, 4=BL (시계방향)
-            quad_layout.addWidget(QuadrantWidget(layer.quadrants[0]))  # 1사분면 (TR)
-            quad_layout.addWidget(QuadrantWidget(layer.quadrants[1]))  # 2사분면 (BR)
-            quad_layout.addWidget(QuadrantWidget(layer.quadrants[2]))  # 3사분면 (BL)
-            quad_layout.addWidget(QuadrantWidget(layer.quadrants[3]))  # 4사분면 (TL)
-            
-            layer_layout.addLayout(quad_layout)
-            layer_row.addWidget(layer_container)
-            
-            layout.addLayout(layer_row)
+            if self.compact:
+                # 컴팩트 모드: 층 번호 없이 사분면만 표시
+                quad_layout = QHBoxLayout()
+                quad_layout.setSpacing(0)
+                quad_layout.setContentsMargins(0, 0, 0, 0)
+                quad_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                # 사분면 순서: 1=TR, 2=TL, 3=BR, 4=BL (시계방향)
+                quad_layout.addWidget(QuadrantWidget(layer.quadrants[0], compact=True))  # 1사분면 (TR)
+                quad_layout.addWidget(QuadrantWidget(layer.quadrants[1], compact=True))  # 2사분면 (BR)
+                quad_layout.addWidget(QuadrantWidget(layer.quadrants[2], compact=True))  # 3사분면 (BL)
+                quad_layout.addWidget(QuadrantWidget(layer.quadrants[3], compact=True))  # 4사분면 (TL)
+                
+                layout.addLayout(quad_layout, 0)
+            else:
+                # 일반 모드: 층 번호와 사분면 함께 표시
+                layer_row = QHBoxLayout()
+                layer_row.setSpacing(2)
+                
+                # 층 번호 라벨 (왼쪽에 표시)
+                layer_label = QLabel(f"<b>{i+1}F</b>")
+                layer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                layer_label.setFixedWidth(30)  # 고정 너비 설정
+                layer_row.addWidget(layer_label)
+                
+                # 각 층의 사분면을 담는 박스 컨테이너
+                layer_container = QFrame()
+                layer_container.setFrameShape(QFrame.Shape.NoFrame)
+                layer_container.setLineWidth(0)
+                layer_layout = QVBoxLayout(layer_container)
+                layer_layout.setSpacing(0)
+                layer_layout.setContentsMargins(1, 1, 1, 1)
+                
+                # 1x4 가로 배치로 사분면 배치 (1사분면부터 4사분면까지)
+                quad_layout = QHBoxLayout()
+                quad_layout.setSpacing(0)
+                # 사분면 순서: 1=TR, 2=TL, 3=BR, 4=BL (시계방향)
+                quad_layout.addWidget(QuadrantWidget(layer.quadrants[0], compact=False))  # 1사분면 (TR)
+                quad_layout.addWidget(QuadrantWidget(layer.quadrants[1], compact=False))  # 2사분면 (BR)
+                quad_layout.addWidget(QuadrantWidget(layer.quadrants[2], compact=False))  # 3사분면 (BL)
+                quad_layout.addWidget(QuadrantWidget(layer.quadrants[3], compact=False))  # 4사분면 (TL)
+                
+                layer_layout.addLayout(quad_layout)
+                layer_row.addWidget(layer_container)
+                
+                layout.addLayout(layer_row)
 
 class InputHistory:
     """입력 필드의 히스토리를 관리하는 클래스 (A, B 통합)"""
@@ -1287,12 +1309,16 @@ class ShapezGUI(QMainWindow):
     
     def setup_shortcuts(self):
         """키보드 단축키 설정"""
-        # 통합 Undo/Redo 단축키
+        # 통합 Undo/Redo 단축키 (현재 활성화된 탭에 따라 적절한 기능 호출)
         self.shortcut_undo = QShortcut(QKeySequence("Ctrl+Z"), self)
         self.shortcut_undo.activated.connect(self.on_undo)
         
         self.shortcut_redo = QShortcut(QKeySequence("Ctrl+Y"), self)
         self.shortcut_redo.activated.connect(self.on_redo)
+        
+        # 추가 Redo 단축키 (Ctrl+Shift+Z)
+        self.shortcut_redo2 = QShortcut(QKeySequence("Ctrl+Shift+Z"), self)
+        self.shortcut_redo2.activated.connect(self.on_redo)
     
     def setup_enter_key_for_apply(self):
         """엔터키로 적용 버튼 실행"""
@@ -1335,26 +1361,56 @@ class ShapezGUI(QMainWindow):
         self.redo_button.setEnabled(self.input_history.can_redo())
     
     def on_undo(self):
-        """Undo 실행"""
-        entry = self.input_history.undo()
-        if entry is not None:
-            input_a_text, input_b_text = entry
-            self.history_update_in_progress = True
-            self.input_a.setText(input_a_text)
-            self.input_b.setText(input_b_text)
-            self.history_update_in_progress = False
-            self.update_history_buttons()
+        """Undo 실행 - 현재 활성화된 탭에 따라 적절한 기능 호출"""
+        current_main_tab = self.main_tabs.tabText(self.main_tabs.currentIndex())
+        
+        if current_main_tab == "대량처리":
+            # 대량처리 탭이 활성화된 경우, 현재 데이터 탭의 Undo 실행
+            current_data_tab = self.get_current_data_tab()
+            if current_data_tab:
+                self.log_verbose("대량처리 탭에서 Ctrl+Z 실행")
+                current_data_tab.on_data_undo()
+            else:
+                self.log_verbose("활성화된 대량처리 데이터 탭이 없습니다.")
+        else:
+            # 분석도구 탭이 활성화된 경우, 입력 필드 Undo 실행
+            self.log_verbose("분석도구 입력에서 Ctrl+Z 실행")
+            entry = self.input_history.undo()
+            if entry is not None:
+                input_a_text, input_b_text = entry
+                self.history_update_in_progress = True
+                self.input_a.setText(input_a_text)
+                self.input_b.setText(input_b_text)
+                self.history_update_in_progress = False
+                self.update_history_buttons()
+            else:
+                self.log_verbose("되돌릴 입력 히스토리가 없습니다.")
     
     def on_redo(self):
-        """Redo 실행"""
-        entry = self.input_history.redo()
-        if entry is not None:
-            input_a_text, input_b_text = entry
-            self.history_update_in_progress = True
-            self.input_a.setText(input_a_text)
-            self.input_b.setText(input_b_text)
-            self.history_update_in_progress = False
-            self.update_history_buttons()
+        """Redo 실행 - 현재 활성화된 탭에 따라 적절한 기능 호출"""
+        current_main_tab = self.main_tabs.tabText(self.main_tabs.currentIndex())
+        
+        if current_main_tab == "대량처리":
+            # 대량처리 탭이 활성화된 경우, 현재 데이터 탭의 Redo 실행
+            current_data_tab = self.get_current_data_tab()
+            if current_data_tab:
+                self.log_verbose("대량처리 탭에서 Ctrl+Y 실행")
+                current_data_tab.on_data_redo()
+            else:
+                self.log_verbose("활성화된 대량처리 데이터 탭이 없습니다.")
+        else:
+            # 분석도구 탭이 활성화된 경우, 입력 필드 Redo 실행
+            self.log_verbose("분석도구 입력에서 Ctrl+Y 실행")
+            entry = self.input_history.redo()
+            if entry is not None:
+                input_a_text, input_b_text = entry
+                self.history_update_in_progress = True
+                self.input_a.setText(input_a_text)
+                self.input_b.setText(input_b_text)
+                self.history_update_in_progress = False
+                self.update_history_buttons()
+            else:
+                self.log_verbose("다시실행할 입력 히스토리가 없습니다.")
 
     # =================== 대량처리 관련 메서드들 ===================
     
@@ -1975,6 +2031,13 @@ class DragDropTableWidget(QTableWidget):
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.drag_start_row = -1
         self.drag_start_point = QPoint() # 드래그 시작 위치 저장
+        self.setMouseTracking(True)  # 마우스 추적 활성화
+        self.shape_tooltip = None  # 도형 툴팁 위젯
+        self.tooltip_timer = QTimer()
+        self.tooltip_timer.timeout.connect(self.show_shape_tooltip)
+        self.tooltip_timer.setSingleShot(True)
+        self.hovered_item = None
+        self.hover_position = QPoint()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1982,6 +2045,9 @@ class DragDropTableWidget(QTableWidget):
             if item:
                 self.drag_start_row = item.row()
                 self.drag_start_point = event.pos() # 드래그 시작 위치 저장
+            # 마우스 클릭 시 툴팁 숨기기
+            self.hide_shape_tooltip()
+            self.tooltip_timer.stop()
         super().mousePressEvent(event)
     
     def mouseMoveEvent(self, event):
@@ -1989,7 +2055,36 @@ class DragDropTableWidget(QTableWidget):
             # 드래그 임계값 이상 이동했을 때만 드래그 시작
             if (event.pos() - self.drag_start_point).manhattanLength() > QApplication.startDragDistance():
                 self.startDrag(Qt.DropAction.MoveAction)
+        else:
+            # 드래그 중이 아닐 때만 툴팁 처리
+            if self.drag_start_row == -1:
+                # 현재 마우스 위치의 아이템 찾기
+                item = self.itemAt(event.pos())
+                
+                # 이전 호버 아이템과 다르면 툴팁 숨기기
+                if self.hovered_item != item:
+                    self.hide_shape_tooltip()
+                    self.hovered_item = item
+                    self.tooltip_timer.stop()
+                    
+                    if item and item.text().strip():
+                        # 호버 위치 저장
+                        self.hover_position = event.globalPosition().toPoint()
+                        # 짧은 지연 후 툴팁 표시
+                        self.tooltip_timer.start(300)  # 300ms 지연
+            else:
+                # 드래그 중이면 툴팁 숨기기
+                self.hide_shape_tooltip()
+                self.tooltip_timer.stop()
+        
         super().mouseMoveEvent(event)
+    
+    def mouseReleaseEvent(self, event):
+        """마우스를 놓았을 때 드래그 상태 초기화"""
+        super().mouseReleaseEvent(event)
+        # 드래그 상태 초기화
+        self.drag_start_row = -1
+        self.drag_start_point = QPoint()
 
     def startDrag(self, supportedActions):
         """드래그 시작 시 호출"""
@@ -2048,6 +2143,111 @@ class DragDropTableWidget(QTableWidget):
         # 드래그 정보 초기화
         self.drag_start_row = -1
         self.drag_start_point = QPoint()
+    
+
+    
+    def leaveEvent(self, event):
+        """마우스가 테이블을 벗어날 때 툴팁 숨기기"""
+        super().leaveEvent(event)
+        self.hide_shape_tooltip()
+        self.tooltip_timer.stop()
+        self.hovered_item = None
+    
+    def show_shape_tooltip(self):
+        """도형 툴팁 표시"""
+        if not self.hovered_item or not self.hovered_item.text().strip():
+            return
+            
+        shape_code = self.hovered_item.text().strip()
+        
+        try:
+            from shape import Shape
+            shape = Shape.from_string(shape_code)
+            
+            # 툴팁 위젯 생성
+            self.shape_tooltip = ShapeTooltipWidget(shape)
+            
+            # 화면 크기 고려하여 툴팁 위치 조정
+            screen_rect = QApplication.primaryScreen().geometry()
+            tooltip_size = self.shape_tooltip.sizeHint()
+            
+            # 기본 위치 (마우스 오른쪽 아래)
+            pos = self.hover_position + QPoint(10, 10)
+            
+            # 화면 오른쪽 경계를 벗어나면 왼쪽으로 이동
+            if pos.x() + tooltip_size.width() > screen_rect.right():
+                pos.setX(self.hover_position.x() - tooltip_size.width() - 10)
+            
+            # 화면 아래쪽 경계를 벗어나면 위쪽으로 이동
+            if pos.y() + tooltip_size.height() > screen_rect.bottom():
+                pos.setY(self.hover_position.y() - tooltip_size.height() - 10)
+            
+            self.shape_tooltip.move(pos)
+            self.shape_tooltip.show()
+            
+        except Exception as e:
+            # 도형 파싱 실패 시 기본 툴팁 사용
+            self.setToolTip(f"도형 코드: {shape_code}\n(파싱 오류: {str(e)})")
+    
+    def hide_shape_tooltip(self):
+        """도형 툴팁 숨기기"""
+        if self.shape_tooltip:
+            self.shape_tooltip.close()
+            self.shape_tooltip = None
+        self.setToolTip("")
+
+class ShapeTooltipWidget(QFrame):
+    """도형 시각화를 위한 툴팁 위젯"""
+    def __init__(self, shape):
+        super().__init__()
+        self.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        # 스타일시트 적용
+        self.setStyleSheet("""
+            QFrame {
+                background-color: rgba(50, 50, 50, 240);
+                border: 1px solid #666;
+                border-radius: 8px;
+                padding: 8px;
+            }
+            QLabel {
+                color: white;
+                background-color: transparent;
+            }
+        """)
+        
+        layout = QVBoxLayout()
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(3)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # 도형 위젯 추가 (컴팩트 모드로)
+        shape_widget = ShapeWidget(shape, compact=True)
+        shape_widget.setStyleSheet("background-color: white; border-radius: 4px; padding: 1px;")
+        shape_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        layout.addWidget(shape_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # 도형 코드 표시
+        code_label = QLabel(f"코드: {repr(shape)}")
+        code_label.setStyleSheet("font-size: 11px; color: black; font-family: 'Consolas', 'Monaco', monospace;")
+        code_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(code_label)
+        
+        self.setLayout(layout)
+        self.adjustSize()
+        
+        # 고정 크기로 설정하여 오른쪽 갭 방지
+        size = self.sizeHint()
+        self.setFixedSize(size)
+        
+        # 그림자 효과
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(20)
+        shadow.setXOffset(2)
+        shadow.setYOffset(2)
+        shadow.setColor(QColor(0, 0, 0, 100))
+        self.setGraphicsEffect(shadow)
 
 class DataTabWidget(QWidget):
     """개별 데이터 탭 위젯"""
@@ -2072,6 +2272,18 @@ class DataTabWidget(QWidget):
     def setup_ui(self):
         layout = QVBoxLayout(self)
         
+        # 상단 컨트롤 영역
+        control_layout = QHBoxLayout()
+        
+        # 시각화 체크박스
+        self.visualization_checkbox = QCheckBox("도형 시각화")
+        self.visualization_checkbox.setToolTip("체크하면 각 도형의 시각적 표현을 테이블에 표시합니다")
+        self.visualization_checkbox.stateChanged.connect(self.on_visualization_toggled)
+        control_layout.addWidget(self.visualization_checkbox)
+        
+        control_layout.addStretch()  # 오른쪽으로 밀어내기
+        layout.addLayout(control_layout)
+        
         # 데이터 테이블
         self.data_table = DragDropTableWidget()
         self.data_table.setColumnCount(2)
@@ -2081,6 +2293,15 @@ class DataTabWidget(QWidget):
         self.data_table.customContextMenuRequested.connect(self.on_table_context_menu)
         self.data_table.rows_reordered.connect(self.on_data_moved)
         self.data_table.itemChanged.connect(self.on_table_item_changed)
+        
+        # 테이블 셀 내용을 수직 중앙 정렬
+        self.data_table.setStyleSheet("""
+            QTableWidget::item {
+                text-align: center;
+                vertical-align: middle;
+            }
+        """)
+        
         layout.addWidget(self.data_table)
         
         # 단축키 설정
@@ -2109,14 +2330,14 @@ class DataTabWidget(QWidget):
         # 데이터 히스토리 Undo/Redo 버튼
         self.data_undo_button = QPushButton("↶")
         self.data_undo_button.setMaximumWidth(30)
-        self.data_undo_button.setToolTip("데이터 Undo (Ctrl+Shift+Z)")
+        self.data_undo_button.setToolTip("데이터 Undo (Ctrl+Z)")
         self.data_undo_button.clicked.connect(self.on_data_undo)
         self.data_undo_button.setEnabled(False)
         button_layout.addWidget(self.data_undo_button)
         
         self.data_redo_button = QPushButton("↷")
         self.data_redo_button.setMaximumWidth(30)
-        self.data_redo_button.setToolTip("데이터 Redo (Ctrl+Shift+Y)")
+        self.data_redo_button.setToolTip("데이터 Redo (Ctrl+Y)")
         self.data_redo_button.clicked.connect(self.on_data_redo)
         self.data_redo_button.setEnabled(False)
         button_layout.addWidget(self.data_redo_button)
@@ -2162,31 +2383,39 @@ class DataTabWidget(QWidget):
     
     def setup_shortcuts(self):
         """단축키 설정"""
+        main_window = self.get_main_window()
+        if main_window:
+            main_window.log_verbose("대량처리 탭 단축키 설정 중...")
+        
         # Ctrl+C: 클립보드로 복사
         self.copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
+        self.copy_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.copy_shortcut.activated.connect(self.on_copy_to_clipboard)
         
         # Ctrl+V: 클립보드에서 붙여넣기
         self.paste_shortcut = QShortcut(QKeySequence.StandardKey.Paste, self)
+        self.paste_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.paste_shortcut.activated.connect(self.on_paste_from_clipboard)
         
         # Delete: 선택된 항목 삭제
         self.delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
+        self.delete_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.delete_shortcut.activated.connect(self.on_delete_selected)
         
-        # 데이터 히스토리 단축키
-        self.data_undo_shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
-        self.data_undo_shortcut.activated.connect(self.on_data_undo)
-        
-        self.data_redo_shortcut = QShortcut(QKeySequence("Ctrl+Y"), self)
-        self.data_redo_shortcut.activated.connect(self.on_data_redo)
+        # 데이터 히스토리 단축키는 메인 윈도우에서 처리하므로 제거
+        # (메인 윈도우의 on_undo/on_redo에서 현재 탭 상태에 따라 적절한 기능 호출)
         
         # 저장 단축키
         self.save_shortcut = QShortcut(QKeySequence.StandardKey.Save, self)  # Ctrl+S
+        self.save_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.save_shortcut.activated.connect(self.on_save_data_auto)
         
         self.save_as_shortcut = QShortcut(QKeySequence.StandardKey.SaveAs, self)  # Ctrl+Shift+S
+        self.save_as_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.save_as_shortcut.activated.connect(self.on_save_data_as)
+        
+        if main_window:
+            main_window.log_verbose("대량처리 탭 단축키 설정 완료 (Ctrl+C, Ctrl+V, Delete, Ctrl+S, Ctrl+Shift+S)")
     
     def on_data_moved(self, from_row, to_row):
         """드래그 앤 드롭으로 데이터 이동"""
@@ -2277,6 +2506,30 @@ class DataTabWidget(QWidget):
                     if new_text != old_text:
                         # 데이터 업데이트
                         self.data[row] = new_text
+                        
+                        # 시각화가 활성화된 경우 시각화 위젯 업데이트
+                        if hasattr(self, 'visualization_checkbox') and self.visualization_checkbox.isChecked() and self.data_table.columnCount() == 3:
+                            if new_text.strip():
+                                try:
+                                    from shape import Shape
+                                    shape = Shape.from_string(new_text.strip())
+                                    shape_widget = ShapeWidget(shape, compact=True)
+                                    shape_widget.setStyleSheet("background-color: white; border: none;")
+                                    self.data_table.setCellWidget(row, 2, shape_widget)
+                                    
+                                    # 도형의 층수에 따라 행 높이 조정
+                                    layer_count = len(shape.layers)
+                                    # 기본 높이 30px + 층수마다 추가 30px
+                                    row_height = max(50, 30 + layer_count * 30)
+                                    self.data_table.setRowHeight(row, row_height)
+                                except Exception:
+                                    # 파싱 실패 시 위젯 제거
+                                    self.data_table.setCellWidget(row, 2, None)
+                                    self.data_table.setRowHeight(row, 50)  # 기본 높이
+                            else:
+                                # 빈 텍스트인 경우 위젯 제거
+                                self.data_table.setCellWidget(row, 2, None)
+                                self.data_table.setRowHeight(row, 50)  # 기본 높이
                         
                         # 히스토리에 추가
                         self.add_to_data_history(f"편집 ({row + 1}번: {old_text} → {new_text})")
@@ -2381,11 +2634,34 @@ class DataTabWidget(QWidget):
                 # 도형 코드 열
                 code_item = QTableWidgetItem(shape_code)
                 self.data_table.setItem(i, 1, code_item)
+                
+                # 시각화가 활성화된 경우 시각화 위젯 추가
+                if hasattr(self, 'visualization_checkbox') and self.visualization_checkbox.isChecked() and self.data_table.columnCount() == 3:
+                    if shape_code.strip():
+                        try:
+                            from shape import Shape
+                            shape = Shape.from_string(shape_code.strip())
+                            shape_widget = ShapeWidget(shape, compact=True)
+                            shape_widget.setStyleSheet("background-color: white; border: none;")
+                            self.data_table.setCellWidget(i, 2, shape_widget)
+                            
+                            # 도형의 층수에 따라 행 높이 조정
+                            layer_count = len(shape.layers)
+                            # 기본 높이 30px + 층수마다 추가 30px
+                            row_height = max(50, 30 + layer_count * 30)
+                            self.data_table.setRowHeight(i, row_height)
+                        except Exception:
+                            # 파싱 실패 시 빈 셀로 유지
+                            self.data_table.setRowHeight(i, 50)  # 기본 높이
+                    else:
+                        self.data_table.setRowHeight(i, 50)  # 기본 높이
 
                                 # 이전에 선택된 행이었으면 다시 선택
                 if i in selected_rows:
                     self.data_table.item(i, 0).setSelected(True)
                     self.data_table.item(i, 1).setSelected(True)
+                    if self.data_table.columnCount() == 3:
+                        self.data_table.setCurrentCell(i, 2)  # 시각화 컬럼이 있으면 해당 셀도 선택
             
             # 첫 번째 열 너비 조정
             self.data_table.setColumnWidth(0, 60)
@@ -2715,6 +2991,10 @@ class DataTabWidget(QWidget):
 
     def on_data_undo(self):
         """데이터 Undo"""
+        main_window = self.get_main_window()
+        if main_window:
+            main_window.log_verbose("Ctrl+Z 단축키가 실행되었습니다.")
+        
         entry = self.data_history.undo()
         if entry is not None:
             data, operation_name = entry
@@ -2723,12 +3003,18 @@ class DataTabWidget(QWidget):
             self.update_table()
             self.history_update_in_progress = False
             
-            main_window = self.get_main_window()
             if main_window:
-                main_window.log_verbose(f"데이터 Undo: {operation_name}")
+                main_window.log_verbose(f"데이터 Undo 완료: {operation_name}")
+        else:
+            if main_window:
+                main_window.log_verbose("되돌릴 작업이 없습니다.")
     
     def on_data_redo(self):
         """데이터 Redo"""
+        main_window = self.get_main_window()
+        if main_window:
+            main_window.log_verbose("Ctrl+Y (또는 Ctrl+Shift+Z) 단축키가 실행되었습니다.")
+        
         entry = self.data_history.redo()
         if entry is not None:
             data, operation_name = entry
@@ -2737,9 +3023,11 @@ class DataTabWidget(QWidget):
             self.update_table()
             self.history_update_in_progress = False
             
-            main_window = self.get_main_window()
             if main_window:
-                main_window.log_verbose(f"데이터 Redo: {operation_name}")
+                main_window.log_verbose(f"데이터 Redo 완료: {operation_name}")
+        else:
+            if main_window:
+                main_window.log_verbose("다시실행할 작업이 없습니다.")
     
     def add_to_data_history(self, operation_name=""):
         """현재 데이터 상태를 히스토리에 추가"""
@@ -2751,6 +3039,65 @@ class DataTabWidget(QWidget):
         """데이터 히스토리 버튼 상태 업데이트"""
         self.data_undo_button.setEnabled(self.data_history.can_undo())
         self.data_redo_button.setEnabled(self.data_history.can_redo())
+    
+    def on_visualization_toggled(self, state):
+        """시각화 체크박스 상태 변경 시 호출"""
+        if state == 2:  # 체크됨
+            self.enable_visualization()
+        else:  # 체크 해제됨
+            self.disable_visualization()
+    
+    def enable_visualization(self):
+        """시각화 기능 활성화"""
+        # 테이블에 시각화 컬럼 추가
+        current_col_count = self.data_table.columnCount()
+        if current_col_count == 2:  # 기존 2개 컬럼 (유효성, 도형 코드)
+            self.data_table.setColumnCount(3)
+            self.data_table.setHorizontalHeaderLabels(["유효성", "도형 코드", "시각화"])
+            
+            # 각 행에 시각화 위젯 추가
+            for row in range(self.data_table.rowCount()):
+                shape_code_item = self.data_table.item(row, 1)
+                if shape_code_item and shape_code_item.text().strip():
+                    shape_code = shape_code_item.text().strip()
+                    try:
+                        from shape import Shape
+                        shape = Shape.from_string(shape_code)
+                        shape_widget = ShapeWidget(shape, compact=True)
+                        shape_widget.setStyleSheet("background-color: white; border: none;")
+                        self.data_table.setCellWidget(row, 2, shape_widget)
+                        
+                        # 도형의 층수에 따라 행 높이 조정
+                        layer_count = len(shape.layers)
+                        # 기본 높이 30px + 층수마다 추가 30px
+                        row_height = max(50, 30 + layer_count * 30)
+                        self.data_table.setRowHeight(row, row_height)
+                    except Exception:
+                        # 파싱 실패 시 빈 셀로 유지
+                        self.data_table.setRowHeight(row, 50)  # 기본 높이
+                else:
+                    self.data_table.setRowHeight(row, 50)  # 기본 높이
+            
+            # 시각화 컬럼 크기 조정
+            self.data_table.setColumnWidth(2, 150)  # 시각화 컬럼 고정 폭
+            self.data_table.horizontalHeader().setStretchLastSection(False)
+            self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+            self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+            self.data_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+    
+    def disable_visualization(self):
+        """시각화 기능 비활성화"""
+        # 시각화 컬럼 제거
+        if self.data_table.columnCount() == 3:
+            self.data_table.setColumnCount(2)
+            self.data_table.setHorizontalHeaderLabels(["유효성", "도형 코드"])
+            self.data_table.horizontalHeader().setStretchLastSection(True)
+            self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+            self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+            
+            # 모든 행 높이를 기본값으로 초기화
+            for row in range(self.data_table.rowCount()):
+                self.data_table.setRowHeight(row, 30)  # 기본 행 높이
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
