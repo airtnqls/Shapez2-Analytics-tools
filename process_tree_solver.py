@@ -111,6 +111,8 @@ def tree_to_data(root_node: ProcessNode) -> Dict:
 class ProcessTreeSolver:
     """공정 트리를 계산하는 솔버 클래스"""
     
+    IMPOSSIBLE_OPERATION = "불가능한 도형"
+
     def __init__(self):
         self.max_depth = 5  # 최대 탐색 깊이
     
@@ -129,31 +131,56 @@ class ProcessTreeSolver:
     def solve_process_tree(self, target_shape_code: str) -> Optional[ProcessNode]:
         """
         주어진 목표 도형에 대한 공정 트리를 계산합니다.
-        현재는 임시 구현으로 가능성 검사 + claw_tracer 결과만 반환합니다.
         
         Args:
             target_shape_code: 목표 도형 코드
             
         Returns:
-            ProcessNode: 공정 트리의 루트 노드, 실패시 None
+            ProcessNode: 공정 트리의 루트 노드, 실패시 불가능 노드 포함
         """
+        root_node = ProcessNode(target_shape_code, "목표") # 항상 목표 도형으로 시작
+        
         try:
-            # 1. 입력 도형의 유효성 검사
-            target_shape = Shape.from_string(target_shape_code)
-            if not target_shape:
-                return None
-                
-            # 2. 도형 분석 - 불가능한 도형인지 확인
-            analysis_result = analyze_shape_simple(target_shape_code, target_shape)
+            # 1. 입력 도형의 유효성 검사 (Shape.from_string 성공 여부)
+            target_shape_obj = Shape.from_string(target_shape_code)
+            root_node.shape_obj = target_shape_obj # 루트 노드에 shape_obj 설정
+            
+            # 2. 도형 분석 - 논리적으로 불가능한 도형인지 확인
+            analysis_result = analyze_shape_simple(target_shape_code, target_shape_obj)
             if "불가능" in analysis_result:
-                return None
+                # 도형 코드 자체는 유효하지만, 논리적으로 불가능한 도형인 경우
+                # 루트 노드 아래에 불가능한 자식 노드를 추가
+                impossible_child_node = ProcessNode(target_shape_code, self.IMPOSSIBLE_OPERATION)
+                root_node.inputs.append(impossible_child_node)
+                root_node.operation = "불가능"
+                return root_node
                 
             # 3. 임시 구현: claw_tracer 결과를 사용하여 간단한 트리 생성
-            return self._create_simple_tree(target_shape_code, target_shape)
+            # _create_simple_tree가 반환하는 서브트리를 루트의 자식으로 추가
+            simple_tree_root = self._create_simple_tree(target_shape_code, target_shape_obj)
+            # _create_simple_tree는 이제 자식 노드만 반환 (또는 루트와 자식 포함된 서브트리)
+            # 여기서는 simple_tree_root의 자식들을 가져와서 현재 root_node의 자식으로 설정
+            # 그리고 simple_tree_root의 operation을 현재 root_node의 operation으로 설정
+            if simple_tree_root:
+                root_node.inputs.extend(simple_tree_root.inputs)
+                if simple_tree_root.operation != "목표": # 목표가 아니면 업데이트
+                    root_node.operation = simple_tree_root.operation
+            else:
+                # _create_simple_tree가 None을 반환하는 경우 (오류 처리)
+                impossible_child_node = ProcessNode(target_shape_code, self.IMPOSSIBLE_OPERATION)
+                root_node.inputs.append(impossible_child_node)
+                root_node.operation = "생성 오류"
+
+            return root_node
             
         except Exception as e:
+            # Shape.from_string 실패 (문법 오류) 또는 기타 예외 발생 시
             print(f"공정 트리 계산 오류: {e}")
-            return None
+            # 루트 노드 자체는 유지하되, 하위에 불가능 노드 추가
+            impossible_child_node = ProcessNode(target_shape_code, self.IMPOSSIBLE_OPERATION)
+            root_node.inputs.append(impossible_child_node)
+            root_node.operation = "문법 오류/생성 오류"
+            return root_node
     
     def _extract_first_layer(self, claw_result: str) -> str:
         """claw tracer 결과에서 첫 번째 층만 추출"""
@@ -170,45 +197,58 @@ class ProcessTreeSolver:
     def _create_simple_tree(self, target_shape_code: str, target_shape: Shape) -> ProcessNode:
         """
         임시 구현: claw_tracer를 사용하여 간단한 2단계 트리를 생성합니다.
+        이 함수는 목표 도형에 대한 공정 서브트리의 루트 노드를 반환합니다.
         """
-        # 목표 도형을 루트 노드로 생성
-        root_node = ProcessNode(target_shape_code, "목표")
+        # 여기서 생성되는 루트 노드는 solve_process_tree에서 최종 루트의 자식으로 연결될 것임.
+        # 따라서 target_shape_code에 대한 중간 단계의 루트 노드로 생각.
+        current_node_for_tracing = ProcessNode(target_shape_code, "클로추적대상")
+        current_node_for_tracing.shape_obj = target_shape # shape_obj도 설정
         
         try:
             # claw_tracer를 사용하여 이전 단계 도형 찾기
-            # 입력 도형의 첫 번째 문자에 따라 적절한 함수 선택
             if target_shape_code and target_shape_code[0] == 'P':
                 claw_result = build_pinable_shape(target_shape_code)
             else:
                 claw_result = build_cutable_shape(target_shape_code)
             
             if claw_result and claw_result != target_shape_code:
-                # 결과에서 첫 번째 층만 추출
                 previous_shape_code = self._extract_first_layer(claw_result)
                 
-                # claw 이전 단계 노드 생성
-                previous_node = ProcessNode(previous_shape_code, "claw")
-                root_node.inputs = [previous_node]
-                root_node.operation = "claw 적용"
+                # 이전 단계 도형이 유효한지 다시 확인
+                prev_shape_obj = Shape.from_string(previous_shape_code)
+                if not prev_shape_obj: # 유효하지 않으면 불가능 노드로 표시
+                    previous_node = ProcessNode(previous_shape_code, self.IMPOSSIBLE_OPERATION)
+                else:
+                    previous_node = ProcessNode(previous_shape_code, "claw")
+                
+                current_node_for_tracing.inputs = [previous_node]
+                current_node_for_tracing.operation = "claw 적용"
                 
                 # 더 간단한 기본 도형이 있는지 확인 (임시로 단순화)
-                if self._is_simple_shape(previous_shape_code):
+                if previous_node.operation != self.IMPOSSIBLE_OPERATION and self._is_simple_shape(previous_shape_code):
                     # 기본 도형으로 간주
                     previous_node.operation = "기본 도형"
-                else:
-                    # 더 복잡한 경우 추가 분해 (현재는 임시로 기본 도형으로 설정)
+                elif previous_node.operation != self.IMPOSSIBLE_OPERATION: # 불가능 노드가 아닐 때만 분해 시도
                     base_shape = self._get_base_shape(previous_shape_code)
                     if base_shape != previous_shape_code:
-                        base_node = ProcessNode(base_shape, "기본 도형")
+                        # 기본 도형이 유효한지 확인
+                        base_shape_obj = Shape.from_string(base_shape)
+                        if not base_shape_obj:
+                            base_node = ProcessNode(base_shape, self.IMPOSSIBLE_OPERATION)
+                        else:
+                            base_node = ProcessNode(base_shape, "기본 도형")
                         previous_node.inputs = [base_node]
                         previous_node.operation = "조합"
                         
         except Exception as e:
-            print(f"claw tracer 처리 오류: {e}")
-            # 실패시 단순히 목표 도형만 반환
-            root_node.operation = "단일 도형"
+            print(f"_create_simple_tree 내부 오류: {e}")
+            # claw tracer 처리 중 오류가 발생하면, 하위 노드를 불가능 노드로 설정
+            # 루트 노드 자체는 유지하되, 하위에 불가능 노드 추가
+            impossible_child_node = ProcessNode(target_shape_code, self.IMPOSSIBLE_OPERATION)
+            current_node_for_tracing.inputs = [impossible_child_node]
+            current_node_for_tracing.operation = "클로추적실패"
             
-        return root_node
+        return current_node_for_tracing
     
     def _is_simple_shape(self, shape_code: str) -> bool:
         """도형이 단순한 기본 도형인지 확인"""

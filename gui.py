@@ -704,7 +704,7 @@ class ShapezGUI(QMainWindow):
         tree_display_layout = QVBoxLayout(tree_display_group)
         
         # 스크롤 영역을 QGraphicsView로 변경
-        self.tree_graphics_view = QGraphicsView()
+        self.tree_graphics_view = TreeGraphicsView()
         self.tree_graphics_view.setMinimumHeight(400)
         self.tree_graphics_view.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.tree_graphics_view.setRenderHint(self.tree_graphics_view.renderHints())
@@ -1923,27 +1923,29 @@ class ShapezGUI(QMainWindow):
             
             self.log(f"공정 트리 생성: {input_shape_code}")
             
-            # 공정 트리 계산 (최적화)
+            # 공정 트리 계산
             root_node = process_tree_solver.solve_process_tree(input_shape_code)
             
-            if root_node is None:
-                self.log("유효하지 않은 도형입니다.")
-                # 빈 scene만 표시
-                self.tree_scene.clear()
-                text_item = self.tree_scene.addText("유효하지 않은 도형입니다.")
-                text_item.setPos(-100, 50)
-                text_item.setDefaultTextColor(QColor(200, 50, 50))
-                return
-            
-            # 트리 시각화 (최적화된 버전)
+            # 트리 시각화
             self._display_process_tree(root_node)
-            self.log("완료")
+            
+            # 루트 노드 operation에 따른 메시지 출력
+            if root_node.operation == process_tree_solver.IMPOSSIBLE_OPERATION:
+                self.log(f"'{input_shape_code}'은(는) 불가능한 도형 또는 문법 오류가 있습니다.")
+            elif root_node.operation == "불가능":
+                self.log(f"'{input_shape_code}'은(는) 논리적으로 불가능한 도형입니다.")
+            elif root_node.operation == "문법 오류/생성 오류":
+                self.log(f"'{input_shape_code}'은(는) 문법 오류가 있거나 트리 생성 중 오류가 발생했습니다.")
+            elif root_node.operation == "클로추적실패":
+                self.log(f"'{input_shape_code}'에 대한 클로 추적에 실패했습니다.")
+            else:
+                self.log("완료")
             
         except Exception as e:
-            self.log(f"트리 생성 오류: {str(e)[:50]}...")  # 오류 메시지 축약
+            self.log(f"트리 생성 중 예상치 못한 오류: {str(e)[:50]}...")  # 오류 메시지 축약
             # 오류 메시지 표시
             self.tree_scene.clear()
-            text_item = self.tree_scene.addText("트리 생성 중 오류가 발생했습니다.")
+            text_item = self.tree_scene.addText("트리 생성 중 예상치 못한 오류가 발생했습니다.")
             text_item.setPos(-150, 50)
             text_item.setDefaultTextColor(QColor(200, 50, 50))
     
@@ -2347,8 +2349,7 @@ class ShapezGUI(QMainWindow):
         self._draw_tree_connections_with_arrows(root_node, positions)
     
     def _create_process_node_widget(self, node: ProcessNode) -> QWidget:
-        """개별 공정 노드 위젯 생성 (자동 크기 조정으로 도형이 잘 보이게, border 1줄, 툴팁/클립보드 지원)"""
-        from PyQt6.QtWidgets import QApplication
+        """개별 공정 노드 위젯 생성 (자동 크기 조정으로 도형이 잘 보이게, border 1줄, 툴팁 지원)"""
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -2356,12 +2357,13 @@ class ShapezGUI(QMainWindow):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # 도형 시각화
-        if node.shape_obj:
+        if node.shape_obj and node.operation != process_tree_solver.IMPOSSIBLE_OPERATION:
             shape_widget = ShapeWidget(node.shape_obj, compact=True)
             shape_widget.setStyleSheet("background-color: white; border: 1px solid #999; border-radius: 4px; padding: 4px;")
             shape_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
             layout.addWidget(shape_widget, 0, Qt.AlignmentFlag.AlignCenter)
         else:
+            # 유효하지 않거나 불가능한 도형인 경우
             error_widget = QLabel("?")
             error_widget.setStyleSheet("color: red; font-size: 24px; border: 1px solid #999; border-radius: 4px; background-color: white; padding: 15px;")
             error_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -2381,19 +2383,13 @@ class ShapezGUI(QMainWindow):
         
         # 툴팁 텍스트 구성
         shape_name = getattr(node.shape_obj, 'name', None) or "(이름 없음)"
-        tooltip = f"공정: {node.operation}\n도형코드: {node.shape_code}"
-        if shape_name:
-            tooltip += f"\n도형명: {shape_name}"
+        if node.operation == process_tree_solver.IMPOSSIBLE_OPERATION:
+            tooltip = f"공정: 불가능한 도형\n도형코드: {node.shape_code}\n세부 정보: 이 도형은 현재 공정 트리에서 처리할 수 없거나\n유효하지 않습니다."
+        else:
+            tooltip = f"공정: {node.operation}\n도형코드: {node.shape_code}"
+            if shape_name:
+                tooltip += f"\n도형명: {shape_name}"
         container.setToolTip(tooltip)
-        
-        # 클릭 시 도형코드 클립보드 복사 + 안내 메시지
-        def on_click(event):
-            clipboard = QApplication.instance().clipboard()
-            clipboard.setText(node.shape_code)
-            # 안내 메시지 (QToolTip 사용)
-            from PyQt6.QtWidgets import QToolTip
-            QToolTip.showText(event.globalPosition().toPoint(), "도형코드가 복사되었습니다!", container)
-        container.mouseReleaseEvent = on_click
         
         return container
     
@@ -3742,6 +3738,28 @@ class DataTabWidget(QWidget):
             # 모든 행 높이를 기본값으로 초기화
             for row in range(self.data_table.rowCount()):
                 self.data_table.setRowHeight(row, 30)  # 기본 행 높이
+
+class TreeGraphicsView(QGraphicsView):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._zoom = 0
+        self._zoom_step = 1.15
+        self._zoom_min = -10
+        self._zoom_max = 5
+
+    def wheelEvent(self, event):
+        modifiers = event.modifiers()
+        if modifiers & Qt.KeyboardModifier.ControlModifier:
+            angle = event.angleDelta().y()
+            if angle > 0 and self._zoom < self._zoom_max:
+                self._zoom += 1
+                self.scale(self._zoom_step, self._zoom_step)
+            elif angle < 0 and self._zoom > self._zoom_min:
+                self._zoom -= 1
+                self.scale(1 / self._zoom_step, 1 / self._zoom_step)
+            event.accept()
+        else:
+            super().wheelEvent(event)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
