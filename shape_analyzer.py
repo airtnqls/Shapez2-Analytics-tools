@@ -55,23 +55,6 @@ def get_edge_pillars(shape: str) -> list[str]:
     return pillars
 
 
-def check_impossible_patterns(pillars: list[str]) -> bool:
-    """불가능한 패턴들을 검사"""
-    patterns = [
-        r'^P*-+c',      # 2-1: 시작이 P*, 그 다음 -+, 그 다음 c
-        r'[^P]P.*c',    # 2-2: P가 아닌 문자 다음에 P, 그 다음 임의 문자들, 그 다음 c
-        r'c-.*c',       # 2-3: c 다음에 -, 그 다음 임의 문자들, 그 다음 c
-        r'c.-+c',       # 2-4: c 다음에 임의 문자 1개, 그 다음 -+, 그 다음 c
-        r'^c.*-S-+c',       # 2-5: 시작이 c 그 다음 임의 문자들, 그 다음 -S, 그 다음 -+, 그 다음 c
-    ]
-    
-    for pillar in pillars:
-        for pattern in patterns:
-            if re.search(pattern, pillar):
-                return True
-    return False
-
-
 def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     """
     shape: 콜론으로 구분된 레이어 문자열 (예: "SSSS:----")
@@ -83,24 +66,22 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     
     # 1. 물리 안정성 검사
     if shape_obj and not check_physics_stability(shape_obj):
-        return ShapeType.IMPOSSIBLE.value, "불안정한 도형"
+        return ShapeType.IMPOSSIBLE.value, "룰0. -P"
     
-    # 2. 모서리 기둥 패턴 검사
+    # 2. 모서리 기둥 패턴 검사 (한 번만 검사하여 효율성 향상)
+    impossible_patterns = [
+        (r'^P*-+c', "코너 룰1. ^P*-+c"),
+        (r'[^P]P.*c', "코너 룰2. [^P]P.*c"),
+        (r'c-.*c', "코너 룰3. c-.*c"),
+        (r'c.-+c', "코너 룰4. c.-+c"),
+        (r'^c.*-S-+c', "코너 룰5. ^c.*-S-+c")
+    ]
+    
     pillars = get_edge_pillars(shape)
-    if check_impossible_patterns(pillars):
-        # 구체적인 패턴 찾기
-        patterns = [
-            (r'^P*-+c', "코너 룰1. ^P*-+c"),
-            (r'[^P]P.*c', "코너 룰2. [^P]P.*c"),
-            (r'c-.*c', "코너 룰3. c-.*c"),
-            (r'c.-+c', "코너 룰4. c.-+c"),
-            (r'^c.*-S-+c', "코너 룰5. ^c.*-S-+c")
-        ]
-        
-        for pillar_idx, pillar in enumerate(pillars):
-            for pattern, description in patterns:
-                if re.search(pattern, pillar):
-                    return ShapeType.IMPOSSIBLE.value, f"사분면 {pillar_idx+1}에서 {description} 발견"
+    for pillar_idx, pillar in enumerate(pillars):
+        for pattern, description in impossible_patterns:
+            if re.search(pattern, pillar):
+                return ShapeType.IMPOSSIBLE.value, f"사분면 {pillar_idx+1}에서 {description} 위반"
     
     # 3. 기존 분류 로직
     if shape.strip() == "" or shape.replace("-", "").replace(":", "") == "":

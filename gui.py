@@ -2626,13 +2626,37 @@ class DataTabWidget(QWidget):
         else:
             # 일반 테이블인 경우 2열로 표시
             for i, shape_code in enumerate(self.data):
-                # 번호 열
-                number_item = QTableWidgetItem(str(i + 1))
-                number_item.setFlags(number_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                self.data_table.setItem(i, 0, number_item)
+                # 유효성 열 (분류기 결과)
+                validity_text = ""
+                is_impossible = False
+                try:
+                    if shape_code.strip():
+                        from shape import Shape
+                        shape = Shape.from_string(shape_code.strip())
+                        classification_result, classification_reason = shape.classifier()
+                        validity_text = f"{classification_result} ({classification_reason})"
+                        is_impossible = classification_result == "불가능형"
+                    else:
+                        validity_text = "빈_도형 (도형이 비어있음)"
+                except Exception as e:
+                    validity_text = f"오류 ({str(e)})"
+                
+                validity_item = QTableWidgetItem(validity_text)
+                validity_item.setFlags(validity_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                
+                # 불가능형인 경우 배경색을 회색으로 설정
+                if is_impossible:
+                    validity_item.setBackground(QColor(240, 240, 240))  # 연한 회색
+                
+                self.data_table.setItem(i, 0, validity_item)
                 
                 # 도형 코드 열
                 code_item = QTableWidgetItem(shape_code)
+                
+                # 불가능형인 경우 배경색을 회색으로 설정
+                if is_impossible:
+                    code_item.setBackground(QColor(240, 240, 240))  # 연한 회색
+                
                 self.data_table.setItem(i, 1, code_item)
                 
                 # 시각화가 활성화된 경우 시각화 위젯 추가
@@ -2642,7 +2666,11 @@ class DataTabWidget(QWidget):
                             from shape import Shape
                             shape = Shape.from_string(shape_code.strip())
                             shape_widget = ShapeWidget(shape, compact=True)
-                            shape_widget.setStyleSheet("background-color: white; border: none;")
+                            # 불가능형인 경우 시각화 위젯도 회색 배경으로 설정
+                            if is_impossible:
+                                shape_widget.setStyleSheet("background-color: rgb(240, 240, 240); border: none;")
+                            else:
+                                shape_widget.setStyleSheet("background-color: white; border: none;")
                             self.data_table.setCellWidget(i, 2, shape_widget)
                             
                             # 도형의 층수에 따라 행 높이 조정
