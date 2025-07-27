@@ -356,9 +356,29 @@ class Shape:
                 s_after.layers[l].quadrants[q] = None
         
         return s_after.apply_physics()
+    
+    def simple_cutter(self) -> tuple[Shape, Shape]:
+        """도형을 서쪽 절반(2,3사분면)과 동쪽 절반(0,1사분면)으로 나눕니다. 물리를 적용하지 않습니다."""
+        # 서쪽 절반 (2=BL, 3=TL 사분면)
+        west_layers = []
+        for layer in self.layers:
+            west_quadrants = [None, None, layer.quadrants[2], layer.quadrants[3]]
+            west_layers.append(Layer(west_quadrants))
+        west_shape = Shape(west_layers)
+        west_shape.max_layers = self.max_layers
+        
+        # 동쪽 절반 (0=BR, 1=TR 사분면)
+        east_layers = []
+        for layer in self.layers:
+            east_quadrants = [layer.quadrants[0], layer.quadrants[1], None, None]
+            east_layers.append(Layer(east_quadrants))
+        east_shape = Shape(east_layers)
+        east_shape.max_layers = self.max_layers
+        
+        return west_shape, east_shape
 
     def push_pin(self) -> Shape:
-        s_initial = self.apply_physics()
+        s_initial = self.copy()
         if not s_initial.layers or s_initial.layers[0].is_empty():
             return s_initial
 
@@ -503,7 +523,7 @@ class Shape:
         return output_a, output_b
 
     def paint(self, color_str: str) -> Shape:
-        s = self.apply_physics()
+        s = self.copy()
         if not s.layers:
             return s
         

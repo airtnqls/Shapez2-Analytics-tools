@@ -520,6 +520,10 @@ class ShapezGUI(QMainWindow):
         
         control_layout.addLayout(rotate_hbox, 2, 1)
         
+        self.simple_cutter_btn = QPushButton("심플 커터 (A)")
+        self.simple_cutter_btn.clicked.connect(self.on_simple_cutter)
+        control_layout.addWidget(self.simple_cutter_btn, 3, 0, 1, 2) # New position, spanning 2 columns
+        
         paint_hbox = QHBoxLayout()
         paint_hbox.addWidget(QLabel("페인터:"))
         self.paint_color = QComboBox()
@@ -528,7 +532,7 @@ class ShapezGUI(QMainWindow):
         self.paint_btn = QPushButton("칠하기")
         self.paint_btn.clicked.connect(self.on_paint)
         paint_hbox.addWidget(self.paint_btn)
-        control_layout.addLayout(paint_hbox, 3, 0, 1, 2)
+        control_layout.addLayout(paint_hbox, 4, 0, 1, 2) # Shifted from row 3 to row 4
         
         crystal_hbox = QHBoxLayout()
         crystal_hbox.addWidget(QLabel("크리스탈 생성:"))
@@ -538,17 +542,17 @@ class ShapezGUI(QMainWindow):
         self.crystal_btn = QPushButton("생성")
         self.crystal_btn.clicked.connect(self.on_crystal_gen)
         crystal_hbox.addWidget(self.crystal_btn)
-        control_layout.addLayout(crystal_hbox, 4, 0, 1, 2)
+        control_layout.addLayout(crystal_hbox, 5, 0, 1, 2) # Shifted from row 4 to row 5
         
         self.classifier_btn = QPushButton("분류기 (A)")
         self.classifier_btn.clicked.connect(self.on_classifier)
-        control_layout.addWidget(self.classifier_btn, 5, 0)
+        control_layout.addWidget(self.classifier_btn, 6, 0) # Shifted from row 5 to row 6
         
         # 적용 버튼 추가
         self.apply_button = QPushButton("적용 (출력→입력)")
         self.apply_button.clicked.connect(self.on_apply_outputs)
         self.apply_button.setEnabled(False)  # 초기에는 비활성화
-        control_layout.addWidget(self.apply_button, 5, 1)
+        control_layout.addWidget(self.apply_button, 6, 1) # Shifted from row 5 to row 6
         
         left_panel.addWidget(control_group)
         
@@ -944,6 +948,11 @@ class ShapezGUI(QMainWindow):
     
     def on_rotate(self, clockwise: bool):
         if s := self._get_input_shape(self.input_a): self.display_outputs([("회전 후", s.rotate(clockwise))])
+    
+    def on_simple_cutter(self):
+        if s := self._get_input_shape(self.input_a):
+            res_a, res_b = s.simple_cutter()
+            self.display_outputs([("출력 A", res_a), ("출력 B", res_b)])
     
     def on_classifier(self):
         if s := self._get_input_shape(self.input_a):
@@ -1803,21 +1812,15 @@ class ShapezGUI(QMainWindow):
     
     def on_claw(self):
         """Claw 버튼 클릭 시 호출 - claw_tracer.py 기능 수행"""
-        from claw_tracer import build_cutable_shape, build_pinable_shape
+        from claw_tracer import claw_process_single_shape
         
-        def claw_shape(shape_code: str) -> str:
+        def claw_shape_for_gui(shape_code: str) -> str:
             try:
-                # 첫 번째 문자에 따라 적절한 함수 선택
-                if shape_code.startswith('P'):
-                    return build_pinable_shape(shape_code)
-                elif shape_code.startswith('c'):
-                    return build_cutable_shape(shape_code)
-                else:
-                    return build_cutable_shape(shape_code)
+                return claw_process_single_shape(shape_code)
             except Exception as e:
                 raise Exception(f"Claw 처리 실패: {str(e)}")
         
-        self.process_data_operation("Claw", claw_shape)
+        self.process_data_operation("Claw", claw_shape_for_gui)
     
     def on_browse_file(self):
         """파일 찾아보기 대화상자 열기 및 자동 로드"""
@@ -2504,6 +2507,9 @@ class ShapezGUI(QMainWindow):
         self.apply_physics_btn.clicked.disconnect()
         self.apply_physics_btn.clicked.connect(lambda: self.on_batch_operation("apply_physics"))
         
+        self.simple_cutter_btn.clicked.disconnect()
+        self.simple_cutter_btn.clicked.connect(lambda: self.on_batch_operation("simple_cutter"))
+        
         self.rotate_cw_btn.clicked.disconnect()
         self.rotate_cw_btn.clicked.connect(lambda: self.on_batch_operation("rotate_cw"))
         
@@ -2561,6 +2567,9 @@ class ShapezGUI(QMainWindow):
         
         self.apply_physics_btn.clicked.disconnect()
         self.apply_physics_btn.clicked.connect(self.on_apply_physics)
+        
+        self.simple_cutter_btn.clicked.disconnect()
+        self.simple_cutter_btn.clicked.connect(self.on_simple_cutter)
         
         self.rotate_cw_btn.clicked.disconnect()
         self.rotate_cw_btn.clicked.connect(lambda: self.on_rotate(True))

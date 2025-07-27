@@ -111,6 +111,11 @@ def Drop정보_수집(s):
                 Drop_위치.append(sIdx)
                 # sIdx 왼쪽의 - 개수 세기
                 spaceCount = 왼쪽문자_개수세기(A, sIdx, '-')
+                
+                # S의 아래가 첫 문자열까지 -로 연속되어있다면 높이에서 1을 뺀다
+                if spaceCount == sIdx:
+                    spaceCount -= 1
+                
                 Drop_높이.append(spaceCount)
                 # 새 위치 기록 (c 왼쪽)
                 newSIdx = cIdx - 1
@@ -154,13 +159,9 @@ def build_cutable_shape(s):
     C = 채워진배열_생성(L, '-')
     originalC_S_indices = 문자위치들_가져오기(s, 'c', 'S')
     
-    # C: 0부터 Drop_새위치[-1]까지 전부 c로 바꿈. Drop_새위치가 없으면 L2까지 c로 바꿈
-    if len(Drop_새위치) > 0:
-        lastDropPos = Drop_새위치[-1]
-        범위를_문자로설정(C, 0, lastDropPos, 'c')
-    else:
-        if L2 != -1:
-            범위를_문자로설정(C, 0, L2, 'c')
+    # C: L2까지 c로 바꿈
+    if L2 != -1:
+        범위를_문자로설정(C, 0, L2, 'c')
     
     # C: 모든 Drop_위치를 제외한 입력 str의 각 c와 s의 위치를 C에서 그 위치들에서 c를 S로 바꿈
     특정위치들_문자교체(C, originalC_S_indices, Drop_위치, 'c', 'S')
@@ -192,6 +193,14 @@ def build_pinable_shape(s):
     # A: 첫 글자를 삭제함. 맨 뒤에 - 추가
     A = 배열_시프트(A, '-')
     
+    # A: s의 첫 글자가 -인 경우, A의 첫 글자부터 연속된 c를 -로 변경
+    if s and (s[0] in ['-', 'S']):
+        for i in range(len(A)):
+            if A[i] == 'c':
+                A[i] = '-'
+            else:
+                break
+    
     # B 처리: 원본을 복사하여 처리
     B = list(s)
     
@@ -209,13 +218,9 @@ def build_pinable_shape(s):
     C = 채워진배열_생성(L, '-')
     originalC_S_indices = 문자위치들_가져오기(s, 'c', 'S')
     
-    # C: 0부터 Drop_새위치[-1]까지 전부 c로 바꿈. Drop_새위치가 없으면 L2까지 c로 바꿈
-    if len(Drop_새위치) > 0:
-        lastDropPos = Drop_새위치[-1]
-        범위를_문자로설정(C, 0, lastDropPos, 'c')
-    else:
-        if L2 != -1:
-            범위를_문자로설정(C, 0, L2, 'c')
+    # C: L2까지 c로 바꿈
+    if L2 != -1:
+        범위를_문자로설정(C, 0, L2, 'c')
     
     # C: 모든 Drop_위치를 제외한 입력 str의 각 c와 s의 위치를 C에서 그 위치들에서 c를 S로 바꿈
     특정위치들_문자교체(C, originalC_S_indices, Drop_위치, 'c', 'S')
@@ -228,6 +233,22 @@ def build_pinable_shape(s):
     
     # D: L길이의 c로 가득찬 리스트 생성
     D = 채워진배열_생성(L, 'c')
+    
+    # s의 맨 첫 문자가 'S'라면 추가 처리
+    if s and s[0] == 'S':
+        # A의 맨 아래 연속된 '-' 중에서 가장 위 '-'를 'S'로 바꿈
+        for i in range(len(A)):
+            if A[i] == '-':
+                # 다음 문자가 '-'가 아닐 때까지 계속 진행
+                if i + 1 >= len(A) or A[i + 1] != '-':
+                    A[i] = 'S'
+                    # C의 같은 위치가 'S'라면, 그 S를 맨 첫글자 c와 문자를 바꿈
+                    if i < len(C) and C[i] == 'S':
+                        C[i] = 'c'
+                        C[0] = 'S'
+                    break
+            else:
+                break
     
     return format_final_result(A, B, C, D)
 
@@ -248,9 +269,20 @@ def format_final_result(A, B, C, D):
         results.append(f"{dChar}{cChar}{aChar}{bChar}")
     return ':'.join(results)
 
-if __name__ == "__main__":
+def claw_process_single_shape(shape_code: str) -> str:
+    """단일 도형 코드를 받아 Claw 처리를 수행하고 결과를 반환합니다."""
+    if shape_code[0] == 'P':
+        result = build_pinable_shape(shape_code)
+    elif shape_code[0] == 'c':
+        result = build_cutable_shape(shape_code)
+    else:
+        result = build_pinable_shape(shape_code) # 기본값
+    return result
+
+def process_all_shapes_from_file(input_filepath: str, output_filepath: str):
+    """입력 파일에서 도형 코드를 읽어 Claw 처리를 수행하고 결과 파일을 생성합니다."""
     # example.txt에서 줄 읽기
-    with open("data/example.txt", "r", encoding="utf-8") as f:
+    with open(input_filepath, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip()]
 
     print(f"읽어온 줄 수: {len(lines)}")
@@ -258,20 +290,21 @@ if __name__ == "__main__":
     # 각 줄에 대해 build_shape 실행 및 결과 저장
     output_lines = []
     for i, line in enumerate(lines):
-        if line[0] == 'P':
-            result = build_pinable_shape(line)
-        elif line[0] == 'c':
-            result = build_cutable_shape(line)
-        else:
-            result = build_cutable_shape(line)
+        result = claw_process_single_shape(line) # 단일 처리 함수 재사용
         output_lines.append(result)
         print(f"처리 중 ({i+1}/{len(lines)}): {line} -> {result}")
 
     print(f"생성된 결과 수: {len(output_lines)}")
 
     # 결과를 텍스트 파일로 저장
-    with open("data/derived_combinations_len6.txt", "w", encoding="utf-8") as f:
+    with open(output_filepath, "w", encoding="utf-8") as f:
         for out in output_lines:
             f.write(out + "\n")
 
     print(f"파일에 저장된 결과 수: {len(output_lines)}")
+
+if __name__ == "__main__":
+    # 기본 파일 경로
+    input_file = "data/example.txt"
+    output_file = "data/derived_combinations_len6.txt"
+    process_all_shapes_from_file(input_file, output_file)

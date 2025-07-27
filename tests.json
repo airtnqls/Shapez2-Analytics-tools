@@ -235,6 +235,12 @@
         "expected": "P-P-P---:----Cu--"
       },
       {
+        "name": "핀 푸셔 (연결성 테스트)",
+        "operation": "push_pin",
+        "input_a": "cw----Cu:cwCucw--:cwcwCu--:cw------:cw------",
+        "expected": "P-CuCuP-:------Cu"
+      },
+      {
         "name": "핀 푸셔 (단일 핀 레이어 제작)",
         "operation": "push_pin",
         "input_a": "crcrcrcr:crcrcrcr:crcrcrcr:crcrcrcr:crcrcrcr",
@@ -281,9 +287,9 @@
       {
         "name": "일반 스와퍼",
         "operation": "swap",
-        "input_a": "CcCcCcCc",
+        "input_a": "CrCcCcCc",
         "input_b": "SrSrSrSr",
-        "expected_a": "CcCcSrSr",
+        "expected_a": "CrCcSrSr",
         "expected_b": "SrSrCcCc"
       },
       {
