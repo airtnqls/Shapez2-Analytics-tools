@@ -580,9 +580,13 @@ class ShapezGUI(QMainWindow):
         self.reverse_btn.clicked.connect(self.on_reverse)
         data_process_layout.addWidget(self.reverse_btn, 2, 0)
         
+        self.corner_btn = QPushButton("Corner")
+        self.corner_btn.clicked.connect(self.on_corner)
+        data_process_layout.addWidget(self.corner_btn, 2, 1)
+        
         self.claw_btn = QPushButton("Claw")
         self.claw_btn.clicked.connect(self.on_claw)
-        data_process_layout.addWidget(self.claw_btn, 2, 1)
+        data_process_layout.addWidget(self.claw_btn, 2, 2)
         
         left_panel.addWidget(data_process_group)
         
@@ -1810,13 +1814,25 @@ class ShapezGUI(QMainWindow):
         
         self.process_data_operation("역순", reverse_shape)
     
+    def on_corner(self):
+        """Corner 버튼 클릭 시 호출 - corner_tracer.py 기능 수행"""
+        from corner_tracer import corner_process
+        
+        def corner_shape_for_gui(shape_code: str) -> str:
+            try:
+                return corner_process(shape_code)
+            except Exception as e:
+                raise Exception(f"Corner 처리 실패: {str(e)}")
+        
+        self.process_data_operation("Corner", corner_shape_for_gui)
+    
     def on_claw(self):
         """Claw 버튼 클릭 시 호출 - claw_tracer.py 기능 수행"""
-        from claw_tracer import claw_process_single_shape
+        from claw_tracer import claw_process
         
         def claw_shape_for_gui(shape_code: str) -> str:
             try:
-                return claw_process_single_shape(shape_code)
+                return claw_process(shape_code)
             except Exception as e:
                 raise Exception(f"Claw 처리 실패: {str(e)}")
         
@@ -2538,7 +2554,7 @@ class ShapezGUI(QMainWindow):
         self.corner_3q_btn.setText("3사분면 코너 (∀)")
         self.remove_impossible_btn.setText("불가능 제거 (∀)")
         self.reverse_btn.setText("역순 (∀)")
-        self.claw_btn.setText("Claw (∀)")
+        self.corner_btn.setText("Corner (∀)")
         
         # 데이터 처리 버튼들의 클릭 이벤트는 이미 대량처리를 지원하므로 그대로 유지
     
@@ -2599,7 +2615,7 @@ class ShapezGUI(QMainWindow):
         self.corner_3q_btn.setText("3사분면 코너")
         self.remove_impossible_btn.setText("불가능 제거")
         self.reverse_btn.setText("역순")
-        self.claw_btn.setText("Claw")
+        self.corner_btn.setText("Corner")
 
     def on_log_level_changed(self):
         """상세 로그 표시 설정이 변경되었을 때 로그를 다시 렌더링합니다."""
@@ -2627,6 +2643,17 @@ class ShapezGUI(QMainWindow):
             else:
                 # 일반 로그는 기본 색상
                 self.log_output.append(message)
+
+
+
+    def get_main_window(self):
+        """메인 윈도우 참조 가져오기"""
+        widget = self
+        while widget:
+            if isinstance(widget, ShapezGUI):
+                return widget
+            widget = widget.parent()
+        return None
 
 class CustomTabWidget(QTabWidget):
     """탭 삭제 가능한 커스텀 탭 위젯"""
@@ -2884,6 +2911,12 @@ class DataTabWidget(QWidget):
         # 비교 테이블 여부 플래그
         self.is_comparison_table = False
         
+        # 현재 화면에 표시되는 시각화 위젯들을 추적
+        self.visible_shape_widgets = {} # {row_index: ShapeWidget}
+        
+        # 유효성 계산 여부 추적 (최적화용)
+        self.validity_calculated_rows = set()
+        
         self.setup_ui()
         
         # 초기 데이터를 히스토리에 추가
@@ -2909,7 +2942,10 @@ class DataTabWidget(QWidget):
         self.data_table = DragDropTableWidget()
         self.data_table.setColumnCount(2)
         self.data_table.setHorizontalHeaderLabels(["유효성", "도형 코드"])
-        self.data_table.horizontalHeader().setStretchLastSection(True)
+        # 창 크기 확장 시 유효성과 도형 코드 컬럼이 늘어나도록 설정
+        self.data_table.horizontalHeader().setStretchLastSection(False)
+        self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.data_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.data_table.customContextMenuRequested.connect(self.on_table_context_menu)
         self.data_table.rows_reordered.connect(self.on_data_moved)
@@ -2924,6 +2960,16 @@ class DataTabWidget(QWidget):
         """)
         
         layout.addWidget(self.data_table)
+        
+        # 스크롤 이벤트 연결 (수정된 부분)
+        # 유효성 및 시각화 업데이트 함수를 각각 연결
+        scroll_bar = self.data_table.verticalScrollBar()
+        scroll_bar.valueChanged.connect(self._update_visible_validity)
+        scroll_bar.valueChanged.connect(self._update_visible_shapes)
+        
+        horizontal_scroll_bar = self.data_table.horizontalScrollBar()
+        horizontal_scroll_bar.valueChanged.connect(self._update_visible_validity)
+        horizontal_scroll_bar.valueChanged.connect(self._update_visible_shapes)
         
         # 단축키 설정
         self.setup_shortcuts()
@@ -3128,30 +3174,19 @@ class DataTabWidget(QWidget):
                         # 데이터 업데이트
                         self.data[row] = new_text
                         
-                        # 시각화가 활성화된 경우 시각화 위젯 업데이트
-                        if hasattr(self, 'visualization_checkbox') and self.visualization_checkbox.isChecked() and self.data_table.columnCount() == 3:
-                            if new_text.strip():
-                                try:
-                                    from shape import Shape
-                                    shape = Shape.from_string(new_text.strip())
-                                    shape_widget = ShapeWidget(shape, compact=True)
-                                    shape_widget.setStyleSheet("background-color: white; border: none;")
-                                    self.data_table.setCellWidget(row, 2, shape_widget)
-                                    
-                                    # 도형의 층수에 따라 행 높이 조정
-                                    layer_count = len(shape.layers)
-                                    # 기본 높이 30px + 층수마다 추가 30px
-                                    row_height = max(50, 30 + layer_count * 30)
-                                    self.data_table.setRowHeight(row, row_height)
-                                except Exception:
-                                    # 파싱 실패 시 위젯 제거
-                                    self.data_table.setCellWidget(row, 2, None)
-                                    self.data_table.setRowHeight(row, 50)  # 기본 높이
-                            else:
-                                # 빈 텍스트인 경우 위젯 제거
-                                self.data_table.setCellWidget(row, 2, None)
-                                self.data_table.setRowHeight(row, 50)  # 기본 높이
+                        # 유효성 캐시에서 해당 행 제거하여 재계산 유도
+                        self.validity_calculated_rows.discard(row)
                         
+                        # 시각화 위젯이 있다면 제거하여 재계산 유도
+                        if row in self.visible_shape_widgets:
+                            widget = self.visible_shape_widgets.pop(row)
+                            self.data_table.removeCellWidget(row, 2)
+                            widget.deleteLater()
+                        
+                        # 변경 즉시 유효성 업데이트, 그 후 시각화 업데이트
+                        self._update_visible_validity()
+                        self._update_visible_shapes()
+
                         # 히스토리에 추가
                         self.add_to_data_history(f"편집 ({row + 1}번: {old_text} → {new_text})")
                         
@@ -3205,13 +3240,14 @@ class DataTabWidget(QWidget):
             main_window.log_verbose(f"{len(valid_lines)}개 항목이 {insert_position + 1}번 위치에 추가되었습니다.")
     
     def update_table(self):
-        """테이블 업데이트"""
-        # 현재 선택된 행들을 기억
-        selected_rows = set()
-        for item in self.data_table.selectedItems():
-            selected_rows.add(item.row())
+        """테이블 업데이트 (최적화: 구조만 만들고 계산은 동적으로 처리)"""
+        selected_rows = set(item.row() for item in self.data_table.selectedItems())
+            
+        # 유효성 계산 상태 초기화
+        self.validity_calculated_rows.clear()
         
         self.data_table.setRowCount(len(self.data))
+        self.data_table.blockSignals(True)
         
         if self.is_comparison_table:
             # 비교 테이블인 경우 3열로 표시
@@ -3247,74 +3283,28 @@ class DataTabWidget(QWidget):
         else:
             # 일반 테이블인 경우 2열로 표시
             for i, shape_code in enumerate(self.data):
-                # 유효성 열 (분류기 결과)
-                validity_text = ""
-                is_impossible = False
-                try:
-                    if shape_code.strip():
-                        from shape import Shape
-                        shape = Shape.from_string(shape_code.strip())
-                        classification_result, classification_reason = shape.classifier()
-                        validity_text = f"{classification_result} ({classification_reason})"
-                        is_impossible = classification_result == "불가능형"
-                    else:
-                        validity_text = "빈_도형 (도형이 비어있음)"
-                except Exception as e:
-                    validity_text = f"오류 ({str(e)})"
-                
-                validity_item = QTableWidgetItem(validity_text)
+                # 유효성 열: 비워둠 (동적 로딩)
+                validity_item = QTableWidgetItem("")
                 validity_item.setFlags(validity_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                
-                # 불가능형인 경우 배경색을 회색으로 설정
-                if is_impossible:
-                    validity_item.setBackground(QColor(240, 240, 240))  # 연한 회색
-                
                 self.data_table.setItem(i, 0, validity_item)
                 
-                # 도형 코드 열
+                # 도형 코드 열: 값만 설정
                 code_item = QTableWidgetItem(shape_code)
-                
-                # 불가능형인 경우 배경색을 회색으로 설정
-                if is_impossible:
-                    code_item.setBackground(QColor(240, 240, 240))  # 연한 회색
-                
                 self.data_table.setItem(i, 1, code_item)
-                
-                # 시각화가 활성화된 경우 시각화 위젯 추가
-                if hasattr(self, 'visualization_checkbox') and self.visualization_checkbox.isChecked() and self.data_table.columnCount() == 3:
-                    if shape_code.strip():
-                        try:
-                            from shape import Shape
-                            shape = Shape.from_string(shape_code.strip())
-                            shape_widget = ShapeWidget(shape, compact=True)
-                            # 불가능형인 경우 시각화 위젯도 회색 배경으로 설정
-                            if is_impossible:
-                                shape_widget.setStyleSheet("background-color: rgb(240, 240, 240); border: none;")
-                            else:
-                                shape_widget.setStyleSheet("background-color: white; border: none;")
-                            self.data_table.setCellWidget(i, 2, shape_widget)
-                            
-                            # 도형의 층수에 따라 행 높이 조정
-                            layer_count = len(shape.layers)
-                            # 기본 높이 30px + 층수마다 추가 30px
-                            row_height = max(50, 30 + layer_count * 30)
-                            self.data_table.setRowHeight(i, row_height)
-                        except Exception:
-                            # 파싱 실패 시 빈 셀로 유지
-                            self.data_table.setRowHeight(i, 50)  # 기본 높이
-                    else:
-                        self.data_table.setRowHeight(i, 50)  # 기본 높이
 
-                                # 이전에 선택된 행이었으면 다시 선택
-                if i in selected_rows:
-                    self.data_table.item(i, 0).setSelected(True)
-                    self.data_table.item(i, 1).setSelected(True)
-                    if self.data_table.columnCount() == 3:
-                        self.data_table.setCurrentCell(i, 2)  # 시각화 컬럼이 있으면 해당 셀도 선택
-            
-            # 첫 번째 열 너비 조정
-            self.data_table.setColumnWidth(0, 60)
-        
+                        # 모든 행의 높이를 기본값으로 설정
+        self.data_table.setRowHeight(i, 30)
+
+        # 컬럼 너비 조정 (유효성 컬럼을 두 배로 늘림)
+        self.data_table.setColumnWidth(0, 200)  # 유효성 컬럼을 두 배로 늘림
+        self.data_table.setColumnWidth(1, 300)  # 도형 코드 컬럼
+
+        self.data_table.blockSignals(False)
+
+        for row in selected_rows:
+            if row < self.data_table.rowCount():
+                self.data_table.selectRow(row)
+
         # 버튼 상태 업데이트
         has_data = len(self.data) > 0
         self.clear_button.setEnabled(has_data)
@@ -3325,6 +3315,11 @@ class DataTabWidget(QWidget):
         
         # 데이터 히스토리 버튼 상태 업데이트
         self.update_data_history_buttons()
+        
+        # 테이블 구조가 준비된 후, 보이는 영역의 유효성 계산을 즉시 트리거
+        QTimer.singleShot(0, self._update_visible_validity)
+        # 시각화는 초기 상태에 따라 자동으로 처리됨
+        QTimer.singleShot(0, self._update_visible_shapes)
     
     def on_table_context_menu(self, position):
         """테이블 우클릭 메뉴"""
@@ -3690,63 +3685,133 @@ class DataTabWidget(QWidget):
         self.data_redo_button.setEnabled(self.data_history.can_redo())
     
     def on_visualization_toggled(self, state):
-        """시각화 체크박스 상태 변경 시 호출"""
-        if state == 2:  # 체크됨
-            self.enable_visualization()
-        else:  # 체크 해제됨
-            self.disable_visualization()
+        """도형 시각화 체크박스 상태 변경 시 호출"""
+        if state == Qt.CheckState.Checked.value: # 체크됨
+            if self.data_table.columnCount() == 2:
+                self.data_table.setColumnCount(3)
+                self.data_table.setHorizontalHeaderLabels(["유효성", "도형 코드", "시각화"])
+                # 시각화 컬럼도 마우스로 조절 가능하도록 설정
+                self.data_table.setColumnWidth(2, 160)
+                # 창 크기 확장 시 유효성과 도형 코드 컬럼이 늘어나도록 설정
+                self.data_table.horizontalHeader().setStretchLastSection(False)
+                self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+                self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+                self.data_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+            self._update_visible_shapes() # 시각화 위젯만 다시 그림
+        else: # 체크 해제됨
+            self._clear_all_shape_widgets() # 모든 시각화 위젯 제거
+            if self.data_table.columnCount() == 3:
+                self.data_table.setColumnCount(2)
+                self.data_table.setHorizontalHeaderLabels(["유효성", "도형 코드"])
+                # 창 크기 확장 시 유효성과 도형 코드 컬럼이 늘어나도록 설정
+                self.data_table.horizontalHeader().setStretchLastSection(False)
+                self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+                self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
     
-    def enable_visualization(self):
-        """시각화 기능 활성화"""
-        # 테이블에 시각화 컬럼 추가
-        current_col_count = self.data_table.columnCount()
-        if current_col_count == 2:  # 기존 2개 컬럼 (유효성, 도형 코드)
-            self.data_table.setColumnCount(3)
-            self.data_table.setHorizontalHeaderLabels(["유효성", "도형 코드", "시각화"])
-            
-            # 각 행에 시각화 위젯 추가
-            for row in range(self.data_table.rowCount()):
-                shape_code_item = self.data_table.item(row, 1)
-                if shape_code_item and shape_code_item.text().strip():
-                    shape_code = shape_code_item.text().strip()
-                    try:
+
+
+    def _update_visible_validity(self):
+        """현재 뷰포트에 보이는 행의 유효성만 동적으로 계산합니다."""
+        if self.is_comparison_table: return
+
+        # 보이는 행 범위 계산
+        viewport_rect = self.data_table.viewport().rect()
+        first = self.data_table.indexAt(viewport_rect.topLeft()).row()
+        last = self.data_table.indexAt(viewport_rect.bottomRight()).row()
+        if first == -1: first = 0
+        if last == -1: last = self.data_table.rowCount() - 1
+        if last < 0: return
+
+        # 보이는 행에 대해서만 유효성 계산
+        for row in range(first, last + 1):
+            if row not in self.validity_calculated_rows:
+                shape_code = self.data_table.item(row, 1).text()
+                validity_item = self.data_table.item(row, 0)
+                code_item = self.data_table.item(row, 1)
+
+                is_impossible = False
+                try:
+                    if shape_code.strip():
                         from shape import Shape
-                        shape = Shape.from_string(shape_code)
+                        shape = Shape.from_string(shape_code.strip())
+                        res, reason = shape.classifier()
+                        validity_item.setText(f"{res} ({reason})")
+                        is_impossible = res == "불가능형"
+                    else:
+                        validity_item.setText("빈_도형 (도형이 비어있음)")
+                except Exception as e:
+                    validity_item.setText(f"오류 ({str(e)})")
+
+                # 배경색 설정
+                bg_color = QColor(240, 240, 240) if is_impossible else QColor(255, 255, 255)
+                validity_item.setBackground(bg_color)
+                code_item.setBackground(bg_color)
+                
+                self.validity_calculated_rows.add(row)
+
+    def _update_visible_shapes(self):
+        """현재 뷰포트에 보이는 행의 시각화 위젯만 관리합니다."""
+        # 시각화가 꺼져 있거나, 비교 테이블 모드이면 아무것도 하지 않음
+        if not self.visualization_checkbox.isChecked() or self.is_comparison_table:
+            self._clear_all_shape_widgets()
+            return
+
+        # 보이는 행 범위 계산
+        viewport_rect = self.data_table.viewport().rect()
+        first = self.data_table.indexAt(viewport_rect.topLeft()).row()
+        last = self.data_table.indexAt(viewport_rect.bottomRight()).row()
+        if first == -1: first = 0
+        if last == -1: last = self.data_table.rowCount() - 1
+        if last < 0: return
+        
+        buffer_rows = 5
+        start_row = max(0, first - buffer_rows)
+        end_row = min(self.data_table.rowCount() - 1, last + buffer_rows)
+        needed_rows = set(range(start_row, end_row + 1))
+        
+        # 화면 밖 위젯 제거
+        rows_to_remove = set(self.visible_shape_widgets.keys()) - needed_rows
+        for row in rows_to_remove:
+            widget = self.visible_shape_widgets.pop(row)
+            self.data_table.removeCellWidget(row, 2)
+            widget.deleteLater()
+            
+        # 화면 안 위젯 추가/업데이트
+        for row in needed_rows:
+            if row not in self.visible_shape_widgets:
+                shape_code = self.data_table.item(row, 1).text()
+                # 배경색은 이미 유효성 검사에서 설정되었으므로 가져와서 사용
+                is_impossible = self.data_table.item(row, 0).background().color() == QColor(240, 240, 240)
+                
+                shape_widget = None
+                try:
+                    if shape_code.strip():
+                        from shape import Shape
+                        shape = Shape.from_string(shape_code.strip())
                         shape_widget = ShapeWidget(shape, compact=True)
-                        shape_widget.setStyleSheet("background-color: white; border: none;")
-                        self.data_table.setCellWidget(row, 2, shape_widget)
+                        bg_color_str = "rgb(240, 240, 240)" if is_impossible else "white"
+                        shape_widget.setStyleSheet(f"background-color: {bg_color_str}; border: none;")
                         
-                        # 도형의 층수에 따라 행 높이 조정
                         layer_count = len(shape.layers)
-                        # 기본 높이 30px + 층수마다 추가 30px
-                        row_height = max(50, 30 + layer_count * 30)
-                        self.data_table.setRowHeight(row, row_height)
-                    except Exception:
-                        # 파싱 실패 시 빈 셀로 유지
-                        self.data_table.setRowHeight(row, 50)  # 기본 높이
-                else:
-                    self.data_table.setRowHeight(row, 50)  # 기본 높이
-            
-            # 시각화 컬럼 크기 조정
-            self.data_table.setColumnWidth(2, 150)  # 시각화 컬럼 고정 폭
-            self.data_table.horizontalHeader().setStretchLastSection(False)
-            self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-            self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-            self.data_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-    
-    def disable_visualization(self):
-        """시각화 기능 비활성화"""
-        # 시각화 컬럼 제거
-        if self.data_table.columnCount() == 3:
-            self.data_table.setColumnCount(2)
-            self.data_table.setHorizontalHeaderLabels(["유효성", "도형 코드"])
-            self.data_table.horizontalHeader().setStretchLastSection(True)
-            self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-            self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-            
-            # 모든 행 높이를 기본값으로 초기화
-            for row in range(self.data_table.rowCount()):
-                self.data_table.setRowHeight(row, 30)  # 기본 행 높이
+                        self.data_table.setRowHeight(row, max(30, 20 + layer_count * 30))
+                    else:
+                        self.data_table.setRowHeight(row, 30)
+                except Exception:
+                    self.data_table.setRowHeight(row, 30)
+
+                if shape_widget:
+                    self.data_table.setCellWidget(row, 2, shape_widget)
+                    self.visible_shape_widgets[row] = shape_widget
+
+    def _clear_all_shape_widgets(self):
+        """모든 시각화 위젯을 테이블에서 제거합니다."""
+        for row, widget in list(self.visible_shape_widgets.items()):
+            self.data_table.removeCellWidget(row, 2)
+            widget.deleteLater()
+        self.visible_shape_widgets.clear()
+        # 모든 행 높이를 기본으로 재설정
+        for i in range(self.data_table.rowCount()):
+            self.data_table.setRowHeight(i, 30)
 
 class TreeGraphicsView(QGraphicsView):
     def __init__(self, *args, **kwargs):

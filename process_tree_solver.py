@@ -5,7 +5,7 @@
 from typing import List, Dict, Optional, Tuple
 from shape import Shape
 from shape_analyzer import analyze_shape_simple
-from claw_tracer import build_cutable_shape, build_pinable_shape
+from corner_tracer import build_cutable_shape, build_pinable_shape
 
 
 class ProcessNode:
@@ -182,47 +182,47 @@ class ProcessTreeSolver:
             root_node.operation = "문법 오류/생성 오류"
             return root_node
     
-    def _extract_first_layer(self, claw_result: str) -> str:
-        """claw tracer 결과에서 첫 번째 층만 추출"""
+    def _extract_first_layer(self, corner_result: str) -> str:
+        """corner tracer 결과에서 첫 번째 층만 추출"""
         try:
             # ":"로 분리된 경우 첫 번째 부분 사용
-            if ":" in claw_result:
-                layers = claw_result.split(":")
+            if ":" in corner_result:
+                layers = corner_result.split(":")
                 if layers:
                     return layers[0]
-            return claw_result
+            return corner_result
         except Exception:
-            return claw_result
+            return corner_result
     
     def _create_simple_tree(self, target_shape_code: str, target_shape: Shape) -> ProcessNode:
         """
-        임시 구현: claw_tracer를 사용하여 간단한 2단계 트리를 생성합니다.
+        임시 구현: corner_tracer를 사용하여 간단한 2단계 트리를 생성합니다.
         이 함수는 목표 도형에 대한 공정 서브트리의 루트 노드를 반환합니다.
         """
         # 여기서 생성되는 루트 노드는 solve_process_tree에서 최종 루트의 자식으로 연결될 것임.
         # 따라서 target_shape_code에 대한 중간 단계의 루트 노드로 생각.
-        current_node_for_tracing = ProcessNode(target_shape_code, "클로추적대상")
+        current_node_for_tracing = ProcessNode(target_shape_code, "코너추적대상")
         current_node_for_tracing.shape_obj = target_shape # shape_obj도 설정
         
         try:
-            # claw_tracer를 사용하여 이전 단계 도형 찾기
+            # corner_tracer를 사용하여 이전 단계 도형 찾기
             if target_shape_code and target_shape_code[0] == 'P':
-                claw_result = build_pinable_shape(target_shape_code)
+                corner_result = build_pinable_shape(target_shape_code)
             else:
-                claw_result = build_cutable_shape(target_shape_code)
+                corner_result = build_cutable_shape(target_shape_code)
             
-            if claw_result and claw_result != target_shape_code:
-                previous_shape_code = self._extract_first_layer(claw_result)
+            if corner_result and corner_result != target_shape_code:
+                previous_shape_code = self._extract_first_layer(corner_result)
                 
                 # 이전 단계 도형이 유효한지 다시 확인
                 prev_shape_obj = Shape.from_string(previous_shape_code)
                 if not prev_shape_obj: # 유효하지 않으면 불가능 노드로 표시
                     previous_node = ProcessNode(previous_shape_code, self.IMPOSSIBLE_OPERATION)
                 else:
-                    previous_node = ProcessNode(previous_shape_code, "claw")
+                    previous_node = ProcessNode(previous_shape_code, "corner")
                 
                 current_node_for_tracing.inputs = [previous_node]
-                current_node_for_tracing.operation = "claw 적용"
+                current_node_for_tracing.operation = "corner 적용"
                 
                 # 더 간단한 기본 도형이 있는지 확인 (임시로 단순화)
                 if previous_node.operation != self.IMPOSSIBLE_OPERATION and self._is_simple_shape(previous_shape_code):
@@ -242,11 +242,11 @@ class ProcessTreeSolver:
                         
         except Exception as e:
             print(f"_create_simple_tree 내부 오류: {e}")
-            # claw tracer 처리 중 오류가 발생하면, 하위 노드를 불가능 노드로 설정
+            # corner tracer 처리 중 오류가 발생하면, 하위 노드를 불가능 노드로 설정
             # 루트 노드 자체는 유지하되, 하위에 불가능 노드 추가
             impossible_child_node = ProcessNode(target_shape_code, self.IMPOSSIBLE_OPERATION)
             current_node_for_tracing.inputs = [impossible_child_node]
-            current_node_for_tracing.operation = "클로추적실패"
+            current_node_for_tracing.operation = "코너추적실패"
             
         return current_node_for_tracing
     
