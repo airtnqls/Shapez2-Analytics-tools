@@ -1665,7 +1665,7 @@ class ShapezGUI(QMainWindow):
                         if quadrant is None:
                             simplified_layer += "-"
                         elif quadrant.shape == 'c':
-                            simplified_layer += "S"  # 크리스탈을 S로 단순화
+                            simplified_layer += "c"  # 크리스탈은 c로 유지
                         elif quadrant.shape in ['C', 'R', 'W', 'S']:
                             simplified_layer += "S"  # CRWS를 S로 단순화
                         elif quadrant.shape == 'P':

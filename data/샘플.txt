@@ -1,26 +1,146 @@
-cS-S-c
-cS--S-c
-cS-S--c
-cSS-S-c
-cS---S-c
-cS--S--c
-cS-S---c
-cS-S-S-c
-cSS--S-c
-cSS-S--c
-cSSS-S-c
-cS----S-c
-cS---S--c
-cS--S---c
-cS--S-S-c
-cS-S----c
-cS-S--S-c
-cS-S-S--c
-cS-SS-S-c
-cSS---S-c
-cSS--S--c
-cSS-S---c
-cSS-S-S-c
-cSSS--S-c
-cSSS-S--c
-cSSSS-S-c
+SSSS
+SS-P
+cS-P
+cccc:cccc
+ccPP:cccc
+-SSS:SSSS:cccc
+S---:SSSS
+c---:SSSS
+SS--:-S--:cSS-:S---:SSSS
+SS--:-S--:ScS-:S---:SSSS
+SS--:-S--:cS-:S---:SSSS
+-S--:SS--:cS--:S---:SSSS
+-S--:SS--:cS--
+-S--:SSSS:---S:-c-S:-cSS
+c---:SSSS:--c-:SSSS
+PPSP:-S-P:-SSP:-P-P:-ScS
+PPPP:-S-P:-SSS:---P:-ScS
+P-P-:P---:cS-S
+P-P-:P---:cS-S:-S--:SSSS
+P-P-:P---:cS-S:P---:ScS-
+PP-P:-PSS:SP-S:-PcS:SScS
+PPSP:Pc-S:SP--:-PcS:SScS
+PP-P:SSSS:PP--:-PcS:SScS
+S---:S-S-:SSSS
+-SSS:PSSS
+cS--:-S--:cS--
+cS--:PS--:cS--
+PS--:-S--:cS--
+cS--:SS--:-S--:cS--
+cS--:SS--:-S--:SS--:-S--:cS--
+P---P-P-:CuCuCu--:P---P---:P-------:CucrCu--
+P-CuP-P-:P-CuCu--:P---P---:P-------:CucrCu--
+P---P-P-:P-CuCu--:P---P---:P-------:CucrCu--
+P-CuP-P-:Cu--Cu--:P---P---:P-------:CucrCu--
+P-CuP-P-:P-----Cu:cr------:P-------:CucrCu--
+P---CuP-:P-------:CuCu----:Cu------:CucrCu--
+P-P-P-P-:--P---Cu:Cu----Cu:crCu----:cr------
+P-P-P-P-:--P---Cu:CuP---Cu:Cu----Cu:crCu--Cu
+P-CuP---:P---P---:Cu--P-Cu:P-------:CucrCu--
+P-P-P-P-:--CuCuP-:Cu----Cu:P-------:CucrCu--
+P-P-P-P-:P-crP---:CuCu--Cu:--P-----:crCu----
+CuP-P-P-:--P---P-:--P---P-:Cu----Cu:crCu----
+P-P-CuP-:crP---P-:P-Cu----:P-------:CucrCu--
+P-CuP-P-:cr--P-Cu:P---P---:Cu------:CucrCu--
+P-P-CuP-:P-P---cr:--P---Cu:--P-----:CucrCu--
+CuP-P-P-:--Cu--Cu:--P---P-:Cu----Cu:crCu----
+P-CuP-P-:P---P-cr:P---P-Cu:P-------:CucrCu--
+P-CuP-P-:cr--P-P-:P---P---:Cu------:CucrCu--
+P-P-CuP-:CuP---cr:P-P---Cu:--P-----:CucrCu--
+P-CuP-P-:Cu--Cu--:P---P---:P-------:CucrCu--
+P-CuP---:P-------:cr----Cu:P-------:CucrCu--
+P-CuP-P-:crCuP-P-:P---P---:P-------:CucrCu--
+P-P-CuP-:P-P-----:P-P-----:--cr----:CucrCu--
+P-P-P-Cu:P-P-----:P-P-----:--P-----:CucrCu--
+P---P-P-:crCuCuCu:P-------:P-------:CucrCu--
+P-CuP-P-:cr--P-P-:P---P---:P-------:CucrCu--
+P-P-CuP-:P-P-P---:P-P-----:--cr----:CucrCu--
+CuP-P-P-:--P---Cu:--P---P-:Cu----Cu:crCu----
+P-P-P-Cu:P-crP---:P-P-----:Cu----Cu:crCu----
+P-CuP-P-:P---P---:P---Cu--:Cu------:CucrCu--
+P-CuP-P-:Cu--CuP-:cr----P-:P-------:CucrCu--
+--P-P-P-:CuCu--Cu:--P---P-:Cu----Cu:crCu----
+P---P-P-:P-CuCu--:P---P---:P-------:CucrCu--
+P-P-P-P-:P---P---:P-CuCu--:P-------:CucrCu--
+P---P-P-:crCuCuCu:P-------:P-------:CucrCu--
+--P-P-P-:CuCu--P-:--P---P-:Cu----Cu:crCu----
+P-P-P-Cu:P-Cu----:P-------:P-------:CucrCu--
+P-CuP-P-:Cu--P---:Cu--Cu--:P-------:CucrCu--
+P-P-P-Cu:CucrCu--:--Cu----:--Cu----:CucrCu--
+CuP-P-P-:--Cu--P-:--P---P-:Cu----Cu:crCu----
+--P-P-P-:CuP---Cu:--P-----:crP---Cu:crCu----
+P-CuP-P-:P---P---:Cu--P---:P-------:CucrCu--
+P-P-CuP-:CuP-----:P-P-----:--P-----:CucrCu--
+P-CuP-P-:Cu--Cu--:P---P---:P-------:CucrCu--
+P-P-P-Cu:P-Cu----:P-------:P-------:CucrCu--
+--P-CuP-:--P---Cu:------P-:Cu----Cu:crCu----
+--P-CuP-:--P---P-:------P-:Cu----Cu:crCu----
+P---P-P-:P-CuCu--:P-------:Cu------:CucrCu--
+P-CuP-P-:Cu--P---:P---Cu--:P-------:CucrCu--
+P-CuP-P-:Cu--Cu--:P---Cu--:P-------:CucrCu--
+P-CuP-P-:P---P-cr:P---P-Cu:P-------:CucrCu--
+P---P-P-:CuCuCu--:P-------:Cu------:CucrCu--
+P-CuP-P-:P---P---:P---Cu--:P-------:CucrCu--
+P-CuP-P-:P---Cu--:P---Cu--:P-------:CucrCu--
+P-P-P-P-:--P---Cu:CuP---Cu:Cu----Cu:crCu--Cu
+P-P-P-P-:P---P---:CuCu----:--Cu----:CucrCu--
+P-P-P-P-:Cu--P---:CuCu----:--cr----:CucrCu--
+P-CuP---:P---P---:Cu--P-Cu:P-------:CucrCu--
+P-P-P-P-:--P---Cu:Cu----Cu:crCu----:cr------
+P-CuP---:P---P---:Cu--P-Cu:P-------:CucrCu--
+P-P-P-P-:--P---Cu:CuP---Cu:Cu----Cu:crCu--Cu
+--P-P---:--Cu----:CuCu--Cu:--P-----:crCu----
+--P-P-P-:--P-crCu:CuP-CuCu:cr------:crCu----
+P-P-P---:CuP-P---:CucrP-Cu:cr------:crCu----
+P-P-P-P-:CuP-----:crP---Cu:cr------:crCu----
+--P-P-P-:--Cu--P-:CuP---Cu:Cu------:crCu----
+P-P-P---:CuCu----:crP---Cu:cr------:crCu----
+--P-P-P-:--P-CuP-:CuP-crCu:Cu--Cu--:crCu----
+P---P-P-:P---P-cr:P-Cucrcr:P---Cu--:crCu----
+P---P---:P---P---:P-Cucr--:P---Cu--:crCu----
+--P-P-P-:------P-:CuCu--Cu:--P-----:crCu----
+P-P-P-P-:--CuCuP-:Cu----Cu:P-------:CucrCu--
+P-P-P-P-:P-crP---:CuCu--Cu:--P-----:crCu----
+--P-P-P-:--P-P-Cu:--crP-P-:Cu----Cu:crCu----
+--P-P-P-:--Cu--P-:--Cu--P-:Cu----Cu:crCu----
+P-P-P-P-:P-P-P-Cu:P-crP---:Cu----Cu:crCu----
+P-P-P-P-:P-P-P-cr:crP-----:Cu----Cu:crCu----
+P-P-P---:crP-----:crP-----:Cu----Cu:crCu----
+P-P-P-P-:CuP-CuP-:--P---cr:Cu----Cu:crCu----
+P-P---P-:--P---Cu:----CuCu:Cu----Cu:crCu----
+P-P---P-:P-P---P-:--CuCuP-:Cu----Cu:crCu----
+P-P-P-P-:CuP-P-P-:--P-P-P-:cr--Cucr:crCu----
+P-P-P-P-:P-P-P-Cu:P---P---:Cu--P-cr:crCu----
+P-P-P-P-:P---P---:Cu--P---:CuCu----:CucrCu--
+--P-P-P-:--CuCuCu:Cu----Cu:P-------:Cucr----
+P-P-P-P-:CuP-P-cr:--P-P-cr:cr----Cu:crCu----
+--P-P-P-:--CuP-cr:Cu--P-Cu:P-------:CucrCu--
+P---P---:Cu--P---:CuCu--Cu:P-------:CucrCu--
+P---P-P-:Cu--CuCu:crCuCu--:P-------:CucrCu--
+P---P-P-:cr--P-Cu:crCuCu--:P-------:CucrCu--
+P---P-P-:P---crP-:P-CuCu--:P-------:CucrCu--
+P---P-P-:P---P-cr:P-CuCuCu:P-------:CucrCu--
+P-P-CuP-:CuCu----:P-------:CucrCu--
+P-P---P-:--P-----:--cr----:CucrCu--
+P-P-P---:P---Cu--:----CuCu:Cu----Cu:crCu----
+--P---P-:--P---Cu:--P-Cucr:Cu----Cu:crCu----
+P-P-P-P-:CuP-P-cr:--P-P-Cu:cr--P-cr:crCu----
+--P-P-P-:--crCuP-:CuP---Cu:--P-----:crCu----
+기본 -  핀 푸시를 사용하여 크리스탈 지지대를 부수세요  {P---P---:P-------:crCu--Cu}
+크리스탈 깨기 null > 핀 {P-P-P-P-:Cu------:cr------:crCu--Cu}
+뱀과 같은 {P-P-P-P-:------Sg:CgCg--Cg:--Cg----:CwcyCw--}
+다른 수정은 만지지 마세요 {P-P-P-P-:Cu----Cu:crCu----:--Cu----:CucrCu--}
+[드롭] 게이트  A 모양/핀이 깨지는 수정을 막고 있습니다.{P-P-P-P-:--P---P-:--P---P-:Cu----Cu:crCu--Cu}
+[드랍] 크리스탈 > 널 > 모양 {--P-P-P-:--Cu--Cu:RgRg--P-:------P-:cr----Cu}
+🛠청사진 사분면  모양 드롭 교과서  {P-P---P-:crCu--Cu:cr--CuCu:crcrCu--:crCu--Cu}
+[드롭] 바닥 모양 {P-P-P-Cr:P-CuP---:P---Cu--:P-------:crCu--Cu}
+[드롭] 모양 > 하단 null {P---P-P-:P-WuWu--:P-------:Cu------:crCu----}
+하이브리드 스태킹 {P-P-P-P-:P-----Cr:CuCuCu--:CrCu--Cr:--crCuP-}
+5개의 층 {P-Cg--P-:crCg--P-:crP-Cucr:crP-Cg--:crCgP-Cu}
+다층 결정 {P---P-P-:WrCmCmWr:P-----P-:P-cwSw--:WmcrCrWm}
+선택이 필요합니다 하위 레이어 지원 {CuP-P-P-:--P-P-P-:CyCu--P-:--CuCbP-:crCgCuCm}
+교체 가능? {--P-P---:--CuCu--:CuCu--Cu:--Cm--Cc:crCmCgCc}
+[발톱이 아닙니다] 여러 겹의 결정 {Cucr--Cu:--Cu--P-:crP-CuCu:crCu----:crCuCu--}
+발톱이 아니야 {P-CuP-Cu:P-------:CuCu----:crCuCuCu:cr------}
+크리스탈이 깨지기 때문에 쌓아서는 안 됩니다. {Cc--P-P-:----P-cr:--CuCuCm:--P-CuCu:crCuP---}
+동시에 대부분의 기능 {P-CrP-P-:Sw--SwSw:P---WrWr:Wr----Sw:SwcySwP-} 

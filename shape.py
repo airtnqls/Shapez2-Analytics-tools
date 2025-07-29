@@ -71,6 +71,13 @@ class Shape:
 
     @classmethod
     def from_string(cls, code: str) -> Shape:
+        # 입력 코드에 중괄호가 포함되어 있는지 확인하고, 그렇다면 그 사이의 텍스트를 추출합니다.
+        if '{' in code and '}' in code:
+            start_index = code.find('{')
+            end_index = code.find('}', start_index)
+            if start_index != -1 and end_index != -1 and end_index > start_index:
+                code = code[start_index + 1:end_index].strip()
+
         if not code: return Shape([])
         
         # 콜론이 없고 5글자 이상인 경우, 색상코드가 없을 때만 각 글자를 콜론으로 구분하여 처리

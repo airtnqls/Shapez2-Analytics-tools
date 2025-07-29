@@ -317,28 +317,34 @@
         "expected_b": "Cu----Cu"
       },
       {
-        "name": "임시, 연산자: 분류",
+        "name": "단순 분류",
         "operation": "classifier",
-        "input_a": "CrCr--Cr--",
+        "input_a": "SS-P",
         "expected": "단순_기하형"
       },
       {
-        "name": "임시, 연산자: 분류",
+        "name": "크리스탈 분류",
         "operation": "classifier",
-        "input_a": "CrCr--Cr--",
-        "expected": "단순_기하형"
+        "input_a": "cS-P",
+        "expected": "스왑"
       },
       {
-        "name": "임시, 연산자: 분류",
+        "name": "스왑 분류",
         "operation": "classifier",
-        "input_a": "CrCr--Cr--",
-        "expected": "단순_기하형"
+        "input_a": "cP-P:P-SS:--cS",
+        "expected": "스왑"
       },
       {
-        "name": "임시, 연산자: 분류",
+        "name": "하이브리드 분류",
         "operation": "classifier",
-        "input_a": "CrCr--Cr--",
-        "expected": "단순_기하형"
+        "input_a": "c---:SSSS",
+        "expected": "하이브리드"
+      },
+      {
+        "name": "클로 분류",
+        "operation": "classifier",
+        "input_a": "P-P-:P---:cS-S",
+        "expected": "클로"
       },
       {
         "name": "임시, 연산자: 분류",
