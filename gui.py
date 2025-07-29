@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import html
@@ -13,7 +14,7 @@ from PyQt6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsWidget, QGraphicsProxyWidget
 )
 from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF, QSettings
 import numpy as np
 
 # pyqtgraph 임포트
@@ -384,6 +385,9 @@ class ShapezGUI(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         
+        # QSettings 초기화
+        self.settings = QSettings("Shapez2", "ShapezGUI")
+
         # 히스토리 관리 객체 생성 (A, B 통합)
         self.input_history = InputHistory(100)
         self.history_update_in_progress = False  # 히스토리 업데이트 중 플래그
@@ -394,9 +398,40 @@ class ShapezGUI(QMainWindow):
         # 로그 저장 변수
         self.log_entries = []  # [(message, is_verbose), ...] 형태로 저장
         
-        self.initUI()
-        self.origin_finder_thread = None
         self.total_training_episodes = 0
+        
+        # 스레드 초기화
+        self.origin_finder_thread = None
+        
+        self.initUI()
+        
+        # 저장된 설정 불러오기 (initUI 호출 후에 위젯들이 초기화된 상태에서 값을 로드)
+        self.load_settings()
+
+    def load_settings(self):
+        """저장된 설정을 불러옵니다."""
+        input_a_text = self.settings.value("input_a", "crcrcrcr")
+        input_b_text = self.settings.value("input_b", "")
+        last_data_path = self.settings.value("last_data_path", "")
+        
+        # 위젯이 초기화된 후에 값을 설정
+        self.input_a.setText(input_a_text)
+        self.input_b.setText(input_b_text)
+        self.last_opened_data_path = last_data_path  # 초기화
+
+        if last_data_path and os.path.exists(last_data_path):
+            self.file_path_label.setText(last_data_path)
+            self.file_path_label.setStyleSheet("color: black;")
+            self.log_verbose(f"마지막으로 열었던 파일 경로 불러옴: {last_data_path}")
+            # 파일 선택 후 자동으로 로드
+            self.load_file(last_data_path)
+        else:
+            self.log_verbose("저장된 파일 경로가 없거나 유효하지 않습니다.")
+
+        # 설정 로드 후, 히스토리 초기 상태를 업데이트합니다.
+        self.input_history.add_entry(input_a_text, input_b_text)
+        self.update_history_buttons()
+        self.update_input_display() # 초기 입력 표시
 
     def initUI(self):
         main_layout = QVBoxLayout(self.central_widget)
@@ -442,8 +477,8 @@ class ShapezGUI(QMainWindow):
         self.on_max_depth_changed()
 
         input_group = QGroupBox("입력"); input_layout = QGridLayout(input_group)
-        self.input_a = QLineEdit("crcrcrcr"); self.input_a.setObjectName("입력 A")
-        self.input_b = QLineEdit(); self.input_b.setObjectName("입력 B")
+        self.input_a = QLineEdit(); self.input_a.setObjectName("입력 A") # 초기값은 load_settings에서 설정
+        self.input_b = QLineEdit(); self.input_b.setObjectName("입력 B") # 초기값은 load_settings에서 설정
         
         # 실시간 출력 업데이트를 위한 텍스트 변경 이벤트 연결
         self.input_a.textChanged.connect(self.on_input_a_changed)
@@ -474,14 +509,14 @@ class ShapezGUI(QMainWindow):
         
         left_panel.addWidget(input_group)
         
-        # 초기 히스토리 항목 추가
-        self.input_history.add_entry("crcrcrcr", "")
+        # 초기 히스토리 항목 추가 (QSettings 로드 후 load_settings에서 add_entry 호출)
+        # self.input_history.add_entry("crcrcrcr", "")
         
         # 키보드 단축키 설정
         self.setup_shortcuts()
         
-        # 초기 히스토리 버튼 상태 업데이트
-        self.update_history_buttons()
+        # 초기 히스토리 버튼 상태 업데이트 (QSettings 로드 후 load_settings에서 update_history_buttons 호출)
+        # self.update_history_buttons()
         
         # 엔터키로 적용 버튼 활성화
         self.setup_enter_key_for_apply()
@@ -762,12 +797,21 @@ class ShapezGUI(QMainWindow):
 
         self.log_verbose(f"시뮬레이터 준비 완료. 자동 테스트는 tests.json 파일을 사용합니다.")
         
-        # 초기 입력 표시
-        self.update_input_display()
+        # 초기 입력 표시 (load_settings에서 처리되므로 여기서는 제거)
+        # self.update_input_display()
 
     def closeEvent(self, event):
-        self.log("애플리케이션 종료 중... 백그라운드 스레드를 정리합니다.")
+        """애플리케이션 종료 시 설정을 저장합니다."""
+        self.log("애플리케이션 종료 중... 설정 및 백그라운드 스레드를 정리합니다.")
         
+        # 현재 입력 필드의 값 저장
+        self.settings.setValue("input_a", self.input_a.text())
+        self.settings.setValue("input_b", self.input_b.text())
+        
+        # 마지막으로 열었던 데이터 경로 저장
+        if hasattr(self, 'last_opened_data_path') and self.last_opened_data_path:
+            self.settings.setValue("last_data_path", self.last_opened_data_path)
+
         if self.origin_finder_thread and self.origin_finder_thread.isRunning():
             self.origin_finder_thread.cancel()
             self.origin_finder_thread.wait()
@@ -1878,6 +1922,10 @@ class ShapezGUI(QMainWindow):
             self.add_data_tab(tab_name, shape_codes)
             
             self.log(f"파일 로드 완료: {len(shape_codes)}개의 도형 코드를 새 탭 '{tab_name}'에 불러왔습니다.")
+            
+            # 마지막으로 열었던 파일 경로 저장
+            self.last_opened_data_path = file_path
+            self.settings.setValue("last_data_path", file_path)
             
         except Exception as e:
             QMessageBox.critical(self, "오류", f"파일 로드 중 오류 발생:\n{str(e)}")
