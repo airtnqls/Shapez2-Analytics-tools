@@ -1,6 +1,7 @@
 from __future__ import annotations
 from enum import Enum
 import re
+from claw_tracer import verify_claw_process # verify_claw_process 함수 임포트
 
 
 class ShapeType(Enum):
@@ -458,6 +459,23 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     # ========== 7단계: 최종 결과 반환 ==========
     # 클로 추가 검사
     if final_classification_type == ShapeType.CLAW_INCLUDED.value:
+        # claw_process 검증 수행
+        claw_verified = False
+        if shape_obj:
+            try:
+                claw_verified = verify_claw_process(shape, repr(shape_obj))
+            except Exception as e:
+                final_reasons.append(f"클로 검증 오류: {e}")
+                claw_verified = False
+
+        if claw_verified:
+            final_reasons.append("클로가능")
+        else:
+            final_reasons.append("클로불가능")
+            # 클로 불가능으로 판명되면, 분류 타입을 Impossible로 변경할지 여부 결정
+            # 현재는 Impossible로 변경하지 않고, 이유만 추가하여 자세한 정보 제공
+            # final_classification_type = ShapeType.IMPOSSIBLE.value # 필요시 주석 해제
+
         first_layer = shape.split(':')[0] if shape else ''
         pin_count = first_layer.count('P')
         crystal_in_first_layer = 'c' in first_layer
