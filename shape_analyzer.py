@@ -463,7 +463,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         claw_verified = False
         if shape_obj:
             try:
-                claw_verified = verify_claw_process(shape, repr(shape_obj))
+                claw_verified = verify_claw_process(repr(shape_obj))
             except Exception as e:
                 final_reasons.append(f"클로 검증 오류: {e}")
                 claw_verified = False
