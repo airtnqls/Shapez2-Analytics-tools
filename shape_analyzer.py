@@ -469,8 +469,10 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
                 claw_verified = False
 
         if claw_verified:
+            final_reasons.clear()
             final_reasons.append("클로가능")
         else:
+            final_reasons.clear()
             final_reasons.append("클로불가능")
             # 클로 불가능으로 판명되면, 분류 타입을 Impossible로 변경할지 여부 결정
             # 현재는 Impossible로 변경하지 않고, 이유만 추가하여 자세한 정보 제공

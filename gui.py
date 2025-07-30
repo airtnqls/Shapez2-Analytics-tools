@@ -164,29 +164,43 @@ class OriginFinderThread(QThread):
     def cancel(self):
         self.is_cancelled = True
 
-COLOR_MAP = {'r':'#E33','g':'#3E3','b':'#33E','m':'#E3E','c':'#3EE','y':'#EE3','u':'#BBB','w':'#FFF','C':'#CDD'}
+COLOR_MAP = {'r':'#E33','g':'#3E3','b':'#33E','m':'#E3E','c':'#3EE','y':'#EE3','u':'#BBB','w':'#FFF','C':'#CDD','P':'#999'}
 
 class QuadrantWidget(QLabel):
     def __init__(self, quadrant: Optional[Quadrant], compact=False):
-        super().__init__(); self.setFixedSize(30, 30); self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        super().__init__()
+        self.setFixedSize(30, 30)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # 기본 폰트 설정
         font = QFont("맑은 고딕", 12)
         font.setBold(True)
-        self.setFont(font)
+        if quadrant and quadrant.shape == 'c':
+            # 소문자 c는 구별을 위해 monospace 폰트 사용
+            font_c = QFont("Consolas", 15)
+            font_c.setBold(True)
+            self.setFont(font_c)
+        else:
+            self.setFont(font)
         if quadrant:
-            color_code = QColor(COLOR_MAP.get(quadrant.color, '#FFF'))
             if quadrant.shape == 'c':
-                 base_color = QColor(COLOR_MAP['C'])
-                 paint_color = QColor(COLOR_MAP.get(quadrant.color, '#FFF'))
-                 self.setStyleSheet(f"""
-                    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0.2, y2:0.6, 
+                base_color = QColor(COLOR_MAP['C'])
+                paint_color = QColor(COLOR_MAP.get(quadrant.color, '#FFF'))
+                self.setStyleSheet(f"""
+                    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, 
                         stop:0 {base_color.name()}, stop:0.5 {base_color.name()}, stop:0.51 {paint_color.name()}, stop:1 {paint_color.name()});
                     color: black; border: 1px solid #555;
-                 """)
-                 self.setText('◆')
+                """)
+                self.setText('c')
+            elif quadrant.shape == 'P':
+                color_code = QColor(COLOR_MAP['P'])
+                self.setStyleSheet(f"background-color: {color_code.name()}; color: black; border: 1px solid #555;")
+                self.setText(quadrant.shape.upper())
             else:
-                 self.setStyleSheet(f"background-color: {color_code.name()}; color: black; border: 1px solid #555;")
-                 self.setText(quadrant.shape.upper())
-        else: self.setStyleSheet("background-color: #333; border: 1px solid #555;")
+                color_code = QColor(COLOR_MAP.get(quadrant.color, '#FFF'))
+                self.setStyleSheet(f"background-color: {color_code.name()}; color: black; border: 1px solid #555;")
+                self.setText(quadrant.shape.upper())
+        else:
+            self.setStyleSheet("background-color: #333; border: 1px solid #555;")
 
 class ShapeWidget(QFrame):
     def __init__(self, shape: Shape, compact=False):
@@ -1737,7 +1751,7 @@ class ShapezGUI(QMainWindow):
                 # 모든 레이어의 2사분면(인덱스 1)에 Cu 추가
                 for layer in shape.layers:
                     if layer.quadrants[1] is None:
-                        layer.quadrants[1] = Quadrant('C', 'u')
+                        layer.quadrants[1] = Quadrant('S', 'u')
                 return repr(shape)
             except Exception as e:
                 raise Exception(f"구체화 실패: {str(e)}")

@@ -104,7 +104,7 @@ class Shape:
                     if i < len(short_code):
                         char = short_code[i]
                         if char == 'S':
-                            expanded += "Cu"  # S는 Cu로 변환
+                            expanded += "Su"  # S는 Cu로 변환
                         elif char.islower() and char == 'c':
                             expanded += char + "w"  # c는 해당 도형 + w 색상
                         elif char == 'P':

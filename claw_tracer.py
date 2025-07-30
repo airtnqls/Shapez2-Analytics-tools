@@ -291,7 +291,7 @@ def _relocate_s_pieces(working_shape: 'Shape', ref_shape: 'Shape'):
 
     # New: 0. '두번 뜬 S' 그룹 탐색 및 처리 (최우선)
     print("DEBUG: '두번 뜬 S' 패턴 탐색 시작...")
-    # Pattern: Layer 1 is None, Layer 2 is 'S', Layer 3 is None, Layer 4 is 'S' or 'C'
+    # Pattern: Layer 1 is None, Layer 2 is 'S', Layer 3 is None, Layer 4 is 'S' or 'c'
     twice_floating_s_q_indices = []
     for q_idx in range(4):
         # Layer 0 (1층) can be anything, so no check here.
@@ -368,17 +368,17 @@ def _relocate_s_pieces(working_shape: 'Shape', ref_shape: 'Shape'):
     if ungrouped_bottom_s:
         print(f"DEBUG: '바닥 S' 개별 처리 시작 (대상: {ungrouped_bottom_s})...")
         for s_q_idx in ungrouped_bottom_s:
-            # This is where the _find_s_relocation_spot and subsequent placement happens.
-            # No need to check processed_q again here as it's for individual base S.
-            # The relocation places new 'C's, which won't be in processed_q from previous moves.
+            # 여기서 _find_s_relocation_spot 호출 및 후속 배치가 발생합니다.
+            # 개별 바닥 S에 대한 처리이므로 processed_q를 다시 확인할 필요가 없습니다.
+            # 재배치는 새로운 'S'를 배치하며, 이는 이전 이동에서 processed_q에 포함되지 않습니다.
             print(f"DEBUG: _find_s_relocation_spot 호출 (ref_shape로 working_shape 전달). 현재 working_shape: {repr(working_shape)}") # 로그 추가
             l_target, fill_c = _find_s_relocation_spot(working_shape, s_q_idx, working_shape) # ref_shape를 working_shape로 변경
-            print(f"DEBUG: 사분면 {s_q_idx}의 '바닥 S' 재배치 위치: L{l_target}, 채울 C: {fill_c}")
+            print(f"DEBUG: 사분면 {s_q_idx}의 '바닥 S' 재배치 위치: L{l_target}, 채울 S: {fill_c}")
             if l_target != -1:
-                # The piece at (0, s_q_idx) is effectively removed later by slicing layers[1:]
-                # So we are placing a *new* C at l_target.
-                working_shape.layers[l_target].quadrants[s_q_idx] = Quadrant('C', 'u')
-                print(f"DEBUG: ({l_target}, {s_q_idx})에 'C' 배치됨.")
+                # (0, s_q_idx)의 조각은 나중에 layers[1:] 슬라이싱으로 효과적으로 제거됩니다.
+                # 따라서 l_target에 *새로운* C를 배치하는 것입니다.
+                working_shape.layers[l_target].quadrants[s_q_idx] = Quadrant('S', 'u')
+                print(f"DEBUG: ({l_target}, {s_q_idx})에 'S' 배치됨.")
                 _place_and_propagate_c(working_shape, fill_c, ref_shape)
 
 def _find_s_relocation_spot(shape: 'Shape', q_idx: int, ref_shape: 'Shape') -> Tuple[int, List[Tuple[int, int]]]: # ref_shape 추가
@@ -386,28 +386,27 @@ def _find_s_relocation_spot(shape: 'Shape', q_idx: int, ref_shape: 'Shape') -> T
     from shape import Shape, Layer
     print(f"DEBUG: _find_s_relocation_spot 호출됨. q_idx: {q_idx}")
 
-    # Case 1: Sky is open above the current quadrant
-    # Check if the sky is open from layer 0 upwards for the specific quadrant.
-    # If so, find the *first* available spot according to original adjacency rules.
+    # 케이스 1: 현재 사분면 위로 하늘이 열려있는 경우
+    # 특정 사분면에 대해 0층부터 위로 하늘이 열려있는지 확인
+    # 그렇다면 원래 인접성 규칙에 따라 *첫 번째* 사용 가능한 위치를 찾음
     if _is_sky_open_above(shape, 0, q_idx):
         print(f"DEBUG: _find_s_relocation_spot - Case 1 (하늘이 열려있음)")
         for l_idx in range(0, Shape.MAX_LAYERS):
             adj = [q for q in range(4) if shape._is_adjacent(q_idx, q)]
-            if len(adj) != 2: # Keep original defensive check
+            if len(adj) != 2: # 원래 방어적 검사 유지
                 continue
             p1, p2 = shape._get_piece(l_idx, adj[0]), shape._get_piece(l_idx, adj[1])
 
-            # Original condition: both adjacent spots must not be blocked by general shapes
+            # 원래 조건: 인접한 두 위치 모두 일반 도형으로 막혀있지 않아야 함
             if not (p1 and p1.shape in _GENERAL_SHAPE_TYPES) and not (p2 and p2.shape in _GENERAL_SHAPE_TYPES):
-                print(f"DEBUG: Case 1 - 적합한 위치 찾음: L{l_idx}, 인접 채울 C: {[(l_idx, a) for a, p in zip(adj, [p1,p2]) if p is None]}")
+                print(f"DEBUG: Case 1 - 적합한 위치 찾음: L{l_idx}, 인접 채울 c: {[(l_idx, a) for a, p in zip(adj, [p1,p2]) if p is None]}")
                 return l_idx, [(l_idx, a) for a, p in zip(adj, [p1,p2]) if p is None]
         print(f"DEBUG: Case 1 - 적합한 위치 찾지 못함.")
-        return -1, [] # No suitable spot found even with open sky
+        return -1, [] # 하늘이 열려있어도 적합한 위치를 찾지 못함
 
-    # Case 2: Sky is NOT open above the current quadrant
-    # Find the highest possible layer `l_target` such that it satisfies adjacency rules
-    # AND the layer directly above is blocked, or it is the top layer.
-    # The search stops as soon as a valid layer with a blocker above is found.
+    # 케이스 2: 현재 사분면 위로 하늘이 열려있지 않은 경우
+    # 인접성 규칙을 만족하고 바로 위층이 막혀있거나 최상층인 가장 높은 층 `l_target`을 찾음
+    # 위에 블로커가 있는 유효한 층을 찾는 즉시 탐색을 중단함
     print(f"DEBUG: _find_s_relocation_spot - Case 2 (하늘이 닫혀있음)")
     
     # 1. '천장' (가장 낮은 층의 블로커) 찾기
@@ -469,7 +468,7 @@ def _find_s_relocation_spot(shape: 'Shape', q_idx: int, ref_shape: 'Shape') -> T
                 fill_c_coords.append((found_l_target, adj[0]))
             if p2 is None:
                 fill_c_coords.append((found_l_target, adj[1]))
-        print(f"DEBUG: Case 2 - 최종 반환 위치: L{found_l_target}, 채울 C: {fill_c_coords}")
+        print(f"DEBUG: Case 2 - 최종 반환 위치: L{found_l_target}, 채울 c: {fill_c_coords}")
         return found_l_target, fill_c_coords
 
     print(f"DEBUG: _find_s_relocation_spot - 최종적으로 위치를 찾지 못함. q_idx: {q_idx}")
