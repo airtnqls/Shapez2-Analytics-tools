@@ -500,6 +500,27 @@ def _is_adjacent_to_ref_c(l, q, ref_shape):
         if 0 <= cl < len(ref_shape.layers) and (p := ref_shape._get_piece(cl, cq)) and p.shape == 'c': return True
     return False
 
+def _get_adjacent_matrix_coords(l: int, q: int, shape: 'Shape') -> set[Tuple[int, int]]:
+    """주어진 크리스탈 조각의 상하좌우 외곽선 좌표를 반환합니다. (자신 위치 제외)"""
+    from shape import Shape
+    coords = set()
+
+    # 위아래
+    if l + 1 < Shape.MAX_LAYERS:
+        coords.add((l + 1, q))
+    if l - 1 >= 0:
+        coords.add((l - 1, q))
+
+    # 같은 층의 인접 사분면
+    for adj_q in [aq for aq in range(4) if shape._is_adjacent(q, aq)]:
+        coords.add((l, adj_q))
+    
+    # 크리스탈 자신의 위치는 제외
+    if (l, q) in coords:
+        coords.remove((l, q)) # Defensive check, should not be added by logic above
+
+    return coords
+
 def _fill_opposite_quadrant(shape: 'Shape', opposite_q_idx: int):
     from shape import Shape, Layer, Quadrant
     print(f"DEBUG: 반대 사분면({opposite_q_idx})에 c 채우기...")
@@ -509,13 +530,17 @@ def _fill_opposite_quadrant(shape: 'Shape', opposite_q_idx: int):
         if p is not None and p.shape != 'c': break
         shape.layers[l_idx].quadrants[opposite_q_idx] = Quadrant('c', 'y')
 
-def _fill_c_from_pins(shape: 'Shape', p_indices: list[int]):
+def _fill_c_from_pins(shape: 'Shape', p_indices: list[int], ref_shape: 'Shape'): # ref_shape 추가
     from shape import Quadrant
     if not p_indices or not shape.layers: return
-    print("DEBUG: 핀 위치에 c 채우기 (새로운 0층)...")
+    print("DEBUG: 핀 위치의 위의 빈 공간에 c 채우기 시작...") # 로그 메시지 변경
     for q_idx in p_indices:
-        if shape._get_piece(0, q_idx) is None:
-            shape.layers[0].quadrants[q_idx] = Quadrant('c', 'b')
+        # 0층(핀 위치)에는 c를 직접 채우지 않고, 그 위층부터 전파 시작
+        # if shape._get_piece(0, q_idx) is None: # 이 조건도 제거 (핀은 어차피 있음)
+        #    shape.layers[0].quadrants[q_idx] = Quadrant('c', 'b') # 0층에 c 채우는 로직 제거
+        #    print(f"DEBUG: 핀 사분면 {q_idx}에 c 채움. 위로 전파 시작.")
+        print(f"DEBUG: 핀 사분면 {q_idx} 위로 c 전파 시작.") # 로그 추가
+        _propagate_c_upwards(shape, 1, q_idx, ref_shape) # 1층부터 위로 전파 시작
 
 # --- 메인 프로세스 함수 ---
 def claw_process(shape_code: str) -> str:
@@ -530,6 +555,24 @@ def claw_process(shape_code: str) -> str:
         print(f"DEBUG: 초기 도형: {repr(initial_shape)}")
         pins, c_quad_idx = _get_static_info(initial_shape)
 
+        # 1. 초기 도형 기준, 모든 크리스탈의 외곽선 좌표 수집
+        crystals_to_clear_outline = set()
+        original_crystal_centers = set() # 원본 크리스탈의 중심 좌표를 저장할 집합 추가
+
+        for l_idx, layer in enumerate(initial_shape.layers):
+            for q_idx, piece in enumerate(layer.quadrants):
+                if piece and piece.shape == 'c':
+                    original_crystal_centers.add((l_idx, q_idx)) # 원본 크리스탈 중심 저장
+                    print(f"DEBUG: 초기 도형에서 크리스탈 발견: ({l_idx}, {q_idx}). 윤곽선 좌표 수집 시작.")
+                    adjacent_outline_coords = _get_adjacent_matrix_coords(l_idx, q_idx, initial_shape)
+                    crystals_to_clear_outline.update(adjacent_outline_coords)
+                    print(f"DEBUG: 수집된 윤곽선 좌표: {sorted(list(adjacent_outline_coords))}")
+        print(f"DEBUG: 원본 크리스탈 중심 좌표: {sorted(list(original_crystal_centers))}") # 로그 추가
+
+        # 2. 윤곽선 좌표에서 원본 크리스탈 중심 좌표를 제외하여 실제 제거할 좌표만 남김
+        crystals_to_clear_outline.difference_update(original_crystal_centers)
+        print(f"DEBUG: 원본 크리스탈 제외 후 제거할 윤곽선 좌표: {sorted(list(crystals_to_clear_outline))}") # 로그 추가
+
         Shape.MAX_LAYERS += 1
         working_shape.layers.append(Layer([None]*4))
         print(f"DEBUG: 임시 공간 확보 (MAX_LAYERS={Shape.MAX_LAYERS})")
@@ -538,10 +581,42 @@ def claw_process(shape_code: str) -> str:
         _fill_opposite_quadrant(working_shape, (c_quad_idx + 2) % 4)
         print(f"DEBUG: 공중 작업 후 (파괴 전): {repr(working_shape)}")
 
+        # Moved _fill_c_from_pins here, so it applies to working_shape before layers[1:] slice
+        # Now this means working_shape has ALL the changes before layers are sliced.
+        # This makes sense, as _fill_c_from_pins logic might need to see latest working_shape.
+        # Original: _fill_c_from_pins(final_shape, pins, initial_shape) 
+        # This was incorrect, it should be working_shape and applied before slicing
+        print(f"DEBUG: _fill_c_from_pins 호출 (ref_shape로 initial_shape 전달).")
+        _fill_c_from_pins(working_shape, pins, initial_shape) # final_shape 대신 working_shape에 직접 적용
+        print(f"DEBUG: 핀에 c 채운 후 working_shape: {repr(working_shape)}")
+
+        # --- 층 제거 직전 로직: 수집된 윤곽선 크리스탈 제거 ---
+        print(f"DEBUG: 층 제거 직전, 수집된 윤곽선 크리스탈({len(crystals_to_clear_outline)}개) 제거 시작...")
+        for l_clear, q_clear in sorted(list(crystals_to_clear_outline)): # 정렬하여 디버그 가독성 향상
+            # 원본 크리스탈의 중심 좌표는 제거하지 않음 (이미 crystals_to_clear_outline에서 제외됨)
+            # if (l_clear, q_clear) in original_crystal_centers:
+            #     print(f"DEBUG: 윤곽선 위치 ({l_clear}, {q_clear})가 원본 크리스탈 중심이므로 건너뜀.")
+            #     continue
+
+            if 0 <= l_clear < len(working_shape.layers) and working_shape.layers[l_clear]:
+                current_piece_at_target = working_shape._get_piece(l_clear, q_clear)
+                if current_piece_at_target and current_piece_at_target.shape == 'c':
+                    working_shape.layers[l_clear].quadrants[q_clear] = None
+                    print(f"DEBUG: 크리스탈 윤곽선 위치 ({l_clear}, {q_clear})의 크리스탈 제거 완료.")
+                else:
+                    print(f"DEBUG: 크리스탈 윤곽선 위치 ({l_clear}, {q_clear})에 크리스탈 없음 또는 다른 조각({current_piece_at_target.shape if current_piece_at_target else 'None'})이 있어 건너뜀.")
+            else:
+                print(f"DEBUG: 크리스탈 윤곽선 위치 ({l_clear}, {q_clear}) 레이어 존재하지 않음. 건너뜀.")
+        print(f"DEBUG: 윤곽선 크리스탈 제거 후 working_shape: {repr(working_shape)}")
+
         final_layers = [layer.copy() for layer in working_shape.layers[1:]]
         final_shape = Shape(final_layers)
         
-        _fill_c_from_pins(final_shape, pins)
+        # Removed: _fill_c_from_pins(final_shape, pins, initial_shape) 
+        # Now happens earlier, applied to working_shape.
+        
+        # Moved here to avoid re-applying to final_shape
+        # _fill_c_from_pins(final_shape, pins, initial_shape) # 이미 working_shape에 적용되었으므로 제거
         
         while final_shape.layers and final_shape.layers[-1].is_empty():
             final_shape.layers.pop()
