@@ -10,6 +10,7 @@ _VALID_SHAPE_CHARS = set('CSRWcPrgbmyuw-:')
 _MAX_SHAPE_CODE_LENGTH = 100
 _GENERAL_SHAPE_TYPES = {'C', 'R', 'S', 'W'} # 이 일반도형은 S라 불립니다.
 _BLOCKER_SHAPE_TYPES = _GENERAL_SHAPE_TYPES.union({'P'})
+_INVALID_ADJACENCY_SHAPES = _GENERAL_SHAPE_TYPES.union({'c'}) # 새로운 상수 추가
 
 
 class _ClawLogicError(Exception):
@@ -23,7 +24,7 @@ def _validate_shape_code(shape_code: str):
     if not all(char in _VALID_SHAPE_CHARS for char in shape_code) or len(shape_code) > _MAX_SHAPE_CODE_LENGTH:
         raise _ClawLogicError(f"DEBUG_ERROR: 잘못된 도형 코드 형식이거나 너무 깁니다.")
 
-def _get_static_info(shape: 'Shape') -> Tuple[List[int], int]:
+def _get_static_info(shape: 'Shape') -> Tuple[List[int], int, int]:
     if not shape.layers: raise _ClawLogicError("DEBUG_ERROR: 빈 도형입니다.")
     pins = [q for q, p in enumerate(shape.layers[0].quadrants) if p and p.shape == 'P']
     highest_c_info = (-1, -1)
@@ -35,7 +36,7 @@ def _get_static_info(shape: 'Shape') -> Tuple[List[int], int]:
             break
     if len(pins) < 1: raise _ClawLogicError(f"DEBUG_ERROR: 최하단층에 'P' 조각이 1개 미만입니다.")
     if highest_c_info[0] == -1: raise _ClawLogicError("DEBUG_ERROR: 도형에 'c' 조각이 없습니다.")
-    return pins, highest_c_info[1]
+    return pins, highest_c_info[0], highest_c_info[1] # 최고층 크리스탈 층 정보 추가 반환
 
 def _find_s_star_group(start_q: int, shape: 'Shape') -> List[Tuple[int, int]]:
     """설명해주신 규칙에 따라 -S를 중심으로 그룹을 찾습니다."""
@@ -112,6 +113,9 @@ def _move_s_group(group: List[Tuple[int, int]], shape: 'Shape', ref_shape: 'Shap
     from shape import Layer
 
     if not group: return
+    if len(group) == 1:
+        print(f"DEBUG: 그룹에 단 하나의 요소만 있어 이동하지 않습니다: {group}")
+        return
 
     # 그룹의 원본 위치를 set으로 저장하여 빠른 조회를 위함 (_count_empty_above에서 무시할 좌표)
     original_group_coords = {(l, q) for l, q in group}
@@ -180,14 +184,14 @@ def _move_s_group(group: List[Tuple[int, int]], shape: 'Shape', ref_shape: 'Shap
                 print(f"DEBUG:   - 인접 조각 검사: 가상 ({l_hypo}, {adj_q}), 유형: {adjacent_piece_at_hypo_l.shape if adjacent_piece_at_hypo_l else 'None'}")
 
                 # Is it an 'S' and NOT part of the hypothetical group itself?
-                is_adjacent_s = (adjacent_piece_at_hypo_l and adjacent_piece_at_hypo_l.shape in _GENERAL_SHAPE_TYPES)
+                is_adjacent_s = (adjacent_piece_at_hypo_l and adjacent_piece_at_hypo_l.shape in _INVALID_ADJACENCY_SHAPES) # _GENERAL_SHAPE_TYPES 대신 _INVALID_ADJACENCY_SHAPES 사용
                 is_not_group_member = ((l_hypo, adj_q) not in hypothetical_group_positions)
                 
                 print(f"DEBUG:     - is_adjacent_s: {is_adjacent_s}, is_not_group_member: {is_not_group_member}")
 
                 if is_adjacent_s and is_not_group_member:
                     
-                    print(f"DEBUG: 유효성 검사 실패! 그룹 'S' 조각 ({l_hypo}, {q_hypo}) 옆({adj_q})에 그룹 외 'S' 조각({adjacent_piece_at_hypo_l.shape})이 있음.")
+                    print(f"DEBUG: 유효성 검사 실패! 그룹 'S' 조각 ({l_hypo}, {q_hypo}) 옆({adj_q})에 그룹 외 'S' 또는 'c' 조각({adjacent_piece_at_hypo_l.shape})이 있음.") # 로그 메시지 수정
                     is_current_position_valid = False
                     break # Found an invalid adjacency, no need to check further for this shift
             
@@ -202,6 +206,11 @@ def _move_s_group(group: List[Tuple[int, int]], shape: 'Shape', ref_shape: 'Shap
             print(f"DEBUG: 유효성 검사 실패. 한 칸 내림. 새 상대 이동: {current_relative_shift}")
 
     final_shift = current_relative_shift # This is the final net shift from original position
+
+    # 적합한 위치를 찾지 못했다면 (current_relative_shift가 초기 initial_shift보다 작아졌는데 0보다도 작아진 경우 등), 이동하지 않음.
+    if final_shift < 0 or (initial_shift > 0 and final_shift == 0 and not is_current_position_valid):
+        print(f"DEBUG: 적합한 위치를 찾지 못했거나 유효하지 않은 최종 위치. 그룹 {group} 이동 취소.")
+        return # 이동하지 않고 함수 종료
 
     # --- 최종 이동 실행 ---
     if final_shift != 0: # Only move if there's a net shift
@@ -359,7 +368,29 @@ def _relocate_s_pieces(working_shape: 'Shape', ref_shape: 'Shape'):
                 processed_q.update(group) # Update with all coords in the moved group
                 print(f"DEBUG: '뜬 S(-S)' 그룹 처리 후 processed_q: {processed_q}")
             
-    # 2. 그룹에 속하지 않은 바닥 S 개별 처리 (기존 로직)
+    # New: 2.1. 0층 S와 1층 P가 함께 있는 그룹 처리
+    print(f"DEBUG: '0층 S 위에 1층 P' 그룹 탐색 시작.")
+    s_p_groups = []
+    for q_idx in range(4):
+        s0 = ref_shape._get_piece(0, q_idx)
+        p1 = ref_shape._get_piece(1, q_idx)
+
+        if (s0 and s0.shape in _GENERAL_SHAPE_TYPES and
+            p1 and p1.shape == 'P' and
+            (0, q_idx) not in processed_q and
+            (1, q_idx) not in processed_q):
+            
+            group = [(0, q_idx), (1, q_idx)] # 0층 S와 1층 P를 그룹으로 묶음
+            s_p_groups.append(group)
+            print(f"DEBUG: '0층 S 위에 1층 P' 그룹 후보 발견: {group}")
+    
+    for group in s_p_groups:
+        print(f"DEBUG: '0층 S 위에 1층 P' 그룹 처리 시작: {group}")
+        _move_s_group(group, working_shape, working_shape) # 그룹 이동
+        processed_q.update(group) # 처리된 좌표 업데이트
+        print(f"DEBUG: '0층 S 위에 1층 P' 그룹 처리 후 processed_q: {processed_q}")
+
+    # Original 2. 바닥 S 개별 처리
     print(f"DEBUG: '바닥 S' 개별 처리 시작. 현재 processed_q: {processed_q}")
     bottom_s_q_indices = [
         q for q in range(4) if (p0 := ref_shape._get_piece(0, q)) and p0.shape in _GENERAL_SHAPE_TYPES
@@ -379,7 +410,7 @@ def _relocate_s_pieces(working_shape: 'Shape', ref_shape: 'Shape'):
                 # 따라서 l_target에 *새로운* C를 배치하는 것입니다.
                 working_shape.layers[l_target].quadrants[s_q_idx] = Quadrant('S', 'u')
                 print(f"DEBUG: ({l_target}, {s_q_idx})에 'S' 배치됨.")
-                _place_and_propagate_c(working_shape, fill_c, ref_shape)
+                # _place_and_propagate_c(working_shape, fill_c, ref_shape) # (c, g) 추가 로직 주석 처리
 
 def _find_s_relocation_spot(shape: 'Shape', q_idx: int, ref_shape: 'Shape') -> Tuple[int, List[Tuple[int, int]]]: # ref_shape 추가
     """개별 S를 배치할 최적 위치를 찾습니다."""
@@ -439,8 +470,8 @@ def _find_s_relocation_spot(shape: 'Shape', q_idx: int, ref_shape: 'Shape') -> T
         if len(adj) == 2:
             p1 = ref_shape._get_piece(l_idx, adj[0]) # ref_shape를 사용합니다
             p2 = ref_shape._get_piece(l_idx, adj[1]) # ref_shape를 사용합니다
-            if not ((p1 and p1.shape in _GENERAL_SHAPE_TYPES) and \
-                    (p2 and p2.shape in _GENERAL_SHAPE_TYPES)):
+            if not ((p1 and p1.shape in _INVALID_ADJACENCY_SHAPES) and \
+                    (p2 and p2.shape in _INVALID_ADJACENCY_SHAPES)):
                 can_place_central_c = True
         
         print(f"DEBUG: L{l_idx}, q{q_idx} (비어있음): can_place_central_c={can_place_central_c}")
@@ -489,7 +520,11 @@ def _propagate_c_upwards(shape, l_start, q, ref_shape):
         if _is_adjacent_to_ref_c(l, q, ref_shape): break
         while len(shape.layers) <= l: shape.layers.append(Layer([None] * 4))
         p = shape._get_piece(l, q)
-        if p is None: shape.layers[l].quadrants[q] = Quadrant('c', 'm'); l += 1
+        if p is None: 
+            shape.layers[l].quadrants[q] = Quadrant('c', 'm')
+            # 새로 배치된 c 주변을 확인하고 P를 이동시키는 로직 호출
+            _check_and_move_p_above_c(shape, l, q)
+            l += 1
         elif p.shape == 'c': l += 1
         else: break
 
@@ -520,14 +555,26 @@ def _get_adjacent_matrix_coords(l: int, q: int, shape: 'Shape') -> set[Tuple[int
 
     return coords
 
-def _fill_opposite_quadrant(shape: 'Shape', opposite_q_idx: int):
+def _fill_opposite_quadrant(shape: 'Shape', opposite_q_idx: int, highest_c_layer: int):
     from shape import Shape, Layer, Quadrant
     print(f"DEBUG: 반대 사분면({opposite_q_idx})에 c 채우기...")
-    for l_idx in range(Shape.MAX_LAYERS -1, -1, -1):
+    for l_idx in range(Shape.MAX_LAYERS -1, -1, -1): # 원래대로 맨 위층부터 시작
         while len(shape.layers) <= l_idx: shape.layers.append(Layer([None]*4))
         p = shape._get_piece(l_idx, opposite_q_idx)
         if p is not None and p.shape != 'c': break
         shape.layers[l_idx].quadrants[opposite_q_idx] = Quadrant('c', 'y')
+
+        # 인접 사분면 채우기 시도 (3층부터 최고층 크리스탈 아래층까지)
+        if l_idx >= 2 and l_idx < highest_c_layer: # 3층 (인덱스 2)부터 최고층 크리스탈 층 미만까지
+            adj_q_for_fill = [aq for aq in range(4) if shape._is_adjacent(opposite_q_idx, aq)]
+            for aq_fill in adj_q_for_fill:
+                # 현재 층의 인접 사분면이 비어있을 경우에만 'c'로 채움
+                if shape._get_piece(l_idx, aq_fill) is None:
+                    # Ensure layer exists up to l_idx (defensive, though unlikely needed here)
+                    while len(shape.layers) <= l_idx:
+                        shape.layers.append(Layer([None]*4))
+                    shape.layers[l_idx].quadrants[aq_fill] = Quadrant('c', 'y') # 인접 사분면도 'c'로 채움
+                    print(f"DEBUG: 인접 사분면 ({l_idx}, {aq_fill})에 'c' 채움 (반대 사분면 채우기 로직).")
 
 def _fill_c_from_pins(shape: 'Shape', p_indices: list[int], ref_shape: 'Shape'): # ref_shape 추가
     from shape import Quadrant
@@ -541,6 +588,67 @@ def _fill_c_from_pins(shape: 'Shape', p_indices: list[int], ref_shape: 'Shape'):
         print(f"DEBUG: 핀 사분면 {q_idx} 위로 c 전파 시작.") # 로그 추가
         _propagate_c_upwards(shape, 1, q_idx, ref_shape) # 1층부터 위로 전파 시작
 
+def _check_and_move_p_above_c(shape: 'Shape', c_l: int, c_q: int):
+    """
+    P 위에 새로 추가된 c 조각 주변을 확인하고 P를 이동시키는 로직.
+    c_l, c_q는 새로 배치된 c의 좌표.
+    """
+    print(f"DEBUG: _check_and_move_p_above_c 호출됨. 새로 배치된 c: ({c_l}, {c_q})")
+    from shape import Quadrant, Layer
+
+    # Condition 1: Check if the three surrounding spots of the new 'c' are NOT empty.
+    # 양쪽 (adjacent)과 위쪽 (l+1, q)
+    adj_q_coords = [aq for aq in range(4) if shape._is_adjacent(c_q, aq)]
+    
+    # Ensure there are two adjacent quadrants for a valid check
+    if len(adj_q_coords) != 2:
+        print(f"DEBUG: c ({c_l}, {c_q})의 인접 사분면 개수가 2개가 아님. 로직 건너뜀.")
+        return
+
+    check_coords = []
+    # Add adjacent quadrants at the same layer as the new 'c'
+    for aq in adj_q_coords:
+        check_coords.append((c_l, aq))
+    # Add the quadrant directly above the new 'c'
+    if c_l + 1 < shape.MAX_LAYERS:
+        check_coords.append((c_l + 1, c_q))
+    
+    # Check if all three (or fewer if boundary) are NOT empty
+    all_not_empty = True
+    for l_check, q_check in check_coords:
+        piece = shape._get_piece(l_check, q_check)
+        if piece is None:
+            all_not_empty = False
+            print(f"DEBUG: _check_and_move_p_above_c: ({l_check}, {q_check})이 비어있음. 조건 불만족.")
+            break
+    
+    if not all_not_empty:
+        print(f"DEBUG: _check_and_move_p_above_c: 주변 3군데 모두 비어있지 않다는 조건 불만족. 종료.")
+        return
+
+    # Condition 2 & Action: Check adjacent 'P's and move them
+    for adj_q in adj_q_coords:
+        piece_at_adj = shape._get_piece(c_l, adj_q)
+        if piece_at_adj and piece_at_adj.shape == 'P':
+            # Check if spot directly above this adjacent 'P' is empty
+            if c_l + 1 < shape.MAX_LAYERS and shape._get_piece(c_l + 1, adj_q) is None:
+                # Move the 'P' upwards
+                print(f"DEBUG: _check_and_move_p_above_c: P ({c_l}, {adj_q}) 발견 및 위({c_l + 1}, {adj_q})로 이동 시작.")
+                
+                # Clear original P position
+                shape.layers[c_l].quadrants[adj_q] = None
+                
+                # Place P at new position
+                new_l_p = c_l + 1
+                while len(shape.layers) <= new_l_p:
+                    shape.layers.append(Layer([None]*4))
+                shape.layers[new_l_p].quadrants[adj_q] = Quadrant('P', 'u') # 'w' 대신 'u'로 변경
+                print(f"DEBUG: P ({c_l}, {adj_q})가 ({new_l_p}, {adj_q})로 이동 완료.")
+            else:
+                print(f"DEBUG: _check_and_move_p_above_c: P ({c_l}, {adj_q})의 위가 비어있지 않음. 이동 건너뜀.")
+        else:
+            print(f"DEBUG: _check_and_move_p_above_c: ({c_l}, {adj_q})에 P가 아님. 건너뜀.")
+
 # --- 메인 프로세스 함수 ---
 def claw_process(shape_code: str) -> str:
     from shape import Shape, Layer
@@ -552,7 +660,7 @@ def claw_process(shape_code: str) -> str:
         initial_shape = Shape.from_string(shape_code)
         working_shape = initial_shape.copy()
         print(f"DEBUG: 초기 도형: {repr(initial_shape)}")
-        pins, c_quad_idx = _get_static_info(initial_shape)
+        pins, highest_c_layer, c_quad_idx = _get_static_info(initial_shape) # highest_c_layer 추가
 
         # 1. 초기 도형 기준, 모든 크리스탈의 외곽선 좌표 수집
         crystals_to_clear_outline = set()
@@ -577,17 +685,13 @@ def claw_process(shape_code: str) -> str:
         print(f"DEBUG: 임시 공간 확보 (MAX_LAYERS={Shape.MAX_LAYERS})")
 
         _relocate_s_pieces(working_shape, initial_shape)
-        _fill_opposite_quadrant(working_shape, (c_quad_idx + 2) % 4)
-        print(f"DEBUG: 공중 작업 후 (파괴 전): {repr(working_shape)}")
-
-        # Moved _fill_c_from_pins here, so it applies to working_shape before layers[1:] slice
-        # Now this means working_shape has ALL the changes before layers are sliced.
-        # This makes sense, as _fill_c_from_pins logic might need to see latest working_shape.
-        # Original: _fill_c_from_pins(final_shape, pins, initial_shape) 
-        # This was incorrect, it should be working_shape and applied before slicing
+        
         print(f"DEBUG: _fill_c_from_pins 호출 (ref_shape로 initial_shape 전달).")
         _fill_c_from_pins(working_shape, pins, initial_shape) # final_shape 대신 working_shape에 직접 적용
         print(f"DEBUG: 핀에 c 채운 후 working_shape: {repr(working_shape)}")
+
+        _fill_opposite_quadrant(working_shape, (c_quad_idx + 2) % 4, highest_c_layer)
+        print(f"DEBUG: 공중 작업 후 (파괴 전): {repr(working_shape)}")
 
         # --- 층 제거 직전 로직: 수집된 윤곽선 크리스탈 제거 ---
         print(f"DEBUG: 층 제거 직전, 수집된 윤곽선 크리스탈({len(crystals_to_clear_outline)}개) 제거 시작...")
