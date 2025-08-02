@@ -463,7 +463,6 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         claw_verified = False
         if shape_obj:
             try:
-                from claw_tracer import verify_claw_process # 지역 임포트
                 claw_verified = verify_claw_process(repr(shape_obj))
             except Exception as e:
                 final_reasons.append(f"클로 검증 오류: {e}")
