@@ -4,6 +4,7 @@ import traceback
 from typing import List, Tuple, Dict
 
 # 순환 참조를 피하기 위해 shape 관련 import는 함수 내부로 이동합니다.
+from shape import Shape, Layer, Quadrant
 
 # --- 상수 정의 ---
 _VALID_SHAPE_CHARS = set('CSRWcPrgbmyuw-:')
@@ -24,7 +25,7 @@ def _validate_shape_code(shape_code: str):
     if not all(char in _VALID_SHAPE_CHARS for char in shape_code) or len(shape_code) > _MAX_SHAPE_CODE_LENGTH:
         raise _ClawLogicError(f"DEBUG_ERROR: 잘못된 도형 코드 형식이거나 너무 깁니다.")
 
-def _get_static_info(shape: 'Shape') -> Tuple[List[int], int, int]:
+def _get_static_info(shape: Shape) -> Tuple[List[int], int, int]:
     if not shape.layers: raise _ClawLogicError("DEBUG_ERROR: 빈 도형입니다.")
     pins = [q for q, p in enumerate(shape.layers[0].quadrants) if p and p.shape == 'P']
     highest_c_info = (-1, -1)
@@ -38,7 +39,7 @@ def _get_static_info(shape: 'Shape') -> Tuple[List[int], int, int]:
     if highest_c_info[0] == -1: raise _ClawLogicError("DEBUG_ERROR: 도형에 'c' 조각이 없습니다.")
     return pins, highest_c_info[0], highest_c_info[1] # 최고층 크리스탈 층 정보 추가 반환
 
-def _find_s_star_group(start_q: int, shape: 'Shape') -> List[Tuple[int, int]]:
+def _find_s_star_group(start_q: int, shape: Shape) -> List[Tuple[int, int]]:
     """설명해주신 규칙에 따라 -S를 중심으로 그룹을 찾습니다."""
     group = set()
     q_to_process = [(1, start_q)] # Start at layer 1 for -S
@@ -83,8 +84,7 @@ def _find_s_star_group(start_q: int, shape: 'Shape') -> List[Tuple[int, int]]:
     print(f"DEBUG: _find_s_star_group 종료. 최종 그룹: {sorted(list(group))}")
     return sorted(list(group))
 
-def _count_empty_above(l: int, q: int, shape: 'Shape', ignored_coords: set[Tuple[int, int]] = None) -> int:
-    from shape import Shape
+def _count_empty_above(l: int, q: int, shape: Shape, ignored_coords: set[Tuple[int, int]] = None) -> int:
     count = 0
     if ignored_coords is None:
         ignored_coords = set()
@@ -96,21 +96,19 @@ def _count_empty_above(l: int, q: int, shape: 'Shape', ignored_coords: set[Tuple
             break # Found a blocking piece that is NOT part of the group
     return count
 
-def _is_sky_open_above(shape: 'Shape', current_l: int, current_q: int) -> bool:
+def _is_sky_open_above(shape: Shape, current_l: int, current_q: int) -> bool:
     """주어진 층과 사분면 위로 하늘이 완전히 뚫려 있는지 확인합니다."""
-    from shape import Shape
     for l_check in range(current_l + 1, Shape.MAX_LAYERS):
         if shape._get_piece(l_check, current_q) is not None:
             return False
     return True
 
-def _move_s_group(group: List[Tuple[int, int]], shape: 'Shape', ref_shape: 'Shape'):
+def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape):
     """
     그룹을 새로운 규칙에 따라 이동시킵니다.
     1. 각 그룹 사분면의 상단 빈 공간 최소값만큼 일괄 상향 이동.
     2. 이동 후, 유효한 인접 조건(양쪽에 S가 아닌 그룹 외 S가 없을 것)을 만족할 때까지 하향 이동.
     """
-    from shape import Layer
 
     if not group: return
     if len(group) == 1:
@@ -249,7 +247,7 @@ def _move_s_group(group: List[Tuple[int, int]], shape: 'Shape', ref_shape: 'Shap
     else:
         print(f"DEBUG: 최종 이동 거리 0. 그룹 {group} 이동 없음.")
 
-def _find_twice_floating_s_group(start_l: int, start_q: int, shape: 'Shape', enable_s_below_rule: bool = False) -> List[Tuple[int, int]]:
+def _find_twice_floating_s_group(start_l: int, start_q: int, shape: Shape, enable_s_below_rule: bool = False) -> List[Tuple[int, int]]:
     """'두번 뜬 S'를 중심으로 그룹을 찾습니다."""
     group = set()
     q_to_process = [(start_l, start_q)]
@@ -290,9 +288,8 @@ def _find_twice_floating_s_group(start_l: int, start_q: int, shape: 'Shape', ena
     print(f"DEBUG: _find_twice_floating_s_group 종료. 최종 그룹: {sorted(list(group))}")
     return sorted(list(group))
 
-def _relocate_s_pieces(working_shape: 'Shape', ref_shape: 'Shape'):
+def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape):
     """S 조각들을 재배치/생성합니다. 그룹화를 먼저 처리합니다."""
-    from shape import Quadrant
     
     processed_q = set()
     print(f"DEBUG: _relocate_s_pieces 호출됨. 초기 processed_q: {processed_q}")
@@ -412,9 +409,8 @@ def _relocate_s_pieces(working_shape: 'Shape', ref_shape: 'Shape'):
                 print(f"DEBUG: ({l_target}, {s_q_idx})에 'S' 배치됨.")
                 # _place_and_propagate_c(working_shape, fill_c, ref_shape) # (c, g) 추가 로직 주석 처리
 
-def _find_s_relocation_spot(shape: 'Shape', q_idx: int, ref_shape: 'Shape') -> Tuple[int, List[Tuple[int, int]]]: # ref_shape 추가
+def _find_s_relocation_spot(shape: Shape, q_idx: int, ref_shape: Shape) -> Tuple[int, List[Tuple[int, int]]]:
     """개별 S를 배치할 최적 위치를 찾습니다."""
-    from shape import Shape, Layer
     print(f"DEBUG: _find_s_relocation_spot 호출됨. q_idx: {q_idx}")
 
     # 케이스 1: 현재 사분면 위로 하늘이 열려있는 경우
@@ -505,8 +501,7 @@ def _find_s_relocation_spot(shape: 'Shape', q_idx: int, ref_shape: 'Shape') -> T
     print(f"DEBUG: _find_s_relocation_spot - 최종적으로 위치를 찾지 못함. q_idx: {q_idx}")
     return -1, [] # Fallback if no spot found in either case (highly unlikely given MAX_LAYERS)
 
-def _place_and_propagate_c(shape: 'Shape', coords: List[Tuple[int, int]], ref_shape: 'Shape'):
-    from shape import Quadrant
+def _place_and_propagate_c(shape: Shape, coords: List[Tuple[int, int]], ref_shape: Shape):
     # coords에 지정된 위치에 c 조각을 배치하고 위로 전파
     for l, q in coords:
         if shape._get_piece(l, q) is None:
@@ -514,7 +509,6 @@ def _place_and_propagate_c(shape: 'Shape', coords: List[Tuple[int, int]], ref_sh
             _propagate_c_upwards(shape, l + 1, q, ref_shape)
 
 def _propagate_c_upwards(shape, l_start, q, ref_shape):
-    from shape import Shape, Layer, Quadrant
     l = l_start
     while l < Shape.MAX_LAYERS:
         if _is_adjacent_to_ref_c(l, q, ref_shape): break
@@ -534,9 +528,8 @@ def _is_adjacent_to_ref_c(l, q, ref_shape):
         if 0 <= cl < len(ref_shape.layers) and (p := ref_shape._get_piece(cl, cq)) and p.shape == 'c': return True
     return False
 
-def _get_adjacent_matrix_coords(l: int, q: int, shape: 'Shape') -> set[Tuple[int, int]]:
+def _get_adjacent_matrix_coords(l: int, q: int, shape: Shape) -> set[Tuple[int, int]]:
     """주어진 크리스탈 조각의 상하좌우 외곽선 좌표를 반환합니다. (자신 위치 제외)"""
-    from shape import Shape
     coords = set()
 
     # 위아래
@@ -555,8 +548,7 @@ def _get_adjacent_matrix_coords(l: int, q: int, shape: 'Shape') -> set[Tuple[int
 
     return coords
 
-def _fill_opposite_quadrant(shape: 'Shape', opposite_q_idx: int, highest_c_layer: int):
-    from shape import Shape, Layer, Quadrant
+def _fill_opposite_quadrant(shape: Shape, opposite_q_idx: int, highest_c_layer: int):
     print(f"DEBUG: 반대 사분면({opposite_q_idx})에 c 채우기...")
     for l_idx in range(Shape.MAX_LAYERS -1, -1, -1): # 원래대로 맨 위층부터 시작
         while len(shape.layers) <= l_idx: shape.layers.append(Layer([None]*4))
@@ -576,8 +568,7 @@ def _fill_opposite_quadrant(shape: 'Shape', opposite_q_idx: int, highest_c_layer
                     shape.layers[l_idx].quadrants[aq_fill] = Quadrant('c', 'y') # 인접 사분면도 'c'로 채움
                     print(f"DEBUG: 인접 사분면 ({l_idx}, {aq_fill})에 'c' 채움 (반대 사분면 채우기 로직).")
 
-def _fill_c_from_pins(shape: 'Shape', p_indices: list[int], ref_shape: 'Shape'): # ref_shape 추가
-    from shape import Quadrant
+def _fill_c_from_pins(shape: Shape, p_indices: list[int], ref_shape: Shape): # ref_shape 추가
     if not p_indices or not shape.layers: return
     print("DEBUG: 핀 위치의 위의 빈 공간에 c 채우기 시작...") # 로그 메시지 변경
     for q_idx in p_indices:
@@ -588,13 +579,12 @@ def _fill_c_from_pins(shape: 'Shape', p_indices: list[int], ref_shape: 'Shape'):
         print(f"DEBUG: 핀 사분면 {q_idx} 위로 c 전파 시작.") # 로그 추가
         _propagate_c_upwards(shape, 1, q_idx, ref_shape) # 1층부터 위로 전파 시작
 
-def _check_and_move_p_above_c(shape: 'Shape', c_l: int, c_q: int):
+def _check_and_move_p_above_c(shape: Shape, c_l: int, c_q: int):
     """
     P 위에 새로 추가된 c 조각 주변을 확인하고 P를 이동시키는 로직.
     c_l, c_q는 새로 배치된 c의 좌표.
     """
     print(f"DEBUG: _check_and_move_p_above_c 호출됨. 새로 배치된 c: ({c_l}, {c_q})")
-    from shape import Quadrant, Layer
 
     # Condition 1: Check if the three surrounding spots of the new 'c' are NOT empty.
     # 양쪽 (adjacent)과 위쪽 (l+1, q)
@@ -651,7 +641,6 @@ def _check_and_move_p_above_c(shape: 'Shape', c_l: int, c_q: int):
 
 # --- 메인 프로세스 함수 ---
 def claw_process(shape_code: str) -> str:
-    from shape import Shape, Layer
     print(f"DEBUG: claw_process 호출됨. 입력: {shape_code}")
     
     original_max_layers = Shape.MAX_LAYERS
@@ -739,7 +728,6 @@ def claw_process(shape_code: str) -> str:
 
 def verify_claw_process(original_shape_str: str) -> bool:
     """Claw 처리 후 결과를 검증하는 함수"""
-    from shape import Shape, Layer, Quadrant # Import necessary classes locally
     # 1. claw_process 결과 Shape 객체로 변환
     original_shape = Shape.from_string(original_shape_str)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum
 import re
-from claw_tracer import verify_claw_process # verify_claw_process 함수 임포트
+# from claw_tracer import verify_claw_process # verify_claw_process 함수 임포트 # 이 줄을 제거합니다.
 
 
 class ShapeType(Enum):
@@ -463,6 +463,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         claw_verified = False
         if shape_obj:
             try:
+                from claw_tracer import verify_claw_process # verify_claw_process 함수 임포트 # 이 줄을 추가합니다.
                 claw_verified = verify_claw_process(repr(shape_obj))
             except Exception as e:
                 final_reasons.append(f"클로 검증 오류: {e}")
