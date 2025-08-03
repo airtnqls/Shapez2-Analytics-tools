@@ -1085,6 +1085,14 @@ class ShapezGUI(QMainWindow):
             self.max_physics_height_input.setText("2")
 
         log_enabled = self.log_checkbox.isChecked()
+        
+        # claw_tracer의 로깅 콜백 설정
+        from claw_tracer import set_log_callback
+        if log_enabled:
+            set_log_callback(self.log)
+        else:
+            set_log_callback(None)
+            
         self.origin_finder_thread = OriginFinderThread(target_shape, ReverseTracer.MAX_SEARCH_DEPTH, max_physics_height, log_enabled)
         self.origin_finder_thread.progress.connect(self.update_progress_dialog)
         self.origin_finder_thread.finished.connect(self.on_find_origin_finished)
@@ -1890,7 +1898,8 @@ class ShapezGUI(QMainWindow):
         
         def claw_shape_for_gui(shape_code: str) -> str:
             try:
-                return claw_process(shape_code)
+                # claw_process 호출 시 logger 인자 전달
+                return claw_process(shape_code, logger=self.log if self.log_checkbox.isChecked() else None)
             except Exception as e:
                 raise Exception(f"Claw 처리 실패: {str(e)}")
         
