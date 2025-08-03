@@ -422,29 +422,48 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
 
             group = _find_twice_floating_s_group(2, s_q_idx, working_shape, enable_s_below) # enable_s_below 전달
             if group: # Only process if a group was actually found
-                # NEW: 그룹의 모든 요소 하단이 비어있는지 검사
+                
+                # 새로운 검사 로직: 그룹 외부의 인접한 S' 아래가 비어있는지 확인
+                should_move_group = True
+                group_coords_set = set(group)
+                
+                for l, q in group:
+                    for adj_q in _adj2(working_shape, q):
+                        adj_coord = (l, adj_q)
+                        if adj_coord not in group_coords_set:
+                            adj_piece = _get(working_shape, l, adj_q)
+                            if adj_piece and adj_piece.shape in _GENERAL_SHAPE_TYPES:
+                                l_below = l - 1
+                                if l_below >= 0 and _get(working_shape, l_below, adj_q) is None:
+                                    _log(f"DEBUG: '두번 뜬 S' 그룹 이동 취소. 그룹 밖 인접 S'({l},{adj_q}) 아래가 비어있음.")
+                                    should_move_group = False
+                                    break
+                    if not should_move_group:
+                        break
+
+                if not should_move_group:
+                    continue # 다음 후보로 넘어감
+
+                # 기존 검사: 그룹의 모든 요소 하단이 비어있는지 검사
                 all_bottoms_empty = True
-                group_coords = set(group)
                 for l, q in group:
                     l_below = l - 1
-                    if l_below < 0: # 0층 아래는 바닥이므로 비어있지 않음
+                    if l_below < 0:
                         all_bottoms_empty = False
                         break
                     
                     piece_below = _get(working_shape, l_below, q)
-                    if piece_below is not None and (l_below, q) not in group_coords:
-                        # 그룹에 속하지 않은 조각이 아래에 있으면 비어있지 않음
+                    if piece_below is not None and (l_below, q) not in group_coords_set:
                         all_bottoms_empty = False
                         break
                 
                 if all_bottoms_empty:
                     _log(f"DEBUG: 그룹 {group}의 모든 하단이 비어있어 이동하지 않습니다.")
-                    # 이동하지 않으므로 processed_q 업데이트도 건너뜀
                 else:
                     _log(f"DEBUG: 사분면 {s_q_idx} (2층)을(를) 중심으로 '두번 뜬 S' 그룹 발견: {group}")
-                    _log(f"DEBUG: _move_s_group 호출 (ref_shape로 working_shape 전달). 현재 working_shape: {repr(working_shape)}") # 로그 추가
-                    _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx) # ref_shape를 working_shape로 변경
-                    processed_q.update(group) # Update with all coords in the moved group
+                    _log(f"DEBUG: _move_s_group 호출 (ref_shape로 working_shape 전달). 현재 working_shape: {repr(working_shape)}")
+                    _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx)
+                    processed_q.update(group)
                     _log(f"DEBUG: '두번 뜬 S' 그룹 처리 후 processed_q: {processed_q}")
 
     # 1. 뜬 S(-S)를 중심으로 그룹 형성 및 처리 (기존 로직)
