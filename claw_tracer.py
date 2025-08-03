@@ -400,8 +400,8 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
 
         if (p1 is None and # 2층이 비어있고
             p2 and p2.shape in _GENERAL_SHAPE_TYPES and # 3층이 S이고 (여기 수정됨)
-            p3 is None and # 4층이 비어있고
-            p4 and p4.shape in _GENERAL_SHAPE_TYPES.union({'c'})): # 5층이 S or C인경우. (여기 수정됨)
+            p3 is None): # and # 4층이 비어있고
+            #p4 and p4.shape in _GENERAL_SHAPE_TYPES.union({'c'})): # 5층이 S or C인경우. (여기 수정됨)
             twice_floating_s_q_indices.append(q_idx)
             _log(f"DEBUG: '두번 뜬 S' 후보 발견: 사분면 {q_idx}")
         else:
@@ -1093,3 +1093,4 @@ def verify_claw_process(original_shape_str: str) -> bool:
 
     # 4. push_pinned_result와 original_shape가 동일한지 비교
     return repr(push_pinned_result) == original_shape_str
+

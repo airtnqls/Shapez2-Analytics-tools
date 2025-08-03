@@ -450,7 +450,7 @@ class ShapezGUI(QMainWindow):
     def initUI(self):
         main_layout = QVBoxLayout(self.central_widget)
 
-        self.log_output = QTextEdit()
+        self.log_output = LogWidget()
         self.log_output.setReadOnly(True)
         self.log_output.setFont(QFont("맑은 고딕", 9))
         self.log_output.setSizePolicy(
@@ -2967,6 +2967,86 @@ class ShapeTooltipWidget(QFrame):
         shadow.setYOffset(2)
         shadow.setColor(QColor(0, 0, 0, 100))
         self.setGraphicsEffect(shadow)
+
+class LogWidget(QTextEdit):
+    """도형 코드에 마우스를 올리면 툴팁을 표시하는 로그 위젯"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMouseTracking(True)
+        self.shape_tooltip = None
+        self.tooltip_timer = QTimer(self)
+        self.tooltip_timer.setSingleShot(True)
+        self.tooltip_timer.setInterval(300) # 300ms delay
+        self.tooltip_timer.timeout.connect(self.show_shape_tooltip)
+        self.last_mouse_pos = QPoint()
+
+    def mouseMoveEvent(self, event):
+        self.last_mouse_pos = event.pos()
+        self.tooltip_timer.start()
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):
+        self.tooltip_timer.stop()
+        self.hide_shape_tooltip()
+        super().leaveEvent(event)
+
+    def wheelEvent(self, event):
+        self.hide_shape_tooltip()
+        super().wheelEvent(event)
+
+    def mousePressEvent(self, event):
+        self.hide_shape_tooltip()
+        super().mousePressEvent(event)
+
+    def show_shape_tooltip(self):
+        self.hide_shape_tooltip()
+
+        cursor = self.cursorForPosition(self.last_mouse_pos)
+        pos_in_line = cursor.positionInBlock()
+        line_text = cursor.block().text()
+
+        import re
+        found_code = None
+        # Regex for shape-like codes
+        for match in re.finditer(r'[\w:-]+', line_text):
+            if match.start() <= pos_in_line < match.end():
+                potential_code = match.group(0).strip(":")
+                if not potential_code: continue
+                try:
+                    Shape.from_string(potential_code)
+                    found_code = potential_code
+                    break
+                except Exception:
+                    continue
+        
+        if not found_code:
+            return
+
+        try:
+            shape = Shape.from_string(found_code)
+            self.shape_tooltip = ShapeTooltipWidget(shape)
+            
+            global_pos = self.mapToGlobal(self.last_mouse_pos)
+            screen_rect = QApplication.primaryScreen().geometry()
+            tooltip_size = self.shape_tooltip.sizeHint()
+            
+            pos = global_pos + QPoint(20, 20)
+            
+            if pos.x() + tooltip_size.width() > screen_rect.right():
+                pos.setX(global_pos.x() - tooltip_size.width() - 20)
+            if pos.y() + tooltip_size.height() > screen_rect.bottom():
+                pos.setY(global_pos.y() - tooltip_size.height() - 20)
+            
+            self.shape_tooltip.move(pos)
+            self.shape_tooltip.show()
+
+        except Exception:
+            self.hide_shape_tooltip()
+
+    def hide_shape_tooltip(self):
+        if self.shape_tooltip:
+            self.shape_tooltip.close()
+            self.shape_tooltip = None
 
 class DataTabWidget(QWidget):
     """개별 데이터 탭 위젯"""
