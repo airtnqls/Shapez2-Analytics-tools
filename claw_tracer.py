@@ -146,7 +146,7 @@ def _is_sky_open_above(shape: Shape, current_l: int, current_q: int) -> bool:
     """주어진 층과 사분면 위로 하늘이 완전히 뚫려 있는지 확인합니다."""
     return _sky_open_above(shape, current_l, current_q)
 
-def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape):
+def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape, highest_c_layer: int, c_quad_idx: int):
     """
     그룹을 새로운 규칙에 따라 이동시킵니다.
     1. 각 그룹 사분면의 상단 빈 공간 최소값만큼 일괄 상향 이동.
@@ -218,7 +218,7 @@ def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape):
 
             original_piece_type = _get(ref_shape, l_orig, q_orig)
             if original_piece_type and original_piece_type.shape in _GENERAL_SHAPE_TYPES: # 'S' (일반 도형) 조각만 인접 검사
-                if not _check_s_placement_validity(temp_shape_for_validation, l_hypo, q_hypo, hypothetical_group_positions):
+                if not _check_s_placement_validity(temp_shape_for_validation, l_hypo, q_hypo, hypothetical_group_positions, highest_c_layer, c_quad_idx): # highest_c_layer, c_quad_idx 추가 전달
                     print(f"DEBUG: _move_s_group: S ({l_hypo}, {q_hypo})의 인접성 유효성 검사 실패. 하향 이동 필요.")
                     is_current_position_valid = False # 인접성 문제 발생
                     should_descend_further = True # 인접성 문제도 하향 이동을 유도
@@ -310,7 +310,7 @@ def _find_twice_floating_s_group(start_l: int, start_q: int, shape: Shape, enabl
     print(f"DEBUG: _find_twice_floating_s_group 종료. 최종 그룹: {sorted(list(group))}")
     return sorted(list(group))
 
-def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape):
+def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: int, c_quad_idx: int):
     """S 조각들을 재배치/생성합니다. 그룹화를 먼저 처리합니다."""
     
     processed_q = set()
@@ -360,7 +360,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape):
             if group: # Only process if a group was actually found
                 print(f"DEBUG: 사분면 {s_q_idx} (2층)을(를) 중심으로 '두번 뜬 S' 그룹 발견: {group}")
                 print(f"DEBUG: _move_s_group 호출 (ref_shape로 working_shape 전달). 현재 working_shape: {repr(working_shape)}") # 로그 추가
-                _move_s_group(group, working_shape, working_shape) # ref_shape를 working_shape로 변경
+                _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx) # ref_shape를 working_shape로 변경
                 processed_q.update(group) # Update with all coords in the moved group
                 print(f"DEBUG: '두번 뜬 S' 그룹 처리 후 processed_q: {processed_q}")
 
@@ -383,7 +383,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape):
             if group: # Only process if a group was actually found
                 print(f"DEBUG: 사분면 {s_q_idx}을(를) 중심으로 그룹 발견: {group}")
                 print(f"DEBUG: _move_s_group 호출 (ref_shape로 working_shape 전달). 현재 working_shape: {repr(working_shape)}") # 로그 추가
-                _move_s_group(group, working_shape, working_shape) # ref_shape를 working_shape로 변경
+                _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx) # ref_shape를 working_shape로 변경
                 processed_q.update(group) # Update with all coords in the moved group
                 print(f"DEBUG: '뜬 S(-S)' 그룹 처리 후 processed_q: {processed_q}")
             
@@ -405,7 +405,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape):
     
     for group in s_p_s_groups:
         print(f"DEBUG: '0층 S 위에 1층 P/S' 그룹 처리 시작: {group}")
-        _move_s_group(group, working_shape, working_shape) # 그룹 이동
+        _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx) # 그룹 이동
         processed_q.update(group) # 처리된 좌표 업데이트
         print(f"DEBUG: '0층 S 위에 1층 P/S' 그룹 처리 후 processed_q: {processed_q}")
 
@@ -419,7 +419,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape):
         print(f"DEBUG: '바닥 S' 개별 처리 시작 (대상: {ungrouped_bottom_s})...")
         for s_q_idx in ungrouped_bottom_s:
             print(f"DEBUG: _find_s_relocation_spot 호출 (ref_shape로 working_shape 전달). 현재 working_shape: {repr(working_shape)}") # 로그 추가
-            l_target, fill_c, moved_s_pieces_from_relocation = _find_s_relocation_spot(working_shape, s_q_idx, working_shape) # 반환 값 추가
+            l_target, fill_c, moved_s_pieces_from_relocation = _find_s_relocation_spot(working_shape, s_q_idx, working_shape, highest_c_layer, c_quad_idx) # 반환 값 추가
             print(f"DEBUG: 사분면 {s_q_idx}의 '바닥 S' 재배치 위치: L{l_target}, 채울 S: {fill_c}, 실제로 옮겨질 S: {moved_s_pieces_from_relocation}")
             
             if l_target != -1:
@@ -440,7 +440,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape):
                 working_shape.layers[l_target].quadrants[s_q_idx] = Quadrant('S', 'u')
                 print(f"DEBUG: ({l_target}, {s_q_idx})에 'S' 배치됨 (중앙 S).")
 
-def _find_s_relocation_spot(shape: Shape, q_idx: int, ref_shape: Shape) -> Tuple[int, List[Tuple[int, int]], List[Tuple[Tuple[int, int], Tuple[int, int], Quadrant]]]:
+def _find_s_relocation_spot(shape: Shape, q_idx: int, ref_shape: Shape, highest_c_layer: int, c_quad_idx: int) -> Tuple[int, List[Tuple[int, int]], List[Tuple[Tuple[int, int], Tuple[int, int], Quadrant]]]:
     """개별 S를 배치할 최적 위치를 찾습니다."""
     print(f"DEBUG: _find_s_relocation_spot 호출됨. q_idx: {q_idx}")
 
@@ -459,9 +459,11 @@ def _find_s_relocation_spot(shape: Shape, q_idx: int, ref_shape: Shape) -> Tuple
 
             # 원래 조건: 인접한 두 위치 모두 일반 도형으로 막혀있지 않아야 함
             if not ((p1 and p1.shape in _INVALID_ADJACENCY_SHAPES) or \
-                    (p2 and p2.shape in _INVALID_ADJACENCY_SHAPES)):
+                    (p2 and p2.shape in _INVALID_ADJACENCY_SHAPES)): # 이 부분은 _check_s_placement_validity로 대체 예정
                 print(f"DEBUG: Case 1 - 적합한 위치 찾음: L{l_idx}, 인접 채울 c: {[(l_idx, a) for a, p in zip(adj, [p1,p2]) if p is None]}")
-                return l_idx, [(l_idx, a) for a, p in zip(adj, [p1,p2]) if p is None], [] # 가상 이동된 S 없음
+                # 이 부분도 _check_s_placement_validity를 사용하여 통합
+                if _check_s_placement_validity(shape, l_idx, q_idx, set(), highest_c_layer, c_quad_idx):
+                    return l_idx, [(l_idx, a) for a, p in zip(adj, [p1,p2]) if p is None], [] # 가상 이동된 S 없음
         print(f"DEBUG: Case 1 - 적합한 위치 찾지 못함.")
         return -1, [], [] # 하늘이 열려있어도 적합한 위치를 찾지 못함
 
@@ -473,7 +475,7 @@ def _find_s_relocation_spot(shape: Shape, q_idx: int, ref_shape: Shape) -> Tuple
     for l_check in range(1, Shape.MAX_LAYERS): # 0층(바닥 S가 있는 층)은 건너뛰고 1층부터 검사
         if _get(shape, l_check, q_idx) is not None:
             top_blocker_layer = l_check
-            print(f"DEBUG: q_idx {q_idx}의 천장 발견: L{top_blocker_layer} (조각: {_get(shape, l_check, q_idx)})")
+            print(f"DEBUG: q_idx {q_idx}의 천장 발견: L{top_blocker_layer} (조각: {_get(shape, l_check, q_idx)})个体")
             break
     
     found_l_target = -1
@@ -496,10 +498,9 @@ def _find_s_relocation_spot(shape: Shape, q_idx: int, ref_shape: Shape) -> Tuple
         can_place_central_c = False
         adj = _adj2(shape, q_idx)
         if len(adj) == 2:
-            adj_coords = [(l_idx, adj[0]), (l_idx, adj[1])]
-            p1 = _get(shape, *adj_coords[0]) # working_shape를 사용합니다.
-            p2 = _get(shape, *adj_coords[1]) # working_shape를 사용합니다.
-            if not _check_s_placement_validity(shape, l_idx, q_idx, set()): # hypothetical_group_positions는 빈 set 전달
+            # p1 = _get(shape, *adj_coords[0]) # working_shape를 사용합니다.
+            # p2 = _get(shape, *adj_coords[1]) # working_shape를 사용합니다.
+            if not _check_s_placement_validity(shape, l_idx, q_idx, set(), highest_c_layer, c_quad_idx): # hypothetical_group_positions는 빈 set 전달, highest_c_layer, c_quad_idx 추가
                 can_place_central_c = False # 양쪽에 하나라도 S 또는 c가 있으면 유효하지 않음
             else:
                 can_place_central_c = True  # 유효함
@@ -533,7 +534,7 @@ def _find_s_relocation_spot(shape: Shape, q_idx: int, ref_shape: Shape) -> Tuple
             adj = _adj2(shape, q_idx)
             if len(adj) == 2:
                 # 먼저 현재 상태로 유효성 확인
-                if _check_s_placement_validity(shape, l_idx, q_idx, set()): # hypothetical_group_positions는 빈 set 전달
+                if _check_s_placement_validity(shape, l_idx, q_idx, set(), highest_c_layer, c_quad_idx): # hypothetical_group_positions는 빈 set 전달, highest_c_layer, c_quad_idx 추가
                     can_place_central_c_with_virtual_move = True # 이미 유효하면 가상 이동 필요 없음
                     print(f"DEBUG: 2차 시도 - L{l_idx}, q{q_idx} (비어있음): 가상 이동 없이도 유효함.")
                 else:
@@ -555,7 +556,7 @@ def _find_s_relocation_spot(shape: Shape, q_idx: int, ref_shape: Shape) -> Tuple
                                 print(f"DEBUG: 2차 시도 - 가상 이동: S ({l_idx}, {adj_q}) -> ({new_s_l}, {adj_q})")
 
                                 # 가상 이동 후, S가 배치될 중앙 위치 (l_idx, q_idx)의 인접성 재평가
-                                if _check_s_placement_validity(temp_shape_for_virtual_move, l_idx, q_idx, set()): # hypothetical_group_positions는 빈 set 전달
+                                if _check_s_placement_validity(temp_shape_for_virtual_move, l_idx, q_idx, set(), highest_c_layer, c_quad_idx): # hypothetical_group_positions는 빈 set 전달, highest_c_layer, c_quad_idx 추가
                                     can_place_central_c_with_virtual_move = True
                                     print(f"DEBUG: 2차 시도 - 가상 S 이동 후 유효한 위치 발견: L{l_idx}. 가상 이동된 S: ({l_idx}, {adj_q}) -> ({new_s_l}, {adj_q})")
                                     # 유효한 위치를 찾았으므로 실제 이동 정보를 저장
@@ -634,10 +635,12 @@ def _get_adjacent_matrix_coords(l: int, q: int, shape: Shape) -> set[Tuple[int, 
 
     return coords
 
-def _check_s_placement_validity(shape: Shape, l: int, q: int, hypothetical_group_positions: set[Tuple[int, int]]) -> bool:
+def _check_s_placement_validity(shape: Shape, l: int, q: int, hypothetical_group_positions: set[Tuple[int, int]], highest_c_layer: int, c_quad_idx: int) -> bool:
     """
     S가 올려진 후에, 그 위치의 양쪽 모두 S 또는 c가 아니어야함.
     양쪽에 그룹이 아닌 S 또는 c가 하나라도 있는 경우 유효하지 않는 위치입니다.
+    그룹 중 기준점(c)의 '반대쪽' 사분면에 있는 가장 높은 도형의 높이가
+    기준점(c)의 높이 - 1 보다 같거나 높을때 유효하지 않다는 조건 추가.
     """
     adj = _adj2(shape, q)
     if len(adj) != 2:
@@ -657,7 +660,24 @@ def _check_s_placement_validity(shape: Shape, l: int, q: int, hypothetical_group
         print(f"DEBUG: _check_s_placement_validity: Invalid adjacency found. P1 invalid: {is_p1_invalid_adj}, P2 invalid: {is_p2_invalid_adj}")
         return False # Invalid if at least one side has a non-group S or c
     
-    print(f"DEBUG: _check_s_placement_validity: Valid adjacency.")
+    # NEW CONDITION: Check height of the highest piece in the opposite quadrant of 'c'
+    opposite_q_from_c = (c_quad_idx + 2) % 4
+    highest_piece_in_opposite_q_layer = -1 # Initialize with -1, meaning no piece found
+    for l_check in _range_top_down(Shape.MAX_LAYERS):
+        piece = _get(shape, l_check, opposite_q_from_c)
+        
+        # Check if a piece from the hypothetical group lands here
+        is_hypothetical_piece = (l_check, opposite_q_from_c) in hypothetical_group_positions
+        
+        if piece is not None or is_hypothetical_piece:
+            highest_piece_in_opposite_q_layer = l_check
+            break
+
+    if highest_piece_in_opposite_q_layer != -1 and highest_piece_in_opposite_q_layer >= (highest_c_layer - 1):
+        print(f"DEBUG: _check_s_placement_validity: Invalid due to opposite quadrant height. Highest piece in opposite_q ({highest_piece_in_opposite_q_layer}) is >= (highest_c_layer-1) ({highest_c_layer-1})")
+        return False
+
+    print(f"DEBUG: _check_s_placement_validity: Valid adjacency and opposite quadrant height.")
     return True
 
 def _is_position_blocked(shape: Shape, l: int, q: int) -> bool:
@@ -726,7 +746,7 @@ def _fill_c_from_pins(shape: Shape, p_indices: list[int], ref_shape: Shape): # r
         print(f"DEBUG: 핀 사분면 {q_idx} 위로 c 전파 시작.") # 로그 추가
         _propagate_c_upwards(shape, 1, q_idx, ref_shape) # 1층부터 위로 전파 시작
 
-def _move_pieces_based_on_empty_spot_around_p(shape: Shape, ref_shape: Shape, pins: List[int]):
+def _move_pieces_based_on_empty_spot_around_p(shape: Shape, ref_shape: Shape, pins: List[int], highest_c_layer: int, c_quad_idx: int):
     """
     P 위에 새로 추가된 c 조각 주변을 확인하고 P와 S를 이동시키는 로직.
     새로운 c의 좌표는 필요없으며, 전체 맵을 기준으로 빈 공간이 있을 때 P 또는 S를 이동시킴.
@@ -819,7 +839,7 @@ def _move_pieces_based_on_empty_spot_around_p(shape: Shape, ref_shape: Shape, pi
                         
                         temp_shape_for_s_val = _copy_without(shape, [(current_s_l, original_s_q)])
 
-                        if _check_s_placement_validity(temp_shape_for_s_val, next_s_l, original_s_q, set()):
+                        if _check_s_placement_validity(temp_shape_for_s_val, next_s_l, original_s_q, set(), highest_c_layer, c_quad_idx): # highest_c_layer, c_quad_idx 추가 전달
                             _set(shape, current_s_l, original_s_q, None) # 기존 위치 지우기 (current_s_l 사용)
                             _set(shape, next_s_l, original_s_q, s_piece_obj)
                             print(f"DEBUG: Rule 3: S ({original_s_l}, {original_s_q}) -> ({next_s_l}, {original_s_q})로 이동 완료.")
@@ -865,14 +885,14 @@ def claw_process(shape_code: str) -> str:
         print(f"DEBUG: 임시 공간 확보 (MAX_LAYERS={Shape.MAX_LAYERS})")
 
         # S 조각 그룹 이동 (기존 로직 유지)
-        _relocate_s_pieces(working_shape, initial_shape)
+        _relocate_s_pieces(working_shape, initial_shape, highest_c_layer, c_quad_idx)
         print(f"DEBUG: S 그룹 이동 후 working_shape: {repr(working_shape)}")
 
         # P 및 S 조각 이동 (새로운 반복 로직)
         print("DEBUG: P 및 S 조각 이동 로직 시작...")
         moved_any_piece = True
         while moved_any_piece:
-            moved_any_piece = _move_pieces_based_on_empty_spot_around_p(working_shape, initial_shape, pins)
+            moved_any_piece = _move_pieces_based_on_empty_spot_around_p(working_shape, initial_shape, pins, highest_c_layer, c_quad_idx)
             if moved_any_piece: # 이동이 발생했다면 디버그 메시지 출력
                 print(f"DEBUG: _move_pieces_based_on_empty_spot_around_p 실행 후: {repr(working_shape)}")
             else:
