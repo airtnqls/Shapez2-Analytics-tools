@@ -302,6 +302,73 @@ def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape, 
     else:
         _log(f"DEBUG: 최종 이동 거리 0. 그룹 {group} 이동 없음.")
 
+def _move_s_group_simplified_up_by_one(group: List[Tuple[int, int]], shape: Shape, highest_c_layer: int, c_quad_idx: int):
+    """
+    '두번 뜬 S' 그룹을 규칙에 따라 한 칸 위로 이동시킵니다.
+    이동하기 전에 새로운 위치가 유효한지 검사하고, 유효할 때만 이동합니다.
+    유효하지 않으면 그룹은 이동하지 않습니다.
+    """
+    if not group:
+        return
+
+    _log(f"DEBUG: '두번 뜬 S' 그룹 단순화된 이동 로직 시작: {group}")
+
+    # 1. 목표 위치 설정 (한 칸 위)
+    final_shift = 1
+    hypothetical_group_positions = {(l_orig + final_shift, q_orig) for l_orig, q_orig in group}
+    _log(f"DEBUG: 가상 그룹 위치 (한 칸 위): {hypothetical_group_positions}")
+
+    # 2. 유효성 검사
+    is_move_valid = True
+    # 유효성 검사를 위해 그룹 조각들을 임시로 제거한 도형을 사용합니다.
+    temp_shape_for_validation = _copy_without(shape, group)
+    _log(f"DEBUG: 유효성 검사용 임시 도형 (그룹 조각 제거 후): {repr(temp_shape_for_validation)}")
+
+    # 2-1. 이동할 위치가 다른 조각으로 막혀있는지 확인
+    for l_hypo, q_hypo in hypothetical_group_positions:
+        if _is_position_blocked(temp_shape_for_validation, l_hypo, q_hypo):
+            _log(f"DEBUG: 가상 위치 ({l_hypo}, {q_hypo})가 다른 조각으로 막혀있음. 이동 취소.")
+            is_move_valid = False
+            break
+    
+    # 2-2. 막혀있지 않다면, 인접성 규칙 검사
+    if is_move_valid:
+        for l_orig, q_orig in group:
+            # shape에서 원래 조각 유형을 가져와 'S'인지 확인합니다.
+            original_piece_type = _get(shape, l_orig, q_orig)
+            if original_piece_type and original_piece_type.shape in _GENERAL_SHAPE_TYPES:
+                l_hypo, q_hypo = l_orig + final_shift, q_orig
+                if not _check_s_placement_validity(temp_shape_for_validation, l_hypo, q_hypo, hypothetical_group_positions, highest_c_layer, c_quad_idx):
+                    _log(f"DEBUG: S ({l_hypo}, {q_hypo})의 인접성 유효성 검사 실패. 이동 취소.")
+                    is_move_valid = False
+                    break
+
+    # 3. 유효성 검사를 통과한 경우에만 실제 이동 실행
+    if is_move_valid:
+        _log(f"DEBUG: 그룹 {group}을(를) 한 칸 위로 이동 실행.")
+        
+        # 이동할 조각 정보 수집 (shape 기준)
+        pieces_to_move_with_original_coords = [
+            {'piece': _get(shape, l, q), 'from': (l, q)} for l, q in group
+        ]
+        
+        # 순서대로 제거 및 배치
+        pieces_to_move_with_original_coords.sort(key=lambda x: x['from'][0], reverse=True)
+
+        for item in pieces_to_move_with_original_coords:
+            l_orig, q_orig = item['from']
+            _set(shape, l_orig, q_orig, None)
+        
+        for item in pieces_to_move_with_original_coords:
+            l_orig, q_orig = item['from']
+            piece_obj = item['piece']
+            new_l = l_orig + final_shift
+            new_q = q_orig
+            _set(shape, new_l, new_q, piece_obj)
+            _log(f"DEBUG: 조각 {piece_obj.shape if piece_obj else 'None'} {item['from']} -> ({new_l}, {new_q})로 이동 완료.")
+    else:
+        _log(f"DEBUG: 최종 위치가 유효하지 않아 그룹 {group} 이동 없음.")
+
 def _find_twice_floating_s_group(start_l: int, start_q: int, shape: Shape, enable_s_below_rule: bool = False) -> List[Tuple[int, int]]:
     """'두번 뜬 S'를 중심으로 그룹을 찾습니다. (탐색 범위 제한)"""
     group = set()
@@ -461,8 +528,8 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
                     _log(f"DEBUG: 그룹 {group}의 모든 하단이 비어있어 이동하지 않습니다.")
                 else:
                     _log(f"DEBUG: 사분면 {s_q_idx} (2층)을(를) 중심으로 '두번 뜬 S' 그룹 발견: {group}")
-                    _log(f"DEBUG: _move_s_group 호출 (ref_shape로 working_shape 전달). 현재 working_shape: {repr(working_shape)}")
-                    _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx)
+                    _log(f"DEBUG: _move_s_group_simplified_up_by_one 호출. 현재 working_shape: {repr(working_shape)}")
+                    _move_s_group_simplified_up_by_one(group, working_shape, highest_c_layer, c_quad_idx)
                     processed_q.update(group)
                     _log(f"DEBUG: '두번 뜬 S' 그룹 처리 후 processed_q: {processed_q}")
 
