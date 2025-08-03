@@ -375,25 +375,13 @@ def _find_twice_floating_s_group(start_l: int, start_q: int, shape: Shape, enabl
     q_to_process = [(start_l, start_q)]
     _log(f"DEBUG: _find_twice_floating_s_group 호출됨. 시작: ({start_l}, {start_q})")
 
-    # 탐색 허용 범위 계산
+    # 탐색 허용 범위 계산: 같은 층의 시작점과 그 인접 조각으로 제한
     valid_search_coords = set()
     valid_search_coords.add((start_l, start_q)) # 시작점
     
-    # 시작점의 바로 옆 (현재 레이어)
+    # 시작점의 바로 옆 (같은 층)
     for adj_q_initial in _adj2(shape, start_q):
         valid_search_coords.add((start_l, adj_q_initial))
-        # 시작점 옆의 바로 위 (다음 레이어)
-        valid_search_coords.add((start_l + 1, adj_q_initial)) # '두 번 뜬 S'는 시작 층이 2층이므로, 3층까지 고려
-    
-    # 시작점의 바로 위 (다음 레이어)
-    valid_search_coords.add((start_l + 1, start_q))
-
-    # 시작점의 바로 아래 (이전 레이어) - enable_s_below_rule이 true일 때만 의미 있음
-    if enable_s_below_rule and start_l > 0:
-        valid_search_coords.add((start_l - 1, start_q))
-        # 시작점 아래의 바로 옆
-        for adj_q_below in _adj2(shape, start_q):
-            valid_search_coords.add((start_l - 1, adj_q_below))
     
     _log(f"DEBUG: _find_twice_floating_s_group - 허용된 탐색 범위: {sorted(list(valid_search_coords))}")
 
