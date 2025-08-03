@@ -345,15 +345,21 @@ def _find_twice_floating_s_group(start_l: int, start_q: int, shape: Shape, enabl
                 elif (adj_l, adj_q) not in valid_search_coords:
                     print(f"DEBUG: 규칙 1 - 인접 ({adj_l}, {adj_q}) 조각 ({adj_piece.shape}) 범위 밖. 건너뜀.")
         
-        # Rule 2: S below the current piece (that was just added to the group)
+        # Rule 2: S'' (S'의 아래 S) 그룹화 규칙
         if enable_s_below_rule and l > 0:
-            piece_below = _get(shape, l - 1, q)
+            piece_below = _get(shape, l - 1, q) # This is S''
             if (piece_below and piece_below.shape in _GENERAL_SHAPE_TYPES):
-                if (l - 1, q) not in group and (l - 1, q) in valid_search_coords: # 범위 내에 있고 그룹에 없으면 추가
-                    print(f"DEBUG: 규칙 2 - 아래 ({l-1}, {q}) 조각 ({piece_below.shape})이 일반 도형임. 탐색 큐에 추가 (범위 내).")
-                    q_to_process.append((l - 1, q))
-                elif (l - 1, q) not in valid_search_coords:
-                    print(f"DEBUG: 규칙 2 - 아래 ({l-1}, {q}) 조각 ({piece_below.shape}) 범위 밖. 건너뜀.")
+                # S''의 바로 아래에 P가 있는지 확인
+                piece_below_s_double_prime = _get(shape, l - 2, q)
+                if piece_below_s_double_prime and piece_below_s_double_prime.shape == 'P':
+                    print(f"DEBUG: 규칙 2 - S'' ({l-1}, {q}) 아래에 P가 있어 그룹화하지 않음.")
+                else:
+                    # P가 없는 경우에만 그룹에 추가
+                    if (l - 1, q) not in group and (l - 1, q) in valid_search_coords:
+                        print(f"DEBUG: 규칙 2 - 아래 ({l-1}, {q}) 조각 ({piece_below.shape})이 일반 도형이고 아래에 P가 없음. 탐색 큐에 추가 (범위 내).")
+                        q_to_process.append((l - 1, q))
+                    elif (l - 1, q) not in valid_search_coords:
+                        print(f"DEBUG: 규칙 2 - 아래 ({l-1}, {q}) 조각 ({piece_below.shape}) 범위 밖. 건너뜀.")
     
     print(f"DEBUG: _find_twice_floating_s_group 종료. 최종 그룹: {sorted(list(group))}")
     return sorted(list(group))
