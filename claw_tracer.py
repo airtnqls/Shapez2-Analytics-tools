@@ -19,11 +19,11 @@ _VALID_SHAPE_CHARS = set('CSRWcPrgbmyuw-:')
 _MAX_SHAPE_CODE_LENGTH = 100
 _GENERAL_SHAPE_TYPES = {'C', 'R', 'S', 'W'} # 이 일반도형은 S라 불립니다.
 _BLOCKER_SHAPE_TYPES = _GENERAL_SHAPE_TYPES.union({'P'})
-_INVALID_ADJACENCY_SHAPES = _GENERAL_SHAPE_TYPES.union({'c'}) # 새로운 상수 추가
-# S 는 일반 도형입니다.
+_INVALID_ADJACENCY_SHAPES = _GENERAL_SHAPE_TYPES.union({'c'}) # 새로운 상수 
 # - 는 빈 공간입니다.
-# c 는 크리스탈 입니다.
 # P 는 핀 입니다.
+# S 는 일반 도형입니다.
+# c 는 크리스탈 입니다.
 
 
 class _ClawLogicError(Exception):
@@ -516,7 +516,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
     bottom_s_q_indices = [
         q for q in range(4) if (p0 := _get(ref_shape, 0, q)) and p0.shape in _GENERAL_SHAPE_TYPES
     ]
-    ungrouped_bottom_s = [q for q in bottom_s_q_indices if (0, q) not in processed_q] # Check if base S itself was processed
+    ungrouped_bottom_s = bottom_s_q_indices
     if ungrouped_bottom_s:
         _log(f"DEBUG: '바닥 S' 개별 처리 시작 (대상: {ungrouped_bottom_s})...")
         for s_q_idx in ungrouped_bottom_s:
