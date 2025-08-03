@@ -86,10 +86,25 @@ def _get_static_info(shape: Shape) -> Tuple[List[int], int, int]:
     return pins, highest_c_info[0], highest_c_info[1] # 최고층 크리스탈 층 정보 추가 반환
 
 def _find_s_star_group(start_q: int, shape: Shape) -> List[Tuple[int, int]]:
-    """설명해주신 규칙에 따라 -S를 중심으로 그룹을 찾습니다."""
+    """설명해주신 규칙에 따라 -S를 중심으로 그룹을 찾습니다. (탐색 범위 제한)"""
     group = set()
     q_to_process = [(1, start_q)] # Start at layer 1 for -S
     print(f"DEBUG: _find_s_star_group 호출됨. 시작: (1, {start_q})")
+
+    # 탐색 허용 범위 계산
+    valid_search_coords = set()
+    valid_search_coords.add((1, start_q)) # 시작점
+    
+    # 시작점의 바로 옆 (현재 레이어)
+    for adj_q_initial in _adj2(shape, start_q):
+        valid_search_coords.add((1, adj_q_initial))
+        # 시작점 옆의 바로 위 (다음 레이어)
+        valid_search_coords.add((2, adj_q_initial))
+    
+    # 시작점의 바로 위 (다음 레이어)
+    valid_search_coords.add((2, start_q))
+
+    print(f"DEBUG: _find_s_star_group - 허용된 탐색 범위: {sorted(list(valid_search_coords))}")
 
     while q_to_process:
         l, q = q_to_process.pop(0)
@@ -109,23 +124,30 @@ def _find_s_star_group(start_q: int, shape: Shape) -> List[Tuple[int, int]]:
             # Rule A and B: Apply to adjacent pieces at the *current layer* (l)
             adj_piece = _get(shape, adj_l, adj_q)
             
+            # 여기서 큐에 추가할 때 valid_search_coords 확인
             if adj_piece and adj_piece.shape in _GENERAL_SHAPE_TYPES: # Found an adjacent general shape
                 blocker = _get(shape, l + 1, adj_q)
                 
                 # Rule A: Adjacent S (adj_piece) at current layer (l) has empty space directly above
                 if blocker is None:
-                    if (l, adj_q) not in group: # Avoid re-adding existing group members
-                        print(f"DEBUG: 규칙 A - 인접 ({l}, {adj_q}) 조각 ({adj_piece.shape}) 위가 비어있음. 탐색 큐에 추가.")
+                    if (l, adj_q) not in group and (l, adj_q) in valid_search_coords: # 범위 내에 있고 그룹에 없으면 추가
+                        print(f"DEBUG: 규칙 A - 인접 ({l}, {adj_q}) 조각 ({adj_piece.shape}) 위가 비어있음. 탐색 큐에 추가 (범위 내).")
                         q_to_process.append((l, adj_q))
+                    elif (l, adj_q) not in valid_search_coords:
+                        print(f"DEBUG: 규칙 A - 인접 ({l}, {adj_q}) 조각 ({adj_piece.shape}) 범위 밖. 건너뜀.")
                 # Rule B: Adjacent S (adj_piece) at current layer (l) is blocked by S/P, and that blocker's top is empty
                 elif blocker.shape in _BLOCKER_SHAPE_TYPES and _get(shape, l + 2, adj_q) is None:
-                    # Only add if not already in group
-                    if (l, adj_q) not in group:
-                        print(f"DEBUG: 규칙 B - 인접 ({l}, {adj_q}) 조각 ({adj_piece.shape}) 위 ({blocker.shape})가 막혔고, 그 위가 비었음. 탐색 큐에 추가.")
+                    if (l, adj_q) not in group and (l, adj_q) in valid_search_coords: # 범위 내에 있고 그룹에 없으면 추가
+                        print(f"DEBUG: 규칙 B - 인접 ({l}, {adj_q}) 조각 ({adj_piece.shape}) 위 ({blocker.shape})가 막혔고, 그 위가 비었음. 탐색 큐에 추가 (범위 내).")
                         q_to_process.append((l, adj_q))
-                    if (l + 1, adj_q) not in group: # Add the blocker piece if it's new to the group
-                        print(f"DEBUG: 규칙 B - 블로커 ({l+1}, {adj_q}) 조각 ({blocker.shape})도 그룹에 추가. 탐색 큐에 추가.")
+                    elif (l, adj_q) not in valid_search_coords:
+                        print(f"DEBUG: 규칙 B - 인접 ({l}, {adj_q}) 조각 ({adj_piece.shape}) 범위 밖. 건너뜀.")
+
+                    if (l + 1, adj_q) not in group and (l + 1, adj_q) in valid_search_coords: # 블로커도 범위 내에 있고 그룹에 없으면 추가
+                        print(f"DEBUG: 규칙 B - 블로커 ({l+1}, {adj_q}) 조각 ({blocker.shape})도 그룹에 추가. 탐색 큐에 추가 (범위 내)." )
                         q_to_process.append((l + 1, adj_q))
+                    elif (l + 1, adj_q) not in valid_search_coords:
+                        print(f"DEBUG: 규칙 B - 블로커 ({l+1}, {adj_q}) 조각 ({blocker.shape}) 범위 밖. 건너뜀.")
     
     print(f"DEBUG: _find_s_star_group 종료. 최종 그룹: {sorted(list(group))}")
     return sorted(list(group))
@@ -271,10 +293,32 @@ def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape, 
         print(f"DEBUG: 최종 이동 거리 0. 그룹 {group} 이동 없음.")
 
 def _find_twice_floating_s_group(start_l: int, start_q: int, shape: Shape, enable_s_below_rule: bool = False) -> List[Tuple[int, int]]:
-    """'두번 뜬 S'를 중심으로 그룹을 찾습니다."""
+    """'두번 뜬 S'를 중심으로 그룹을 찾습니다. (탐색 범위 제한)"""
     group = set()
     q_to_process = [(start_l, start_q)]
     print(f"DEBUG: _find_twice_floating_s_group 호출됨. 시작: ({start_l}, {start_q})")
+
+    # 탐색 허용 범위 계산
+    valid_search_coords = set()
+    valid_search_coords.add((start_l, start_q)) # 시작점
+    
+    # 시작점의 바로 옆 (현재 레이어)
+    for adj_q_initial in _adj2(shape, start_q):
+        valid_search_coords.add((start_l, adj_q_initial))
+        # 시작점 옆의 바로 위 (다음 레이어)
+        valid_search_coords.add((start_l + 1, adj_q_initial)) # '두 번 뜬 S'는 시작 층이 2층이므로, 3층까지 고려
+    
+    # 시작점의 바로 위 (다음 레이어)
+    valid_search_coords.add((start_l + 1, start_q))
+
+    # 시작점의 바로 아래 (이전 레이어) - enable_s_below_rule이 true일 때만 의미 있음
+    if enable_s_below_rule and start_l > 0:
+        valid_search_coords.add((start_l - 1, start_q))
+        # 시작점 아래의 바로 옆
+        for adj_q_below in _adj2(shape, start_q):
+            valid_search_coords.add((start_l - 1, adj_q_below))
+    
+    print(f"DEBUG: _find_twice_floating_s_group - 허용된 탐색 범위: {sorted(list(valid_search_coords))}")
 
     while q_to_process:
         l, q = q_to_process.pop(0)
@@ -295,17 +339,21 @@ def _find_twice_floating_s_group(start_l: int, start_q: int, shape: Shape, enabl
             adj_piece = _get(shape, adj_l, adj_q)
             if (adj_piece and adj_piece.shape in _GENERAL_SHAPE_TYPES and
                 _get(shape, adj_l + 1, adj_q) is None): # Empty above adjacent piece
-                if (adj_l, adj_q) not in group:
-                    print(f"DEBUG: 규칙 1 - 인접 ({adj_l}, {adj_q}) 조각 ({adj_piece.shape}) 위가 비어있음. 탐색 큐에 추가.")
+                if (adj_l, adj_q) not in group and (adj_l, adj_q) in valid_search_coords: # 범위 내에 있고 그룹에 없으면 추가
+                    print(f"DEBUG: 규칙 1 - 인접 ({adj_l}, {adj_q}) 조각 ({adj_piece.shape}) 위가 비어있음. 탐색 큐에 추가 (범위 내).")
                     q_to_process.append((adj_l, adj_q))
+                elif (adj_l, adj_q) not in valid_search_coords:
+                    print(f"DEBUG: 규칙 1 - 인접 ({adj_l}, {adj_q}) 조각 ({adj_piece.shape}) 범위 밖. 건너뜀.")
         
         # Rule 2: S below the current piece (that was just added to the group)
-        if enable_s_below_rule and l > 0: # Ensure we don't go below layer 0
+        if enable_s_below_rule and l > 0:
             piece_below = _get(shape, l - 1, q)
-            if (piece_below and piece_below.shape in _GENERAL_SHAPE_TYPES): # Check if piece below is general shape
-                if (l - 1, q) not in group:
-                    print(f"DEBUG: 규칙 2 - 아래 ({l-1}, {q}) 조각 ({piece_below.shape})이 일반 도형임. 탐색 큐에 추가.")
+            if (piece_below and piece_below.shape in _GENERAL_SHAPE_TYPES):
+                if (l - 1, q) not in group and (l - 1, q) in valid_search_coords: # 범위 내에 있고 그룹에 없으면 추가
+                    print(f"DEBUG: 규칙 2 - 아래 ({l-1}, {q}) 조각 ({piece_below.shape})이 일반 도형임. 탐색 큐에 추가 (범위 내).")
                     q_to_process.append((l - 1, q))
+                elif (l - 1, q) not in valid_search_coords:
+                    print(f"DEBUG: 규칙 2 - 아래 ({l-1}, {q}) 조각 ({piece_below.shape}) 범위 밖. 건너뜀.")
     
     print(f"DEBUG: _find_twice_floating_s_group 종료. 최종 그룹: {sorted(list(group))}")
     return sorted(list(group))
@@ -702,7 +750,24 @@ def _fill_opposite_quadrant(shape: Shape, opposite_q_idx: int, highest_c_layer: 
     for l_idx in _range_top_down(Shape.MAX_LAYERS): # 원래대로 맨 위층부터 시작
         _ensure_layer(shape, l_idx)
         p = _get(shape, l_idx, opposite_q_idx)
-        if p is not None and p.shape != 'c': break
+
+        # 조건 1: 아래가 막혀있으면 중단
+        if p is not None and p.shape != 'c':
+            break
+
+        # 조건 2: 아래가 비어있더라도, 그 양 옆에 '원본' c가 있으면 중단
+        if p is None:
+            has_adjacent_original_c = False
+            for adj_l, adj_q in _adjacent_coords(shape, l_idx, opposite_q_idx):
+                # shape(현재 모양)가 아닌 ref_shape(원본 모양)에서 c가 있는지 확인
+                adj_piece_original = _get(ref_shape, adj_l, adj_q)
+                if adj_piece_original and adj_piece_original.shape == 'c':
+                    has_adjacent_original_c = True
+                    break
+            if has_adjacent_original_c:
+                print(f"DEBUG: ({l_idx}, {opposite_q_idx})는 비어있지만 양 옆에 '원본' c가 있어 기둥 확장 중단.")
+                break
+
         _set(shape, l_idx, opposite_q_idx, Quadrant('c', 'y'))
         newly_added_c_coords.append((l_idx, opposite_q_idx)) # 기둥 c 조각 추가
 
@@ -746,6 +811,74 @@ def _fill_c_from_pins(shape: Shape, p_indices: list[int], ref_shape: Shape): # r
         print(f"DEBUG: 핀 사분면 {q_idx} 위로 c 전파 시작.") # 로그 추가
         _propagate_c_upwards(shape, 1, q_idx, ref_shape) # 1층부터 위로 전파 시작
 
+def _lift_adjacent_pieces(shape: Shape, empty_spot_l: int, q_idx: int, highest_c_layer: int, c_quad_idx: int) -> bool:
+    """
+    주어진 빈 공간(empty_spot_l, q_idx) 주위가 막혀있을 때,
+    인접한 P 또는 S 조각을 들어 올리는 로직.
+    실제로 조각을 이동시켰으면 True를 반환합니다.
+    """
+    moved_something = False
+    adj_q_coords = _adj2(shape, q_idx)
+
+    # 1. 주변 세 방향이 막혔는지 먼저 확인
+    check_coords = []
+    for aq in adj_q_coords:
+        check_coords.append((empty_spot_l, aq))
+    if empty_spot_l + 1 < Shape.MAX_LAYERS:
+        check_coords.append((empty_spot_l + 1, q_idx))
+
+    is_surrounded = all(_is_position_blocked(shape, cl, cq) for cl, cq in check_coords)
+
+    if not is_surrounded:
+        return False # 세 방향이 모두 막히지 않았으면 아무것도 하지 않음
+
+    print(f"DEBUG: P ({empty_spot_l-1}, {q_idx}) 위 빈 공간 ({empty_spot_l}, {q_idx}) 발견 및 주변 막힘 확인.")
+    
+    # 2. 양 옆 조각들을 들어올리는 로직
+    for adj_q_for_movement in adj_q_coords:
+        piece_at_target_adj = _get(shape, empty_spot_l, adj_q_for_movement)
+
+        if piece_at_target_adj and piece_at_target_adj.shape == 'P':
+            # P 이동 규칙
+            if not _is_position_blocked(shape, empty_spot_l + 1, adj_q_for_movement):
+                _set(shape, empty_spot_l, adj_q_for_movement, None)
+                _set(shape, empty_spot_l + 1, adj_q_for_movement, piece_at_target_adj)
+                print(f"DEBUG: Rule 1 (lift): P ({empty_spot_l}, {adj_q_for_movement}) -> ({empty_spot_l + 1}, {adj_q_for_movement})로 이동.")
+                moved_something = True
+            elif (p_above := _get(shape, empty_spot_l + 1, adj_q_for_movement)) and p_above.shape == 'P' and not _is_position_blocked(shape, empty_spot_l + 2, adj_q_for_movement):
+                _set(shape, empty_spot_l, adj_q_for_movement, None)
+                _set(shape, empty_spot_l + 1, adj_q_for_movement, None)
+                _set(shape, empty_spot_l + 1, adj_q_for_movement, piece_at_target_adj)
+                _set(shape, empty_spot_l + 2, adj_q_for_movement, p_above)
+                print(f"DEBUG: Rule 2 (lift): 두 P ({empty_spot_l}, {adj_q_for_movement}) -> ({empty_spot_l + 1}, {adj_q_for_movement})로 이동.")
+                moved_something = True
+
+        elif piece_at_target_adj and piece_at_target_adj.shape in _GENERAL_SHAPE_TYPES:
+            # S 이동 규칙
+            original_s_l = empty_spot_l
+            original_s_q = adj_q_for_movement
+            s_piece_obj = piece_at_target_adj
+            current_s_l = original_s_l
+            test_s_l = original_s_l
+            
+            while True:
+                test_s_l += 1
+                if _is_position_blocked(shape, test_s_l, original_s_q):
+                    break
+                
+                temp_shape_for_s_val = _copy_without(shape, [(current_s_l, original_s_q)])
+                
+                if _check_s_placement_validity(temp_shape_for_s_val, test_s_l, original_s_q, set(), highest_c_layer, c_quad_idx):
+                    _set(shape, current_s_l, original_s_q, None)
+                    _set(shape, test_s_l, original_s_q, s_piece_obj)
+                    print(f"DEBUG: Rule 3 (lift): S ({original_s_l}, {original_s_q}) -> ({test_s_l}, {original_s_q})로 이동.")
+                    moved_something = True
+                    current_s_l = test_s_l # S의 현재 위치 업데이트
+                else:
+                    # 유효하지 않더라도 계속 위로 탐색
+                    pass
+    return moved_something
+
 def _move_pieces_based_on_empty_spot_around_p(shape: Shape, ref_shape: Shape, pins: List[int], highest_c_layer: int, c_quad_idx: int):
     """
     P 위에 새로 추가된 c 조각 주변을 확인하고 P와 S를 이동시키는 로직.
@@ -754,100 +887,37 @@ def _move_pieces_based_on_empty_spot_around_p(shape: Shape, ref_shape: Shape, pi
     print(f"DEBUG: _move_pieces_based_on_empty_spot_around_p 호출됨.")
     moved_something = False
 
-    # 최하단 P의 바로 위 레이어만 검사
-    for q_idx in pins:  # P가 있는 0층의 사분면만 검사
-        l_idx = 0  # 핀은 항상 0층에 있으므로
+    for q_idx in pins:
+        l_idx = 0
         p_piece = _get(shape, l_idx, q_idx)
-        if p_piece and p_piece.shape == 'P':
-            # 이 P 조각 바로 위가 비어있어야 함
-            if _is_position_blocked(shape, l_idx + 1, q_idx): # 빈 공간이 아니면 건너뜀 (새 헬퍼 함수 사용)
-                continue
+        if not (p_piece and p_piece.shape == 'P'):
+            continue
 
-            # 빈 공간의 양쪽 (adjacent)과 위쪽 (l+2, q)이 모두 비어있지 않은지 확인
-            # 즉, (l+1, q_idx)의 세 면이 막혀있는지 확인
-            empty_spot_l = l_idx + 1
-            adj_q_coords = _adj2(shape, q_idx)
+        # P 바로 위(1층)가 비어있는지 확인
+        if _is_position_blocked(shape, l_idx + 1, q_idx):
+            continue
 
-            if len(adj_q_coords) != 2:
-                continue # 유효한 P 조각이 아님
+        adj_q_coords = _adj2(shape, q_idx)
+        if len(adj_q_coords) != 2:
+            continue
             
-            check_coords = []
-            for aq in adj_q_coords:
-                check_coords.append((empty_spot_l, aq))
-            if empty_spot_l + 1 < Shape.MAX_LAYERS:
-                check_coords.append((empty_spot_l + 1, q_idx))
-            
-            all_surrounding_not_empty = True
-            for cl, cq in check_coords:
-                if not _is_position_blocked(shape, cl, cq): # 새 헬퍼 함수 사용
-                    all_surrounding_not_empty = False
-                    break
-            
-            if not all_surrounding_not_empty:
-                continue # 조건 불만족
+        # --- 시나리오 1: P 바로 위(1층)의 세 방향이 막혀있는 경우 ---
+        if _lift_adjacent_pieces(shape, l_idx + 1, q_idx, highest_c_layer, c_quad_idx):
+             moved_something = True
+             continue # 이동이 발생했으면 다음 핀으로 넘어감
 
-            print(f"DEBUG: P ({l_idx}, {q_idx}) 위 빈 공간 ({empty_spot_l}, {q_idx}) 발견 및 주변 막힘 확인.")
+        # --- 시나리오 2: P 바로 위는 비어있고, 양쪽은 막혔지만, P의 두 칸 위(2층)가 비어있는 경우 ---
+        # 1층의 양쪽이 막혔는지 확인
+        is_adj_blocked = all(_is_position_blocked(shape, l_idx + 1, aq) for aq in adj_q_coords)
+        # 2층이 비어있는지 확인
+        is_two_up_empty = not _is_position_blocked(shape, l_idx + 2, q_idx)
 
-            # 이제 인접한 P 또는 S를 이동시키는 로직 - 조각은 1층(empty_spot_l)부터 확인
-            # Check adjacent columns at empty_spot_l (Layer 1)
-            for adj_q_for_movement in adj_q_coords: # adj_q_coords는 q_idx에 인접한 사분면들
-                # Check piece at (empty_spot_l, adj_q_for_movement) - 1층(2층)의 인접 조각 확인
-                piece_at_target_adj = _get(shape, empty_spot_l, adj_q_for_movement)
-
-                if piece_at_target_adj and piece_at_target_adj.shape == 'P':
-                    # Rule 1 & 2 (P 이동) - 이제 1층(2층)의 P를 고려
-                    # Check for Rule 1: P at (empty_spot_l, adj_q_for_movement) and empty at (empty_spot_l + 1, adj_q_for_movement)
-                    if not _is_position_blocked(shape, empty_spot_l + 1, adj_q_for_movement): # 그 위 층(2층)이 비어있으면
-                        # Move P upwards by 1
-                        _set(shape, empty_spot_l, adj_q_for_movement, None) # 1층 P 원래 위치 비우기
-                        new_l_p = empty_spot_l + 1 # 2층으로 이동
-                        _set(shape, new_l_p, adj_q_for_movement, piece_at_target_adj) # 원본 P 조각 사용
-                        print(f"DEBUG: Rule 1: P ({empty_spot_l}, {adj_q_for_movement}) -> ({new_l_p}, {adj_q_for_movement})로 이동 완료.")
-                        moved_something = True
-
-                    # Check for Rule 2: P at (empty_spot_l, adj_q_for_movement) and P at (empty_spot_l + 1, adj_q_for_movement)
-                    elif (empty_spot_l + 1 < Shape.MAX_LAYERS and 
-                          (p_above := _get(shape, empty_spot_l + 1, adj_q_for_movement)) and p_above.shape == 'P' and
-                          not _is_position_blocked(shape, empty_spot_l + 2, adj_q_for_movement)): # 그 위 층(3층)이 비어있으면
-                        # Move two P's upwards by 1
-                        original_p1_to_move = piece_at_target_adj # 1층 P
-                        original_p2_to_move = p_above # 2층 P
-
-                        _set(shape, empty_spot_l, adj_q_for_movement, None) # 1층 P 원래 위치 비우기
-                        _set(shape, empty_spot_l + 1, adj_q_for_movement, None) # 2층 P 원래 위치 비우기
-
-                        new_l_p1 = empty_spot_l + 1 # 2층으로 이동
-                        new_l_p2 = empty_spot_l + 2 # 3층으로 이동
-                        
-                        _set(shape, new_l_p1, adj_q_for_movement, original_p1_to_move)
-                        _set(shape, new_l_p2, adj_q_for_movement, original_p2_to_move)
-                        print(f"DEBUG: Rule 2: 두 P ({empty_spot_l}, {adj_q_for_movement}) 및 ({empty_spot_l+1}, {adj_q_for_movement}) -> ({new_l_p1}, {adj_q_for_movement}) 및 ({new_l_p2}, {adj_q_for_movement})로 이동 완료.")
-                        moved_something = True
-
-                # Check for Rule 3 (S 이동) - 이제 1층(2층)의 S를 고려
-                elif piece_at_target_adj and piece_at_target_adj.shape in _GENERAL_SHAPE_TYPES:
-                    original_s_l = empty_spot_l # S의 현재 층은 1층
-                    original_s_q = adj_q_for_movement
-                    s_piece_obj = piece_at_target_adj # 원본 S 조각 사용
-
-                    current_s_l = original_s_l
-                    while True:
-                        next_s_l = current_s_l + 1
-                        if _is_position_blocked(shape, next_s_l, original_s_q):
-                            print(f"DEBUG: S ({original_s_l}, {original_s_q})의 가상 이동 위치 ({next_s_l}, {original_s_q})가 막혀있음. 이동 중단.")
-                            break
-                        
-                        temp_shape_for_s_val = _copy_without(shape, [(current_s_l, original_s_q)])
-
-                        if _check_s_placement_validity(temp_shape_for_s_val, next_s_l, original_s_q, set(), highest_c_layer, c_quad_idx): # highest_c_layer, c_quad_idx 추가 전달
-                            _set(shape, current_s_l, original_s_q, None) # 기존 위치 지우기 (current_s_l 사용)
-                            _set(shape, next_s_l, original_s_q, s_piece_obj)
-                            print(f"DEBUG: Rule 3: S ({original_s_l}, {original_s_q}) -> ({next_s_l}, {original_s_q})로 이동 완료.")
-                            moved_something = True
-                            current_s_l = next_s_l
-                        else:
-                            print(f"DEBUG: S ({original_s_l}, {original_s_q})의 가상 이동 위치 ({next_s_l}, {original_s_q}) 유효하지 않음. 이동 중단.")
-                            break
+        if is_adj_blocked and is_two_up_empty:
+            print(f"DEBUG: P({l_idx},{q_idx}) 위 연쇄 검사 조건 충족. L{l_idx+2}를 기준으로 들어올리기 시도.")
+            # 2층을 기준으로 다시 들어올리기 시도
+            if _lift_adjacent_pieces(shape, l_idx + 2, q_idx, highest_c_layer, c_quad_idx):
+                moved_something = True
+                
     return moved_something
 
 # --- 메인 프로세스 함수 ---
