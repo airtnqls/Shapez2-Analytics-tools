@@ -492,7 +492,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
 
             _log(f"DEBUG: PS--c 패턴 발견: 사분면 {q_idx}")
 
-            # 조건 3: 기준점 c의 사분면 4개 중 빈 공간이 두 개인지 확인
+            # 조건 2: 기준점 c의 사분면 4개 중 빈 공간이 두 개인지 확인
             c_layer_empty_count = 0
             for q_c_check in range(4):
                 if _get(working_shape, highest_c_layer, q_c_check) is None:
@@ -500,7 +500,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
 
             _log(f"DEBUG: 기준점 c 레이어({highest_c_layer}층) 빈 공간 개수: {c_layer_empty_count}")
 
-            # 조건 4: 맨위 c의 아래 -의 양쪽에 c 또는 S가 없는지 확인
+            # 조건 3: 맨위 c의 아래 -의 양쪽에 c 또는 S가 없는지 확인
             c_below_empty = True
             c_below_left_has_c_or_s = False
             c_below_right_has_c_or_s = False
@@ -536,7 +536,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
             else:
                 _log(f"DEBUG: 맨위 c의 아래 층이 존재하지 않음 (c_below_layer: {c_below_layer})")
 
-            # 조건 5: S의 양쪽과 그 각 양쪽의 위쪽에 c가 없는지 확인
+            # 조건 4: S의 양쪽과 그 각 양쪽의 위쪽에 c가 없는지 확인
             s_adjacent_and_above_no_c = True
             
             for adj_q in _adj2(working_shape, q_idx):
