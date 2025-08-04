@@ -467,6 +467,122 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
     _log(f"DEBUG: _relocate_s_pieces 호출됨. 초기 processed_q: {processed_q}")
     _log(f"DEBUG: Initial ref_shape: {repr(ref_shape)}") # ref_shape의 전체 표현 추가
 
+    # New: 0. PS--c 패턴을 P--Sc로 변환하는 로직 (최우선)
+    _log("DEBUG: PS--c 패턴 탐색 및 변환 시작...")
+    for q_idx in range(4):
+        p0 = _get(ref_shape, 0, q_idx)  # Layer 0 (1층) - P
+        p1 = _get(ref_shape, 1, q_idx)  # Layer 1 (2층) - S
+        p2 = _get(ref_shape, 2, q_idx)  # Layer 2 (3층) - -
+        p3 = _get(ref_shape, 3, q_idx)  # Layer 3 (4층) - -
+        p4 = _get(ref_shape, 4, q_idx)  # Layer 4 (5층) - c
+
+        _log(f"""DEBUG: PS--c 검사 중 - 사분면 {q_idx}:
+  1층(L0): {p0}
+  2층(L1): {p1}
+  3층(L2): {p2}
+  4층(L3): {p3}
+  5층(L4): {p4}""")
+
+        # 조건 1: PS--c 패턴 확인
+        if (p0 and p0.shape == 'P' and  # 1층이 P
+            p1 and p1.shape in _GENERAL_SHAPE_TYPES and # 2층이 S
+            p2 is None and # 3층이 -
+            p3 is None and # 4층이 -
+            p4 and p4.shape == 'c'): # 5층이 c
+
+            _log(f"DEBUG: PS--c 패턴 발견: 사분면 {q_idx}")
+
+            # 조건 3: 기준점 c의 사분면 4개 중 빈 공간이 두 개인지 확인
+            c_layer_empty_count = 0
+            for q_c_check in range(4):
+                if _get(working_shape, highest_c_layer, q_c_check) is None:
+                    c_layer_empty_count += 1
+
+            _log(f"DEBUG: 기준점 c 레이어({highest_c_layer}층) 빈 공간 개수: {c_layer_empty_count}")
+
+            # 조건 4: 맨위 c의 아래 -의 양쪽에 c 또는 S가 없는지 확인
+            c_below_empty = True
+            c_below_left_has_c_or_s = False
+            c_below_right_has_c_or_s = False
+            
+            # 맨위 c의 아래 위치 (highest_c_layer - 1)
+            c_below_layer = highest_c_layer - 1
+            if c_below_layer >= 0:
+                # 맨위 c의 아래가 빈 공간인지 확인
+                c_below_piece = _get(working_shape, c_below_layer, q_idx)
+                if c_below_piece is not None:
+                    c_below_empty = False
+                    _log(f"DEBUG: 맨위 c의 아래가 빈 공간이 아님: {c_below_piece.shape}")
+                else:
+                    _log(f"DEBUG: 맨위 c의 아래가 빈 공간임. 양쪽 확인 시작.")
+                    
+                    # 맨위 c의 아래 -의 양쪽 확인
+                    c_below_left_q = (q_idx - 1 + 4) % 4
+                    c_below_right_q = (q_idx + 1) % 4
+                    
+                    # 왼쪽 확인
+                    c_below_left_piece = _get(working_shape, c_below_layer, c_below_left_q)
+                    if c_below_left_piece and (c_below_left_piece.shape in _GENERAL_SHAPE_TYPES or c_below_left_piece.shape == 'c'):
+                        c_below_left_has_c_or_s = True
+                        _log(f"DEBUG: 맨위 c의 아래 왼쪽에 c 또는 S 발견: {c_below_left_piece.shape}")
+                    
+                    # 오른쪽 확인
+                    c_below_right_piece = _get(working_shape, c_below_layer, c_below_right_q)
+                    if c_below_right_piece and (c_below_right_piece.shape in _GENERAL_SHAPE_TYPES or c_below_right_piece.shape == 'c'):
+                        c_below_right_has_c_or_s = True
+                        _log(f"DEBUG: 맨위 c의 아래 오른쪽에 c 또는 S 발견: {c_below_right_piece.shape}")
+                    
+                    _log(f"DEBUG: 맨위 c의 아래 양쪽 상태 - 왼쪽: {c_below_left_has_c_or_s}, 오른쪽: {c_below_right_has_c_or_s}")
+            else:
+                _log(f"DEBUG: 맨위 c의 아래 층이 존재하지 않음 (c_below_layer: {c_below_layer})")
+
+            # 조건 5: S의 양쪽과 그 각 양쪽의 위쪽에 c가 없는지 확인
+            s_adjacent_and_above_no_c = True
+            
+            for adj_q in _adj2(working_shape, q_idx):
+                # S의 양쪽 확인 (S와 같은 층)
+                s_adjacent_piece = _get(working_shape, 1, adj_q)  # S는 2층(인덱스 1)에 있음
+                if s_adjacent_piece and s_adjacent_piece.shape == 'c':
+                    _log(f"DEBUG: S의 양쪽({adj_q})에 c 발견: {s_adjacent_piece.shape}")
+                    s_adjacent_and_above_no_c = False
+                    break
+                
+                # S의 양쪽의 위쪽 확인 (S보다 한 층 위)
+                s_adjacent_above_piece = _get(working_shape, 2, adj_q)  # S보다 한 층 위는 3층(인덱스 2)
+                if s_adjacent_above_piece and s_adjacent_above_piece.shape == 'c':
+                    _log(f"DEBUG: S의 양쪽({adj_q}) 위쪽에 c 발견: {s_adjacent_above_piece.shape}")
+                    s_adjacent_and_above_no_c = False
+                    break
+            
+            if s_adjacent_and_above_no_c:
+                _log(f"DEBUG: S의 양쪽과 그 위쪽에 c 없음.")
+            else:
+                _log(f"DEBUG: S의 양쪽 또는 그 위쪽에 c 발견.")
+
+            # 모든 조건을 만족하는 경우 S를 c 아래로 이동
+            if (c_layer_empty_count == 2 and 
+                c_below_empty and 
+                not c_below_left_has_c_or_s and 
+                not c_below_right_has_c_or_s and
+                s_adjacent_and_above_no_c):
+                
+                _log(f"DEBUG: 모든 조건 만족. S ({1},{q_idx})를 ({3},{q_idx})로 이동 (P--Sc 변환).")
+                
+                # S 조각을 이동시키기 전에 기존 위치를 None으로 설정
+                _set(working_shape, 1, q_idx, None) # 2층(인덱스 1)의 S 제거
+                _ensure_layer(working_shape, 3) # 4층(인덱스 3)이 존재하도록 확인
+                _set(working_shape, 3, q_idx, Quadrant('S', 'u')) # 4층(인덱스 3)에 S 배치
+                
+                processed_q.add((0, q_idx)) # P
+                processed_q.add((3, q_idx)) # Moved S
+                processed_q.add((4, q_idx)) # c
+                
+                _log(f"DEBUG: PS--c -> P--Sc 변환 완료: 사분면 {q_idx}")
+            else:
+                _log(f"DEBUG: 조건 불만족. c 레이어 빈 공간: {c_layer_empty_count}개, c 아래 빈 공간: {c_below_empty}, c 아래 왼쪽 c/S: {c_below_left_has_c_or_s}, c 아래 오른쪽 c/S: {c_below_right_has_c_or_s}, S 양쪽/위쪽 c 없음: {s_adjacent_and_above_no_c}")
+
+    _log("DEBUG: PS--c 패턴 탐색 및 변환 완료.")
+
     # New: 0. '두번 뜬 S' 그룹 탐색 및 처리 (최우선)
     _log("DEBUG: '두번 뜬 S' 패턴 탐색 시작...")
     # Pattern: Layer 1 is None, Layer 2 is 'S', Layer 3 is None, Layer 4 is 'S' or 'c'
@@ -559,38 +675,64 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
                     else:
                         _log(f"DEBUG: '두번 뜬 S' 그룹 이동 취소 조건 불만족. 그룹 이동 진행. s_q_idx: {s_q_idx}")
 
-                # 추가 조건: 0층 아래가 '-'이고, 3층의 그룹이 아닌 나머지 두 사분면 중 하나라도 S일 때도 취소
+                # 추가 조건: 0층 아래가 '-'이고, 다음 중 하나라도 만족할 때 취소
+                # 1. 3층의 그룹이 아닌 나머지 두 사분면 중 하나라도 c 또는 S일 때
+                # 2. 기준점 c 레이어의 4개 사분면 중 빈공간('-')이 하나 이하일 경우
+                # 3. '두번 뜬 S'가 기준점 사분면이 아닌 경우 (s_q_idx != c_quad_idx)
                 if not cancel_move_by_new_rule:  # 기존 조건에서 취소되지 않은 경우에만 추가 조건 검사
                     # 0층 아래가 '-'인지 확인
                     is_0_layer_empty = (piece_0_same is None)
                     
                     if is_0_layer_empty:
-                        _log(f"DEBUG: 0층 아래가 빈 공간임. 3층의 그룹이 아닌 나머지 두 사분면 검사 시작.")
+                        _log(f"DEBUG: 0층 아래가 빈 공간임. 추가 조건 검사 시작.")
                         
-                        # 3층(인덱스 2)의 그룹이 아닌 나머지 두 사분면 확인
-                        group_coords_set = set(group)
-                        remaining_quadrants = []
+                        condition_b_triggered = False
+                        condition_c_triggered = False
+                        condition_d_triggered = False
+
+                        # 조건 B: 3층의 그룹이 아닌 나머지 두 사분면 중 하나라도 c 또는 S일 때
+                        # '두번 뜬 S'는 2층에 있고, 이 조건은 3층(l=2)의 나머지 사분면을 확인합니다.
+                        group_coords_set_at_layer2 = {(l, q) for l, q in group if l == 2} # 3층에 해당하는 그룹의 좌표만 추출
+                        remaining_quadrants_at_layer2 = []
                         
                         for q_check in range(4):
-                            if (2, q_check) not in group_coords_set:  # 3층에서 그룹에 포함되지 않은 사분면
-                                remaining_quadrants.append(q_check)
+                            if (2, q_check) not in group_coords_set_at_layer2:  # 3층에서 그룹에 포함되지 않은 사분면
+                                remaining_quadrants_at_layer2.append(q_check)
                         
-                        _log(f"DEBUG: 3층의 그룹이 아닌 나머지 사분면: {remaining_quadrants}")
+                        _log(f"DEBUG: 3층의 그룹이 아닌 나머지 사분면: {remaining_quadrants_at_layer2}")
                         
-                        # 나머지 두 사분면 중 하나라도 c 또는 S인지 확인
-                        has_c_or_s_in_remaining = False
-                        for q_remaining in remaining_quadrants:
-                            piece_3_remaining = _get(working_shape, 2, q_remaining)  # 3층 조각
+                        for q_remaining in remaining_quadrants_at_layer2:
+                            piece_3_remaining = _get(working_shape, 2, q_remaining)  # 3층 조각 (l=2)
                             if piece_3_remaining and (piece_3_remaining.shape in _GENERAL_SHAPE_TYPES or piece_3_remaining.shape == 'c'):
                                 _log(f"DEBUG: 3층의 그룹이 아닌 사분면 {q_remaining}에 c 또는 S 발견: {piece_3_remaining.shape}")
-                                has_c_or_s_in_remaining = True
+                                condition_b_triggered = True
                                 break
                         
-                        if has_c_or_s_in_remaining:
-                            _log(f"DEBUG: '두번 뜬 S' 그룹 이동 취소. 0층 아래가 '-'이고 3층의 그룹이 아닌 나머지 사분면에 c 또는 S가 있음. s_q_idx: {s_q_idx}")
+                        # 조건 C: 기준점 c 레이어의 4개 사분면 중 빈공간('-')이 하나 이하일 경우
+                        # highest_c_layer는 _get_static_info에서 반환되는 'c' 조각의 층
+                        empty_count_in_c_layer = 0
+                        for q_c_layer in range(4):
+                            if _get(working_shape, highest_c_layer, q_c_layer) is None:
+                                empty_count_in_c_layer += 1
+                        
+                        if empty_count_in_c_layer <= 1:
+                            _log(f"DEBUG: 기준점 c 레이어({highest_c_layer}층)의 빈 공간 개수가 1개 이하 ({empty_count_in_c_layer}개).")
+                            condition_c_triggered = True
+                        else:
+                            _log(f"DEBUG: 기준점 c 레이어({highest_c_layer}층)의 빈 공간 개수가 1개 초과 ({empty_count_in_c_layer}개).")
+
+                        # 조건 D: '두번 뜬 S'가 기준점 사분면이 아닌 경우 (s_q_idx != c_quad_idx)
+                        if s_q_idx != c_quad_idx:
+                            _log(f"DEBUG: '두번 뜬 S'의 사분면({s_q_idx})이 기준점 사분면({c_quad_idx})과 다름.")
+                            condition_d_triggered = True
+                        else:
+                            _log(f"DEBUG: '두번 뜬 S'의 사분면({s_q_idx})이 기준점 사분면({c_quad_idx})과 같음.")
+
+                        if condition_b_triggered or condition_c_triggered or condition_d_triggered:
+                            _log(f"DEBUG: '두번 뜬 S' 그룹 이동 취소. 0층 아래가 '-'이고 (조건B: {condition_b_triggered}, 조건C: {condition_c_triggered}, 조건D: {condition_d_triggered}) 중 하나 이상 만족. s_q_idx: {s_q_idx}")
                             cancel_move_by_new_rule = True
                         else:
-                            _log(f"DEBUG: 3층의 그룹이 아닌 나머지 사분면에 c 또는 S 없음. 추가 조건 불만족. s_q_idx: {s_q_idx}")
+                            _log(f"DEBUG: 추가 조건 불만족. 그룹 이동 진행. s_q_idx: {s_q_idx}")
                     else:
                         _log(f"DEBUG: 0층 아래가 빈 공간이 아님. 추가 조건 검사 건너뜀. s_q_idx: {s_q_idx}")
 

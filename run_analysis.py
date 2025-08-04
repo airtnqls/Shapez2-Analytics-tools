@@ -31,10 +31,10 @@ def analyze_claws_from_file(input_filepath: str, output_filepath: str):
                 
                 try:
                     shape_obj = Shape.from_string(shape_code)
-                    _, reason = analyze_shape(shape_code, shape_obj)
+                    result, reason = analyze_shape(shape_code, shape_obj)
                     
                     # "클로불가능" 또는 "클로 룰1" 또는 "클로 룰2"가 사유에 포함된 경우 불가능으로 간주
-                    if "불가능" in reason or "클로 룰1" in reason or "클로 룰2" in reason:
+                    if "불가능" in reason or "클로 룰" in reason or "불가능" in result:
                         impossible_shapes.append(shape_code)
                         _log(f"DEBUG: {shape_code} - 클로불가능 (사유: {reason})")
                     else:
