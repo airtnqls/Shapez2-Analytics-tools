@@ -383,6 +383,29 @@ class Shape:
         east_shape.max_layers = self.max_layers
         
         return west_shape, east_shape
+    
+    def half_cutter(self) -> tuple[Shape, Shape]:
+        """도형을 서쪽 절반(2,3사분면)과 동쪽 절반(0,1사분면)으로 나누고 물리를 적용합니다."""
+        s_initial = self.apply_physics()
+        
+        # 서쪽 절반 (2=BL, 3=TL 사분면)
+        west_layers = []
+        for layer in s_initial.layers:
+            west_quadrants = [None, None, layer.quadrants[2], layer.quadrants[3]]
+            west_layers.append(Layer(west_quadrants))
+        west_shape = Shape(west_layers)
+        west_shape.max_layers = self.max_layers
+        
+        # 동쪽 절반 (0=TR, 1=BR 사분면)
+        east_layers = []
+        for layer in s_initial.layers:
+            east_quadrants = [layer.quadrants[0], layer.quadrants[1], None, None]
+            east_layers.append(Layer(east_quadrants))
+        east_shape = Shape(east_layers)
+        east_shape.max_layers = self.max_layers
+        
+        # 각각 물리 적용
+        return west_shape.apply_physics(), east_shape.apply_physics()
 
     def push_pin(self) -> Shape:
         s_initial = self.copy()
@@ -439,6 +462,21 @@ class Shape:
             # 반시계방향: TR→TL→BL→BR→TR (0→3→2→1→0)
             layer.quadrants = [q[3], q[0], q[1], q[2]] if clockwise else [q[1], q[2], q[3], q[0]]
         return s #.apply_physics()
+    
+    def mirror(self) -> Shape:
+        """1234 분면을 1432 분면으로 재배치 (좌우 대칭)"""
+        s = self.copy()
+        if not s.layers: return s
+        for layer in s.layers:
+            q = layer.quadrants
+            # 새로운 인덱스 매핑: 0=TR, 1=BR, 2=BL, 3=TL
+            # 1234 → 1432: 0→0, 1→3, 2→2, 3→1
+            layer.quadrants = [q[0], q[3], q[2], q[1]]
+        return s
+    
+    def rotate_180(self) -> Shape:
+        """180도 회전 (시계방향 2번)"""
+        return self.rotate(True).rotate(True)
     
     @staticmethod
     def stack(bottom: Shape, top: Shape) -> Shape:

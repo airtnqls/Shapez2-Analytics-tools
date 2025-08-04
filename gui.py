@@ -427,6 +427,7 @@ class ShapezGUI(QMainWindow):
         input_a_text = self.settings.value("input_a", "crcrcrcr")
         input_b_text = self.settings.value("input_b", "")
         last_data_path = self.settings.value("last_data_path", "")
+        auto_apply_enabled = self.settings.value("auto_apply_enabled", False, type=bool)
         
         # 위젯이 초기화된 후에 값을 설정
         self.input_a.setText(input_a_text)
@@ -446,6 +447,10 @@ class ShapezGUI(QMainWindow):
         self.input_history.add_entry(input_a_text, input_b_text)
         self.update_history_buttons()
         self.update_input_display() # 초기 입력 표시
+        
+        # 자동 적용 체크박스 상태 복원 (위젯이 생성된 후에 설정)
+        if hasattr(self, 'auto_apply_checkbox'):
+            self.auto_apply_checkbox.setChecked(auto_apply_enabled)
 
     def initUI(self):
         main_layout = QVBoxLayout(self.central_widget)
@@ -558,20 +563,28 @@ class ShapezGUI(QMainWindow):
         self.swap_btn.clicked.connect(self.on_swap)
         control_layout.addWidget(self.swap_btn, 2, 0)
         
+        self.cutter_btn = QPushButton("커터 (A)")
+        self.cutter_btn.clicked.connect(self.on_cutter)
+        control_layout.addWidget(self.cutter_btn, 2, 1)
+        
         rotate_hbox = QHBoxLayout()
         self.rotate_cw_btn = QPushButton("90 회전")
         self.rotate_cw_btn.clicked.connect(lambda: self.on_rotate(True))
         rotate_hbox.addWidget(self.rotate_cw_btn)
         
+        self.rotate_180_btn = QPushButton("180 회전")
+        self.rotate_180_btn.clicked.connect(self.on_rotate_180_building)
+        rotate_hbox.addWidget(self.rotate_180_btn)
+        
         self.rotate_ccw_btn = QPushButton("270 회전")
         self.rotate_ccw_btn.clicked.connect(lambda: self.on_rotate(False))
         rotate_hbox.addWidget(self.rotate_ccw_btn)
         
-        control_layout.addLayout(rotate_hbox, 2, 1)
+        control_layout.addLayout(rotate_hbox, 3, 0, 1, 2)
         
         self.simple_cutter_btn = QPushButton("심플 커터 (A)")
         self.simple_cutter_btn.clicked.connect(self.on_simple_cutter)
-        control_layout.addWidget(self.simple_cutter_btn, 3, 0, 1, 2) # New position, spanning 2 columns
+        control_layout.addWidget(self.simple_cutter_btn, 4, 0, 1, 2) # Moved to row 4
         
         paint_hbox = QHBoxLayout()
         paint_hbox.addWidget(QLabel("페인터:"))
@@ -581,7 +594,7 @@ class ShapezGUI(QMainWindow):
         self.paint_btn = QPushButton("칠하기")
         self.paint_btn.clicked.connect(self.on_paint)
         paint_hbox.addWidget(self.paint_btn)
-        control_layout.addLayout(paint_hbox, 4, 0, 1, 2) # Shifted from row 3 to row 4
+        control_layout.addLayout(paint_hbox, 5, 0, 1, 2) # Moved to row 5
         
         crystal_hbox = QHBoxLayout()
         crystal_hbox.addWidget(QLabel("크리스탈 생성:"))
@@ -591,17 +604,24 @@ class ShapezGUI(QMainWindow):
         self.crystal_btn = QPushButton("생성")
         self.crystal_btn.clicked.connect(self.on_crystal_gen)
         crystal_hbox.addWidget(self.crystal_btn)
-        control_layout.addLayout(crystal_hbox, 5, 0, 1, 2) # Shifted from row 4 to row 5
+        control_layout.addLayout(crystal_hbox, 6, 0, 1, 2) # Moved to row 6
         
         self.classifier_btn = QPushButton("분류기 (A)")
         self.classifier_btn.clicked.connect(self.on_classifier)
-        control_layout.addWidget(self.classifier_btn, 6, 0) # Shifted from row 5 to row 6
+        control_layout.addWidget(self.classifier_btn, 7, 0) # Moved to row 7
         
-        # 적용 버튼 추가
+        # 적용 버튼과 자동 적용 체크박스
+        apply_hbox = QHBoxLayout()
         self.apply_button = QPushButton("적용 (출력→입력)")
         self.apply_button.clicked.connect(self.on_apply_outputs)
         self.apply_button.setEnabled(False)  # 초기에는 비활성화
-        control_layout.addWidget(self.apply_button, 6, 1) # Shifted from row 5 to row 6
+        apply_hbox.addWidget(self.apply_button)
+        
+        self.auto_apply_checkbox = QCheckBox("자동 적용")
+        self.auto_apply_checkbox.setToolTip("각 건물 작동 후 자동으로 출력을 입력에 적용합니다")
+        apply_hbox.addWidget(self.auto_apply_checkbox)
+        
+        control_layout.addLayout(apply_hbox, 7, 1) # Moved to row 7
         
         left_panel.addWidget(control_group)
         
@@ -636,6 +656,10 @@ class ShapezGUI(QMainWindow):
         self.claw_btn = QPushButton("Claw")
         self.claw_btn.clicked.connect(self.on_claw)
         data_process_layout.addWidget(self.claw_btn, 2, 2)
+        
+        self.mirror_btn = QPushButton("미러")
+        self.mirror_btn.clicked.connect(self.on_mirror)
+        data_process_layout.addWidget(self.mirror_btn, 3, 0)
         
         left_panel.addWidget(data_process_group)
         
@@ -811,6 +835,11 @@ class ShapezGUI(QMainWindow):
 
         self.log_verbose(f"시뮬레이터 준비 완료. 자동 테스트는 tests.json 파일을 사용합니다.")
         
+        # 자동 적용 체크박스 상태 복원 (UI 초기화 완료 후)
+        auto_apply_enabled = self.settings.value("auto_apply_enabled", False, type=bool)
+        if hasattr(self, 'auto_apply_checkbox'):
+            self.auto_apply_checkbox.setChecked(auto_apply_enabled)
+        
         # 초기 입력 표시 (load_settings에서 처리되므로 여기서는 제거)
         # self.update_input_display()
 
@@ -825,6 +854,10 @@ class ShapezGUI(QMainWindow):
         # 마지막으로 열었던 데이터 경로 저장
         if hasattr(self, 'last_opened_data_path') and self.last_opened_data_path:
             self.settings.setValue("last_data_path", self.last_opened_data_path)
+        
+        # 자동 적용 체크박스 상태 저장
+        if hasattr(self, 'auto_apply_checkbox'):
+            self.settings.setValue("auto_apply_enabled", self.auto_apply_checkbox.isChecked())
 
         if self.origin_finder_thread and self.origin_finder_thread.isRunning():
             self.origin_finder_thread.cancel()
@@ -981,19 +1014,26 @@ class ShapezGUI(QMainWindow):
         self.log(log_msg)
 
     def on_destroy_half(self):
-        if s := self._get_input_shape(self.input_a): self.display_outputs([("파괴 후", s.destroy_half())])
+        if s := self._get_input_shape(self.input_a): 
+            self.display_outputs([("파괴 후", s.destroy_half())])
+            self.auto_apply_if_enabled()
     
     def on_crystal_gen(self):
-        if s := self._get_input_shape(self.input_a): self.display_outputs([("생성 후", s.crystal_generator(self.crystal_color.currentText()))])
+        if s := self._get_input_shape(self.input_a): 
+            self.display_outputs([("생성 후", s.crystal_generator(self.crystal_color.currentText()))])
+            self.auto_apply_if_enabled()
     
     def on_apply_physics(self):
-        if s := self._get_input_shape(self.input_a): self.display_outputs([("안정화 후", s.apply_physics())])
+        if s := self._get_input_shape(self.input_a): 
+            self.display_outputs([("안정화 후", s.apply_physics())])
+            self.auto_apply_if_enabled()
     
     def on_stack(self):
         s_a = self._get_input_shape(self.input_a)
         s_b = self._get_input_shape(self.input_b)
         if s_a is not None and s_b is not None:
             self.display_outputs([("스택 후", Shape.stack(s_a, s_b))])
+            self.auto_apply_if_enabled()
     
     def on_swap(self):
         s_a = self._get_input_shape(self.input_a)
@@ -1001,20 +1041,41 @@ class ShapezGUI(QMainWindow):
         if s_a is not None and s_b is not None:
             res_a, res_b = Shape.swap(s_a, s_b)
             self.display_outputs([("출력 A", res_a), ("출력 B", res_b)])
+            self.auto_apply_if_enabled()
     
     def on_paint(self):
-        if s := self._get_input_shape(self.input_a): self.display_outputs([("페인트 후", s.paint(self.paint_color.currentText()))])
+        if s := self._get_input_shape(self.input_a): 
+            self.display_outputs([("페인트 후", s.paint(self.paint_color.currentText()))])
+            self.auto_apply_if_enabled()
     
     def on_push_pin(self):
-        if s := self._get_input_shape(self.input_a): self.display_outputs([("푸셔 후", s.push_pin())])
+        if s := self._get_input_shape(self.input_a): 
+            self.display_outputs([("푸셔 후", s.push_pin())])
+            self.auto_apply_if_enabled()
     
     def on_rotate(self, clockwise: bool):
-        if s := self._get_input_shape(self.input_a): self.display_outputs([("회전 후", s.rotate(clockwise))])
+        if s := self._get_input_shape(self.input_a): 
+            self.display_outputs([("회전 후", s.rotate(clockwise))])
+            self.auto_apply_if_enabled()
+    
+    def on_rotate_180_building(self):
+        """180도 회전 버튼 클릭 시 호출 (건물 작동용)"""
+        if s := self._get_input_shape(self.input_a): 
+            self.display_outputs([("180도 회전 후", s.rotate_180())])
+            self.auto_apply_if_enabled()
     
     def on_simple_cutter(self):
         if s := self._get_input_shape(self.input_a):
             res_a, res_b = s.simple_cutter()
             self.display_outputs([("출력 A", res_a), ("출력 B", res_b)])
+            self.auto_apply_if_enabled()
+    
+    def on_cutter(self):
+        """커터 버튼 클릭 시 호출"""
+        if s := self._get_input_shape(self.input_a):
+            res_a, res_b = s.half_cutter()
+            self.display_outputs([("출력 A", res_a), ("출력 B", res_b)])
+            self.auto_apply_if_enabled()
     
     def on_classifier(self):
         if s := self._get_input_shape(self.input_a):
@@ -1026,6 +1087,7 @@ class ShapezGUI(QMainWindow):
                 
                 # 분류 결과를 출력 영역에 텍스트로 표시 (로그는 display_outputs 내부에서 처리)
                 self.display_outputs([], result_text)
+                # 분류기는 텍스트 출력만 하므로 자동 적용하지 않음
                 
             except Exception as e:
                 self.log(f"🔥 분류 오류: {e}")
@@ -1057,6 +1119,11 @@ class ShapezGUI(QMainWindow):
             self.input_a.setText(repr(output_shapes[0]))
             self.input_b.setText(repr(output_shapes[1]))
             self.log_verbose(f"출력 중 처음 2개를 입력에 적용: A={repr(output_shapes[0])}, B={repr(output_shapes[1])}")
+    
+    def auto_apply_if_enabled(self):
+        """자동 적용 체크박스가 체크되어 있으면 자동으로 출력을 입력에 적용합니다."""
+        if hasattr(self, 'auto_apply_checkbox') and self.auto_apply_checkbox.isChecked():
+            self.on_apply_outputs()
     
     def on_find_origin(self):
         self.origin_list.clear()
@@ -1571,16 +1638,24 @@ class ShapezGUI(QMainWindow):
             QMessageBox.information(self, "알림", "처리할 데이터가 없습니다.")
             return
         
+        # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 전체
+        selected_rows = current_tab.data_table.selectionModel().selectedRows()
+        if selected_rows:
+            indices_to_process = [idx.row() for idx in sorted(selected_rows, key=lambda x: x.row())]
+            self.log_verbose(f"선택된 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
+        else:
+            indices_to_process = range(len(current_tab.data))
+            self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
+        
         # 작업 전 현재 상태를 히스토리에 저장
         current_tab.add_to_data_history(f"작업 전 ({operation_name})")
         
-        self.log_verbose(f"'{current_tab.tab_name}' 탭의 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
-        
         # 결과 데이터 저장
-        result_data = []
+        result_data_map = {}
         error_count = 0
         
-        for i, shape_code in enumerate(current_tab.data):
+        for i in indices_to_process:
+            shape_code = current_tab.data[i]
             try:
                 shape = Shape.from_string(shape_code)
                 result_shape = None
@@ -1595,65 +1670,68 @@ class ShapezGUI(QMainWindow):
                     result_shape = shape.rotate(True)
                 elif operation_name == "rotate_ccw":
                     result_shape = shape.rotate(False)
+                elif operation_name == "rotate_180":
+                    result_shape = shape.rotate_180()
+                elif operation_name == "mirror":
+                    result_shape = shape.mirror()
                 elif operation_name == "paint":
                     result_shape = shape.paint(self.paint_color.currentText())
                 elif operation_name == "crystal_generator":
                     result_shape = shape.crystal_generator(self.crystal_color.currentText())
                 elif operation_name == "classifier":
                     classification_result, classification_reason = shape.classifier()
-                    result_data.append(f"{classification_result} ({classification_reason})")
+                    result_data_map[i] = f"{classification_result} ({classification_reason})"
                     continue
                 elif operation_name == "stack":
-                    # 입력 B에 있는 도형과 스택
                     input_b_text = self.input_b.text().strip()
                     if not input_b_text:
-                        result_data.append("오류: 입력 B가 비어있음")
+                        result_data_map[i] = "오류: 입력 B가 비어있음"
                         error_count += 1
                         continue
                     try:
                         shape_b = Shape.from_string(input_b_text)
                         result_shape = Shape.stack(shape, shape_b)
                     except Exception as e:
-                        result_data.append(f"오류: 입력 B 파싱 실패 - {str(e)}")
+                        result_data_map[i] = f"오류: 입력 B 파싱 실패 - {str(e)}"
                         error_count += 1
                         continue
                 elif operation_name == "swap":
-                    # 입력 B에 있는 도형과 스왑
                     input_b_text = self.input_b.text().strip()
                     if not input_b_text:
-                        result_data.append("오류: 입력 B가 비어있음")
+                        result_data_map[i] = "오류: 입력 B가 비어있음"
                         error_count += 1
                         continue
                     try:
                         shape_b = Shape.from_string(input_b_text)
                         result_a, result_b = Shape.swap(shape, shape_b)
-                        # 스왑은 두 개의 결과를 생성하므로 둘 다 추가
-                        result_data.append(f"A: {repr(result_a)}")
-                        result_data.append(f"B: {repr(result_b)}")
+                        result_data_map[i] = f"A: {repr(result_a)}\\nB: {repr(result_b)}"
                         continue
                     except Exception as e:
-                        result_data.append(f"오류: 입력 B 파싱 실패 - {str(e)}")
+                        result_data_map[i] = f"오류: 입력 B 파싱 실패 - {str(e)}"
                         error_count += 1
                         continue
                 
                 if result_shape is not None:
-                    result_data.append(repr(result_shape))
+                    result_data_map[i] = repr(result_shape)
                 else:
-                    result_data.append("오류: 결과 없음")
+                    result_data_map[i] = "오류: 결과 없음"
                     error_count += 1
                     
             except Exception as e:
-                result_data.append(f"오류: {str(e)}")
+                result_data_map[i] = f"오류: {str(e)}"
                 error_count += 1
-        
-        # 현재 탭의 데이터를 결과로 교체
-        current_tab.data = result_data
+
+        # 원본 데이터를 결과로 업데이트
+        for i, new_value in result_data_map.items():
+            current_tab.data[i] = new_value
+
+        # update_table()이 선택 상태를 유지하므로 외부에서 복원할 필요 없음
         current_tab.update_table()
         
         # 작업 완료 후 히스토리에 추가
         current_tab.add_to_data_history(f"{operation_name} 완료")
         
-        self.log(f"대량처리 완료: {len(result_data)}개 결과 생성, {error_count}개 오류")
+        self.log(f"대량처리 완료: {len(result_data_map)}개 항목 처리, {error_count}개 오류")
         if error_count > 0:
             QMessageBox.warning(self, "경고", f"{error_count}개 항목에서 오류가 발생했습니다.")
     
@@ -1664,45 +1742,57 @@ class ShapezGUI(QMainWindow):
         if current_main_tab == "대량처리":
             current_tab = self.get_current_data_tab()
             if not current_tab or not current_tab.data:
-                if input_a_str or input_b_str:
-                    self.log(f"{operation_name} 완료 (입력만 처리)")
-                else:
-                    QMessageBox.information(self, "알림", "처리할 데이터가 없습니다.")
+                QMessageBox.information(self, "알림", "처리할 데이터가 없습니다.")
                 return
+
+            # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 전체
+            selected_rows = current_tab.data_table.selectionModel().selectedRows()
+            if selected_rows:
+                indices_to_process = [idx.row() for idx in selected_rows]
+                self.log_verbose(f"선택된 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
+            else:
+                indices_to_process = range(len(current_tab.data))
+                self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
             
             # 작업 전 현재 상태를 히스토리에 저장
             current_tab.add_to_data_history(f"작업 전 ({operation_name})")
             
-            self.log_verbose(f"'{current_tab.tab_name}' 탭의 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
-            
             # 결과 데이터 저장
-            result_data = []
+            result_data_map = {}
             error_count = 0
             
-            for i, shape_code in enumerate(current_tab.data):
+            for i in indices_to_process:
+                shape_code = current_tab.data[i]
                 try:
                     result = process_func(shape_code)
-                    result_data.append(result)
+                    result_data_map[i] = result
                 except Exception as e:
-                    result_data.append(f"오류: {str(e)}")
+                    result_data_map[i] = f"오류: {str(e)}"
                     error_count += 1
             
-            # 현재 탭의 데이터를 결과로 교체
-            current_tab.data = result_data
+            # 원본 데이터를 결과로 교체
+            for i, new_value in result_data_map.items():
+                current_tab.data[i] = new_value
+
+            # update_table()이 선택 상태를 유지하므로 외부에서 복원할 필요 없음
             current_tab.update_table()
             
             # 작업 완료 후 히스토리에 추가
             current_tab.add_to_data_history(f"{operation_name} 완료")
             
             if error_count > 0:
-                self.log(f"{operation_name} 완료: {len(result_data)}개 결과 생성, {error_count}개 오류")
+                self.log(f"{operation_name} 완료: {len(result_data_map)}개 결과 생성, {error_count}개 오류")
             else:
-                self.log(f"{operation_name} 완료: {len(result_data)}개 결과 생성")
+                self.log(f"{operation_name} 완료: {len(result_data_map)}개 결과 생성")
         else:
             # 분석 도구 탭에서는 입력 A/B 처리
             input_a_str = self.input_a.text().strip()
             input_b_str = self.input_b.text().strip()
             
+            if not input_a_str and not input_b_str:
+                self.log("처리할 입력이 없습니다.")
+                return
+
             if input_a_str:
                 try:
                     result_a = process_func(input_a_str)
@@ -1719,8 +1809,7 @@ class ShapezGUI(QMainWindow):
                 except Exception as e:
                     self.log(f"입력 B {operation_name} 오류: {str(e)}")
             
-            if input_a_str or input_b_str:
-                self.log(f"{operation_name} 완료 (입력만 처리)")
+            self.log(f"{operation_name} 완료 (입력만 처리)")
     
     def on_simplify(self):
         """단순화 버튼 클릭 시 호출 - CuCuCuP- 같은 구조를 SSSP로 단순화"""
@@ -1905,6 +1994,19 @@ class ShapezGUI(QMainWindow):
         
         self.process_data_operation("Claw", claw_shape_for_gui)
     
+    def on_mirror(self):
+        """미러 버튼 클릭 시 호출"""
+        def mirror_shape_for_gui(shape_code: str) -> str:
+            try:
+                shape = Shape.from_string(shape_code)
+                return repr(shape.mirror())
+            except Exception as e:
+                return f"오류: {str(e)}"
+        
+        self.process_data_operation("mirror", mirror_shape_for_gui)
+    
+
+    
     def on_browse_file(self):
         """파일 찾아보기 대화상자 열기 및 자동 로드"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1994,10 +2096,8 @@ class ShapezGUI(QMainWindow):
         
         if tab_name == "대량처리":
             self.switch_to_batch_mode()
-        elif tab_name == "공정트리":
-            # 공정트리 탭으로 전환시 특별한 처리 없음
-            pass
         else:
+            # 대량처리가 아닌 모든 탭(분석 도구, 공정트리 등)에서는 단일 모드로 복원
             self.switch_to_single_mode()
         
         # self.log(f"메인 탭이 {tab_name}로 변경되었습니다.")
@@ -2574,6 +2674,7 @@ class ShapezGUI(QMainWindow):
         self.push_pin_btn.setText("핀 푸셔 (∀)")
         self.apply_physics_btn.setText("물리 적용 (∀)")
         self.rotate_cw_btn.setText("90 회전")
+        self.rotate_180_btn.setText("180 회전")
         self.rotate_ccw_btn.setText("270 회전")
         self.paint_btn.setText("칠하기")
         self.crystal_btn.setText("생성")
@@ -2597,11 +2698,17 @@ class ShapezGUI(QMainWindow):
         self.simple_cutter_btn.clicked.disconnect()
         self.simple_cutter_btn.clicked.connect(lambda: self.on_batch_operation("simple_cutter"))
         
+        self.cutter_btn.clicked.disconnect()
+        self.cutter_btn.clicked.connect(lambda: self.on_batch_operation("half_cutter"))
+        
         self.rotate_cw_btn.clicked.disconnect()
         self.rotate_cw_btn.clicked.connect(lambda: self.on_batch_operation("rotate_cw"))
         
         self.rotate_ccw_btn.clicked.disconnect()
         self.rotate_ccw_btn.clicked.connect(lambda: self.on_batch_operation("rotate_ccw"))
+        
+        self.rotate_180_btn.clicked.disconnect()
+        self.rotate_180_btn.clicked.connect(lambda: self.on_batch_operation("rotate_180"))
         
         self.paint_btn.clicked.disconnect()
         self.paint_btn.clicked.connect(lambda: self.on_batch_operation("paint"))
@@ -2620,14 +2727,18 @@ class ShapezGUI(QMainWindow):
         self.swap_btn.clicked.connect(lambda: self.on_batch_operation("swap"))
         
         # 데이터 처리 버튼들을 대량처리용으로 연결
-        self.simplify_btn.setText("단순화 (∀)")
-        self.detail_btn.setText("구체화 (∀)")
-        self.corner_3q_btn.setText("3사분면 코너 (∀)")
-        self.remove_impossible_btn.setText("불가능 제거 (∀)")
-        self.reverse_btn.setText("역순 (∀)")
-        self.corner_btn.setText("Corner (∀)")
+        self.simplify_btn.setText("단순화")
+        self.detail_btn.setText("구체화")
+        self.corner_3q_btn.setText("3사분면 코너")
+        self.remove_impossible_btn.setText("불가능 제거")
+        self.reverse_btn.setText("역순")
+        self.corner_btn.setText("Corner")
+        self.claw_btn.setText("Claw")
         
         # 데이터 처리 버튼들의 클릭 이벤트는 이미 대량처리를 지원하므로 그대로 유지
+        
+        # 미러 버튼 텍스트 변경
+        self.mirror_btn.setText("미러")
     
     def switch_to_single_mode(self):
         """단일 모드로 전환"""
@@ -2636,6 +2747,7 @@ class ShapezGUI(QMainWindow):
         self.push_pin_btn.setText("핀 푸셔 (A)")
         self.apply_physics_btn.setText("물리 적용 (A)")
         self.rotate_cw_btn.setText("90 회전")
+        self.rotate_180_btn.setText("180 회전")
         self.rotate_ccw_btn.setText("270 회전")
         self.paint_btn.setText("칠하기")
         self.crystal_btn.setText("생성")
@@ -2658,11 +2770,17 @@ class ShapezGUI(QMainWindow):
         self.simple_cutter_btn.clicked.disconnect()
         self.simple_cutter_btn.clicked.connect(self.on_simple_cutter)
         
+        self.cutter_btn.clicked.disconnect()
+        self.cutter_btn.clicked.connect(self.on_cutter)
+        
         self.rotate_cw_btn.clicked.disconnect()
         self.rotate_cw_btn.clicked.connect(lambda: self.on_rotate(True))
         
         self.rotate_ccw_btn.clicked.disconnect()
         self.rotate_ccw_btn.clicked.connect(lambda: self.on_rotate(False))
+        
+        self.rotate_180_btn.clicked.disconnect()
+        self.rotate_180_btn.clicked.connect(self.on_rotate_180_building)
         
         self.paint_btn.clicked.disconnect()
         self.paint_btn.clicked.connect(self.on_paint)
@@ -2672,6 +2790,9 @@ class ShapezGUI(QMainWindow):
         
         self.classifier_btn.clicked.disconnect()
         self.classifier_btn.clicked.connect(self.on_classifier)
+        
+        # 미러 버튼 텍스트 복원
+        self.mirror_btn.setText("미러")
         
         # 스태커와 스와퍼를 단일 모드용으로 복원
         self.stack_btn.clicked.disconnect()
@@ -2687,6 +2808,7 @@ class ShapezGUI(QMainWindow):
         self.remove_impossible_btn.setText("불가능 제거")
         self.reverse_btn.setText("역순")
         self.corner_btn.setText("Corner")
+        self.claw_btn.setText("Claw")
 
     def on_log_level_changed(self):
         """상세 로그 표시 설정이 변경되었을 때 로그를 다시 렌더링합니다."""
@@ -3392,13 +3514,18 @@ class DataTabWidget(QWidget):
     
     def update_table(self):
         """테이블 업데이트 (최적화: 구조만 만들고 계산은 동적으로 처리)"""
-        selected_rows = set(item.row() for item in self.data_table.selectedItems())
+        # 기존 선택 상태 저장
+        selected_cells = set()
+        for item in self.data_table.selectedItems():
+            selected_cells.add((item.row(), item.column()))
             
         # 유효성 계산 상태 초기화
         self.validity_calculated_rows.clear()
         
+        self.data_table.blockSignals(True) # 시그널 일시 차단
+        self.data_table.clearSelection() # 기존 선택 명시적으로 초기화 (매우 중요!)
+        
         self.data_table.setRowCount(len(self.data))
-        self.data_table.blockSignals(True)
         
         if self.is_comparison_table:
             # 비교 테이블인 경우 3열로 표시
@@ -3425,12 +3552,6 @@ class DataTabWidget(QWidget):
                 elif comparison == "0":
                     comparison_item.setBackground(QColor(255, 200, 200))  # 연한 빨간색
                 self.data_table.setItem(i, 2, comparison_item)
-                
-                # 이전에 선택된 행이었으면 다시 선택
-                if i in selected_rows:
-                    self.data_table.item(i, 0).setSelected(True)
-                    self.data_table.item(i, 1).setSelected(True)
-                    self.data_table.item(i, 2).setSelected(True)
         else:
             # 일반 테이블인 경우 2열로 표시
             for i, shape_code in enumerate(self.data):
@@ -3443,18 +3564,21 @@ class DataTabWidget(QWidget):
                 code_item = QTableWidgetItem(shape_code)
                 self.data_table.setItem(i, 1, code_item)
 
-                        # 모든 행의 높이를 기본값으로 설정
-        self.data_table.setRowHeight(i, 30)
+                # 모든 행의 높이를 기본값으로 설정
+                self.data_table.setRowHeight(i, 30)
 
         # 컬럼 너비 조정 (유효성 컬럼을 두 배로 늘림)
         self.data_table.setColumnWidth(0, 200)  # 유효성 컬럼을 두 배로 늘림
         self.data_table.setColumnWidth(1, 300)  # 도형 코드 컬럼
 
-        self.data_table.blockSignals(False)
+        # 선택 상태 복원
+        for row, col in selected_cells:
+            if row < self.data_table.rowCount() and col < self.data_table.columnCount():
+                item = self.data_table.item(row, col)
+                if item:
+                    item.setSelected(True)
 
-        for row in selected_rows:
-            if row < self.data_table.rowCount():
-                self.data_table.selectRow(row)
+        self.data_table.blockSignals(False) # 시그널 차단 해제
 
         # 버튼 상태 업데이트
         has_data = len(self.data) > 0
