@@ -178,17 +178,18 @@ def _is_sky_open_above(shape: Shape, current_l: int, current_q: int) -> bool:
     """주어진 층과 사분면 위로 하늘이 완전히 뚫려 있는지 확인합니다."""
     return _sky_open_above(shape, current_l, current_q)
 
-def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape, highest_c_layer: int, c_quad_idx: int):
+def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape, highest_c_layer: int, c_quad_idx: int) -> int:
     """
     그룹을 새로운 규칙에 따라 이동시킵니다.
     1. 각 그룹 사분면의 상단 빈 공간 최소값만큼 일괄 상향 이동.
     2. 이동 후, 유효한 인접 조건(양쪽에 S가 아닌 그룹 외 S가 없을 것)을 만족할 때까지 하향 이동.
+    반환값: 실제 적용된 이동 거리(칸 수)
     """
 
-    if not group: return
+    if not group: return 0
     if len(group) == 1:
         _log(f"DEBUG: 그룹에 단 하나의 요소만 있어 이동하지 않습니다: {group}")
-        return
+        return 0
 
     # 그룹의 원본 위치를 set으로 저장하여 빠른 조회를 위함 (_count_empty_above에서 무시할 좌표)
     original_group_coords = {(l, q) for l, q in group}
@@ -267,7 +268,7 @@ def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape, 
     # 적합한 위치를 찾지 못했다면 이동하지 않음.
     if final_shift < 0:
         _log(f"DEBUG: 적합한 위치를 찾지 못했거나 유효하지 않은 최종 위치. 그룹 {group} 이동 취소.")
-        return # 이동하지 않고 함수 종료
+        return 0 # 이동하지 않고 함수 종료
 
     # --- 최종 이동 실행 ---
     if final_shift != 0: # Only move if there's a net shift
@@ -301,7 +302,7 @@ def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape, 
             _log(f"DEBUG: 조각 {piece_obj.shape} {item['from']} -> ({new_l}, {new_q})로 이동 완료.")
     else:
         _log(f"DEBUG: 최종 이동 거리 0. 그룹 {group} 이동 없음.")
-        return # 이동이 없으면 P 이동 로직도 실행할 필요가 없습니다.
+        return 0 # 이동이 없으면 P 이동 로직도 실행할 필요가 없습니다.
 
     # 새로운 로직: 그룹 크기가 1이고, 이동 후 양쪽이 P일 경우
     if len(group) == 1:
@@ -329,6 +330,8 @@ def _move_s_group(group: List[Tuple[int, int]], shape: Shape, ref_shape: Shape, 
                     _set(shape, new_l, adj2_q, None)
                     _set(shape, new_l + 1, adj2_q, p2)
                     _log(f"DEBUG: 오른쪽 P ({new_l}, {adj2_q})를 위로 이동 -> ({new_l + 1}, {adj2_q}).")
+
+    return final_shift
 
 def _move_s_group_simplified_up_by_one(group: List[Tuple[int, int]], shape: Shape, highest_c_layer: int, c_quad_idx: int):
     """
@@ -507,6 +510,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
             if group: # Only process if a group was actually found
                 
                 # 새로운 취소 조건: '두번 뜬 S'의 아래 칸 '-'을 기준으로, 양쪽과 아래쪽이 모두 '-' 또는 'c'가 하나라도 있는 경우
+                # 추가 조건: 0층 아래가 '-'이고, 3층의 그룹이 아닌 나머지 두 사분면 중 하나라도 S일 때도 취소
                 cancel_move_by_new_rule = False
                 # '두번 뜬 S'의 사분면 인덱스는 s_q_idx
                 # '두번 뜬 S'는 2층에 있고, 그 아래 칸은 1층에 있다
@@ -529,31 +533,66 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
                 _log(f"DEBUG: 1층 우측({q_1_right_idx}): {piece_1_right}")
                 _log(f"DEBUG: 0층 아래({q_0_same_idx}): {piece_0_same}")
                 
-                # 조건 확인: 양쪽(1층 좌우) 중 하나라도 '-' 또는 'c'가 있는 경우
+                # 조건 확인: 양쪽(1층 좌우) 중 하나라도 '-'가 있는 경우
                 # 단, 아래쪽(0층)이 'S'인 경우는 예외로 이동 가능
                 # 여기서 '-'은 piece가 None인 경우를 의미
-                is_below_left_empty_or_crystal = (piece_1_left is None)
-                is_below_right_empty_or_crystal = (piece_1_right is None)
+                is_below_left_empty = (piece_1_left is None)
+                is_below_right_empty = (piece_1_right is None)
                 
                 # 아래쪽(0층)이 'S'인지 확인
                 is_below_below_s = (piece_0_same is not None and hasattr(piece_0_same, 'shape') and piece_0_same.shape == 'S')
 
                 _log(f"DEBUG: 조건 확인 결과:")
-                _log(f"DEBUG: - 1층 좌측 빈공간/크리스탈: {is_below_left_empty_or_crystal}")
-                _log(f"DEBUG: - 1층 우측 빈공간/크리스탈: {is_below_right_empty_or_crystal}")
+                _log(f"DEBUG: - 1층 좌측 빈공간: {is_below_left_empty}")
+                _log(f"DEBUG: - 1층 우측 빈공간: {is_below_right_empty}")
                 _log(f"DEBUG: - 0층 아래 S: {is_below_below_s}")
 
-                # 아래쪽이 S인 경우는 예외로 이동 가능, 그렇지 않으면 양쪽 중 하나라도 빈공간/크리스탈이면 취소
+                # 기존 조건: 아래쪽이 S인 경우는 예외로 이동 가능, 그렇지 않으면 양쪽 중 하나라도 빈공간이면 취소
                 if is_below_below_s:
                     # 아래쪽이 S인 경우: 양쪽 검사를 건너뛰고 다른 조건들을 확인
                     _log(f"DEBUG: '두번 뜬 S' 그룹 이동 가능성 검토. 아래쪽이 S이므로 양쪽 검사 건너뜀. s_q_idx: {s_q_idx}")
                 else:
-                    # 아래쪽이 S가 아닌 경우: 양쪽 중 하나라도 빈공간/크리스탈이면 취소
-                    if is_below_left_empty_or_crystal or is_below_right_empty_or_crystal:
-                        _log(f"DEBUG: '두번 뜬 S' 그룹 이동 취소. 양쪽에 빈 공간 또는 크리스탈이 있음. s_q_idx: {s_q_idx}")
+                    # 아래쪽이 S가 아닌 경우: 양쪽 중 하나라도 빈공간이면 취소
+                    if is_below_left_empty or is_below_right_empty:
+                        _log(f"DEBUG: '두번 뜬 S' 그룹 이동 취소. 양쪽에 빈 공간이 있음. s_q_idx: {s_q_idx}")
                         cancel_move_by_new_rule = True
                     else:
                         _log(f"DEBUG: '두번 뜬 S' 그룹 이동 취소 조건 불만족. 그룹 이동 진행. s_q_idx: {s_q_idx}")
+
+                # 추가 조건: 0층 아래가 '-'이고, 3층의 그룹이 아닌 나머지 두 사분면 중 하나라도 S일 때도 취소
+                if not cancel_move_by_new_rule:  # 기존 조건에서 취소되지 않은 경우에만 추가 조건 검사
+                    # 0층 아래가 '-'인지 확인
+                    is_0_layer_empty = (piece_0_same is None)
+                    
+                    if is_0_layer_empty:
+                        _log(f"DEBUG: 0층 아래가 빈 공간임. 3층의 그룹이 아닌 나머지 두 사분면 검사 시작.")
+                        
+                        # 3층(인덱스 2)의 그룹이 아닌 나머지 두 사분면 확인
+                        group_coords_set = set(group)
+                        remaining_quadrants = []
+                        
+                        for q_check in range(4):
+                            if (2, q_check) not in group_coords_set:  # 3층에서 그룹에 포함되지 않은 사분면
+                                remaining_quadrants.append(q_check)
+                        
+                        _log(f"DEBUG: 3층의 그룹이 아닌 나머지 사분면: {remaining_quadrants}")
+                        
+                        # 나머지 두 사분면 중 하나라도 c 또는 S인지 확인
+                        has_c_or_s_in_remaining = False
+                        for q_remaining in remaining_quadrants:
+                            piece_3_remaining = _get(working_shape, 2, q_remaining)  # 3층 조각
+                            if piece_3_remaining and (piece_3_remaining.shape in _GENERAL_SHAPE_TYPES or piece_3_remaining.shape == 'c'):
+                                _log(f"DEBUG: 3층의 그룹이 아닌 사분면 {q_remaining}에 c 또는 S 발견: {piece_3_remaining.shape}")
+                                has_c_or_s_in_remaining = True
+                                break
+                        
+                        if has_c_or_s_in_remaining:
+                            _log(f"DEBUG: '두번 뜬 S' 그룹 이동 취소. 0층 아래가 '-'이고 3층의 그룹이 아닌 나머지 사분면에 c 또는 S가 있음. s_q_idx: {s_q_idx}")
+                            cancel_move_by_new_rule = True
+                        else:
+                            _log(f"DEBUG: 3층의 그룹이 아닌 나머지 사분면에 c 또는 S 없음. 추가 조건 불만족. s_q_idx: {s_q_idx}")
+                    else:
+                        _log(f"DEBUG: 0층 아래가 빈 공간이 아님. 추가 조건 검사 건너뜀. s_q_idx: {s_q_idx}")
 
                 # 그룹 좌표 집합 생성 (이후 코드에서 사용)
                 group_coords_set = set(group)
@@ -618,7 +657,7 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
             if group: # Only process if a group was actually found
                 _log(f"DEBUG: 사분면 {s_q_idx}을(를) 중심으로 그룹 발견: {group}")
                 _log(f"DEBUG: _move_s_group 호출 (ref_shape로 working_shape 전달). 현재 working_shape: {repr(working_shape)}") # 로그 추가
-                _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx) # ref_shape를 working_shape로 변경
+                final_shift = _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx) # 그룹 이동 및 이동 거리 받기
                 processed_q.update(group) # Update with all coords in the moved group
                 _log(f"DEBUG: '뜬 S(-S)' 그룹 처리 후 processed_q: {processed_q}")
             
@@ -640,67 +679,54 @@ def _relocate_s_pieces(working_shape: Shape, ref_shape: Shape, highest_c_layer: 
     
     for group in s_p_s_groups:
         _log(f"DEBUG: '0층 S 위에 1층 P/S' 그룹 처리 시작: {group}")
-        _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx) # 그룹 이동
-        processed_q.update(group) # 처리된 좌표 업데이트
+        final_shift = _move_s_group(group, working_shape, working_shape, highest_c_layer, c_quad_idx) # 그룹 이동 및 이동 거리 받기
+        processed_q.update(group)
         _log(f"DEBUG: '0층 S 위에 1층 P/S' 그룹 처리 후 processed_q: {processed_q}")
         
-        # 그룹화된 바닥 S 이동 후 양쪽 P 처리 로직
-        if len(group) == 2:  # 0층 S + 1층 P/S 그룹
-            # 그룹에서 가장 아래 있는 S(0층)를 기준으로 양쪽 P 확인
-            bottom_s_coord = None
-            for l, q in group:
-                if l == 0:  # 0층 S 찾기
-                    bottom_s_coord = (l, q)
-                    break
+        # 그룹화된 바닥 S 이동 후 양쪽 P 처리 로직 (수정됨)
+        if group: # 그룹이 비어있지 않은지 확인
+            # 그룹에서 가장 아래에 있는 조각의 원래 좌표를 찾습니다.
+            bottom_s_orig_coord = min(group, key=lambda coord: coord[0])
+            l_orig, q_orig = bottom_s_orig_coord
             
-            if bottom_s_coord:
-                l_orig, q_orig = bottom_s_coord
-                # 그룹 이동 후 S의 새로운 위치 계산 (final_shift는 _move_s_group 내부에서 계산됨)
-                # 여기서는 그룹 이동이 완료된 후의 실제 위치를 확인해야 함
-                new_l = l_orig  # 그룹 이동 후 실제 위치
-                new_q = q_orig
+            # 이동 후 새로운 층을 계산합니다.
+            new_l = l_orig + final_shift
+            new_q = q_orig
+            
+            # 이동된 위치에 실제로 S가 있는지 확인합니다.
+            actual_s_piece = _get(working_shape, new_l, new_q)
+            if actual_s_piece and actual_s_piece.shape in _GENERAL_SHAPE_TYPES:
+                _log(f"DEBUG: 그룹화된 바닥 S 이동 후 양쪽 P 처리 시작 - S 위치: ({new_l}, {new_q})")
                 
-                # 실제 위치에서 S 찾기
-                actual_s_piece = _get(working_shape, new_l, new_q)
-                if actual_s_piece and actual_s_piece.shape in _GENERAL_SHAPE_TYPES:
-                    _log(f"DEBUG: 그룹화된 바닥 S 이동 후 양쪽 P 처리 시작 - S 위치: ({new_l}, {new_q})")
+                # 양쪽 사분면 확인
+                left_q = (new_q - 1 + 4) % 4
+                right_q = (new_q + 1) % 4
+                
+                # 양쪽이 모두 P인지 확인
+                left_piece = _get(working_shape, new_l, left_q)
+                right_piece = _get(working_shape, new_l, right_q)
+                
+                left_is_p = left_piece and left_piece.shape == 'P'
+                right_is_p = right_piece and right_piece.shape == 'P'
+                
+                _log(f"DEBUG: 그룹화된 바닥 S 양쪽 확인 - 좌측({left_q}): {left_piece}, 우측({right_q}): {right_piece}")
+                
+                if left_is_p and right_is_p:
+                    _log(f"DEBUG: 그룹화된 바닥 S 양쪽이 모두 P임. P들의 위쪽 확인 시작.")
                     
-                    # 양쪽 사분면 확인
-                    left_q = (new_q - 1 + 4) % 4
-                    right_q = (new_q + 1) % 4
+                    # 좌측 P의 위가 빈 공간이면 한 칸 올리기
+                    if _get(working_shape, new_l + 1, left_q) is None:
+                        _log(f"DEBUG: 그룹화된 바닥 S 좌측 P({new_l}, {left_q})를 한 칸 올림.")
+                        _set(working_shape, new_l, left_q, None)
+                        _set(working_shape, new_l + 1, left_q, left_piece)
                     
-                    # 양쪽이 모두 P인지 확인
-                    left_piece = _get(working_shape, new_l, left_q)
-                    right_piece = _get(working_shape, new_l, right_q)
-                    
-                    left_is_p = (left_piece is not None and hasattr(left_piece, 'shape') and left_piece.shape == 'P')
-                    right_is_p = (right_piece is not None and hasattr(right_piece, 'shape') and right_piece.shape == 'P')
-                    
-                    _log(f"DEBUG: 그룹화된 바닥 S 양쪽 확인 - 좌측({left_q}): {left_piece}, 우측({right_q}): {right_piece}")
-                    _log(f"DEBUG: 그룹화된 바닥 S 양쪽 P 여부 - 좌측: {left_is_p}, 우측: {right_is_p}")
-                    
-                    if left_is_p and right_is_p:
-                        _log(f"DEBUG: 그룹화된 바닥 S 양쪽이 모두 P임. P들의 위쪽 확인 시작.")
-                        
-                        # 좌측 P의 위쪽 확인
-                        left_p_above = _get(working_shape, new_l + 1, left_q)
-                        right_p_above = _get(working_shape, new_l + 1, right_q)
-                        
-                        _log(f"DEBUG: 그룹화된 바닥 S P들의 위쪽 확인 - 좌측 P 위: {left_p_above}, 우측 P 위: {right_p_above}")
-                        
-                        # 좌측 P의 위가 빈 공간이면 한 칸 올리기
-                        if left_p_above is None:
-                            _log(f"DEBUG: 그룹화된 바닥 S 좌측 P({new_l}, {left_q})를 한 칸 올림.")
-                            _set(working_shape, new_l, left_q, None)
-                            _set(working_shape, new_l + 1, left_q, left_piece)
-                        
-                        # 우측 P의 위가 빈 공간이면 한 칸 올리기
-                        if right_p_above is None:
-                            _log(f"DEBUG: 그룹화된 바닥 S 우측 P({new_l}, {right_q})를 한 칸 올림.")
-                            _set(working_shape, new_l, right_q, None)
-                            _set(working_shape, new_l + 1, right_q, right_piece)
-                    else:
-                        _log(f"DEBUG: 그룹화된 바닥 S 양쪽이 모두 P가 아님. P 처리 건너뜀.")
+                    # 우측 P의 위가 빈 공간이면 한 칸 올리기
+                    if _get(working_shape, new_l + 1, right_q) is None:
+                        _log(f"DEBUG: 그룹화된 바닥 S 우측 P({new_l}, {right_q})를 한 칸 올림.")
+                        _set(working_shape, new_l, right_q, None)
+                        _set(working_shape, new_l + 1, right_q, right_piece)
+                else:
+                    _log(f"DEBUG: 그룹화된 바닥 S 양쪽이 모두 P가 아님. P 처리 건너뜀.")
 
     # Original 2. 바닥 S 개별 처리
     _log(f"DEBUG: '바닥 S' 개별 처리 시작. 현재 processed_q: {processed_q}")
@@ -812,7 +838,7 @@ def _find_s_relocation_spot(shape: Shape, q_idx: int, ref_shape: Shape, highest_
     for l_check in range(1, Shape.MAX_LAYERS): # 0층(바닥 S가 있는 층)은 건너뛰고 1층부터 검사
         if _get(shape, l_check, q_idx) is not None:
             top_blocker_layer = l_check
-            _log(f"DEBUG: q_idx {q_idx}의 천장 발견: L{top_blocker_layer} (조각: {_get(shape, l_check, q_idx)})个体")
+            _log(f"DEBUG: q_idx {q_idx}의 천장 발견: L{top_blocker_layer} (조각: {_get(shape, l_check, q_idx)})")
             break
     
     found_l_target = -1
@@ -1515,17 +1541,5 @@ def claw_process(shape_code: str, logger: Optional[Callable[[str], None]] = None
     finally:
         _log_callback = original_callback
 
-def verify_claw_process(original_shape_str: str) -> bool:
-    """Claw 처리 후 결과를 검증하는 함수"""
-    # 1. claw_process 결과 Shape 객체로 변환
-    original_shape = Shape.from_string(original_shape_str)
 
-    # 클로 프로세스 적용
-    # claw_process 함수는 문자열을 기대하므로 original_shape_str을 전달합니다.
-    processed_shape = Shape.from_string(claw_process(original_shape_str)) # logger=print 제거
-    # 3. processed_shape에 push_pin을 적용
-    push_pinned_result = processed_shape.push_pin()
-
-    # 4. push_pinned_result와 original_shape가 동일한지 비교
-    return repr(push_pinned_result) == original_shape_str
 

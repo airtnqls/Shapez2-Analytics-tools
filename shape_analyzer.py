@@ -1,7 +1,6 @@
 from __future__ import annotations
 from enum import Enum
 import re
-# from claw_tracer import verify_claw_process # verify_claw_process 함수 임포트 # 이 줄을 제거합니다.
 
 
 class ShapeType(Enum):
@@ -461,20 +460,21 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     if final_classification_type == ShapeType.CLAW_INCLUDED.value:
         # claw_process 검증 수행
         claw_verified = False
+        claw_reason = "클로불가능"
         if shape_obj:
             try:
-                from claw_tracer import verify_claw_process # verify_claw_process 함수 임포트 # 이 줄을 추가합니다.
-                claw_verified = verify_claw_process(repr(shape_obj))
+                claw_verified, claw_reason = verify_claw_process(repr(shape_obj))
             except Exception as e:
                 final_reasons.append(f"클로 검증 오류: {e}")
                 claw_verified = False
+                claw_reason = "클로불가능"
 
         if claw_verified:
             final_reasons.clear()
             final_reasons.append("클로가능")
         else:
             final_reasons.clear()
-            final_reasons.append("클로불가능")
+            final_reasons.append(claw_reason)
             # 클로 불가능으로 판명되면, 분류 타입을 Impossible로 변경할지 여부 결정
             # 현재는 Impossible로 변경하지 않고, 이유만 추가하여 자세한 정보 제공
             # final_classification_type = ShapeType.IMPOSSIBLE.value # 필요시 주석 해제
@@ -494,6 +494,39 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
 
     final_reason_string = _finalize_reasons(final_reasons)
     return final_classification_type, final_reason_string
+
+
+def verify_claw_process(original_shape_str: str) -> tuple[bool, str]:
+    """Claw 처리 후 결과를 검증하는 함수"""
+    # 1. 원본 Shape 객체 생성
+    from shape import Shape # Local import to prevent circular dependency
+    original_shape = Shape.from_string(original_shape_str)
+
+    # 2. 클로 프로세스 적용
+    from claw_tracer import claw_process
+    processed_shape = Shape.from_string(claw_process(original_shape_str))
+    
+    # 3. processed_shape에 push_pin을 적용
+    push_pinned_result = processed_shape.push_pin()
+
+    # 4. push_pinned_result와 original_shape가 동일한지 비교
+    if repr(push_pinned_result) != original_shape_str:
+        return False, "클로불가능"
+    
+    # 5. 클로 프로세스 이후 도형 분류 검사
+    try:
+        processed_shape_str = repr(processed_shape)
+        classification_type, _ = analyze_shape(processed_shape_str, processed_shape)
+        
+        # '스왑가능형'이 포함되지 않으면 불가능으로 판정
+        if "스왑가능형" not in classification_type:
+            return False, "클로스왑불가능"
+            
+    except Exception as e:
+        # 로그 출력 대신 조용히 처리
+        return False, "클로불가능"
+    
+    return True, "클로가능"
 
 
 def analyze_shape_simple(shape: str, shape_obj=None) -> str:
