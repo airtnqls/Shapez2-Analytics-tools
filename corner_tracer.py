@@ -1,3 +1,6 @@
+from shape import Shape
+from shape_analyzer import ShapeType
+
 def 가장오른쪽_클러스터_위치찾기(s, char):
     """가장 오른쪽 특정 문자 클러스터의 가장 왼쪽 위치를 찾음"""
     for i in range(len(s)-1, -1, -1):
@@ -34,9 +37,19 @@ def 위치의_문자교체(arr, pos, old_char, new_char):
         return True
     return False
 
-def 빈공간을_문자로채우기(arr, empty_char, fill_char):
-    """빈 공간을 특정 문자로 채움"""
-    for i in range(len(arr)):
+def 가장높은_c층_찾기(s):
+    """문자열에서 가장 높은 c 층을 찾음"""
+    for i in range(len(s) - 1, -1, -1):  # 위에서부터 아래로 검사
+        if s[i] == 'c':
+            return i
+    return -1  # c가 없는 경우
+
+def 빈공간을_문자로채우기(arr, empty_char, fill_char, max_layer=None):
+    """빈 공간을 특정 문자로 채움 (최대 층 제한 가능)"""
+    if max_layer is None:
+        max_layer = len(arr)
+    
+    for i in range(min(len(arr), max_layer + 1)):
         if arr[i] == empty_char:
             arr[i] = fill_char
 
@@ -139,8 +152,10 @@ def build_cutable_shape(s):
     AA = A_modified.copy()
     A = A_modified.copy()
     
-    # A: 빈 공간을 c로 채움
-    빈공간을_문자로채우기(A, '-', 'c')
+    # A: 가장 높은 c 층까지만 빈 공간을 c로 채움
+    highest_layer = 가장높은_c층_찾기(s)
+    if highest_layer != -1:
+        빈공간을_문자로채우기(A, '-', 'c', highest_layer)
     
     # A: Drop_새위치에 S 추가
     특정위치들에_문자추가(A, Drop_새위치, 'S')
@@ -154,6 +169,12 @@ def build_cutable_shape(s):
     
     # B: c를 S로 바꿈
     모든문자_교체(B, 'c', 'S')
+    
+    # B: 가장 높은 c층 이상의 빈 공간을 S로 채움
+    if highest_layer != -1:
+        for i in range(highest_layer, len(B)):
+            if B[i] == '-':
+                B[i] = 'S'
     
     # C 처리: L 길이의 -로 가득찬 리스트 생성
     C = 채워진배열_생성(L, '-')
@@ -184,8 +205,10 @@ def build_pinable_shape(s):
     AA = A_modified.copy()
     A = A_modified.copy()
     
-    # A: 빈 공간을 c로 채움
-    빈공간을_문자로채우기(A, '-', 'c')
+    # A: 가장 높은 c 층까지만 빈 공간을 c로 채움
+    highest_layer = 가장높은_c층_찾기(s)
+    if highest_layer != -1:
+        빈공간을_문자로채우기(A, '-', 'c', highest_layer)
     
     # A: Drop_새위치에 S 추가
     특정위치들에_문자추가(A, Drop_새위치, 'S')
@@ -210,6 +233,12 @@ def build_pinable_shape(s):
     
     # B: c를 S로 바꿈
     모든문자_교체(B, 'c', 'S')
+    
+    # B: 가장 높은 c층 이상의 빈 공간을 S로 채움
+    if highest_layer != -1:
+        for i in range(highest_layer, len(B)):
+            if B[i] == '-':
+                B[i] = 'S'
     
     # B: 첫 글자를 삭제함. 맨 뒤에 - 추가
     B = 배열_시프트(B, '-')
@@ -258,12 +287,12 @@ def build_quad_shape(s):
     return format_final_result(A, A, A, A)
 
 def build_double_shape(s):
-    """스택/핀모서리용: 더블 셰잎 빌드"""
+    """스택모서리용: 더블 셰잎 빌드"""
     A = list(s)
     max_length = len(s)
     B = ['S'] * max_length
     
-    return format_final_result(A, B, A, B)
+    return format_final_result(A, B, B, A)
 
 def format_final_result(A, B, C, D):
     """최종 결과를 포맷팅"""
@@ -282,33 +311,41 @@ def format_final_result(A, B, C, D):
         results.append(f"{aChar}{bChar}{dChar}{cChar}")
     return ':'.join(results)
 
-def corner_process(shape_code: str) -> tuple[str, str]:
-    """단일 도형 코드를 받아 Corner 처리를 수행하고 결과와 건물 작동 정보를 반환합니다."""
-    from shape_analyzer import analyze_shape, ShapeType
-    
-    # 도형 분석
-    classification, _ = analyze_shape(shape_code)
-    
-    # 모서리 타입에 따른 처리
+def corner_process(shape: Shape) -> tuple[str, str]:
+    """단일 Shape 객체를 받아 Corner 처리를 수행하고 결과와 건물 작동 정보를 반환합니다."""
+    classification, _ = shape.classifier()
+
+    # 1사분면(q1) 기둥 추출
+    q1_pillar = ""
+    for layer in shape.layers:
+        quad = layer.quadrants[0]  # TR 사분면
+        if quad is None:
+            q1_pillar += "-"
+        elif quad.shape in ['C', 'S', 'R', 'W']:
+            q1_pillar += "S"
+        else:
+            q1_pillar += quad.shape
+            
     if classification == ShapeType.SIMPLE_CORNER.value:
         # 단순모서리: 빌드 쿼드 셰잎, "스왑"
-        result = build_quad_shape(shape_code)
+        result = build_quad_shape(q1_pillar)
         return result, "스왑"
     elif classification == ShapeType.STACK_CORNER.value:
         # 스택모서리: 빌드 더블 셰잎, "스왑"
-        result = build_double_shape(shape_code)
+        result = build_double_shape(q1_pillar)
         return result, "스왑"
     elif classification == ShapeType.SWAP_CORNER.value:
         # 스왑모서리: 빌드 컷에이블 셰잎, "스왑"
-        result = build_cutable_shape(shape_code)
+        result = build_cutable_shape(q1_pillar)
         return result, "스왑"
     elif classification == ShapeType.CLAW_CORNER.value:
         # 클로모서리: 빌드 핀에이블 셰잎, "핀푸시"
-        result = build_pinable_shape(shape_code)
+        result = build_pinable_shape(q1_pillar)
         return result, "핀푸시"
     else:
-        # 모서리가 아닌 경우 기본 처리
-        result = build_cutable_shape(shape_code)
+        # 모서리가 아닌 경우 기본 처리 (또는 오류 처리)
+        # 이 경우는 모서리 도형만 들어온다고 가정하므로, 기본값을 정하거나 예외 발생
+        result = build_cutable_shape(q1_pillar) # 기본값으로 cutable 처리
         return result, "스왑"
 
 def process_all_shapes_from_file(input_filepath: str, output_filepath: str):
@@ -322,7 +359,8 @@ def process_all_shapes_from_file(input_filepath: str, output_filepath: str):
     # 각 줄에 대해 build_shape 실행 및 결과 저장
     output_lines = []
     for i, line in enumerate(lines):
-        result, _ = corner_process(line) # 단일 처리 함수 재사용
+        shape_obj = Shape.from_string(line)
+        result, _ = corner_process(shape_obj) # Shape 객체로 처리
         output_lines.append(result)
         print(f"처리 중 ({i+1}/{len(lines)}): {line} -> {result}")
 
@@ -339,4 +377,4 @@ if __name__ == "__main__":
     # 기본 파일 경로
     input_file = "data/example.txt"
     output_file = "data/derived_combinations_len6.txt"
-    process_all_shapes_from_file(input_file, output_file) 
+    process_all_shapes_from_file(input_file, output_file)

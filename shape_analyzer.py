@@ -419,9 +419,23 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     q1_pillar = pillars[0]
 
     if is_q1_only:
-        physically_unstable = shape_obj and not check_physics_stability(shape_obj)
+        # q1_pillar만으로 물리 안정성 검사를 위한 임시 Shape 객체 생성
+        if shape_obj:
+            # q1_pillar을 기반으로 임시 도형 생성하여 물리 안정성 검사
+            temp_shape_str = ':'.join(q1_pillar) if q1_pillar else ""
+            if temp_shape_str:
+                try:
+                    from shape import Shape
+                    temp_shape_obj = Shape.from_string(temp_shape_str)
+                    physically_unstable = not check_physics_stability(temp_shape_obj)
+                except:
+                    physically_unstable = False
+            else:
+                physically_unstable = False
+        else:
+            physically_unstable = False
         has_crystal = 'c' in q1_pillar
-        has_pin_at_bottom = q1_pillar.startswith('P') and (len(q1_pillar) < 2 or q1_pillar[1] != '-')
+        has_pin_at_bottom = q1_pillar.startswith('P') and (len(q1_pillar) > 1 and q1_pillar[1] != '-')
         is_swap_corner_pattern = re.search(r'-.*c', q1_pillar)
         is_claw_corner_pattern = re.search(r'-S-+c', q1_pillar)
 
@@ -435,7 +449,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         if is_swap_corner_pattern:
             return ShapeType.SWAP_CORNER.value, pin_reason
         # 스택모서리: 단순 모서리 중에서 c가 포함된 경우 또는 물리적으로 불안정한 경우 또는 핀
-        if physically_unstable or has_crystal or has_pin_at_bottom:
+        if physically_unstable or has_crystal:
             return ShapeType.STACK_CORNER.value, pin_reason
         # 단순모서리: 1사분면을 제외한 모든 사분면이 비워져 있는 모든 경우
         return ShapeType.SIMPLE_CORNER.value, ""

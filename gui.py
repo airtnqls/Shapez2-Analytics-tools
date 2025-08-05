@@ -2027,10 +2027,12 @@ class ShapezGUI(QMainWindow):
     def on_corner(self):
         """Corner 버튼 클릭 시 호출 - corner_tracer.py 기능 수행"""
         from corner_tracer import corner_process
+        from shape import Shape
         
         def corner_shape_for_gui(shape_code: str) -> str:
             try:
-                result, _ = corner_process(shape_code)
+                shape_obj = Shape.from_string(shape_code)
+                result, _ = corner_process(shape_obj)
                 return result
             except Exception as e:
                 raise Exception(f"Corner 처리 실패: {str(e)}")
