@@ -384,6 +384,44 @@ class Shape:
         
         return west_shape, east_shape
     
+    def quad_cutter(self) -> tuple[Shape, Shape, Shape, Shape]:
+        """도형을 4개의 사분면으로 나누고 각각을 기둥 형태로 출력합니다. 물리를 적용하지 않습니다."""
+        # 1사분면 (TR) - 회전 없음
+        quad1_layers = []
+        for layer in self.layers:
+            quad1_quadrants = [layer.quadrants[0], None, None, None]
+            quad1_layers.append(Layer(quad1_quadrants))
+        quad1_shape = Shape(quad1_layers)
+        quad1_shape.max_layers = self.max_layers
+        
+        # 2사분면 (BR) - 270도 회전 (반시계방향)
+        quad2_layers = []
+        for layer in self.layers:
+            quad2_quadrants = [None, layer.quadrants[1], None, None]
+            quad2_layers.append(Layer(quad2_quadrants))
+        quad2_shape = Shape(quad2_layers)
+        quad2_shape.max_layers = self.max_layers
+        quad2_shape = quad2_shape.rotate(clockwise=False)
+        # 3사분면 (BL) - 180도 회전 (시계방향 2번)
+        quad3_layers = []
+        for layer in self.layers:
+            quad3_quadrants = [None, None, layer.quadrants[2], None]
+            quad3_layers.append(Layer(quad3_quadrants))
+        quad3_shape = Shape(quad3_layers)
+        quad3_shape.max_layers = self.max_layers
+        quad3_shape = quad3_shape.rotate_180()
+        
+        # 4사분면 (TL) - 90도 회전 (시계방향)
+        quad4_layers = []
+        for layer in self.layers:
+            quad4_quadrants = [None, None, None, layer.quadrants[3]]
+            quad4_layers.append(Layer(quad4_quadrants))
+        quad4_shape = Shape(quad4_layers)
+        quad4_shape.max_layers = self.max_layers
+        quad4_shape = quad4_shape.rotate(clockwise=True)
+        
+        return quad1_shape, quad2_shape, quad3_shape, quad4_shape
+    
     def half_cutter(self) -> tuple[Shape, Shape]:
         """도형을 서쪽 절반(2,3사분면)과 동쪽 절반(0,1사분면)으로 나누고 물리를 적용합니다."""
         s_initial = self.apply_physics()

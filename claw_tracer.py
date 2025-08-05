@@ -7,6 +7,11 @@ from shape import Shape, Layer, Quadrant
 # --- 로깅 시스템 ---
 _log_callback: Optional[Callable[[str], None]] = None
 
+def set_log_callback(callback: Optional[Callable[[str], None]]):
+    """GUI에서 로그 콜백을 설정하는 함수"""
+    global _log_callback
+    _log_callback = callback
+
 def _log(message: str):
     """로그 메시지를 출력합니다. GUI 콜백이 설정되어 있으면 GUI로 전송합니다."""
     # _log_callback이 None이면 아무것도 출력하지 않고, 아니면 콜백을 호출합니다.

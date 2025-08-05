@@ -188,33 +188,40 @@ class QuadrantWidget(QLabel):
                 self.setStyleSheet(f"""
                     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, 
                         stop:0 {base_color.name()}, stop:0.5 {base_color.name()}, stop:0.51 {paint_color.name()}, stop:1 {paint_color.name()});
-                    color: black; border: 1px solid #555;
+                    color: black; border: 1px solid #555; border-radius: 0px;
                 """)
                 self.setText('c')
             elif quadrant.shape == 'P':
                 color_code = QColor(COLOR_MAP['P'])
-                self.setStyleSheet(f"background-color: {color_code.name()}; color: black; border: 1px solid #555;")
+                self.setStyleSheet(f"background-color: {color_code.name()}; color: black; border: 1px solid #555; border-radius: 0px;")
                 self.setText(quadrant.shape.upper())
             else:
                 color_code = QColor(COLOR_MAP.get(quadrant.color, '#FFF'))
-                self.setStyleSheet(f"background-color: {color_code.name()}; color: black; border: 1px solid #555;")
+                self.setStyleSheet(f"background-color: {color_code.name()}; color: black; border: 1px solid #555; border-radius: 0px;")
                 self.setText(quadrant.shape.upper())
         else:
-            self.setStyleSheet("background-color: #333; border: 1px solid #555;")
+            self.setStyleSheet("background-color: #333; border: 1px solid #555; border-radius: 0px;")
 
 class ShapeWidget(QFrame):
-    def __init__(self, shape: Shape, compact=False):
-        super().__init__(); self.setFrameShape(QFrame.Shape.StyledPanel); layout = QVBoxLayout(self)
+    def __init__(self, shape: Shape, compact=False, title=None):
+        super().__init__(); self.setFrameShape(QFrame.Shape.NoFrame); layout = QVBoxLayout(self)
         if compact:
             layout.setSpacing(0)
             layout.setContentsMargins(2, 2, 2, 2)
-            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 중앙 정렬
+            layout.setAlignment(Qt.AlignmentFlag.AlignBottom)  # 아래 정렬
             self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         else:
             layout.setSpacing(1)
             layout.setContentsMargins(3, 3, 3, 3)
             layout.setAlignment(Qt.AlignmentFlag.AlignBottom)  # 아래 정렬
         self.compact = compact
+        
+        # 제목이 있으면 먼저 추가
+        if title:
+            title_label = QLabel(f"<b>{title}</b>")
+            title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            title_label.setContentsMargins(0, 0, 0, 2)
+            layout.addWidget(title_label)
         
         clean_shape = shape.copy()
         while len(clean_shape.layers) > 0 and clean_shape.layers[-1].is_empty():
@@ -223,6 +230,8 @@ class ShapeWidget(QFrame):
         if not clean_shape.layers:
             layout.addWidget(QLabel("완전히 파괴됨"))
             return
+
+        layout.addStretch(1)
 
         # 층을 위에서 아래로 표시하기 위해 역순으로 처리
         for i in reversed(range(len(clean_shape.layers))):
@@ -240,7 +249,7 @@ class ShapeWidget(QFrame):
                 quad_layout.addWidget(QuadrantWidget(layer.quadrants[2], compact=True))  # 3사분면 (BL)
                 quad_layout.addWidget(QuadrantWidget(layer.quadrants[3], compact=True))  # 4사분면 (TL)
                 
-                layout.addLayout(quad_layout, 0)
+                layout.addLayout(quad_layout)
             else:
                 # 일반 모드: 층 번호와 사분면 함께 표시
                 layer_row = QHBoxLayout()
@@ -545,46 +554,61 @@ class ShapezGUI(QMainWindow):
         # 건물 작동 버튼들을 저장
         self.destroy_half_btn = QPushButton("절반 파괴기 (A)")
         self.destroy_half_btn.clicked.connect(self.on_destroy_half)
+        self.destroy_half_btn.setToolTip("도형의 서쪽 절반을 파괴하고 물리를 적용합니다.\n\n예시:\n입력: CuCuCuCu\n출력: --CuCu")
         control_layout.addWidget(self.destroy_half_btn, 0, 0)
         
         self.stack_btn = QPushButton("스태커 (A가 아래)")
         self.stack_btn.clicked.connect(self.on_stack)
+        self.stack_btn.setToolTip("입력 A를 아래에, 입력 B를 위에 쌓습니다.\n\n예시:\n입력 A: CuCu\n입력 B: P-P-\n출력: CuCu:P-P-")
         control_layout.addWidget(self.stack_btn, 0, 1)
         
         self.push_pin_btn = QPushButton("핀 푸셔 (A)")
         self.push_pin_btn.clicked.connect(self.on_push_pin)
+        self.push_pin_btn.setToolTip("도형 위에 핀 레이어를 추가하고 초과 부분을 파괴합니다.\n\n예시:\n입력: CuCuCuCu\n출력: P-P-P-P-:CuCuCuCu")
         control_layout.addWidget(self.push_pin_btn, 1, 0)
         
         self.apply_physics_btn = QPushButton("물리 적용 (A)")
         self.apply_physics_btn.clicked.connect(self.on_apply_physics)
+        self.apply_physics_btn.setToolTip("도형에 중력과 크리스탈 파괴 물리를 적용합니다.\n\n예시:\n입력: Cu--CuCu:--Cu----\n출력: CuCuCuCu (안정화됨)")
         control_layout.addWidget(self.apply_physics_btn, 1, 1)
         
         self.swap_btn = QPushButton("스와퍼 (A, B)")
         self.swap_btn.clicked.connect(self.on_swap)
+        self.swap_btn.setToolTip("입력 A와 B의 서쪽 절반을 서로 교환합니다.\n\n예시:\n입력 A: CuCuCuCu\n입력 B: PuPuPuPu\n출력 A: CuCuPuPu\n출력 B: PuPuCuCu")
         control_layout.addWidget(self.swap_btn, 2, 0)
         
         self.cutter_btn = QPushButton("커터 (A)")
         self.cutter_btn.clicked.connect(self.on_cutter)
+        self.cutter_btn.setToolTip("도형을 서쪽 절반과 동쪽 절반으로 나누고 물리를 적용합니다.")
         control_layout.addWidget(self.cutter_btn, 2, 1)
         
         rotate_hbox = QHBoxLayout()
         self.rotate_cw_btn = QPushButton("90 회전")
         self.rotate_cw_btn.clicked.connect(lambda: self.on_rotate(True))
+        self.rotate_cw_btn.setToolTip("도형을 시계방향으로 90도 회전합니다.")
         rotate_hbox.addWidget(self.rotate_cw_btn)
         
         self.rotate_180_btn = QPushButton("180 회전")
         self.rotate_180_btn.clicked.connect(self.on_rotate_180_building)
+        self.rotate_180_btn.setToolTip("도형을 180도 회전합니다.")
         rotate_hbox.addWidget(self.rotate_180_btn)
         
         self.rotate_ccw_btn = QPushButton("270 회전")
         self.rotate_ccw_btn.clicked.connect(lambda: self.on_rotate(False))
+        self.rotate_ccw_btn.setToolTip("도형을 반시계방향으로 90도 회전합니다.")
         rotate_hbox.addWidget(self.rotate_ccw_btn)
         
         control_layout.addLayout(rotate_hbox, 3, 0, 1, 2)
         
         self.simple_cutter_btn = QPushButton("심플 커터 (A)")
         self.simple_cutter_btn.clicked.connect(self.on_simple_cutter)
+        self.simple_cutter_btn.setToolTip("도형을 서쪽 절반과 동쪽 절반으로 나눕니다. 물리를 적용하지 않습니다.\n\n예시:\n입력: CuCuCuCu\n출력 A: ----CuCu (서쪽)\n출력 B: CuCu---- (동쪽)")
         control_layout.addWidget(self.simple_cutter_btn, 4, 0, 1, 2) # Moved to row 4
+        
+        self.quad_cutter_btn = QPushButton("쿼드 커터 (A)")
+        self.quad_cutter_btn.clicked.connect(self.on_quad_cutter)
+        self.quad_cutter_btn.setToolTip("도형을 4개의 사분면으로 나누고 각각을 기둥 형태로 출력합니다.\n\n예시:\n입력: CuCuCuCu\n출력: Cu,Cu,Cu,Cu")
+        control_layout.addWidget(self.quad_cutter_btn, 5, 0, 1, 2) # Moved to row 5
         
         paint_hbox = QHBoxLayout()
         paint_hbox.addWidget(QLabel("페인터:"))
@@ -593,8 +617,9 @@ class ShapezGUI(QMainWindow):
         paint_hbox.addWidget(self.paint_color)
         self.paint_btn = QPushButton("칠하기")
         self.paint_btn.clicked.connect(self.on_paint)
+        self.paint_btn.setToolTip("도형의 최상층에 있는 일반 도형들의 색상을 변경합니다.\n\n예시:\n입력: CuCuCuCu (색상: y)\n출력: CyCyCyCy (색상: 선택된 색상)")
         paint_hbox.addWidget(self.paint_btn)
-        control_layout.addLayout(paint_hbox, 5, 0, 1, 2) # Moved to row 5
+        control_layout.addLayout(paint_hbox, 6, 0, 1, 2) # Moved to row 6
         
         crystal_hbox = QHBoxLayout()
         crystal_hbox.addWidget(QLabel("크리스탈 생성:"))
@@ -603,25 +628,28 @@ class ShapezGUI(QMainWindow):
         crystal_hbox.addWidget(self.crystal_color)
         self.crystal_btn = QPushButton("생성")
         self.crystal_btn.clicked.connect(self.on_crystal_gen)
+        self.crystal_btn.setToolTip("도형의 모든 빈 공간과 핀 위치에 크리스탈을 생성합니다.\n\n예시:\n입력: CuCu----\n출력: CuCucwcw")
         crystal_hbox.addWidget(self.crystal_btn)
-        control_layout.addLayout(crystal_hbox, 6, 0, 1, 2) # Moved to row 6
+        control_layout.addLayout(crystal_hbox, 7, 0, 1, 2) # Moved to row 7
         
         self.classifier_btn = QPushButton("분류기 (A)")
         self.classifier_btn.clicked.connect(self.on_classifier)
-        control_layout.addWidget(self.classifier_btn, 7, 0) # Moved to row 7
+        self.classifier_btn.setToolTip("도형의 유형을 분석하고 분류 결과를 출력합니다.\n\n예시:\n입력: CuCuCuCu\n출력: 분류: [분류 결과] (사유: [분류 사유])")
+        control_layout.addWidget(self.classifier_btn, 8, 0) # Moved to row 8
         
         # 적용 버튼과 자동 적용 체크박스
         apply_hbox = QHBoxLayout()
         self.apply_button = QPushButton("적용 (출력→입력)")
         self.apply_button.clicked.connect(self.on_apply_outputs)
         self.apply_button.setEnabled(False)  # 초기에는 비활성화
+        self.apply_button.setToolTip("출력 결과를 입력 필드에 적용합니다.\n\n예시:\n출력 A: CuCu\n출력 B: P-P-\n적용 후: 입력 A = CuCu, 입력 B = P-P-")
         apply_hbox.addWidget(self.apply_button)
         
         self.auto_apply_checkbox = QCheckBox("자동 적용")
         self.auto_apply_checkbox.setToolTip("각 건물 작동 후 자동으로 출력을 입력에 적용합니다")
         apply_hbox.addWidget(self.auto_apply_checkbox)
         
-        control_layout.addLayout(apply_hbox, 7, 1) # Moved to row 7
+        control_layout.addLayout(apply_hbox, 8, 1) # Moved to row 8
         
         left_panel.addWidget(control_group)
         
@@ -631,35 +659,48 @@ class ShapezGUI(QMainWindow):
         
         self.simplify_btn = QPushButton("단순화")
         self.simplify_btn.clicked.connect(self.on_simplify)
+        self.simplify_btn.setToolTip("도형을 단순화된 형태로 변환합니다.\n\n예시:\n입력: CuCuCuCu\n출력: SSSS")
         data_process_layout.addWidget(self.simplify_btn, 0, 0)
         
         self.detail_btn = QPushButton("구체화")
         self.detail_btn.clicked.connect(self.on_detail)
+        self.detail_btn.setToolTip("도형을 구체화된 형태로 변환합니다.\n\n예시:\n입력: SSSS\n출력: CuCuCuCu")
         data_process_layout.addWidget(self.detail_btn, 0, 1)
         
         self.corner_3q_btn = QPushButton("3사분면 코너")
         self.corner_3q_btn.clicked.connect(self.on_corner_3q)
+        self.corner_3q_btn.setToolTip("도형의 3사분면(좌하단) 코너만 추출합니다.\n\n예시:\n입력: cwcwSucw\n출력: S")
         data_process_layout.addWidget(self.corner_3q_btn, 1, 0)
         
         self.remove_impossible_btn = QPushButton("불가능 제거")
         self.remove_impossible_btn.clicked.connect(self.on_remove_impossible)
+        self.remove_impossible_btn.setToolTip("불가능한 도형 패턴을 제거합니다.\n\n예시:\n입력: [여러 도형들]\n출력: [가능한 도형들만]")
         data_process_layout.addWidget(self.remove_impossible_btn, 1, 1)
         
         self.reverse_btn = QPushButton("역순")
         self.reverse_btn.clicked.connect(self.on_reverse)
+        self.reverse_btn.setToolTip("문자 순서를 역순으로 변경합니다.\n\n예시:\n입력: ABCD\n출력: DCBA")
         data_process_layout.addWidget(self.reverse_btn, 2, 0)
         
         self.corner_btn = QPushButton("Corner")
         self.corner_btn.clicked.connect(self.on_corner)
+        self.corner_btn.setToolTip("도형을 Corner 분석을 통해 처리합니다.\n\n예시:\n입력: CuCuCuCu\n출력: [Corner 분석 결과]")
         data_process_layout.addWidget(self.corner_btn, 2, 1)
         
         self.claw_btn = QPushButton("Claw")
         self.claw_btn.clicked.connect(self.on_claw)
+        self.claw_btn.setToolTip("도형을 Claw 분석을 통해 처리합니다.\n\n예시:\n입력: CuCuCuCu\n출력: [Claw 분석 결과]")
         data_process_layout.addWidget(self.claw_btn, 2, 2)
         
         self.mirror_btn = QPushButton("미러")
         self.mirror_btn.clicked.connect(self.on_mirror)
+        self.mirror_btn.setToolTip("도형을 좌우 대칭으로 미러링합니다.\n\n예시:\n입력: CuP-CuSr\n출력: CuSrCuP- (미러됨)")
         data_process_layout.addWidget(self.mirror_btn, 3, 0)
+        
+        self.cornerize_btn = QPushButton("코너화")
+        self.cornerize_btn.clicked.connect(self.on_cornerize)
+        self.cornerize_btn.setToolTip("문자 사이에 ':'를 추가합니다.\n\n예시:\n입력: ABC\n출력: A:B:C")
+        data_process_layout.addWidget(self.cornerize_btn, 3, 1)
         
         left_panel.addWidget(data_process_group)
         
@@ -931,20 +972,22 @@ class ShapezGUI(QMainWindow):
         # 입력 A 표시
         input_a_shape = self._get_input_shape(self.input_a)
         if input_a_shape:
-            container = QFrame()
-            layout = QVBoxLayout(container)
-            layout.addWidget(QLabel("<b>입력 A</b>"))
-            layout.addWidget(ShapeWidget(input_a_shape))
+            container = QWidget()
+            v_layout = QVBoxLayout(container)
+            v_layout.setContentsMargins(0, 0, 0, 0)
+            v_layout.addStretch(1)
+            v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title="입력 A"))
             self.output_layout.addWidget(container)
         
         # 입력 B 표시 (비어있지 않은 경우만)
         if self.input_b.text().strip():
             input_b_shape = self._get_input_shape(self.input_b)
             if input_b_shape:
-                container = QFrame()
-                layout = QVBoxLayout(container)
-                layout.addWidget(QLabel("<b>입력 B</b>"))
-                layout.addWidget(ShapeWidget(input_b_shape))
+                container = QWidget()
+                v_layout = QVBoxLayout(container)
+                v_layout.setContentsMargins(0, 0, 0, 0)
+                v_layout.addStretch(1)
+                v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title="입력 B"))
                 self.output_layout.addWidget(container)
         
         # 입력만 표시할 때는 출력 결과 초기화 및 적용 버튼 비활성화
@@ -975,36 +1018,48 @@ class ShapezGUI(QMainWindow):
         # 입력 A 표시
         input_a_shape = self._get_input_shape(self.input_a)
         if input_a_shape:
-            container = QFrame()
-            layout = QVBoxLayout(container)
-            layout.addWidget(QLabel("<b>입력 A</b>"))
-            layout.addWidget(ShapeWidget(input_a_shape))
+            container = QWidget()
+            v_layout = QVBoxLayout(container)
+            v_layout.setContentsMargins(0, 0, 0, 0)
+            v_layout.addStretch(1)
+            v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title="입력 A"))
             self.output_layout.addWidget(container)
         
         # 입력 B 표시 (비어있지 않은 경우만)
         if self.input_b.text().strip():
             input_b_shape = self._get_input_shape(self.input_b)
             if input_b_shape:
-                container = QFrame()
-                layout = QVBoxLayout(container)
-                layout.addWidget(QLabel("<b>입력 B</b>"))
-                layout.addWidget(ShapeWidget(input_b_shape))
+                container = QWidget()
+                v_layout = QVBoxLayout(container)
+                v_layout.setContentsMargins(0, 0, 0, 0)
+                v_layout.addStretch(1)
+                v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title="입력 B"))
                 self.output_layout.addWidget(container)
 
         # 결과 표시 및 추적
         self.current_outputs = []
         for title, shape in shapes:
-            container = QFrame()
-            layout = QVBoxLayout(container)
-            layout.addWidget(QLabel(f"<b>{title}</b>"))
             if shape:
-                layout.addWidget(ShapeWidget(shape))
+                container = QWidget()
+                v_layout = QVBoxLayout(container)
+                v_layout.setContentsMargins(0, 0, 0, 0)
+                v_layout.addStretch(1)
+                v_layout.addWidget(ShapeWidget(shape, compact=True, title=title))
+                self.output_layout.addWidget(container)
                 # 출력 결과 추적 (입력이 아닌 결과만)
                 if not title.startswith("입력"):
                     self.current_outputs.append((title, shape))
             else:
+                container = QFrame()
+                layout = QVBoxLayout(container)
+                layout.setSpacing(2)
+                layout.setContentsMargins(2, 2, 2, 2)
+                
+                title_label = QLabel(f"<b>{title}</b>")
+                title_label.setContentsMargins(0, 0, 0, 2)
+                layout.addWidget(title_label)
                 layout.addWidget(QLabel("N/A"))
-            self.output_layout.addWidget(container)
+                self.output_layout.addWidget(container)
             if not result_text:
                 log_msg += f"[{title}: {repr(shape) if shape else 'None'}] "
         
@@ -1068,6 +1123,13 @@ class ShapezGUI(QMainWindow):
         if s := self._get_input_shape(self.input_a):
             res_a, res_b = s.simple_cutter()
             self.display_outputs([("출력 A", res_a), ("출력 B", res_b)])
+            self.auto_apply_if_enabled()
+    
+    def on_quad_cutter(self):
+        """쿼드 커터 버튼 클릭 시 호출"""
+        if s := self._get_input_shape(self.input_a):
+            res_a, res_b, res_c, res_d = s.quad_cutter()
+            self.display_outputs([("출력 A", res_a), ("출력 B", res_b), ("출력 C", res_c), ("출력 D", res_d)])
             self.auto_apply_if_enabled()
     
     def on_cutter(self):
@@ -2004,6 +2066,45 @@ class ShapezGUI(QMainWindow):
                 return f"오류: {str(e)}"
         
         self.process_data_operation("mirror", mirror_shape_for_gui)
+    
+    def on_cornerize(self):
+        """코너화 버튼 클릭 시 호출 - 모든 문자 사이에 ':' 추가 (색코드 제외)"""
+        def cornerize_shape(shape_code: str) -> str:
+            try:
+                # 색코드 정의
+                color_codes = {'r', 'g', 'b', 'm', 'c', 'y', 'u', 'w'}
+                
+                # 기존 ':'를 제거
+                cleaned_code = shape_code.replace(':', '')
+                if not cleaned_code:
+                    return ""
+                
+                # c를 제외한 색코드 정의
+                non_c_color_codes = {'r', 'g', 'b', 'm', 'y', 'u', 'w'}
+                
+                # c를 제외한 색코드가 하나라도 있는지 확인
+                has_non_c_color_codes = any(char in non_c_color_codes for char in cleaned_code)
+                
+                result = ""
+                if has_non_c_color_codes:
+                    # c를 제외한 색코드가 발견된 경우: 두 글자마다 ':' 배치
+                    for i, char in enumerate(cleaned_code):
+                        if i == 0:
+                            result += char
+                        else:
+                            # 짝수번째 글자 앞에만 ':' 추가 (0부터 시작하므로 짝수 인덱스가 첫번째 글자)
+                            if i % 2 == 0: 
+                                result += ':'
+                            result += char
+                else:
+                    # c를 제외한 색코드가 발견되지 않은 경우: 한 글자마다 ':' 배치
+                    result = ':'.join(cleaned_code)
+                
+                return result
+            except Exception as e:
+                return f"오류: {str(e)}"
+        
+        self.process_data_operation("cornerize", cornerize_shape)
     
 
     
