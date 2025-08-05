@@ -667,9 +667,9 @@ class ShapezGUI(QMainWindow):
         self.detail_btn.setToolTip("도형을 구체화된 형태로 변환합니다.\n\n예시:\n입력: SSSS\n출력: CuCuCuCu")
         data_process_layout.addWidget(self.detail_btn, 0, 1)
         
-        self.corner_3q_btn = QPushButton("3사분면 코너")
-        self.corner_3q_btn.clicked.connect(self.on_corner_3q)
-        self.corner_3q_btn.setToolTip("도형의 3사분면(좌하단) 코너만 추출합니다.\n\n예시:\n입력: cwcwSucw\n출력: S")
+        self.corner_3q_btn = QPushButton("1사분면 코너")
+        self.corner_3q_btn.clicked.connect(self.on_corner_1q)
+        self.corner_3q_btn.setToolTip("도형의 1사분면(우상단) 코너만 추출합니다.\n\n예시:\n입력: Sucwcwcw\n출력: S")
         data_process_layout.addWidget(self.corner_3q_btn, 1, 0)
         
         self.remove_impossible_btn = QPushButton("불가능 제거")
@@ -737,8 +737,6 @@ class ShapezGUI(QMainWindow):
         test_group = QGroupBox("자동 테스트"); test_layout = QVBoxLayout(test_group)
         test_layout.addWidget(QPushButton("전체 테스트 실행", clicked=self.run_forward_tests))
         test_layout.addWidget(QPushButton("역연산 테스트 실행", clicked=self.run_reverse_tests))
-        self.test_results_label = QLabel("테스트를 실행하세요.")
-        test_layout.addWidget(self.test_results_label)
         right_panel.addWidget(test_group)
         
         # 출력 (분석도구 탭 하단)
@@ -808,11 +806,6 @@ class ShapezGUI(QMainWindow):
         # 입력 그룹
         tree_input_group = QGroupBox("공정 트리 분석")
         tree_input_layout = QVBoxLayout(tree_input_group)
-        
-        # 설명 라벨
-        description_label = QLabel("입력 A의 도형을 만들기까지의 공정을 트리 형태로 시각화합니다.")
-        description_label.setStyleSheet("color: #666; font-style: italic; margin-bottom: 10px;")
-        tree_input_layout.addWidget(description_label)
         
         # 분석 버튼
         analyze_button = QPushButton("공정 트리 생성")
@@ -1917,16 +1910,16 @@ class ShapezGUI(QMainWindow):
         
         self.process_data_operation("구체화", detail_shape)
     
-    def on_corner_3q(self):
-        """3사분면 코너 버튼 클릭 시 호출 - 3사분면만 가져와서 한줄로 단순화"""
-        def corner_3q_shape(shape_code: str) -> str:
+    def on_corner_1q(self):
+        """1사분면 코너 버튼 클릭 시 호출 - 1사분면만 가져와서 한줄로 단순화"""
+        def corner_1q_shape(shape_code: str) -> str:
             try:
                 shape = Shape.from_string(shape_code)
-                # 각 레이어의 3사분면(인덱스 2)만 추출
+                # 각 레이어의 1사분면(인덱스 0)만 추출
                 corner_chars = []
                 for layer in shape.layers:
-                    if len(layer.quadrants) > 2 and layer.quadrants[2] is not None:
-                        quadrant = layer.quadrants[2]
+                    if len(layer.quadrants) > 0 and layer.quadrants[0] is not None:
+                        quadrant = layer.quadrants[0]
                         if quadrant.shape == 'c':
                             corner_chars.append("c")
                         elif quadrant.shape == 'P':
@@ -1938,9 +1931,9 @@ class ShapezGUI(QMainWindow):
                 
                 return "".join(corner_chars)
             except Exception as e:
-                raise Exception(f"3사분면 코너 추출 실패: {str(e)}")
+                raise Exception(f"1사분면 코너 추출 실패: {str(e)}")
         
-        self.process_data_operation("3사분면 코너", corner_3q_shape)
+        self.process_data_operation("1사분면 코너", corner_1q_shape)
     
     def on_remove_impossible(self):
         """불가능 제거 버튼 클릭 시 호출 - 불가능한 패턴이거나 오류 발생시 제거"""
@@ -2037,7 +2030,8 @@ class ShapezGUI(QMainWindow):
         
         def corner_shape_for_gui(shape_code: str) -> str:
             try:
-                return corner_process(shape_code)
+                result, _ = corner_process(shape_code)
+                return result
             except Exception as e:
                 raise Exception(f"Corner 처리 실패: {str(e)}")
         

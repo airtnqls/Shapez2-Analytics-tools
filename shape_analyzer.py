@@ -9,9 +9,13 @@ class ShapeType(Enum):
     EMPTY = "빈_도형"
     SIMPLE_GEOMETRIC = "단순_기하형"
     PIN_INCLUDED = "핀_포함형"
-    CLAW_INCLUDED = "클로"
+    CLAW = "클로"
     HYBRID = "하이브리드"
     SWAPABLE = "스왑가능형"
+    SIMPLE_CORNER = "단순모서리"
+    STACK_CORNER = "스택모서리"
+    SWAP_CORNER = "스왑모서리"
+    CLAW_CORNER = "클로모서리"
 
 
 def get_piece(shape: str, layer: int, quadrant: int) -> str:
@@ -94,7 +98,7 @@ def _check_impossible_patterns(pillars: list[str]) -> tuple[str | None, str | No
         (r'[^P]P.*c', "코너 룰2. [^P]P.*c"),
         (r'c-.*c', "코너 룰3. c-.*c"),
         (r'c.-+c', "코너 룰4. c.-+c"),
-        (r'^c.*-S-+c', "코너 룰5. ^c.*-S-+c")
+        (r'^S*-?S*c.*-S-+c', "코너 룰5. ^S*-?S*c.*-S-+c")
     ]
     
     for pillar_idx, pillar in enumerate(pillars):
@@ -137,7 +141,7 @@ def _check_limitations(pillars: list[str]) -> set[str]:
     limitation_rules = [
         (r'^S*-?S*c', "핀푸쉬X", "OR"),      # 하나라도 해당하면 제한
         (r'-S-+c', "스왑X", "OR"),        # 하나라도 해당하면 제한
-        (r'c$', "스택X", "AND")          # 모두 해당해야 제한
+        (r'c$', "스택X", "AND"),          # 모두 해당해야 제한
     ]
 
     for pattern, description, logic_type in limitation_rules:
@@ -349,7 +353,7 @@ def _classify_layer_removal_case(base_reason: str, removed_hybrid_layers_content
     
     # CLAW_INCLUDED 또는 HYBRID로 분류
     if any('c' in layer_content for layer_content in removed_hybrid_layers_content):
-        classification_type = ShapeType.CLAW_INCLUDED.value
+        classification_type = ShapeType.CLAW.value
         if base_reason and base_reason not in reasons and not (base_reason == ""):
             reasons.insert(0, base_reason)
         reasons.append("Claw")
@@ -402,12 +406,44 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         tuple[str, str]: (분류_결과, 분류_사유)
     """
     
-    # ========== 1단계: 물리 안정성 검사 ==========
+    # ========== 1단계: 불가능 패턴 및 모서리 분류 검사 ==========
+    pillars = get_edge_pillars(shape)
+    
+    # 불가능 패턴 검사 (최우선)
+    impossible_type, impossible_reason = _check_impossible_patterns(pillars)
+    if impossible_type:
+        return impossible_type, impossible_reason
+
+    # 모서리 분류 검사: 1사분면을 제외한 모든 사분면이 비어있는지 확인
+    is_q1_only = all(p.strip('-') == '' for p in pillars[1:])
+    q1_pillar = pillars[0]
+
+    if is_q1_only:
+        physically_unstable = shape_obj and not check_physics_stability(shape_obj)
+        has_crystal = 'c' in q1_pillar
+        has_pin_at_bottom = q1_pillar.startswith('P') and (len(q1_pillar) < 2 or q1_pillar[1] != '-')
+        is_swap_corner_pattern = re.search(r'-.*c', q1_pillar)
+        is_claw_corner_pattern = re.search(r'-S-+c', q1_pillar)
+
+        # 핀 사유 공통 처리
+        pin_reason = "핀" if has_pin_at_bottom else ""
+        
+        # 클로모서리: -S-+c 패턴으로 인해 스왑X로 판정받은 경우
+        if is_claw_corner_pattern:
+            return ShapeType.CLAW_CORNER.value, pin_reason
+        # 스왑모서리: c 아래 -가 존재하는 경우 (-.*c 패턴)
+        if is_swap_corner_pattern:
+            return ShapeType.SWAP_CORNER.value, pin_reason
+        # 스택모서리: 단순 모서리 중에서 c가 포함된 경우 또는 물리적으로 불안정한 경우 또는 핀
+        if physically_unstable or has_crystal or has_pin_at_bottom:
+            return ShapeType.STACK_CORNER.value, pin_reason
+        # 단순모서리: 1사분면을 제외한 모든 사분면이 비워져 있는 모든 경우
+        return ShapeType.SIMPLE_CORNER.value, ""
+
+    # ========== 2단계: 기존 분류 로직 (모서리가 아닌 경우) ==========
+    # 물리 안정성 검사
     if shape_obj and not check_physics_stability(shape_obj):
         return ShapeType.IMPOSSIBLE.value, "룰0. Unstable or -P"
-    
-    # ========== 2단계: 기본 분석 ==========
-    pillars = get_edge_pillars(shape)
     
     # 불가능 패턴 검사
     impossible_type, impossible_reason = _check_impossible_patterns(pillars)
@@ -457,7 +493,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
 
     # ========== 7단계: 최종 결과 반환 ==========
     # 클로 추가 검사
-    if final_classification_type == ShapeType.CLAW_INCLUDED.value:
+    if final_classification_type == ShapeType.CLAW.value:
         # claw_process 검증 수행
         claw_verified = False
         claw_reason = "클로불가능"
