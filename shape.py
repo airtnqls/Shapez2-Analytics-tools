@@ -152,6 +152,11 @@ class Shape:
         copied_shape.max_layers = self.max_layers
         return copied_shape
 
+    def pad_layers(self, num_layers: int):
+        """지정된 수의 레이어가 있도록 도형을 확장합니다."""
+        while len(self.layers) < num_layers:
+            self.layers.append(Layer.from_string("----"))
+
     def __repr__(self) -> str:
         s = self.copy()
         while len(s.layers) > 0 and s.layers[-1].is_empty():

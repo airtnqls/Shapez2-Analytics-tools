@@ -167,10 +167,14 @@ class OriginFinderThread(QThread):
 COLOR_MAP = {'r':'#E33','g':'#3E3','b':'#33E','m':'#E3E','c':'#3EE','y':'#EE3','u':'#BBB','w':'#FFF','C':'#CDD','P':'#999'}
 
 class QuadrantWidget(QLabel):
-    def __init__(self, quadrant: Optional[Quadrant], compact=False):
+    def __init__(self, quadrant: Optional[Quadrant], compact=False, layer_index=None, quad_index=None, input_name=None):
         super().__init__()
         self.setFixedSize(30, 30)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layer_index = layer_index
+        self.quad_index = quad_index
+        self.input_name = input_name
+        self.quadrant = quadrant
         # 기본 폰트 설정
         font = QFont("맑은 고딕", 12)
         font.setBold(True)
@@ -202,86 +206,294 @@ class QuadrantWidget(QLabel):
         else:
             self.setStyleSheet("background-color: #333; border: 1px solid #555; border-radius: 0px;")
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.quadrant is not None and self.input_name is not None:
+            self.drag_start_position = event.position().toPoint()
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            return
+        if not hasattr(self, 'drag_start_position') or self.quadrant is None or self.input_name is None:
+            return
+        if (event.position().toPoint() - self.drag_start_position).manhattanLength() < QApplication.startDragDistance():
+            return
+            
+        drag = QDrag(self)
+        mime_data = QMimeData()
+        
+        mime_data.setText(f"shape-quadrant/{self.input_name}/{self.layer_index}/{self.quad_index}")
+        drag.setMimeData(mime_data)
+        
+        pixmap = self.grab()
+        drag.setPixmap(pixmap)
+        drag.setHotSpot(event.position().toPoint())
+        
+        drag.exec(Qt.DropAction.MoveAction)
+
+    def contextMenuEvent(self, event):
+        """우클릭 시 컨텍스트 메뉴 표시"""
+        if self.input_name is None:
+            return
+            
+        # 부모 위젯과 완전히 분리된 메뉴 생성
+        menu = QMenu()
+        menu.setParent(None)
+        
+        # 메뉴 항목들 추가
+        empty_action = menu.addAction("-")
+        s_action = menu.addAction("S")
+        c_action = menu.addAction("c")
+        p_action = menu.addAction("P")
+        
+        # 메뉴 표시 및 선택된 액션 처리
+        action = menu.exec(event.globalPos())
+        
+        if action == empty_action:
+            self.change_quadrant_content("--")
+        elif action == s_action:
+            self.change_quadrant_content("Su")
+        elif action == c_action:
+            self.change_quadrant_content("cw")
+        elif action == p_action:
+            self.change_quadrant_content("P-")
+
+    def change_quadrant_content(self, content):
+        """셀 내용을 변경하고 입력 필드 업데이트"""
+        if self.input_name is None:
+            return
+            
+        # content를 Quadrant 객체로 변환
+        if content == "--":
+            new_quadrant = None
+        elif content == "Su":
+            new_quadrant = Quadrant('S', 'u')
+        elif content == "cw":
+            new_quadrant = Quadrant('c', 'w')
+        elif content == "P-":
+            new_quadrant = Quadrant('P', 'u')
+        else:
+            return
+            
+        # 메인 윈도우의 handle_quadrant_change 메서드 호출
+        main_window = self.window()
+        if hasattr(main_window, 'handle_quadrant_change'):
+            main_window.handle_quadrant_change(
+                self.input_name, self.layer_index, self.quad_index, new_quadrant
+            )
+
+class RowHeaderWidget(QLabel):
+    """행(레이어) 드래그를 위한 헤더 위젯"""
+    def __init__(self, layer_index, input_name):
+        super().__init__("") # 숫자 제거
+        self.layer_index = layer_index
+        self.input_name = input_name
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setFixedSize(8, 30) # 너비 절반으로
+        self.setStyleSheet("background-color: #AAAAAA; border: 1px solid #777777; border-radius: 0px;") # 회색, 라운딩 제거
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.input_name is not None:
+            self.drag_start_position = event.position().toPoint()
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.MouseButton.LeftButton) or not hasattr(self, 'drag_start_position'):
+            return
+        if (event.position().toPoint() - self.drag_start_position).manhattanLength() < QApplication.startDragDistance():
+            return
+            
+        drag = QDrag(self)
+        mime_data = QMimeData()
+        mime_data.setText(f"shape-row/{self.input_name}/{self.layer_index}")
+        drag.setMimeData(mime_data)
+        
+        pixmap = self.grab()
+        drag.setPixmap(pixmap)
+        drag.setHotSpot(event.position().toPoint())
+        
+        drag.exec(Qt.DropAction.MoveAction)
+
+class ColumnHeaderWidget(QLabel):
+    """열(사분면) 드래그를 위한 헤더 위젯"""
+    def __init__(self, quad_index, input_name):
+        super().__init__("") # 숫자 제거
+        self.quad_index = quad_index
+        self.input_name = input_name
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setFixedSize(30, 8) # 높이 절반으로
+        self.setStyleSheet("background-color: #AAAAAA; color: white; border: 1px solid #777777; border-radius: 0px;") # 회색, 라운딩 제거
+    
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.input_name is not None:
+            self.drag_start_position = event.position().toPoint()
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.MouseButton.LeftButton) or not hasattr(self, 'drag_start_position'):
+            return
+        if (event.position().toPoint() - self.drag_start_position).manhattanLength() < QApplication.startDragDistance():
+            return
+            
+        drag = QDrag(self)
+        mime_data = QMimeData()
+        mime_data.setText(f"shape-col/{self.input_name}/{self.quad_index}")
+        drag.setMimeData(mime_data)
+        
+        pixmap = self.grab()
+        drag.setPixmap(pixmap)
+        drag.setHotSpot(event.position().toPoint())
+        
+        drag.exec(Qt.DropAction.MoveAction)
+
+
 class ShapeWidget(QFrame):
     def __init__(self, shape: Shape, compact=False, title=None):
-        super().__init__(); self.setFrameShape(QFrame.Shape.NoFrame); layout = QVBoxLayout(self)
-        if compact:
-            layout.setSpacing(0)
-            layout.setContentsMargins(2, 2, 2, 2)
-            layout.setAlignment(Qt.AlignmentFlag.AlignBottom)  # 아래 정렬
-            self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        else:
-            layout.setSpacing(1)
-            layout.setContentsMargins(3, 3, 3, 3)
-            layout.setAlignment(Qt.AlignmentFlag.AlignBottom)  # 아래 정렬
-        self.compact = compact
+        super().__init__()
+        self.setFrameShape(QFrame.Shape.NoFrame)
         
-        # 제목이 있으면 먼저 추가
+        self.shape = shape
+        self.title = title
+        self.setAcceptDrops(True)
+
+        # 기본 레이아웃을 QGridLayout으로 변경
+        grid_layout = QGridLayout(self)
+        grid_layout.setSpacing(0) # 간격 제거
+        grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(grid_layout)
+
+        # 제목이 있으면 가장 상단에 추가 (0, 0) 위치, 여러 열에 걸쳐 표시
         if title:
             title_label = QLabel(f"<b>{title}</b>")
             title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            title_label.setContentsMargins(0, 0, 0, 2)
-            layout.addWidget(title_label)
-        
-        clean_shape = shape.copy()
+            title_label.setContentsMargins(0, 0, 0, 4)
+            # 제목은 0행에 배치하고, 그 아래 1행에는 열 헤더가 옴
+            grid_layout.addWidget(title_label, 0, 0, 1, 6) 
+
+        clean_shape = shape.copy() # 이 부분을 다시 추가합니다.
         while len(clean_shape.layers) > 0 and clean_shape.layers[-1].is_empty():
             clean_shape.layers.pop()
 
         if not clean_shape.layers:
-            layout.addWidget(QLabel("완전히 파괴됨"))
+            grid_layout.addWidget(QLabel("완전히 파괴됨"), 2, 1) # 행 번호 2로 조정
             return
 
-        layout.addStretch(1)
+        input_name = None
+        show_headers = False  # 기본적으로 헤더 숨김
+        if self.title and self.title.startswith("입력"):
+            input_name = self.title.split(" ")[1]
+            show_headers = True  # 입력 필드일 때만 헤더 표시
 
-        # 층을 위에서 아래로 표시하기 위해 역순으로 처리
-        for i in reversed(range(len(clean_shape.layers))):
-            layer = clean_shape.layers[i]
+        # 열 헤더 추가 (제목 아래, 도형 위) - 입력 필드일 때만
+        if show_headers:
+            for j in range(4):
+                grid_layout.addWidget(ColumnHeaderWidget(j, input_name), 1, j + 1) # 1행에 배치
+
+        # 층을 아래에서 위로 표시 (1층이 맨 아래)
+        # QGridLayout은 (row, col) 순서
+        num_layers = len(clean_shape.layers)
+        # 실제 도형 셀은 2행부터 시작 (헤더가 있으면 2행, 없으면 1행)
+        start_row = 2 if show_headers else 1
+        for i, layer in enumerate(reversed(clean_shape.layers)):  # reversed 추가
+            row_pos = i + start_row # UI상에서 시작하는 행 번호
             
-            if self.compact:
-                # 컴팩트 모드: 층 번호 없이 사분면만 표시
-                quad_layout = QHBoxLayout()
-                quad_layout.setSpacing(0)
-                quad_layout.setContentsMargins(0, 0, 0, 0)
-                quad_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                # 사분면 순서: 1=TR, 2=TL, 3=BR, 4=BL (시계방향)
-                quad_layout.addWidget(QuadrantWidget(layer.quadrants[0], compact=True))  # 1사분면 (TR)
-                quad_layout.addWidget(QuadrantWidget(layer.quadrants[1], compact=True))  # 2사분면 (BR)
-                quad_layout.addWidget(QuadrantWidget(layer.quadrants[2], compact=True))  # 3사분면 (BL)
-                quad_layout.addWidget(QuadrantWidget(layer.quadrants[3], compact=True))  # 4사분면 (TL)
-                
-                layout.addLayout(quad_layout)
-            else:
-                # 일반 모드: 층 번호와 사분면 함께 표시
-                layer_row = QHBoxLayout()
-                layer_row.setSpacing(2)
-                
-                # 층 번호 라벨 (왼쪽에 표시)
-                layer_label = QLabel(f"<b>{i+1}F</b>")
-                layer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                layer_label.setFixedWidth(30)  # 고정 너비 설정
-                layer_row.addWidget(layer_label)
-                
-                # 각 층의 사분면을 담는 박스 컨테이너
-                layer_container = QFrame()
-                layer_container.setFrameShape(QFrame.Shape.NoFrame)
-                layer_container.setLineWidth(0)
-                layer_layout = QVBoxLayout(layer_container)
-                layer_layout.setSpacing(0)
-                layer_layout.setContentsMargins(1, 1, 1, 1)
-                
-                # 1x4 가로 배치로 사분면 배치 (1사분면부터 4사분면까지)
-                quad_layout = QHBoxLayout()
-                quad_layout.setSpacing(0)
-                # 사분면 순서: 1=TR, 2=TL, 3=BR, 4=BL (시계방향)
-                quad_layout.addWidget(QuadrantWidget(layer.quadrants[0], compact=False))  # 1사분면 (TR)
-                quad_layout.addWidget(QuadrantWidget(layer.quadrants[1], compact=False))  # 2사분면 (BR)
-                quad_layout.addWidget(QuadrantWidget(layer.quadrants[2], compact=False))  # 3사분면 (BL)
-                quad_layout.addWidget(QuadrantWidget(layer.quadrants[3], compact=False))  # 4사분면 (TL)
-                
-                layer_layout.addLayout(quad_layout)
-                layer_row.addWidget(layer_container)
-                
-                layout.addLayout(layer_row)
+            # 행 헤더 추가 - 입력 필드일 때만
+            if show_headers:
+                grid_layout.addWidget(RowHeaderWidget(num_layers - 1 - i, input_name), row_pos, 0)
+
+            # 사분면 추가
+            for j in range(4):
+                grid_layout.addWidget(QuadrantWidget(layer.quadrants[j], compact=compact, layer_index=num_layers - 1 - i, quad_index=j, input_name=input_name), row_pos, j + 1)
+        
+
+            
+    def dragEnterEvent(self, event):
+        mime_text = event.mimeData().text()
+        if mime_text.startswith("shape-quadrant/") or mime_text.startswith("shape-row/") or mime_text.startswith("shape-col/"):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        mime_text = event.mimeData().text()
+        
+        if mime_text.startswith("shape-quadrant/"):
+            self.handle_quadrant_drop(event, mime_text)
+        elif mime_text.startswith("shape-row/"):
+            self.handle_row_drop(event, mime_text)
+        elif mime_text.startswith("shape-col/"):
+            self.handle_column_drop(event, mime_text)
+        else:
+            event.ignore()
+
+    def get_target_indices(self, event):
+        target_widget = self.childAt(event.position().toPoint())
+        
+        temp_widget = target_widget
+        while temp_widget is not None and not (isinstance(temp_widget, QuadrantWidget) or isinstance(temp_widget, RowHeaderWidget) or isinstance(temp_widget, ColumnHeaderWidget)):
+            mapped_point = temp_widget.mapFromGlobal(event.globalPosition().toPoint())
+            temp_widget = temp_widget.childAt(mapped_point)
+        target_widget = temp_widget
+
+        if isinstance(target_widget, QuadrantWidget):
+            return "quadrant", target_widget.input_name, target_widget.layer_index, target_widget.quad_index
+        elif isinstance(target_widget, RowHeaderWidget):
+            return "row", target_widget.input_name, target_widget.layer_index, -1
+        elif isinstance(target_widget, ColumnHeaderWidget):
+            return "col", target_widget.input_name, -1, target_widget.quad_index
+        
+        return None, None, None, None
+
+    def handle_quadrant_drop(self, event, mime_text):
+        parts = mime_text.split('/')
+        if len(parts) != 4: return
+
+        source_input_name, source_layer, source_quad = parts[1], int(parts[2]), int(parts[3])
+        
+        drop_type, target_input_name, target_layer, target_quad = self.get_target_indices(event)
+        
+        if drop_type != "quadrant" or target_input_name is None: return
+
+        if (source_input_name == target_input_name and source_layer == target_layer and source_quad == target_quad):
+            return
+            
+        main_window = self.window()
+        if hasattr(main_window, 'handle_quadrant_drop'):
+            main_window.handle_quadrant_drop(source_input_name, source_layer, source_quad, target_input_name, target_layer, target_quad)
+            event.acceptProposedAction()
+
+    def handle_row_drop(self, event, mime_text):
+        parts = mime_text.split('/')
+        if len(parts) != 3: return
+        
+        source_input_name, source_layer = parts[1], int(parts[2])
+
+        drop_type, target_input_name, target_layer, _ = self.get_target_indices(event)
+
+        if drop_type not in ["row", "quadrant"] or target_input_name is None: return
+
+        if (source_input_name == target_input_name and source_layer == target_layer):
+            return
+
+        main_window = self.window()
+        if hasattr(main_window, 'handle_row_drop'):
+            main_window.handle_row_drop(source_input_name, source_layer, target_input_name, target_layer)
+            event.acceptProposedAction()
+            
+    def handle_column_drop(self, event, mime_text):
+        parts = mime_text.split('/')
+        if len(parts) != 3: return
+
+        source_input_name, source_quad = parts[1], int(parts[2])
+
+        drop_type, target_input_name, _, target_quad = self.get_target_indices(event)
+
+        if drop_type not in ["col", "quadrant"] or target_input_name is None: return
+
+        if (source_input_name == target_input_name and source_quad == target_quad):
+            return
+        
+        main_window = self.window()
+        if hasattr(main_window, 'handle_column_drop'):
+            main_window.handle_column_drop(source_input_name, source_quad, target_input_name, target_quad)
+            event.acceptProposedAction()
 
 class InputHistory:
     """입력 필드의 히스토리를 관리하는 클래스 (A, B 통합)"""
@@ -1578,6 +1790,132 @@ class ShapezGUI(QMainWindow):
         """적용 버튼이 활성화되어 있을 때만 실행"""
         if self.apply_button.isEnabled():
             self.on_apply_outputs()
+    
+    def handle_quadrant_drop(self, src_input_name, src_layer, src_quad,
+                             tgt_input_name, tgt_layer, tgt_quad):
+        """도형 시각화 위젯 간의 드래그 앤 드롭을 처리합니다."""
+        self.log_verbose(f"드롭 이벤트: {src_input_name}[{src_layer}][{src_quad}] -> {tgt_input_name}[{tgt_layer}][{tgt_quad}]")
+
+        src_input_widget = self.input_a if src_input_name == "A" else self.input_b
+        tgt_input_widget = self.input_a if tgt_input_name == "A" else self.input_b
+
+        try:
+            src_shape = Shape.from_string(src_input_widget.text())
+            tgt_shape = Shape.from_string(tgt_input_widget.text()) if src_input_widget != tgt_input_widget else src_shape
+        except Exception as e:
+            self.log(f"🔥 드롭 오류: 도형 코드를 파싱할 수 없습니다. {e}")
+            return
+            
+        # 레이어 확장
+        max_layers = max(len(src_shape.layers), len(tgt_shape.layers), src_layer + 1, tgt_layer + 1)
+        src_shape.pad_layers(max_layers)
+        tgt_shape.pad_layers(max_layers)
+
+        # Quadrant 교환
+        src_quadrant = src_shape.layers[src_layer].quadrants[src_quad]
+        tgt_quadrant = tgt_shape.layers[tgt_layer].quadrants[tgt_quad]
+        
+        src_shape.layers[src_layer].quadrants[src_quad] = tgt_quadrant
+        tgt_shape.layers[tgt_layer].quadrants[tgt_quad] = src_quadrant
+
+        # shape 문자열 업데이트
+        self.history_update_in_progress = True # 히스토리 중복 추가 방지
+        src_input_widget.setText(repr(src_shape))
+        if src_input_widget != tgt_input_widget:
+            tgt_input_widget.setText(repr(tgt_shape))
+        self.history_update_in_progress = False
+
+        # 변경 후 히스토리 추가 및 UI 업데이트
+        self.add_to_history()
+        self.update_input_display()
+
+    def handle_row_drop(self, src_input_name, src_layer_idx, tgt_input_name, tgt_layer_idx):
+        self.log_verbose(f"행 드롭: {src_input_name}[{src_layer_idx}] -> {tgt_input_name}[{tgt_layer_idx}]")
+        
+        src_input_widget = self.input_a if src_input_name == "A" else self.input_b
+        tgt_input_widget = self.input_a if tgt_input_name == "A" else self.input_b
+
+        try:
+            src_shape = Shape.from_string(src_input_widget.text())
+            tgt_shape = Shape.from_string(tgt_input_widget.text()) if src_input_widget != tgt_input_widget else src_shape
+        except Exception as e:
+            self.log(f"🔥 드롭 오류: 도형 코드를 파싱할 수 없습니다. {e}")
+            return
+
+        max_layers = max(len(src_shape.layers), len(tgt_shape.layers), src_layer_idx + 1, tgt_layer_idx + 1)
+        src_shape.pad_layers(max_layers)
+        tgt_shape.pad_layers(max_layers)
+
+        # 행(레이어) 교환
+        moved_layer = src_shape.layers.pop(src_layer_idx)
+        tgt_shape.layers.insert(tgt_layer_idx, moved_layer)
+        
+        # shape 문자열 업데이트
+        self.history_update_in_progress = True
+        src_input_widget.setText(repr(src_shape))
+        if src_input_widget != tgt_input_widget:
+            tgt_input_widget.setText(repr(tgt_shape))
+        self.history_update_in_progress = False
+
+        self.add_to_history()
+        self.update_input_display()
+
+    def handle_column_drop(self, src_input_name, src_quad_idx, tgt_input_name, tgt_quad_idx):
+        self.log_verbose(f"열 드롭: {src_input_name}[{src_quad_idx}] -> {tgt_input_name}[{tgt_quad_idx}]")
+        
+        # 열 교환은 동일한 입력 창 내에서만 의미가 있음
+        if src_input_name != tgt_input_name:
+            self.log("🔥 열 교환은 동일한 입력 창 내에서만 가능합니다.")
+            return
+
+        input_widget = self.input_a if src_input_name == "A" else self.input_b
+        
+        try:
+            shape = Shape.from_string(input_widget.text())
+        except Exception as e:
+            self.log(f"🔥 드롭 오류: 도형 코드를 파싱할 수 없습니다. {e}")
+            return
+            
+        # 모든 레이어에 대해 열(사분면) 교환
+        for layer in shape.layers:
+            quad_to_move = layer.quadrants[src_quad_idx]
+            layer.quadrants[src_quad_idx] = layer.quadrants[tgt_quad_idx]
+            layer.quadrants[tgt_quad_idx] = quad_to_move
+            
+        self.history_update_in_progress = True
+        input_widget.setText(repr(shape))
+        self.history_update_in_progress = False
+        
+        self.add_to_history()
+        self.update_input_display()
+
+    def handle_quadrant_change(self, input_name, layer_index, quad_index, new_quadrant):
+        """셀 내용 변경을 처리합니다."""
+        self.log_verbose(f"셀 변경: {input_name}[{layer_index}][{quad_index}] -> {new_quadrant}")
+        
+        input_widget = self.input_a if input_name == "A" else self.input_b
+        
+        try:
+            shape = Shape.from_string(input_widget.text())
+        except Exception as e:
+            self.log(f"🔥 셀 변경 오류: 도형 코드를 파싱할 수 없습니다. {e}")
+            return
+            
+        # 레이어 확장
+        max_layers = max(len(shape.layers), layer_index + 1)
+        shape.pad_layers(max_layers)
+        
+        # 셀 내용 변경
+        shape.layers[layer_index].quadrants[quad_index] = new_quadrant
+        
+        # shape 문자열 업데이트
+        self.history_update_in_progress = True
+        input_widget.setText(repr(shape))
+        self.history_update_in_progress = False
+        
+        # 변경 후 히스토리 추가 및 UI 업데이트
+        self.add_to_history()
+        self.update_input_display()
     
     # =================== 히스토리 관리 메서드들 ===================
     
@@ -4160,9 +4498,25 @@ class DataTabWidget(QWidget):
                     if shape_code.strip():
                         from shape import Shape
                         shape = Shape.from_string(shape_code.strip())
+                        
+                        # 컴팩트한 컨테이너 생성
+                        container = QFrame()
+                        container.setFrameShape(QFrame.Shape.NoFrame)
+                        container.setContentsMargins(0, 0, 0, 0)
+                        
+                        # 수직 레이아웃으로 중앙 정렬
+                        container_layout = QVBoxLayout(container)
+                        container_layout.setContentsMargins(0, 0, 0, 0)
+                        container_layout.setSpacing(0)
+                        container_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        
+                        # ShapeWidget 생성 (행열버튼 포함)
                         shape_widget = ShapeWidget(shape, compact=True)
                         bg_color_str = "rgb(240, 240, 240)" if is_impossible else "white"
                         shape_widget.setStyleSheet(f"background-color: {bg_color_str}; border: none;")
+                        
+                        # 컨테이너에 ShapeWidget 추가
+                        container_layout.addWidget(shape_widget)
                         
                         layer_count = len(shape.layers)
                         self.data_table.setRowHeight(row, max(30, 20 + layer_count * 30))
@@ -4172,8 +4526,9 @@ class DataTabWidget(QWidget):
                     self.data_table.setRowHeight(row, 30)
 
                 if shape_widget:
-                    self.data_table.setCellWidget(row, 2, shape_widget)
-                    self.visible_shape_widgets[row] = shape_widget
+                    # 컨테이너를 테이블 셀에 추가
+                    self.data_table.setCellWidget(row, 2, container)
+                    self.visible_shape_widgets[row] = container
 
     def _clear_all_shape_widgets(self):
         """모든 시각화 위젯을 테이블에서 제거합니다."""
