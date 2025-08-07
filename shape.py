@@ -637,6 +637,257 @@ class Shape:
     def is_stable(self) -> bool:
         return repr(self.apply_physics()) == repr(self)
 
+    def hybrid(self) -> tuple[Shape, Shape]:
+        """하이브리드 함수: 입력을 마스크 기반으로 두 부분으로 분리합니다."""
+        # 1. 각 셀에 대응되는 (사분면x층) 크기의 임시 마스크를 만듭니다 (1로 초기화)
+        mask = {}
+        for l in range(len(self.layers)):
+            for q in range(4):
+                mask[(l, q)] = 1
+        
+        # 3. 각 사분면의 가장 높은 크리스탈을 찾습니다
+        for q in range(4):
+            highest_crystal_layer = -1
+            for l in range(len(self.layers) - 1, -1, -1):  # 위에서부터 탐색
+                piece = self._get_piece(l, q)
+                if piece and piece.shape == 'c':
+                    highest_crystal_layer = l
+                    break
+            
+            # 각 크리스탈과 그 아래는 모두 마스크 영역을 0로 만듭니다
+            if highest_crystal_layer >= 0:
+                for l in range(highest_crystal_layer + 1):  # 해당 층과 그 아래 모든 층
+                    mask[(l, q)] = 0
+        
+        # 4. 수정된 물리 적용으로 불안정한 도형 검사 (층별 순차 처리)
+        # 맨 위 층부터 순서대로 아래로 진행
+        for current_layer in range(len(self.layers) - 1, -1, -1):  # 맨 위부터 아래로
+            # 현재 층에서 마스크 1인 부분만 추출하여 임시 도형 생성
+            temp_layers = []
+            for l in range(len(self.layers)):
+                temp_quadrants = [None] * 4
+                for q in range(4):
+                    if mask.get((l, q), 0) == 1:
+                        piece = self._get_piece(l, q)
+                        if piece:
+                            temp_quadrants[q] = piece.copy()
+                temp_layers.append(Layer(temp_quadrants))
+            
+            temp_shape = Shape(temp_layers)
+            
+            # 현재 층에서 불안정한 도형 탐색
+            unstable_coords = self._find_unstable_at_layer(temp_shape, current_layer, mask)
+            
+            # 불안정한 도형과 그 아래의 마스크를 0으로 만듭니다
+            for l, q in unstable_coords:
+                for below_l in range(l + 1):  # 해당 층과 그 아래 모든 층
+                    mask[(below_l, q)] = 0
+        
+        # 2. 출력 A (마스크 0 부분만), 출력 B (마스크 1 부분만)
+        output_a_layers = []
+        output_b_layers = []
+        
+        for l in range(len(self.layers)):
+            layer_a_quadrants = [None] * 4
+            layer_b_quadrants = [None] * 4
+            
+            for q in range(4):
+                piece = self._get_piece(l, q)
+                if piece:
+                    if mask.get((l, q), 0) == 0:
+                        layer_a_quadrants[q] = piece.copy()
+                    else:
+                        layer_b_quadrants[q] = piece.copy()
+            
+            output_a_layers.append(Layer(layer_a_quadrants))
+            output_b_layers.append(Layer(layer_b_quadrants))
+        
+        output_a = Shape(output_a_layers)
+        output_b = Shape(output_b_layers)
+        
+        # 빈 레이어 제거
+        while len(output_a.layers) > 0 and output_a.layers[-1].is_empty():
+            output_a.layers.pop()
+        while len(output_b.layers) > 0 and output_b.layers[-1].is_empty():
+            output_b.layers.pop()
+        
+        # B 출력에서 각 레이어별로 ----로 아예 빈 층 제거
+        # 모든 빈 레이어를 제거 (위에서부터 순서대로)
+        i = len(output_b.layers) - 1
+        while i >= 0:
+            current_layer = output_b.layers[i]
+            is_empty_layer = True
+            for q in range(4):
+                if current_layer.quadrants[q] is not None:
+                    is_empty_layer = False
+                    break
+            if is_empty_layer:
+                output_b.layers.pop(i)
+            i -= 1
+        
+        # max_layers 설정
+        output_a.max_layers = self.max_layers
+        output_b.max_layers = self.max_layers
+        
+        return output_a, output_b
+
+    def _find_unstable_at_layer(self, temp_shape: Shape, target_layer: int, mask: dict) -> set:
+        """특정 층에서 불안정한 좌표를 찾습니다."""
+        # 지지 계산 (마스크 1 부분에서만)
+        supported = set()
+        
+        # 0층은 무조건 지지됨
+        for q in range(4):
+            if mask.get((0, q), 0) == 1 and temp_shape._get_piece(0, q):
+                supported.add((0, q))
+        
+        # 마스크 0인 부분 아래의 도형들도 지지됨 (절대 지지성)
+        for l in range(len(self.layers)):
+            for q in range(4):
+                if mask.get((l, q), 0) == 1 and temp_shape._get_piece(l, q):
+                    # 바로 아래가 마스크 0이면 지지됨
+                    if l > 0 and mask.get((l-1, q), 0) == 0:
+                        supported.add((l, q))
+        
+        # 연결성 기반 지지 전파
+        while True:
+            num_supported_before = len(supported)
+            visited_groups = set()
+            
+            for l_start in range(len(temp_shape.layers)):
+                for q_start in range(4):
+                    coord = (l_start, q_start)
+                    if (coord not in visited_groups and 
+                        mask.get(coord, 0) == 1 and 
+                        temp_shape._get_piece(*coord)):
+                        
+                        group = temp_shape._find_connected_group(l_start, q_start)
+                        # 마스크 1인 부분만 필터링
+                        mask_filtered_group = {c for c in group if mask.get(c, 0) == 1}
+                        
+                        if any(c in supported for c in mask_filtered_group):
+                            supported.update(mask_filtered_group)
+                        visited_groups.update(mask_filtered_group)
+            
+            # 수직 지지 확인
+            for l in range(len(temp_shape.layers)):
+                for q in range(4):
+                    coord = (l, q)
+                    if (coord in supported or 
+                        mask.get(coord, 0) != 1 or 
+                        not temp_shape._get_piece(*coord)):
+                        continue
+                    
+                    piece = temp_shape._get_piece(l, q)
+                    if l > 0 and (l - 1, q) in supported:
+                        supported.add(coord)
+                    elif piece and piece.shape != 'P':
+                        # 수평 연결 지지
+                        for nq in range(4):
+                            if self._is_adjacent(q, nq):
+                                neighbor_coord = (l, nq)
+                                if neighbor_coord in supported:
+                                    supporter = temp_shape._get_piece(*neighbor_coord)
+                                    if supporter and supporter.shape != 'P':
+                                        supported.add(coord)
+                                        break
+            
+            if len(supported) == num_supported_before:
+                break
+        
+        # 불안정한 좌표 찾기 (마스크 1인 부분 중 지지되지 않은 부분)
+        all_mask1_coords = {(l, q) for l in range(len(self.layers)) 
+                           for q in range(4) 
+                           if mask.get((l, q), 0) == 1 and self._get_piece(l, q)}
+        unstable_coords = all_mask1_coords - supported
+        
+        return unstable_coords
+
+    def _find_unstable_with_mask(self, mask: dict) -> set:
+        """마스크를 고려하여 불안정한 좌표를 찾습니다."""
+        # 마스크 1인 부분만 추출한 임시 도형 생성
+        temp_layers = []
+        for l in range(len(self.layers)):
+            temp_quadrants = [None] * 4
+            for q in range(4):
+                if mask.get((l, q), 0) == 1:
+                    piece = self._get_piece(l, q)
+                    if piece:
+                        temp_quadrants[q] = piece.copy()
+            temp_layers.append(Layer(temp_quadrants))
+        
+        temp_shape = Shape(temp_layers)
+        
+        # 지지 계산 (마스크 1 부분에서만)
+        supported = set()
+        
+        # 0층은 무조건 지지됨
+        for q in range(4):
+            if mask.get((0, q), 0) == 1 and temp_shape._get_piece(0, q):
+                supported.add((0, q))
+        
+        # 마스크 0인 부분 아래의 도형들도 지지됨 (절대 지지성)
+        for l in range(len(self.layers)):
+            for q in range(4):
+                if mask.get((l, q), 0) == 1 and temp_shape._get_piece(l, q):
+                    # 바로 아래가 마스크 0이면 지지됨
+                    if l > 0 and mask.get((l-1, q), 0) == 0:
+                        supported.add((l, q))
+        
+        # 연결성 기반 지지 전파
+        while True:
+            num_supported_before = len(supported)
+            visited_groups = set()
+            
+            for l_start in range(len(temp_shape.layers)):
+                for q_start in range(4):
+                    coord = (l_start, q_start)
+                    if (coord not in visited_groups and 
+                        mask.get(coord, 0) == 1 and 
+                        temp_shape._get_piece(*coord)):
+                        
+                        group = temp_shape._find_connected_group(l_start, q_start)
+                        # 마스크 1인 부분만 필터링
+                        mask_filtered_group = {c for c in group if mask.get(c, 0) == 1}
+                        
+                        if any(c in supported for c in mask_filtered_group):
+                            supported.update(mask_filtered_group)
+                        visited_groups.update(mask_filtered_group)
+            
+            # 수직 지지 확인
+            for l in range(len(temp_shape.layers)):
+                for q in range(4):
+                    coord = (l, q)
+                    if (coord in supported or 
+                        mask.get(coord, 0) != 1 or 
+                        not temp_shape._get_piece(*coord)):
+                        continue
+                    
+                    piece = temp_shape._get_piece(l, q)
+                    if l > 0 and (l - 1, q) in supported:
+                        supported.add(coord)
+                    elif piece and piece.shape != 'P':
+                        # 수평 연결 지지
+                        for nq in range(4):
+                            if self._is_adjacent(q, nq):
+                                neighbor_coord = (l, nq)
+                                if neighbor_coord in supported:
+                                    supporter = temp_shape._get_piece(*neighbor_coord)
+                                    if supporter and supporter.shape != 'P':
+                                        supported.add(coord)
+                                        break
+            
+            if len(supported) == num_supported_before:
+                break
+        
+        # 불안정한 좌표 찾기 (마스크 1인 부분 중 지지되지 않은 부분)
+        all_mask1_coords = {(l, q) for l in range(len(self.layers)) 
+                           for q in range(4) 
+                           if mask.get((l, q), 0) == 1 and self._get_piece(l, q)}
+        unstable_coords = all_mask1_coords - supported
+        
+        return unstable_coords
+
 class InterruptedError(Exception):
     """A custom exception for cancelling the worker thread."""
     pass

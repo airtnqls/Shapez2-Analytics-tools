@@ -5,17 +5,19 @@ import re
 
 class ShapeType(Enum):
     """도형 분류 타입"""
-    IMPOSSIBLE = "불가능형"
     EMPTY = "빈_도형"
+    SIMPLE_CORNER = "단순_모서리"
+    STACK_CORNER = "스택_모서리"
+    SWAP_CORNER = "스왑_모서리"
+    CLAW_CORNER = "클로_모서리"
     SIMPLE_GEOMETRIC = "단순_기하형"
-    PIN_INCLUDED = "핀_포함형"
-    CLAW = "클로"
-    HYBRID = "하이브리드"
     SWAPABLE = "스왑가능형"
-    SIMPLE_CORNER = "단순모서리"
-    STACK_CORNER = "스택모서리"
-    SWAP_CORNER = "스왑모서리"
-    CLAW_CORNER = "클로모서리"
+    HYBRID = "하이브리드"
+    COMPLEX_HYBRID = "복합_하이브리드"
+    CLAW = "클로"
+    CLAW_HYBRID = "클로_하이브리드"
+    CLAW_COMPLEX_HYBRID = "클로_복합_하이브리드"
+    IMPOSSIBLE = "불가능형"
 
 
 def get_piece(shape: str, layer: int, quadrant: int) -> str:

@@ -914,6 +914,11 @@ class ShapezGUI(QMainWindow):
         self.cornerize_btn.setToolTip("문자 사이에 ':'를 추가합니다.\n\n예시:\n입력: ABC\n출력: A:B:C")
         data_process_layout.addWidget(self.cornerize_btn, 3, 1)
         
+        self.hybrid_btn = QPushButton("하이브리드")
+        self.hybrid_btn.clicked.connect(self.on_hybrid)
+        self.hybrid_btn.setToolTip("도형을 하이브리드 분석을 통해 두 부분으로 분리합니다.\n\n기능:\n1. 크리스탈 위치 기반 마스크 생성\n2. 물리적 안정성 검사\n3. 출력 A: 마스크 0 부분\n4. 출력 B: 마스크 1 부분")
+        data_process_layout.addWidget(self.hybrid_btn, 3, 2)
+        
         left_panel.addWidget(data_process_group)
         
         left_panel.addStretch(1); 
@@ -2158,7 +2163,19 @@ class ShapezGUI(QMainWindow):
                 shape_code = current_tab.data[i]
                 try:
                     result = process_func(shape_code)
-                    result_data_map[i] = result
+                    # 리스트 결과인 경우 (하이브리드 등)
+                    if isinstance(result, list):
+                        # 리스트의 각 항목을 별도 행으로 추가
+                        for j, item in enumerate(result):
+                            if j == 0:
+                                result_data_map[i] = item
+                            else:
+                                # 새로운 행을 추가
+                                new_index = len(current_tab.data)
+                                current_tab.data.append(item)
+                                result_data_map[new_index] = item
+                    else:
+                        result_data_map[i] = result
                 except Exception as e:
                     result_data_map[i] = f"오류: {str(e)}"
                     error_count += 1
@@ -2189,16 +2206,32 @@ class ShapezGUI(QMainWindow):
             if input_a_str:
                 try:
                     result_a = process_func(input_a_str)
-                    self.input_a.setText(result_a)
-                    self.log_verbose(f"입력 A에 {operation_name} 적용: {result_a}")
+                    # 리스트 결과인 경우 (하이브리드 등)
+                    if isinstance(result_a, list):
+                        if len(result_a) >= 1:
+                            self.input_a.setText(result_a[0])
+                            if len(result_a) >= 2:
+                                self.input_b.setText(result_a[1])
+                        self.log_verbose(f"입력 A에 {operation_name} 적용: A={result_a[0] if result_a else ''}, B={result_a[1] if len(result_a) > 1 else ''}")
+                    else:
+                        self.input_a.setText(result_a)
+                        self.log_verbose(f"입력 A에 {operation_name} 적용: {result_a}")
                 except Exception as e:
                     self.log(f"입력 A {operation_name} 오류: {str(e)}")
             
             if input_b_str:
                 try:
                     result_b = process_func(input_b_str)
-                    self.input_b.setText(result_b)
-                    self.log_verbose(f"입력 B에 {operation_name} 적용: {result_b}")
+                    # 리스트 결과인 경우 (하이브리드 등)
+                    if isinstance(result_b, list):
+                        if len(result_b) >= 1:
+                            self.input_a.setText(result_b[0])
+                            if len(result_b) >= 2:
+                                self.input_b.setText(result_b[1])
+                        self.log_verbose(f"입력 B에 {operation_name} 적용: A={result_b[0] if result_b else ''}, B={result_b[1] if len(result_b) > 1 else ''}")
+                    else:
+                        self.input_b.setText(result_b)
+                        self.log_verbose(f"입력 B에 {operation_name} 적용: {result_b}")
                 except Exception as e:
                     self.log(f"입력 B {operation_name} 오류: {str(e)}")
             
@@ -2440,8 +2473,27 @@ class ShapezGUI(QMainWindow):
         
         self.process_data_operation("cornerize", cornerize_shape)
     
+    def on_hybrid(self):
+        """하이브리드 버튼 클릭 시 호출 - 도형을 두 부분으로 분리"""
+        def hybrid_shape(shape_code: str) -> list[str]:
+            try:
+                if not shape_code.strip():
+                    return ["", ""]
+                
+                shape = Shape.from_string(shape_code)
+                output_a, output_b = shape.hybrid()
+                
+                # 두 개의 별도 결과 반환
+                result_a = repr(output_a) if output_a.layers else ""
+                result_b = repr(output_b) if output_b.layers else ""
+                
+                return [result_a, result_b]
+                    
+            except Exception as e:
+                return [f"오류: {str(e)}", ""]
+        
+        self.process_data_operation("hybrid", hybrid_shape)
 
-    
     def on_browse_file(self):
         """파일 찾아보기 대화상자 열기 및 자동 로드"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -3169,6 +3221,7 @@ class ShapezGUI(QMainWindow):
         self.reverse_btn.setText("역순")
         self.corner_btn.setText("Corner")
         self.claw_btn.setText("Claw")
+        self.hybrid_btn.setText("하이브리드")
         
         # 데이터 처리 버튼들의 클릭 이벤트는 이미 대량처리를 지원하므로 그대로 유지
         
@@ -3244,6 +3297,7 @@ class ShapezGUI(QMainWindow):
         self.reverse_btn.setText("역순")
         self.corner_btn.setText("Corner")
         self.claw_btn.setText("Claw")
+        self.hybrid_btn.setText("하이브리드")
 
     def on_log_level_changed(self):
         """상세 로그 표시 설정이 변경되었을 때 로그를 다시 렌더링합니다."""
