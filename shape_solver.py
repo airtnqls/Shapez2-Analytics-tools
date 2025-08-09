@@ -128,9 +128,10 @@ def solve_shape_simple(shape: str, shape_obj: Shape = None) -> str:
 
 if __name__ == "__main__":
     # 테스트 코드
+    from i18n import _
     test_shapes = [
         "SSSS:----",  # 단순 기하형
-        "SSSS:cccc",  # 클로 가능성
+        "SSSS:cccc",  # _("solver.test.claw_possibility")
         "SSSS:----:SSSS",  # 스왑 가능성
         "S---:----:----:----"  # 모서리형
     ]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from enum import Enum
 import re
+from i18n import _
 
 
 class ShapeType(Enum):
@@ -106,7 +107,7 @@ def _check_impossible_patterns(pillars: list[str]) -> tuple[str | None, str | No
     for pillar_idx, pillar in enumerate(pillars):
         for pattern, description in impossible_patterns_for_type:
             if re.search(pattern, pillar):
-                return ShapeType.IMPOSSIBLE.value, f"사분면 {pillar_idx+1}에서 {description} 위반"
+                return ShapeType.IMPOSSIBLE.value, _("analyzer.impossible.violation", quadrant=pillar_idx+1, rule=description)
     
     return None, None
 
@@ -122,9 +123,9 @@ def _get_initial_shape_classification(shape: str) -> tuple[str, str]:
         tuple[str, str]: (분류_결과, 분류_사유)
     """
     if shape.strip() == "" or shape.replace("-", "").replace(":", "") == "":
-        return ShapeType.EMPTY.value, "도형이 비어있음"
+        return ShapeType.EMPTY.value, _("analyzer.empty")
     elif 'c' not in shape:  # 크리스탈이 없는 경우 최우선 단순기하형
-        return ShapeType.SIMPLE_GEOMETRIC.value, "크리스탈 없음"
+        return ShapeType.SIMPLE_GEOMETRIC.value, _("analyzer.no_crystal")
     else:  # 크리스탈이 포함된 경우, 추가 분류가 필요함을 알림
         return ShapeType.SIMPLE_GEOMETRIC.value, ""
 
@@ -257,7 +258,7 @@ def _handle_crystal_free_classification(initial_swap_diagnosis: str | None, foun
         tuple[str, list[str]]: (분류_타입, 사유_리스트)
     """
     classification_type = ShapeType.SIMPLE_GEOMETRIC.value
-    reasons = ["크리스탈 없음"]
+    reasons = [_("analyzer.no_crystal")]
     
     # 스왑 상태를 사유에 추가
     if initial_swap_diagnosis is not None:
@@ -265,7 +266,7 @@ def _handle_crystal_free_classification(initial_swap_diagnosis: str | None, foun
     
     # 기타 제한사항 추가
     if found_limitations:
-        reasons.append(", ".join(sorted(list(found_limitations))))
+        reasons.append(_("analyzer.limitations", list=", ".join(sorted(list(found_limitations)))))
     
     return classification_type, reasons
 
@@ -356,18 +357,18 @@ def _classify_layer_removal_case(base_reason: str, removed_hybrid_layers_content
     # CLAW_INCLUDED 또는 HYBRID로 분류
     if any('c' in layer_content for layer_content in removed_hybrid_layers_content):
         classification_type = ShapeType.CLAW.value
-        if base_reason and base_reason not in reasons and not (base_reason == ""):
+        if base_reason and base_reason not in reasons and base_reason != "":
             reasons.insert(0, base_reason)
-        reasons.append("Claw")
+        reasons.append(_("analyzer.claw"))
     else:
         classification_type = ShapeType.HYBRID.value
         if base_reason and base_reason not in reasons and base_reason != ShapeType.SIMPLE_GEOMETRIC.value:
             reasons.insert(0, base_reason)
-        reasons.append("Hybrid")
+        reasons.append(_("analyzer.hybrid"))
     
     # 남은 층 수 추가
     remaining_layers_count = len(current_working_shape_obj.layers) if current_working_shape_obj else 0
-    reasons.append(f"남은 층 수: {remaining_layers_count}")
+    reasons.append(_("analyzer.remaining_layers", n=remaining_layers_count))
     
     # 최종 스왑 상태 추가
     if final_swap_status_after_loop is not None:
@@ -442,7 +443,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         is_claw_corner_pattern = re.search(r'-S-+c', q1_pillar)
 
         # 핀 사유 공통 처리
-        pin_reason = "핀" if has_pin_at_bottom else ""
+        pin_reason = _("analyzer.pin") if has_pin_at_bottom else ""
         
         # 클로모서리: -S-+c 패턴으로 인해 스왑X로 판정받은 경우
         if is_claw_corner_pattern:
@@ -459,7 +460,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     # ========== 2단계: 기존 분류 로직 (모서리가 아닌 경우) ==========
     # 물리 안정성 검사
     if shape_obj and not check_physics_stability(shape_obj):
-        return ShapeType.IMPOSSIBLE.value, "룰0. Unstable or -P"
+        return ShapeType.IMPOSSIBLE.value, _("analyzer.rule0.unstable_or_pin")
     
     # 불가능 패턴 검사
     impossible_type, impossible_reason = _check_impossible_patterns(pillars)
@@ -472,7 +473,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     initial_swap_diagnosis = _check_swap_impossibility(shape_obj)
 
     # ========== 3단계: 분류 로직 분기 ==========
-    if base_reason == "크리스탈 없음":
+    if base_reason == _("analyzer.no_crystal"):
         # 크리스탈 없는 단순 기하형 처리
         final_classification_type, final_reasons = _handle_crystal_free_classification(
             initial_swap_diagnosis, found_limitations
@@ -505,25 +506,25 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
 
         # ========== 6단계: 기타 제한사항 추가 ==========
         if found_limitations:
-            final_reasons.append(", ".join(sorted(list(found_limitations))))
+            final_reasons.append(_("analyzer.limitations", list=", ".join(sorted(list(found_limitations)))))
 
     # ========== 7단계: 최종 결과 반환 ==========
     # 클로 추가 검사
     if final_classification_type == ShapeType.CLAW.value:
         # claw_process 검증 수행
         claw_verified = False
-        claw_reason = "클로불가능"
+        claw_reason = _("analyzer.claw.impossible")
         if shape_obj:
             try:
                 claw_verified, claw_reason = verify_claw_process(repr(shape_obj))
             except Exception as e:
-                final_reasons.append(f"클로 검증 오류: {e}")
+                final_reasons.append(_("analyzer.claw.verification_error", error=str(e)))
                 claw_verified = False
-                claw_reason = "클로불가능"
+                claw_reason = _("analyzer.claw.impossible")
 
         if claw_verified:
             final_reasons.clear()
-            final_reasons.append("클로가능")
+            final_reasons.append(_("analyzer.claw.possible"))
         else:
             final_reasons.clear()
             final_reasons.append(claw_reason)
@@ -538,11 +539,11 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         if pin_count <= 1:
             final_classification_type = ShapeType.IMPOSSIBLE.value
             final_reasons.clear()
-            final_reasons.append("클로 룰1. 1F: P<2")
+            final_reasons.append(_("analyzer.claw.rule1"))
         elif crystal_in_first_layer:
             final_classification_type = ShapeType.IMPOSSIBLE.value
             final_reasons.clear()
-            final_reasons.append("클로 룰2. 1F: c>0")
+            final_reasons.append(_("analyzer.claw.rule2"))
 
     final_reason_string = _finalize_reasons(final_reasons)
     return final_classification_type, final_reason_string
@@ -556,29 +557,29 @@ def verify_claw_process(original_shape_str: str) -> tuple[bool, str]:
 
     # 2. 클로 프로세스 적용
     from claw_tracer import claw_process
-    processed_shape = Shape.from_string(claw_process(original_shape_str))
+    processed_shape_str = claw_process(original_shape_str)
+    processed_shape = Shape.from_string(processed_shape_str)
     
     # 3. processed_shape에 push_pin을 적용
     push_pinned_result = processed_shape.push_pin()
 
     # 4. push_pinned_result와 original_shape가 동일한지 비교
     if repr(push_pinned_result) != original_shape_str:
-        return False, "클로불가능"
+        return False, _("analyzer.claw.impossible")
     
     # 5. 클로 프로세스 이후 도형 분류 검사
     try:
         processed_shape_str = repr(processed_shape)
-        classification_type, _ = analyze_shape(processed_shape_str, processed_shape)
+        classification_type, classification_reason = analyze_shape(processed_shape_str, processed_shape)
         
         # '스왑가능형'이 포함되지 않으면 불가능으로 판정
-        if "스왑가능형" not in classification_type:
-            return False, "클로스왑불가능"
+        if ShapeType.SWAPABLE.value not in classification_type:
+            return False, _("analyzer.claw.swap_impossible")
             
     except Exception as e:
-        # 로그 출력 대신 조용히 처리
-        return False, "클로불가능"
+        return False, _("analyzer.claw.impossible")
     
-    return True, "클로가능"
+    return True, _("analyzer.claw.possible")
 
 
 def analyze_shape_simple(shape: str, shape_obj=None) -> str:

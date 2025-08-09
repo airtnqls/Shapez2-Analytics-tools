@@ -7,6 +7,7 @@ Claw 분석을 실행하는 스크립트
 from claw_tracer import _log
 from shape_analyzer import analyze_shape
 from shape import Shape
+from i18n import _
 import sys
 import os
 
@@ -15,7 +16,7 @@ def analyze_claws_from_file(input_filepath: str, output_filepath: str):
     주어진 입력 파일에서 도형 코드를 읽어 클로 가능/불가능을 판별하고,
     클로 불가능한 도형 코드만 새 파일에 저장합니다.
     """
-    _log(f"DEBUG: {input_filepath} 파일에서 클로 불가능 도형 분석 시작.")
+    _log(f"DEBUG: {_('run_analysis.start', input_filepath=input_filepath)}")
     
     impossible_shapes = []
     total_shapes = 0
@@ -36,30 +37,30 @@ def analyze_claws_from_file(input_filepath: str, output_filepath: str):
                     # "클로불가능" 또는 "클로 룰1" 또는 "클로 룰2"가 사유에 포함된 경우 불가능으로 간주
                     if "불가능" in reason or "클로 룰" in reason or "불가능" in result:
                         impossible_shapes.append(shape_code)
-                        _log(f"DEBUG: {shape_code} - 클로불가능 (사유: {reason})")
+                        _log(f"DEBUG: {_('run_analysis.claw_impossible', shape_code=shape_code, reason=reason)}")
                     else:
-                        _log(f"DEBUG: {shape_code} - 클로가능 (사유: {reason})")
+                        _log(f"DEBUG: {_('run_analysis.claw_possible', shape_code=shape_code, reason=reason)}")
                         
                 except Exception as e:
-                    _log(f"ERROR: 도형 코드 '{shape_code}' (줄 {line_num}) 처리 중 오류 발생: {e}")
+                    _log(f"ERROR: {_('run_analysis.error.processing', shape_code=shape_code, line_num=line_num, error=str(e))}")
                     impossible_shapes.append(f"{shape_code} # 오류 발생: {e}")
                     
     except FileNotFoundError:
-        _log(f"ERROR: 입력 파일 '{input_filepath}'를 찾을 수 없습니다.")
+        _log(f"ERROR: {_('run_analysis.error.file_not_found', input_filepath=input_filepath)}")
         return
     except Exception as e:
-        _log(f"ERROR: 파일 읽기 중 예상치 못한 오류 발생: {e}")
+        _log(f"ERROR: {_('run_analysis.error.file_read', error=str(e))}")
         return
         
-    _log(f"DEBUG: 총 {total_shapes}개 도형 중 {len(impossible_shapes)}개 클로 불가능 도형 발견.")
+    _log(f"DEBUG: {_('run_analysis.summary', total_shapes=total_shapes, impossible_count=len(impossible_shapes))}")
     
     try:
         with open(output_filepath, 'a', encoding='utf-8') as outfile:
             for shape_code in impossible_shapes:
                 outfile.write(shape_code + '\n')
-        _log(f"DEBUG: 클로 불가능 도형 코드를 '{output_filepath}'에 성공적으로 추가했습니다.")
+        _log(f"DEBUG: {_('run_analysis.success.write', output_filepath=output_filepath)}")
     except Exception as e:
-        _log(f"ERROR: 출력 파일 '{output_filepath}' 쓰기 중 오류 발생: {e}")
+        _log(f"ERROR: {_('run_analysis.error.write', output_filepath=output_filepath, error=str(e))}")
 
 def main():
     # 기본 파일 경로 설정

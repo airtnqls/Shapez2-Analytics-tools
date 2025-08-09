@@ -1,0 +1,41 @@
+---
+description: |
+  Shapez2 프로젝트의 GUI 텍스트 로컬라이제이션 가이드.
+  - 모든 새 GUI 문자열은 키 기반 번역으로 추가하세요.
+  - 문자열과 변수를 섞을 때는 문장 전체를 번역 키에 넣고 .format 변수로 치환하세요.
+  - 로그는 제외하고 GUI만 번역합니다.
+
+globs:
+  - "**/*.py"
+  - "locales/*.json"
+
+alwaysApply: true
+---
+
+규칙:
+1) 파이썬 코드에서 새 텍스트를 추가할 때
+   - 직접 문자열 리터럴 대신 i18n 키를 사용하세요.
+     예) label.setText(_("ui.input.a"))
+   - 변수 포함 문장: _("error.input.b.parse", error=str(e))
+   - 기존 한글/영문 리터럴을 급히 처리해야 할 경우, i18n 별칭(_ALIASES)에 해당 리터럴→키 매핑을 추가하고 코드에서는 _(원문리터럴)로 감싸 임시 사용 가능합니다.
+
+2) 리소스 파일 업데이트
+   - `locales/ko.json`, `locales/en.json`에 동일한 키를 추가하고, 문장 전체를 자연스럽게 번역하세요.
+   - 새 키 네이밍 원칙: ui.<영역>.<요소>(.<옵션/상태>)
+   - 예) ui.btn.rotate90, ui.tabs.analysis_tools, ui.tooltips.apply_outputs
+
+3) 언어 전환 시 주의
+   - UI 위젯은 `_retranslate_ui()`에서 한 번에 갱신되도록 참조를 보관하세요.
+   - 콤보박스 옵션 같은 목록 항목은 clear 후 addItems로 재구성하세요.
+   - 로그 텍스트는 현 단계에서 로컬라이징 대상이 아닙니다.
+
+4) 금지 사항
+   - GUI 코드에 하드코딩된 문장 유지 금지 (임시는 _ALIASES로 래핑).
+   - 문자열 결합으로 문장을 만들지 마세요. 항상 전체 문장을 번역 키로 관리하세요.
+
+체크리스트(새 텍스트 추가 시):
+- [ ] 코드에 `from i18n import _` 있는가?
+- [ ] 문자열을 키로 치환했는가?
+- [ ] 필요한 변수는 format 인자로 넘기는가? _(key, var=value)
+- [ ] ko/en JSON 모두에 동일 키 추가했는가?
+- [ ] `_retranslate_ui()`에 해당 위젯 반영(또는 그룹 리프레시) 했는가?
