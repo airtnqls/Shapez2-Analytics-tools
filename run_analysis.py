@@ -64,7 +64,7 @@ def analyze_claws_from_file(input_filepath: str, output_filepath: str):
 
 def main():
     # 기본 파일 경로 설정
-    input_file = 'data/all40171clawsnohybrid.txt'
+    input_file = 'data/all40171clawsnohybrid_복제.txt'
     output_file = 'data/claw_impossible_shapes.txt'
     
     # 명령행 인수가 제공된 경우 사용

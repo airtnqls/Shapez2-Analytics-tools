@@ -2361,28 +2361,41 @@ class ShapezGUI(QMainWindow):
             QMessageBox.information(self, _("ui.msg.title.info"), _("ui.msg.no_data"))
             return
         
-        # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 전체
+        # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 현재 필터(검색)로 보이는 행만
         selected_rows = current_tab.data_table.selectionModel().selectedRows()
         if selected_rows:
             indices_to_process = [idx.row() for idx in sorted(selected_rows, key=lambda x: x.row())]
             self.log_verbose(f"선택된 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
         else:
-            indices_to_process = range(len(current_tab.data))
-            self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
+            visible_indices = [row for row in range(current_tab.data_table.rowCount()) if not current_tab.data_table.isRowHidden(row)]
+            if visible_indices:
+                indices_to_process = visible_indices
+                self.log_verbose(f"검색 결과의 보이는 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
+            else:
+                indices_to_process = range(len(current_tab.data))
+                self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
         
-        # 작업 전 현재 상태를 히스토리에 저장
-        current_tab.add_to_data_history(f"작업 전 ({operation_name})")
-        
-        # 결과 데이터 저장
-        result_data_map = {}
-        error_count = 0
-        
-        for i in indices_to_process:
-            shape_code = current_tab.data[i]
-            try:
-                shape = Shape.from_string(shape_code)
+        # 5천 개 초과 시 비동기 처리 + 진행 상황 표시/취소 지원
+        total_count = len(indices_to_process)
+        if total_count > 5000:
+            # 진행 대화상자
+            progress = QProgressDialog(self)
+            progress.setWindowTitle(_("ui.msg.title.info"))
+            progress.setLabelText(_("ui.progress.batch_running"))
+            progress.setCancelButtonText(_("ui.progress.cancel"))
+            progress.setRange(0, total_count)
+            progress.setAutoClose(False)
+            progress.setAutoReset(False)
+            progress.show()
+
+            # 롤백을 위한 스냅샷 저장
+            original_data_snapshot = list(current_tab.data)
+
+            # 처리 함수 어댑터
+            def process_adapter(code: str, idx_in_data: int):
+                shape = Shape.from_string(code)
                 result_shape = None
-                
+                append_values = []
                 if operation_name == "destroy_half":
                     result_shape = shape.destroy_half()
                 elif operation_name == "push_pin":
@@ -2402,14 +2415,101 @@ class ShapezGUI(QMainWindow):
                 elif operation_name == "crystal_generator":
                     result_shape = shape.crystal_generator(self.crystal_color.currentText())
                 elif operation_name == "classifier":
-                    classification_result, classification_reason = shape.classifier()
-                    result_data_map[i] = f"{classification_result} ({classification_reason})"
+                    cls_res, cls_reason = shape.classifier()
+                    return f"{cls_res} ({cls_reason})", []
+                elif operation_name == "simple_cutter":
+                    res_a, res_b = shape.simple_cutter()
+                    append_values.append(repr(res_b))
+                    return repr(res_a), append_values
+                elif operation_name == "quad_cutter":
+                    res_a, res_b, res_c, res_d = shape.quad_cutter()
+                    append_values.extend([repr(res_b), repr(res_c), repr(res_d)])
+                    return repr(res_a), append_values
+                elif operation_name == "half_cutter":
+                    res_a, res_b = shape.half_cutter()
+                    append_values.append(repr(res_b))
+                    return repr(res_a), append_values
+                elif operation_name == "stack":
+                    input_b_text = self.input_b.text().strip()
+                    if not input_b_text:
+                        return _("error.input.b.empty"), []
+                    shape_b = Shape.from_string(input_b_text)
+                    result_shape = Shape.stack(shape, shape_b)
+                elif operation_name == "swap":
+                    input_b_text = self.input_b.text().strip()
+                    if not input_b_text:
+                        return _("error.input.b.empty"), []
+                    shape_b = Shape.from_string(input_b_text)
+                    result_a, result_b = Shape.swap(shape, shape_b)
+                    append_values.append(repr(result_b))
+                    return repr(result_a), append_values
+                return (repr(result_shape) if result_shape is not None else _("ui.table.error", error="no result")), append_values
+
+            # 스레드 시작
+            worker = BatchWorkerThread(indices_to_process, current_tab.data, process_adapter)
+            self._batch_worker = worker
+            worker.progress.connect(lambda cur, tot: progress.setValue(cur))
+            def on_finished(result_map, append_list, error_count, canceled):
+                progress.close()
+                if canceled:
+                    # 취소 시 되돌리기
+                    current_tab.data = original_data_snapshot
+                    current_tab.update_table()
+                    current_tab.add_to_data_history(_("ui.history.revert_due_to_cancel"))
+                    self.log(_("ui.progress.canceled"))
+                else:
+                    # 결과 적용
+                    for i, new_value in result_map.items():
+                        current_tab.data[i] = new_value
+                    for extra in append_list:
+                        current_tab.data.append(extra)
+                    current_tab.update_table()
+                    current_tab.add_to_data_history(f"{operation_name} 완료")
+                    self.log(_("ui.progress.summary", n=len(result_map), e=error_count))
+                    if error_count > 0:
+                        QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
+                self._batch_worker = None
+            worker.finished_with_results.connect(on_finished)
+            progress.canceled.connect(lambda: worker.cancel())
+            worker.start()
+            return
+
+        # 동기 처리 (5천개 이하)
+        # 작업 전 현재 상태를 히스토리에 저장
+        current_tab.add_to_data_history(f"작업 전 ({operation_name})")
+
+        result_data_map = {}
+        error_count = 0
+        for i in indices_to_process:
+            shape_code = current_tab.data[i]
+            try:
+                shape = Shape.from_string(shape_code)
+                result_shape = None
+                if operation_name == "destroy_half":
+                    result_shape = shape.destroy_half()
+                elif operation_name == "push_pin":
+                    result_shape = shape.push_pin()
+                elif operation_name == "apply_physics":
+                    result_shape = shape.apply_physics()
+                elif operation_name == "rotate_cw":
+                    result_shape = shape.rotate(True)
+                elif operation_name == "rotate_ccw":
+                    result_shape = shape.rotate(False)
+                elif operation_name == "rotate_180":
+                    result_shape = shape.rotate_180()
+                elif operation_name == "mirror":
+                    result_shape = shape.mirror()
+                elif operation_name == "paint":
+                    result_shape = shape.paint(self.paint_color.currentText())
+                elif operation_name == "crystal_generator":
+                    result_shape = shape.crystal_generator(self.crystal_color.currentText())
+                elif operation_name == "classifier":
+                    cls_res, cls_reason = shape.classifier()
+                    result_data_map[i] = f"{cls_res} ({cls_reason})"
                     continue
                 elif operation_name == "simple_cutter":
                     res_a, res_b = shape.simple_cutter()
-                    # 두 개의 별도 출력으로 처리
                     result_data_map[i] = repr(res_a)
-                    # 두 번째 결과를 다음 행에 추가
                     if i + 1 < len(current_tab.data):
                         current_tab.data.insert(i + 1, repr(res_b))
                     else:
@@ -2417,24 +2517,19 @@ class ShapezGUI(QMainWindow):
                     continue
                 elif operation_name == "quad_cutter":
                     res_a, res_b, res_c, res_d = shape.quad_cutter()
-                    # 네 개의 별도 출력으로 처리
                     result_data_map[i] = repr(res_a)
-                    # 나머지 세 개의 결과를 다음 행들에 추가
                     insert_positions = []
                     for j, result in enumerate([res_b, res_c, res_d], 1):
                         if i + j < len(current_tab.data):
                             insert_positions.append((i + j, repr(result)))
                         else:
                             current_tab.data.append(repr(result))
-                    # 뒤에서부터 삽입하여 인덱스 변화 방지
                     for pos, result in reversed(insert_positions):
                         current_tab.data.insert(pos, result)
                     continue
                 elif operation_name == "half_cutter":
                     res_a, res_b = shape.half_cutter()
-                    # 두 개의 별도 출력으로 처리
                     result_data_map[i] = repr(res_a)
-                    # 두 번째 결과를 다음 행에 추가
                     if i + 1 < len(current_tab.data):
                         current_tab.data.insert(i + 1, repr(res_b))
                     else:
@@ -2462,9 +2557,7 @@ class ShapezGUI(QMainWindow):
                     try:
                         shape_b = Shape.from_string(input_b_text)
                         result_a, result_b = Shape.swap(shape, shape_b)
-                        # 두 개의 별도 출력으로 처리
                         result_data_map[i] = repr(result_a)
-                        # 두 번째 결과를 다음 행에 추가
                         if i + 1 < len(current_tab.data):
                             current_tab.data.insert(i + 1, repr(result_b))
                         else:
@@ -2474,27 +2567,19 @@ class ShapezGUI(QMainWindow):
                         result_data_map[i] = _("error.input.b.parse", error=str(e))
                         error_count += 1
                         continue
-                
                 if result_shape is not None:
                     result_data_map[i] = repr(result_shape)
                 else:
                     result_data_map[i] = "오류: 결과 없음"
                     error_count += 1
-                    
             except Exception as e:
                 result_data_map[i] = f"오류: {str(e)}"
                 error_count += 1
 
-        # 원본 데이터를 결과로 업데이트
         for i, new_value in result_data_map.items():
             current_tab.data[i] = new_value
-
-        # update_table()이 선택 상태를 유지하므로 외부에서 복원할 필요 없음
         current_tab.update_table()
-        
-        # 작업 완료 후 히스토리에 추가
         current_tab.add_to_data_history(f"{operation_name} 완료")
-        
         self.log(f"대량처리 완료: {len(result_data_map)}개 항목 처리, {error_count}개 오류")
         if error_count > 0:
             QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
@@ -2515,61 +2600,105 @@ class ShapezGUI(QMainWindow):
                 QMessageBox.information(self, _("ui.msg.title.info"), _("ui.msg.no_data"))
                 return
 
-            # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 전체
+            # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 현재 필터(검색)로 보이는 행만
             selected_rows = current_tab.data_table.selectionModel().selectedRows()
             if selected_rows:
                 indices_to_process = [idx.row() for idx in selected_rows]
                 self.log_verbose(f"선택된 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
             else:
-                indices_to_process = range(len(current_tab.data))
-                self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
+                visible_indices = [row for row in range(current_tab.data_table.rowCount()) if not current_tab.data_table.isRowHidden(row)]
+                if visible_indices:
+                    indices_to_process = visible_indices
+                    self.log_verbose(f"검색 결과의 보이는 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
+                else:
+                    indices_to_process = range(len(current_tab.data))
+                    self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
             
-            # 작업 전 현재 상태를 히스토리에 저장
-            current_tab.add_to_data_history(f"작업 전 ({operation_name})")
-            
-            # 결과 데이터 저장
-            result_data_map = {}
-            error_count = 0
-            
-            for i in indices_to_process:
-                shape_code = current_tab.data[i]
-                try:
-                    result = process_func(shape_code)
-                    # 리스트 결과인 경우 (하이브리드 등)
-                    if isinstance(result, list):
-                        # 리스트의 각 항목을 별도 행으로 추가
-                        for j, item in enumerate(result):
-                            if j == 0:
-                                result_data_map[i] = item
-                            else:
-                                # 새로운 행을 추가
-                                new_index = len(current_tab.data)
-                                current_tab.data.append(item)
-                                result_data_map[new_index] = item
-                    else:
-                        result_data_map[i] = result
-                except Exception as e:
-                    result_data_map[i] = f"오류: {str(e)}"
-                    error_count += 1
-            
-            # 원본 데이터를 결과로 교체
-            for i, new_value in result_data_map.items():
-                current_tab.data[i] = new_value
+            total_count = len(indices_to_process)
+            if total_count > 5000:
+                # 비동기 처리 + 프로그레스/취소
+                progress = QProgressDialog(self)
+                progress.setWindowTitle(_("ui.msg.title.info"))
+                progress.setLabelText(_("ui.progress.batch_running"))
+                progress.setCancelButtonText(_("ui.progress.cancel"))
+                progress.setRange(0, total_count)
+                progress.setAutoClose(False)
+                progress.setAutoReset(False)
+                progress.show()
 
-            # update_table()이 선택 상태를 유지하므로 외부에서 복원할 필요 없음
-            current_tab.update_table()
-            
-            # 시각화가 켜져 있으면 시각화도 강제로 업데이트
-            if current_tab.visualization_checkbox.isChecked():
-                QTimer.singleShot(100, current_tab._update_visible_shapes)
-            
-            # 작업 완료 후 히스토리에 추가
-            current_tab.add_to_data_history(f"{operation_name} 완료")
-            
-            if error_count > 0:
-                self.log(f"{operation_name} 완료: {len(result_data_map)}개 결과 생성, {error_count}개 오류")
+                # 롤백 스냅샷
+                original_data_snapshot = list(current_tab.data)
+
+                def process_adapter(code: str, _idx: int):
+                    res = process_func(code)
+                    if isinstance(res, list):
+                        mapped = res[0] if len(res) > 0 else ""
+                        append_values = res[1:]
+                        return mapped, append_values
+                    return res, []
+
+                worker = BatchWorkerThread(indices_to_process, current_tab.data, process_adapter)
+                self._batch_worker = worker
+                worker.progress.connect(lambda cur, tot: progress.setValue(cur))
+
+                def on_finished(result_map, append_list, error_count, canceled):
+                    progress.close()
+                    if canceled:
+                        # 되돌리기
+                        current_tab.data = original_data_snapshot
+                        current_tab.update_table()
+                        current_tab.add_to_data_history(_("ui.history.revert_due_to_cancel"))
+                        self.log(_("ui.progress.canceled"))
+                    else:
+                        for i, new_value in result_map.items():
+                            current_tab.data[i] = new_value
+                        for extra in append_list:
+                            current_tab.data.append(extra)
+                        current_tab.update_table()
+                        if current_tab.visualization_checkbox.isChecked():
+                            QTimer.singleShot(100, current_tab._update_visible_shapes)
+                        current_tab.add_to_data_history(f"{operation_name} 완료")
+                        self.log(_("ui.progress.summary", n=len(result_map), e=error_count))
+                        if error_count > 0:
+                            QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
+                    self._batch_worker = None
+
+                worker.finished_with_results.connect(on_finished)
+                progress.canceled.connect(lambda: worker.cancel())
+                worker.start()
+                return
             else:
-                self.log(f"{operation_name} 완료: {len(result_data_map)}개 결과 생성")
+                # 동기 처리 (5천 이하)
+                current_tab.add_to_data_history(f"작업 전 ({operation_name})")
+                result_data_map = {}
+                error_count = 0
+                for i in indices_to_process:
+                    shape_code = current_tab.data[i]
+                    try:
+                        result = process_func(shape_code)
+                        if isinstance(result, list):
+                            for j, item in enumerate(result):
+                                if j == 0:
+                                    result_data_map[i] = item
+                                else:
+                                    new_index = len(current_tab.data)
+                                    current_tab.data.append(item)
+                                    result_data_map[new_index] = item
+                        else:
+                            result_data_map[i] = result
+                    except Exception as e:
+                        result_data_map[i] = f"오류: {str(e)}"
+                        error_count += 1
+                for i, new_value in result_data_map.items():
+                    current_tab.data[i] = new_value
+                current_tab.update_table()
+                if current_tab.visualization_checkbox.isChecked():
+                    QTimer.singleShot(100, current_tab._update_visible_shapes)
+                current_tab.add_to_data_history(f"{operation_name} 완료")
+                if error_count > 0:
+                    self.log(f"{operation_name} 완료: {len(result_data_map)}개 결과 생성, {error_count}개 오류")
+                else:
+                    self.log(f"{operation_name} 완료: {len(result_data_map)}개 결과 생성")
         else:
             # 분석 도구 탭에서는 입력 A/B 처리
             input_a_str = self.input_a.text().strip()
@@ -2874,7 +3003,7 @@ class ShapezGUI(QMainWindow):
 
     def on_browse_file(self):
         """파일 찾아보기 대화상자 열기 및 자동 로드"""
-        file_path, _ = QFileDialog.getOpenFileName(
+        file_path, _selected_filter = QFileDialog.getOpenFileName(
             self,
             "도형 데이터 파일 선택",
             "data/",  # 기본 경로를 data 폴더로 설정
@@ -3699,15 +3828,200 @@ class DragDropTableWidget(QTableWidget):
         self.setDragEnabled(True)
         self.setAcceptDrops(True) # 드롭 허용
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.drag_start_row = -1
         self.drag_start_point = QPoint() # 드래그 시작 위치 저장
         self.setMouseTracking(True)  # 마우스 추적 활성화
         self.shape_tooltip = None  # 도형 툴팁 위젯
         self.tooltip_timer = QTimer()
+        # 툴팁 표시 타이머 연결
         self.tooltip_timer.timeout.connect(self.show_shape_tooltip)
         self.tooltip_timer.setSingleShot(True)
         self.hovered_item = None
         self.hover_position = QPoint()
+
+        # 선택 변경 시, 숨겨진(필터된) 행은 선택 해제하여 검색결과 내 선택만 유지
+        self.itemSelectionChanged.connect(self._prune_hidden_from_selection)
+
+    def _prune_hidden_from_selection(self):
+        sm = self.selectionModel()
+        if not sm:
+            return
+        # 숨긴 행의 선택을 제거
+        for row in range(self.rowCount()):
+            if self.isRowHidden(row):
+                if sm.isRowSelected(row, self.rootIndex()):
+                    self.setRangeSelected(
+                        self.visualRangeForRow(row),
+                        False
+                    )
+
+    def visualRangeForRow(self, row: int):
+        # 헬퍼: 한 행 전체의 선택 범위
+        from PyQt6.QtCore import QItemSelection
+        left = self.model().index(row, 0)
+        right = self.model().index(row, max(0, self.columnCount()-1))
+        return QItemSelection(left, right)
+
+    def keyPressEvent(self, event):
+        # Ctrl+A 처리: 필터된(보이는) 행만 선택
+        if event.matches(QKeySequence.StandardKey.SelectAll):
+            self.select_all_visible_rows()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def select_all_visible_rows(self):
+        self.clearSelection()
+        for row in range(self.rowCount()):
+            if not self.isRowHidden(row):
+                self.selectRow(row)
+
+    # ===== 마우스/드래그/툴팁 핸들러 (데이터 테이블용) =====
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            item = self.itemAt(event.pos())
+            if item:
+                self.drag_start_row = item.row()
+                self.drag_start_point = event.pos()
+            self.hide_shape_tooltip()
+            self.tooltip_timer.stop()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton and self.drag_start_row != -1:
+            if (event.pos() - self.drag_start_point).manhattanLength() > QApplication.startDragDistance():
+                self.startDrag(Qt.DropAction.MoveAction)
+        else:
+            if self.drag_start_row == -1:
+                item = self.itemAt(event.pos())
+                if self.hovered_item != item:
+                    self.hide_shape_tooltip()
+                    self.hovered_item = item
+                    self.tooltip_timer.stop()
+                    if item and item.text().strip():
+                        self.hover_position = event.globalPosition().toPoint()
+                        self.tooltip_timer.start(300)
+            else:
+                self.hide_shape_tooltip()
+                self.tooltip_timer.stop()
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        self.drag_start_row = -1
+        self.drag_start_point = QPoint()
+
+    def startDrag(self, supportedActions):
+        selected_items = self.selectedItems()
+        if selected_items:
+            mimeData = QMimeData()
+            mimeData.setText(str(self.drag_start_row))
+            drag = QDrag(self)
+            drag.setMimeData(mimeData)
+            drag.exec(Qt.DropAction.MoveAction)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.source() == self and event.mimeData().hasText():
+            from_row = int(event.mimeData().text())
+            drop_pos_y = event.position().toPoint().y()
+            to_row = self.rowAt(drop_pos_y)
+            if to_row == -1:
+                to_row = self.rowCount()
+            if from_row != to_row:
+                adjusted_to_row = to_row
+                if from_row < to_row:
+                    adjusted_to_row = to_row - 1
+                self.rows_reordered.emit(from_row, adjusted_to_row)
+                event.acceptProposedAction()
+            else:
+                event.ignore()
+        else:
+            super().dropEvent(event)
+        self.drag_start_row = -1
+        self.drag_start_point = QPoint()
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self.hide_shape_tooltip()
+        self.tooltip_timer.stop()
+        self.hovered_item = None
+
+    def show_shape_tooltip(self):
+        if not self.hovered_item or not self.hovered_item.text().strip():
+            return
+        shape_code = self.hovered_item.text().strip()
+        try:
+            from shape import Shape
+            shape = Shape.from_string(shape_code)
+            self.shape_tooltip = ShapeTooltipWidget(shape)
+            screen_rect = QApplication.primaryScreen().geometry()
+            tooltip_size = self.shape_tooltip.sizeHint()
+            pos = self.hover_position + QPoint(10, 10)
+            if pos.x() + tooltip_size.width() > screen_rect.right():
+                pos.setX(self.hover_position.x() - tooltip_size.width() - 10)
+            if pos.y() + tooltip_size.height() > screen_rect.bottom():
+                pos.setY(self.hover_position.y() - tooltip_size.height() - 10)
+            self.shape_tooltip.move(pos)
+            self.shape_tooltip.show()
+        except Exception as e:
+            from i18n import _
+            self.setToolTip(_("ui.tooltip.shape_code", code=shape_code) + "\n" + _("ui.tooltip.parse_error", error=str(e)))
+
+    def hide_shape_tooltip(self):
+        if self.shape_tooltip:
+            self.shape_tooltip.close()
+            self.shape_tooltip = None
+        self.setToolTip("")
+
+
+class BatchWorkerThread(QThread):
+    progress = pyqtSignal(int, int)  # current, total
+    finished_with_results = pyqtSignal(dict, list, int, bool)  # result_map, append_list, error_count, canceled
+
+    def __init__(self, indices_to_process, data_snapshot, process_func):
+        super().__init__()
+        self._indices = list(indices_to_process)
+        self._data = list(data_snapshot)
+        self._process_func = process_func
+        self._cancel_requested = False
+
+    def cancel(self):
+        self._cancel_requested = True
+
+    def run(self):
+        result_map = {}
+        append_list = []
+        error_count = 0
+        total = len(self._indices)
+        for pos, idx in enumerate(self._indices, start=1):
+            if self._cancel_requested:
+                self.progress.emit(pos, total)
+                break
+            try:
+                code = self._data[idx]
+                mapped_value, append_values = self._process_func(code, idx)
+                if mapped_value is not None:
+                    result_map[idx] = mapped_value
+                if append_values:
+                    append_list.extend(append_values)
+            except Exception:
+                error_count += 1
+            if pos % 50 == 0 or pos == total:
+                self.progress.emit(pos, total)
+        self.finished_with_results.emit(result_map, append_list, error_count, self._cancel_requested)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -3898,9 +4212,18 @@ class ShapeTooltipWidget(QFrame):
         shape_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         layout.addWidget(shape_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
-        # 도형 코드 표시
+        # 도형 코드 표시 (반투명 배경)
         code_label = QLabel(_("ui.tooltip.shape_code", code=repr(shape)))
-        code_label.setStyleSheet("font-size: 11px; color: black; font-family: 'Consolas', 'Monaco', monospace;")
+        code_label.setStyleSheet(
+            """
+            font-size: 11px;
+            color: black;
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: rgba(255, 255, 255, 200);
+            border-radius: 4px;
+            padding: 2px 4px;
+            """
+        )
         code_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(code_label)
         
@@ -4020,6 +4343,10 @@ class DataTabWidget(QWidget):
         self.validity_calculated_rows = set()
         
         self.setup_ui()
+        # 검색 디바운스 타이머
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.timeout.connect(self._apply_search_filter)
         
         # 초기 데이터를 히스토리에 추가
         if self.data:
@@ -4036,6 +4363,18 @@ class DataTabWidget(QWidget):
         self.visualization_checkbox.setToolTip(_("ui.datatab.visualize"))
         self.visualization_checkbox.stateChanged.connect(self.on_visualization_toggled)
         control_layout.addWidget(self.visualization_checkbox)
+
+        # 검색 라벨 + 입력
+        self.search_label = QLabel(_("ui.datatab.search"))
+        control_layout.addWidget(self.search_label)
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText(_("ui.datatab.search.placeholder"))
+        try:
+            self.search_input.setClearButtonEnabled(True)
+        except Exception:
+            pass
+        self.search_input.textChanged.connect(self.on_search_text_changed)
+        control_layout.addWidget(self.search_input, 1)
         
         control_layout.addStretch()  # 오른쪽으로 밀어내기
         layout.addLayout(control_layout)
@@ -4064,14 +4403,15 @@ class DataTabWidget(QWidget):
         layout.addWidget(self.data_table)
         
         # 스크롤 이벤트 연결 (수정된 부분)
-        # 유효성 및 시각화 업데이트 함수를 각각 연결
+        # 스크롤 쓰로틀링: 빠른 스크롤 중 중복 연산 방지
+        self._scroll_timer = QTimer(self)
+        self._scroll_timer.setSingleShot(True)
+        self._scroll_timer.timeout.connect(self._do_scroll_updates)
+
         scroll_bar = self.data_table.verticalScrollBar()
-        scroll_bar.valueChanged.connect(self._update_visible_validity)
-        scroll_bar.valueChanged.connect(self._update_visible_shapes)
-        
+        scroll_bar.valueChanged.connect(self._on_scroll_value_changed)
         horizontal_scroll_bar = self.data_table.horizontalScrollBar()
-        horizontal_scroll_bar.valueChanged.connect(self._update_visible_validity)
-        horizontal_scroll_bar.valueChanged.connect(self._update_visible_shapes)
+        horizontal_scroll_bar.valueChanged.connect(self._on_scroll_value_changed)
         
         # 단축키 설정
         self.setup_shortcuts()
@@ -4135,6 +4475,17 @@ class DataTabWidget(QWidget):
         
         # 초기 데이터 업데이트
         self.update_table()
+
+    def _on_scroll_value_changed(self, _value):
+        try:
+            self._scroll_timer.start(60)
+        except Exception:
+            self._do_scroll_updates()
+
+    def _do_scroll_updates(self):
+        # 대량 스크롤 시 잦은 재계산을 한 번으로 병합
+        self._update_visible_validity()
+        self._update_visible_shapes()
     
     def setup_comparison_table(self):
         """비교 결과용 3열 테이블 설정"""
@@ -4427,13 +4778,67 @@ class DataTabWidget(QWidget):
         # 데이터 히스토리 버튼 상태 업데이트
         self.update_data_history_buttons()
         
-        # 테이블 구조가 준비된 후, 보이는 영역의 유효성 계산을 즉시 트리거
-        QTimer.singleShot(0, self._update_visible_validity)
-        # 시각화는 초기 상태에 따라 자동으로 처리됨
-        if self.visualization_checkbox.isChecked():
-            # 시각화가 켜져 있으면 모든 행의 높이를 다시 계산
-            QTimer.singleShot(0, self._update_all_row_heights)
-            QTimer.singleShot(0, self._update_visible_shapes)
+        # 초기 화면 업데이트는 쓰로틀 함수로 병합 실행
+        QTimer.singleShot(0, self._do_scroll_updates)
+        QTimer.singleShot(0, self._apply_search_filter)
+
+    def on_search_text_changed(self, _text: str):
+        """검색어 변경 시 디바운스로 필터 적용"""
+        # 대량 데이터 대비 디바운스
+        try:
+            self._search_timer.start(120)
+        except Exception:
+            # 타이머 사용 불가 시 즉시 적용
+            self._apply_search_filter()
+
+    def _apply_search_filter(self):
+        """검색어가 포함되는 행만 표시 (대소문자 구분)"""
+        try:
+            keyword = self.search_input.text().strip()
+        except Exception:
+            keyword = ""
+        row_count = self.data_table.rowCount()
+        if not keyword:
+            for row in range(row_count):
+                self.data_table.setRowHidden(row, False)
+            return
+
+        # 도형 매칭 기반 필터링: '_'는 와일드카드, '-'는 완전 매칭용 빈칸
+        try:
+            from shape import Shape
+            pattern_shape, wildcard_mask = Shape.parse_pattern_with_wildcard(keyword, wildcard_char='_')
+        except Exception:
+            # 파싱 실패 시 전체 숨김 해제(관용적 처리)
+            for row in range(row_count):
+                self.data_table.setRowHidden(row, False)
+            return
+
+        def row_matches_shape_code(code: str) -> bool:
+            try:
+                target = Shape.from_string(code)
+                return target.contains_pattern(pattern_shape, wildcard_mask=wildcard_mask, treat_empty_as_wildcard=False)
+            except Exception:
+                return False
+
+        for row in range(row_count):
+            if self.is_comparison_table:
+                item_a = self.data_table.item(row, 0)
+                item_b = self.data_table.item(row, 1)
+                code_a = item_a.text() if item_a else ""
+                code_b = item_b.text() if item_b else ""
+                match_found = row_matches_shape_code(code_a) or row_matches_shape_code(code_b)
+            else:
+                item = self.data_table.item(row, 1)
+                code = item.text() if item else ""
+                match_found = row_matches_shape_code(code)
+            self.data_table.setRowHidden(row, not match_found)
+        # 필터 변경 시 선택 영역 정리: 숨겨진 행은 선택 해제
+        try:
+            self.data_table._prune_hidden_from_selection()
+        except Exception:
+            pass
+        # 필터 적용 후, 보이는 영역 업데이트를 쓰로틀로 호출
+        self._on_scroll_value_changed(0)
     
     def on_table_context_menu(self, position):
         """테이블 우클릭 메뉴"""
@@ -4579,7 +4984,7 @@ class DataTabWidget(QWidget):
             QMessageBox.information(self, "알림", "저장할 데이터가 없습니다.")
             return
         
-        file_path, _ = QFileDialog.getSaveFileName(
+        file_path, _selected_filter = QFileDialog.getSaveFileName(
             self,
             "다른 이름으로 저장",
             f"data/{self.tab_name}.txt",
@@ -4806,7 +5211,7 @@ class DataTabWidget(QWidget):
         """현재 뷰포트에 보이는 행의 유효성만 동적으로 계산합니다."""
         if self.is_comparison_table: return
 
-        # 보이는 행 범위 계산 (더 많은 행을 표시하도록 확장)
+        # 보이는 행 범위 계산 (숨겨진 행은 건너뜀)
         viewport_rect = self.data_table.viewport().rect()
         first = self.data_table.indexAt(viewport_rect.topLeft()).row()
         last = self.data_table.indexAt(viewport_rect.bottomRight()).row()
@@ -4821,6 +5226,8 @@ class DataTabWidget(QWidget):
 
         # 보이는 행에 대해서만 유효성 계산
         for row in range(first, last + 1):
+            if self.data_table.isRowHidden(row):
+                continue
             if row not in self.validity_calculated_rows:
                 shape_code = self.data_table.item(row, 1).text()
                 validity_item = self.data_table.item(row, 0)
@@ -4853,7 +5260,7 @@ class DataTabWidget(QWidget):
             self._clear_all_shape_widgets()
             return
 
-        # 보이는 행 범위 계산 (더 많은 행을 표시하도록 확장)
+        # 보이는 행 범위 계산 (숨겨진 행은 제외)
         viewport_rect = self.data_table.viewport().rect()
         first = self.data_table.indexAt(viewport_rect.topLeft()).row()
         last = self.data_table.indexAt(viewport_rect.bottomRight()).row()
@@ -4865,7 +5272,7 @@ class DataTabWidget(QWidget):
         buffer_rows = 10  # 위아래로 10개씩 추가
         start_row = max(0, first - buffer_rows)
         end_row = min(self.data_table.rowCount() - 1, last + buffer_rows)
-        needed_rows = set(range(start_row, end_row + 1))
+        needed_rows = {r for r in range(start_row, end_row + 1) if not self.data_table.isRowHidden(r)}
         
         # 화면 밖 위젯 제거 (안전하게 처리)
         rows_to_remove = set(self.visible_shape_widgets.keys()) - needed_rows

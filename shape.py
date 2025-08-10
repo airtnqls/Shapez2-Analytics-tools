@@ -164,6 +164,140 @@ class Shape:
         if not s.layers: return ""
         return ":".join(repr(layer) for layer in s.layers)
 
+    # --------------------------------------------------------------
+    # 패턴 포함 매칭 (옵션: 와일드카드 마스크)
+    def contains_pattern(self, pattern: "Shape", wildcard_mask: Optional[list[list[bool]]] = None, treat_empty_as_wildcard: bool = False) -> bool:
+        """자신(self) 안에 pattern 도형이 포함되는지 검사합니다.
+        - 포함 매칭 (연속 레이어 중 어느 위치든 매칭되면 True)
+        - wildcard_mask가 주어지면 True인 사분면은 어떤 도형이든 허용
+        - treat_empty_as_wildcard=True이면 패턴의 빈칸(None/"--")도 와일드카드로 허용
+        """
+        if not isinstance(pattern, Shape):
+            return False
+        if not pattern.layers:
+            return True
+        if not self.layers:
+            return False
+
+        self_layers = self.layers
+        pat_layers = pattern.layers
+        if len(self_layers) < len(pat_layers):
+            return False
+
+        def layer_match(self_layer: Layer, pat_layer: Layer, mask_for_layer: Optional[list[bool]]) -> bool:
+            for q in range(4):
+                if mask_for_layer is not None and q < len(mask_for_layer) and mask_for_layer[q]:
+                    # 와일드카드: 어떤 값이든 허용
+                    continue
+                sp = self_layer.quadrants[q]
+                pp = pat_layer.quadrants[q]
+                if pp is None:
+                    if treat_empty_as_wildcard:
+                        continue
+                    # 패턴이 빈칸인데 와일드카드가 아니면 self도 비어있어야 함
+                    if sp is not None:
+                        return False
+                else:
+                    if sp is None:
+                        return False
+                    # 모양, 색상 모두 일치 필요
+                    if sp.shape != pp.shape or sp.color != pp.color:
+                        return False
+            return True
+
+        max_start = len(self_layers) - len(pat_layers)
+        for start in range(max_start + 1):
+            ok = True
+            for i in range(len(pat_layers)):
+                mask_for_layer = None
+                if wildcard_mask is not None and i < len(wildcard_mask):
+                    mask_for_layer = wildcard_mask[i]
+                if not layer_match(self_layers[start + i], pat_layers[i], mask_for_layer):
+                    ok = False
+                    break
+            if ok:
+                return True
+        return False
+
+    @classmethod
+    def parse_pattern_with_wildcard(cls, code: str, wildcard_char: str = '_') -> tuple["Shape", list[list[bool]]]:
+        """패턴 문자열을 파싱하여 (도형, 와일드카드마스크)를 반환합니다.
+        - wildcard_char 위치는 True로 마크됩니다.
+        - '-'는 빈칸으로 처리되며 와일드카드가 아닙니다.
+        - 내부 도형 파싱은 '_'를 '-'로 치환한 문자열을 사용합니다.
+        """
+        # 중괄호 영역 처리 (from_string과 동일)
+        if '{' in code and '}' in code:
+            start_index = code.find('{')
+            end_index = code.find('}', start_index)
+            if start_index != -1 and end_index != -1 and end_index > start_index:
+                code = code[start_index + 1:end_index].strip()
+
+        original = code
+        if not original:
+            return Shape([]), []
+
+        # 콜론 자동 삽입 규칙 (from_string과 같은 기준)
+        colonized = original
+        if ':' not in original and len(original) >= 5:
+            color_codes = set('urbgymw')
+            has_color_code = any(char in color_codes for char in original)
+            is_p_dash_pattern = (len(original) == 8 and set(original) <= {'P', '-'} and all(original[i] == '-' for i in range(1, 8, 2)))
+            if not has_color_code and not is_p_dash_pattern:
+                colonized = ':'.join(original)
+
+        layer_codes = colonized.split(':')
+        wildcard_mask: list[list[bool]] = []
+
+        def layer_wildcards_and_norm(l_code: str) -> tuple[list[bool], str]:
+            # 반환: (와일드카드[4], 8글자 정규화 코드)
+            if len(l_code) <= 4:
+                mask = []
+                expanded = ""
+                for i in range(4):
+                    if i < len(l_code):
+                        ch = l_code[i]
+                        mask.append(ch == wildcard_char)
+                        # 확장 로직은 from_string과 동일하게 근사
+                        if ch == 'S':
+                            expanded += "Su"
+                        elif ch.islower() and ch == 'c':
+                            expanded += ch + "w"
+                        elif ch == 'P':
+                            expanded += "P-"
+                        elif ch == '-':
+                            expanded += "--"
+                        elif ch == wildcard_char:
+                            expanded += "--"  # 파서 용도로 빈칸으로 대체
+                        else:
+                            expanded += ch + "u"
+                    else:
+                        mask.append(False)
+                        expanded += "--"
+                return mask, expanded
+            else:
+                # 8글자 페어 코드로 간주
+                # 부족하면 '-'로 채움
+                padded = (l_code + ("-" * 8))[:8]
+                mask = []
+                for i in range(0, 8, 2):
+                    ch0 = padded[i]
+                    ch1 = padded[i+1]
+                    mask.append(ch0 == wildcard_char or ch1 == wildcard_char)
+                # 파서용으로 '_'를 '-'로 치환
+                normalized = padded.replace(wildcard_char, '-')
+                return mask, normalized
+
+        normalized_layers = []
+        for l_code in layer_codes:
+            mask, norm8 = layer_wildcards_and_norm(l_code)
+            wildcard_mask.append(mask)
+            normalized_layers.append(norm8)
+
+        normalized_code = ":".join(normalized_layers)
+        shape = Shape.from_string(normalized_code)
+        return shape, wildcard_mask
+
     def _get_piece(self, l: int, q: int) -> Optional[Quadrant]:
         return self.layers[l].quadrants[q] if 0 <= l < len(self.layers) and 0 <= q < 4 else None
 
@@ -637,15 +771,51 @@ class Shape:
     def is_stable(self) -> bool:
         return repr(self.apply_physics()) == repr(self)
 
-    def hybrid(self) -> tuple[Shape, Shape]:
+    def hybrid(self, claw : bool = False) -> tuple[Shape, Shape]:
         """하이브리드 함수: 입력을 마스크 기반으로 두 부분으로 분리합니다."""
-        # 1. 각 셀에 대응되는 (사분면x층) 크기의 임시 마스크를 만듭니다 (1로 초기화)
         mask = {}
+        # 1. 각 셀에 대응되는 (사분면x층) 크기의 임시 마스크를 만듭니다 (1로 초기화)
         for l in range(len(self.layers)):
             for q in range(4):
                 mask[(l, q)] = 1
+                
+        # 2. 0층의 P는 마스크 0으로 설정
+        if claw:
+            for q in range(4):
+                piece = self._get_piece(0, q)
+                if piece and (piece.shape == 'P' or piece.shape == 'S'):
+                    mask[(0, q)] = 0
+               
+        # 3. 클로시 크리스탈 주변 마스크 0으로 설정
+        if claw:
+            # 모든 크리스탈을 찾습니다
+            for l in range(len(self.layers)):
+                for q in range(4):
+                    piece = self._get_piece(l, q)
+                    if piece and piece.shape == 'c':
+                        # 크리스탈의 상, 좌, 우 (양쪽 사분면, 위 레이어)를 마스크 0으로 만들고 그 아래 모든 영역도 0으로 만듭니다
+                        
+                        # 상 (위 레이어의 같은 사분면)
+                        upper_piece = self._get_piece(l, q)
+                        if upper_piece:  # 빈칸이 아닌 경우에만
+                            for upper_l in range(l, len(self.layers)):
+                                mask[(upper_l, q)] = 0
+                        
+                        # 좌 사분면 (현재 층과 그 아래)
+                        left_q = (q - 1) % 4
+                        left_piece = self._get_piece(l, left_q)
+                        if left_piece:  # 빈칸이 아닌 경우에만
+                            for lower_l in range(l + 1):
+                                mask[(lower_l, left_q)] = 0
+                        
+                        # 우 사분면 (현재 층과 그 아래)
+                        right_q = (q + 1) % 4
+                        right_piece = self._get_piece(l, right_q)
+                        if right_piece:  # 빈칸이 아닌 경우에만
+                            for lower_l in range(l + 1):
+                                mask[(lower_l, right_q)] = 0
         
-        # 3. 각 사분면의 가장 높은 크리스탈을 찾습니다
+        # 4. 각 사분면의 가장 높은 크리스탈을 찾습니다
         for q in range(4):
             highest_crystal_layer = -1
             for l in range(len(self.layers) - 1, -1, -1):  # 위에서부터 탐색
@@ -659,7 +829,110 @@ class Shape:
                 for l in range(highest_crystal_layer + 1):  # 해당 층과 그 아래 모든 층
                     mask[(l, q)] = 0
         
-        # 4. 수정된 물리 적용으로 불안정한 도형 검사 (층별 순차 처리)
+        # 5. 마스크 영역 0인 부분만으로 임시 도형을 만들어 불안정한 도형 검사
+        current_layer = 0
+        while current_layer < len(self.layers):
+            # 현재까지의 마스크 0 부분만으로 임시 도형 생성
+            temp_layers = []
+            for l in range(len(self.layers)):
+                temp_quadrants = [None] * 4
+                for q in range(4):
+                    if mask.get((l, q), 0) == 0:
+                        piece = self._get_piece(l, q)
+                        if piece:
+                            temp_quadrants[q] = piece.copy()
+                temp_layers.append(Layer(temp_quadrants))
+            
+            temp_shape = Shape(temp_layers)
+            
+            # 현재 층에서 불안정한 도형 탐색 (마스크 0 영역에서만)
+            # 마스크를 리버스하여 전달 (1과 0을 바꿈)
+            reversed_mask = {}
+            for key, value in mask.items():
+                reversed_mask[key] = 1 - value
+            unstable_coords = self._find_unstable_at_layer(temp_shape, current_layer, reversed_mask)
+            
+            # 불안정한 도형이 존재할 때, 원본 도형에서 양쪽 사분면 중 마스크 1이면서 S인 부분 찾기
+            mask_changed = False
+            if unstable_coords:
+                for unstable_l, unstable_q in unstable_coords:
+                    # 양쪽 사분면 검사 (불안정한 도형이 있는 사분면과 인접한 사분면들)
+                    adjacent_quads = []
+                    if unstable_q == 0:
+                        adjacent_quads = [1, 3]
+                    elif unstable_q == 1:
+                        adjacent_quads = [0, 2]
+                    elif unstable_q == 2:
+                        adjacent_quads = [1, 3]
+                    elif unstable_q == 3:
+                        adjacent_quads = [0, 2]
+                    
+                    for check_q in adjacent_quads:
+                        if (mask.get((unstable_l, check_q), 0) == 1 and 
+                            self._get_piece(unstable_l, check_q) and 
+                            self._get_piece(unstable_l, check_q).shape == 'S'):
+                            # 해당 부분과 그 아래를 마스크 0으로 변경
+                            for below_l in range(unstable_l + 1):
+                                mask[(below_l, check_q)] = 0
+                            mask_changed = True
+                
+                # 마스크가 변경되었으면 현재 층부터 다시 검사
+                if mask_changed:
+                    continue
+            
+            # 불안정한 도형이 없거나 마스크 변경이 없으면 다음 층으로
+            current_layer += 1
+        
+        # 6. 특별 조건 검사: S 도형이 아래가 비어있고 옆 사분면이 마스크 0이면서 S 또는 c인 경우
+        # 아래 레이어부터 위로 검사
+        for current_layer in range(len(self.layers)):
+            for q in range(4):
+                coord = (current_layer, q)
+                if mask.get(coord, 0) != 1:
+                    continue
+                
+                piece = self._get_piece(current_layer, q)
+                if not piece or piece.shape != 'S':
+                    continue
+                
+                # 아래가 비어있는지 확인
+                below_empty = current_layer == 0 or not self._get_piece(current_layer-1, q)
+                if not below_empty:
+                    continue
+                
+                # 현재 상태에서 지지되는지 확인
+                temp_layers = []
+                for l in range(len(self.layers)):
+                    temp_quadrants = [None] * 4
+                    for tq in range(4):
+                        if mask.get((l, tq), 0) == 1:
+                            temp_piece = self._get_piece(l, tq)
+                            if temp_piece:
+                                temp_quadrants[tq] = temp_piece.copy()
+                    temp_layers.append(Layer(temp_quadrants))
+                
+                temp_shape = Shape(temp_layers)
+                unstable_coords = self._find_unstable_at_layer(temp_shape, current_layer, mask)
+                
+                # 현재 좌표가 불안정한 경우에만 특별 조건 적용
+                if coord in unstable_coords:
+                    # 옆 사분면 검사
+                    special_support_found = False
+                    for nq in range(4):
+                        if self._is_adjacent(q, nq):
+                            neighbor_coord = (current_layer, nq)
+                            if mask.get(neighbor_coord, 0) == 0:
+                                neighbor_piece = self._get_piece(*neighbor_coord)
+                                if neighbor_piece and neighbor_piece.shape in ['S', 'c']:
+                                    special_support_found = True
+                                    break
+                    
+                    # 특별 조건이 만족되면 해당 좌표와 그 아래 모든 층을 마스크 0으로 변경
+                    if special_support_found:
+                        for below_l in range(current_layer + 1):
+                            mask[(below_l, q)] = 0
+        
+        # 7. 수정된 물리 적용으로 불안정한 도형 검사 (층별 순차 처리)
         # 맨 위 층부터 순서대로 아래로 진행
         for current_layer in range(len(self.layers) - 1, -1, -1):  # 맨 위부터 아래로
             # 현재 층에서 마스크 1인 부분만 추출하여 임시 도형 생성
@@ -683,7 +956,7 @@ class Shape:
                 for below_l in range(l + 1):  # 해당 층과 그 아래 모든 층
                     mask[(below_l, q)] = 0
         
-        # 2. 출력 A (마스크 0 부분만), 출력 B (마스크 1 부분만)
+        # 8. 출력 A (마스크 0 부분만), 출력 B (마스크 1 부분만)
         output_a_layers = []
         output_b_layers = []
         
@@ -733,91 +1006,6 @@ class Shape:
 
     def _find_unstable_at_layer(self, temp_shape: Shape, target_layer: int, mask: dict) -> set:
         """특정 층에서 불안정한 좌표를 찾습니다."""
-        # 지지 계산 (마스크 1 부분에서만)
-        supported = set()
-        
-        # 0층은 무조건 지지됨
-        for q in range(4):
-            if mask.get((0, q), 0) == 1 and temp_shape._get_piece(0, q):
-                supported.add((0, q))
-        
-        # 마스크 0인 부분 아래의 도형들도 지지됨 (절대 지지성)
-        for l in range(len(self.layers)):
-            for q in range(4):
-                if mask.get((l, q), 0) == 1 and temp_shape._get_piece(l, q):
-                    # 바로 아래가 마스크 0이면 지지됨
-                    if l > 0 and mask.get((l-1, q), 0) == 0:
-                        supported.add((l, q))
-        
-        # 연결성 기반 지지 전파
-        while True:
-            num_supported_before = len(supported)
-            visited_groups = set()
-            
-            for l_start in range(len(temp_shape.layers)):
-                for q_start in range(4):
-                    coord = (l_start, q_start)
-                    if (coord not in visited_groups and 
-                        mask.get(coord, 0) == 1 and 
-                        temp_shape._get_piece(*coord)):
-                        
-                        group = temp_shape._find_connected_group(l_start, q_start)
-                        # 마스크 1인 부분만 필터링
-                        mask_filtered_group = {c for c in group if mask.get(c, 0) == 1}
-                        
-                        if any(c in supported for c in mask_filtered_group):
-                            supported.update(mask_filtered_group)
-                        visited_groups.update(mask_filtered_group)
-            
-            # 수직 지지 확인
-            for l in range(len(temp_shape.layers)):
-                for q in range(4):
-                    coord = (l, q)
-                    if (coord in supported or 
-                        mask.get(coord, 0) != 1 or 
-                        not temp_shape._get_piece(*coord)):
-                        continue
-                    
-                    piece = temp_shape._get_piece(l, q)
-                    if l > 0 and (l - 1, q) in supported:
-                        supported.add(coord)
-                    elif piece and piece.shape != 'P':
-                        # 수평 연결 지지
-                        for nq in range(4):
-                            if self._is_adjacent(q, nq):
-                                neighbor_coord = (l, nq)
-                                if neighbor_coord in supported:
-                                    supporter = temp_shape._get_piece(*neighbor_coord)
-                                    if supporter and supporter.shape != 'P':
-                                        supported.add(coord)
-                                        break
-            
-            if len(supported) == num_supported_before:
-                break
-        
-        # 불안정한 좌표 찾기 (마스크 1인 부분 중 지지되지 않은 부분)
-        all_mask1_coords = {(l, q) for l in range(len(self.layers)) 
-                           for q in range(4) 
-                           if mask.get((l, q), 0) == 1 and self._get_piece(l, q)}
-        unstable_coords = all_mask1_coords - supported
-        
-        return unstable_coords
-
-    def _find_unstable_with_mask(self, mask: dict) -> set:
-        """마스크를 고려하여 불안정한 좌표를 찾습니다."""
-        # 마스크 1인 부분만 추출한 임시 도형 생성
-        temp_layers = []
-        for l in range(len(self.layers)):
-            temp_quadrants = [None] * 4
-            for q in range(4):
-                if mask.get((l, q), 0) == 1:
-                    piece = self._get_piece(l, q)
-                    if piece:
-                        temp_quadrants[q] = piece.copy()
-            temp_layers.append(Layer(temp_quadrants))
-        
-        temp_shape = Shape(temp_layers)
-        
         # 지지 계산 (마스크 1 부분에서만)
         supported = set()
         

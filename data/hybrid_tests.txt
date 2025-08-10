@@ -1,3 +1,8 @@
 cw------:cwSu----:cwSuSu--:cw--SuSu:cw------:cw------
+cw------:cwSu----:SuSuSu--:Su--SuSu:--SuSu--:----SuSu:cwSuSu--:cw--SuSu:cwSuSu--
+cw------:cwSu----:cwSuSu--:cw------:cw------:cw------
 PPPP:-PSS:-P--:-ScS
-P-P-P-P-:SucwSuSu:Su--Su--:--SucwSu
+P-P-P-P-:cwSuSuSu:Su--Su--:--SucwSu
+P-P-P-P-:cwSuSuSu:Su--Su--:SuSucwSu
+--P-P---:--cwcw--:SuSuSuSu:----cw--:--Sucw--
+P-SP:S--S:SS--:-P--:-ScS
