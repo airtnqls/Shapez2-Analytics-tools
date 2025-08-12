@@ -711,7 +711,678 @@ class ShapezGUI(QMainWindow):
         # 스레드 초기화
         self.origin_finder_thread = None
         
+        # 테스트 데이터 초기화
+        self.test_data = {}
+        # 편집 필드 채우기 중(textChanged 차단) 가드 플래그
+        self._suspend_field_updates = False
+        
+        # ===== 테스트 케이스 편집기 메서드들 =====
+        def on_operation_changed(self, operation):
+            """연산이 변경되었을 때 입력/출력 필드를 동적으로 표시/숨김 처리합니다."""
+            # 모든 필드를 기본적으로 표시
+            self.input_b_label.setVisible(True)
+            self.input_b_edit.setVisible(True)
+            self.expected_a_label.setVisible(True)
+            self.expected_a_edit.setVisible(True)
+            self.expected_b_label.setVisible(True)
+            self.expected_b_edit.setVisible(True)
+            
+            # 연산에 따라 필드와 라벨 표시/숨김 처리
+            if operation == "stack":
+                # 스태커: 입력 A, B, 출력 1개 (결합된 결과)
+                self.expected_a_label.setVisible(False)
+                self.expected_a_edit.setVisible(False)
+                self.expected_b_label.setVisible(False)
+                self.expected_b_edit.setVisible(False)
+            elif operation == "swap":
+                # 스와퍼: 입력 A, B, 출력 A, B
+                pass
+            elif operation == "classifier":
+                # 분류기: 입력 A만, 예상결과는 문자열
+                self.input_b_label.setVisible(False)
+                self.input_b_edit.setVisible(False)
+                self.expected_b_label.setVisible(False)
+                self.expected_b_edit.setVisible(False)
+                # expected_a는 문자열 예상결과를 위해 표시
+            elif operation == "exist":
+                # 존재성 테스트: 입력 A만, 예상결과 불필요
+                self.input_b_label.setVisible(False)
+                self.input_b_edit.setVisible(False)
+                self.expected_b_label.setVisible(False)
+                self.expected_b_edit.setVisible(False)
+                # expected_a는 존재성 테스트 결과를 위해 표시
+            else:
+                # 기본: 입력 A, 예상결과 A (단일 출력)
+                self.input_b_label.setVisible(False)
+                self.input_b_edit.setVisible(False)
+                # expected_a는 단일 출력 연산을 위해 표시 (이미 True로 설정됨)
+                self.expected_b_label.setVisible(False)
+                self.expected_b_edit.setVisible(False)
+        
+        def load_test_cases(self):
+            """user_tests.json 또는 tests.json 파일에서 테스트 케이스를 로드합니다."""
+            try:
+                # user_tests.json을 우선적으로 로드 시도
+                if os.path.exists("user_tests.json"):
+                    with open("user_tests.json", "r", encoding="utf-8") as f:
+                        self.test_data = json.load(f)
+                    self.log("프로그램 시작: user_tests.json에서 테스트 케이스를 로드했습니다.")
+                else:
+                    # user_tests.json이 없으면 원본 tests.json 로드
+                    with open("tests.json", "r", encoding="utf-8") as f:
+                        self.test_data = json.load(f)
+                    self.log("프로그램 시작: 원본 tests.json에서 테스트 케이스를 로드했습니다.")
+                
+                # 카테고리 목록 업데이트
+                self.category_combo.clear()
+                for category in self.test_data.keys():
+                    self.category_combo.addItem(category)
+                
+                # 테스트 케이스 목록 업데이트
+                self.refresh_test_cases_list()
+                
+                total_count = sum(len(tests) for tests in self.test_data.values())
+                self.log(f"총 {total_count}개 테스트 케이스가 로드되었습니다.")
+                
+            except FileNotFoundError:
+                # 두 파일 모두 없는 경우 빈 데이터로 초기화
+                self.test_data = {}
+                self.log("테스트 파일을 찾을 수 없습니다. 새로 시작합니다.")
+            except Exception as e:
+                self.log(f"테스트 로드 중 오류 발생: {str(e)}")
+                # 오류가 발생해도 빈 데이터로 초기화
+                self.test_data = {}
+        
+        def save_test_cases(self):
+            """현재 테스트 케이스를 user_tests.json 파일에 저장합니다."""
+            try:
+                with open("user_tests.json", "w", encoding="utf-8") as f:
+                    json.dump(self.test_data, f, ensure_ascii=False, indent=2)
+                
+                total_count = sum(len(tests) for tests in self.test_data.values())
+                self.log(f"테스트 케이스 {total_count}개를 user_tests.json에 저장했습니다.")
+                
+            except Exception as e:
+                self.log(f"테스트 저장 중 오류 발생: {str(e)}")
+                QMessageBox.critical(self, _("ui.msg.title.error"), 
+                                   _("ui.msg.save_error", error=str(e)))
+        
+        def refresh_test_cases_list(self):
+            """테스트 케이스 목록을 새로고침합니다."""
+            self.test_cases_table.setRowCount(0)
+            if not hasattr(self, 'test_data') or not self.test_data:
+                return
+            
+            total_rows = sum(len(tests) for tests in self.test_data.values())
+            self.test_cases_table.setRowCount(total_rows)
+            
+            row = 0
+            for category, tests in self.test_data.items():
+                for test in tests:
+                    # 카테고리 (편집 불가)
+                    category_item = QTableWidgetItem(category)
+                    category_item.setData(Qt.ItemDataRole.UserRole, (category, test))
+                    category_item.setFlags(category_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    self.test_cases_table.setItem(row, 0, category_item)
+                    
+                    # 테스트명 (편집 가능)
+                    name_item = QTableWidgetItem(test.get('name', 'Unnamed'))
+                    name_item.setFlags(name_item.flags() | Qt.ItemFlag.ItemIsEditable)
+                    self.test_cases_table.setItem(row, 1, name_item)
+                    
+                    # 연산 (편집 불가)
+                    operation_item = QTableWidgetItem(test.get('operation', ''))
+                    operation_item.setFlags(operation_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    self.test_cases_table.setItem(row, 2, operation_item)
+                    
+                    # 입력 (A, B) (편집 불가)
+                    input_a = test.get('input_a', '')
+                    input_b = test.get('input_b', '')
+                    if input_b:
+                        input_text = f"A: {input_a}, B: {input_b}"
+                    else:
+                        input_text = input_a
+                    input_item = QTableWidgetItem(input_text)
+                    input_item.setFlags(input_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    self.test_cases_table.setItem(row, 3, input_item)
+                    
+                    # 출력 (예상결과) (편집 불가)
+                    expected_a = test.get('expected_a', '')
+                    expected_b = test.get('expected_b', '')
+                    
+                    if expected_a and expected_b:
+                        output_text = f"A: {expected_a}, B: {expected_b}"
+                    elif expected_a:
+                        output_text = expected_a
+                    else:
+                        output_text = "N/A"
+                    
+                    output_item = QTableWidgetItem(output_text)
+                    output_item.setFlags(output_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    self.test_cases_table.setItem(row, 4, output_item)
+                    
+                    row += 1
+        
+        def add_test_case(self):
+            """새 테스트 케이스를 추가합니다."""
+            if not hasattr(self, 'test_data'):
+                self.test_data = {}
+            
+            # 기본 카테고리 선택
+            category = self.category_combo.currentText() or "새 카테고리"
+            if category not in self.test_data:
+                self.test_data[category] = []
+                self.category_combo.addItem(category)
+            
+            # 새 테스트 케이스 생성
+            new_test = {
+                "name": "새 테스트 케이스",
+                "operation": self.operation_combo.currentText(),
+                "input_a": "",
+                "input_b": "",
+                "expected_a": "",
+                "expected_b": "",
+                "params": {}
+            }
+            
+            self.test_data[category].append(new_test)
+            self.refresh_test_cases_list()
+            
+            # 새로 추가된 항목 선택
+            last_row = self.test_cases_table.rowCount() - 1
+            if last_row >= 0:
+                self.test_cases_table.selectRow(last_row)
+                self.on_test_case_selected()
+            
+            self.log("새 테스트 케이스를 추가했습니다.")
+        
+        def on_input_field_changed(self):
+            """입력 필드가 변경되었을 때 자동으로 테스트 케이스를 업데이트합니다."""
+            # 프로그램적으로 필드를 채우는 중에는 업데이트를 막는다
+            if getattr(self, '_suspend_field_updates', False):
+                return
+            
+            current_row = self.test_cases_table.currentRow()
+            if current_row < 0:
+                return
+                
+            category_item = self.test_cases_table.item(current_row, 0)
+            if not category_item:
+                return
+                
+            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            if not test:
+                return
+                
+            # 현재 입력 필드 값들 가져오기
+            operation = self.operation_combo.currentText()
+            input_a = self.input_a_edit.text()
+            input_b = self.input_b_edit.text()
+            expected_a = self.expected_a_edit.text()
+            expected_b = self.expected_b_edit.text()
+            
+            # 테스트 케이스 업데이트
+            test['operation'] = operation
+            test['input_a'] = input_a
+            test['input_b'] = input_b
+            test['expected_a'] = expected_a
+            test['expected_b'] = expected_b
+            
+            # 테이블 목록 새로고침
+            self.refresh_test_cases_list()
+            
+            # 현재 행 다시 선택
+            self.test_cases_table.selectRow(current_row)
+            
+            self.log("테스트 케이스가 자동으로 업데이트되었습니다.")
+        
+        def show_context_menu(self, position):
+            """우클릭 컨텍스트 메뉴를 표시합니다."""
+            if not self.test_cases_table.selectedItems():
+                return
+                
+            context_menu = QMenu(self.test_cases_table)
+            
+            # 복사 기능 (해당 행 아래에 완전히 같은 테스트케이스 추가)
+            copy_action = context_menu.addAction(_("ui.ctx.copy"))
+            copy_action.triggered.connect(self.on_copy_test_case)
+            
+            # 추가 기능 (빈 테스트케이스 추가)
+            add_action = context_menu.addAction(_("ui.ctx.add"))
+            add_action.triggered.connect(self.on_add_empty_test_case)
+            
+            context_menu.addSeparator()
+            
+            # 테스트 실행 기능
+            run_action = context_menu.addAction(_("ui.ctx.run"))
+            run_action.triggered.connect(self.on_run_single_test)
+            
+            context_menu.addSeparator()
+            
+            # 삭제 기능
+            delete_action = context_menu.addAction(_("ui.ctx.delete"))
+            delete_action.triggered.connect(self.delete_test_case)
+            
+            # 컨텍스트 메뉴 표시
+            context_menu.exec(self.test_cases_table.mapToGlobal(position))
+        
+        def on_copy_test_case(self):
+            """선택된 테스트 케이스를 해당 행 아래에 복제하여 추가"""
+            current_row = self.test_cases_table.currentRow()
+            if current_row < 0:
+                return
+                
+            category_item = self.test_cases_table.item(current_row, 0)
+            if not category_item:
+                return
+                
+            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            if not test:
+                return
+            
+            # 테스트 케이스 복제
+            copied_test = test.copy()
+            copied_test['name'] = f"{test.get('name', 'Unnamed')} (Copy)"
+            
+            # 해당 행 아래에 추가
+            if category in self.test_data:
+                # 현재 행의 다음 위치에 삽입
+                all_tests = []
+                for cat, tests in self.test_data.items():
+                    for t in tests:
+                        all_tests.append((cat, t))
+                
+                # 현재 테스트의 위치 찾기
+                current_index = -1
+                for i, (cat, t) in enumerate(all_tests):
+                    if cat == category and t == test:
+                        current_index = i
+                        break
+                
+                if current_index >= 0:
+                    # 현재 테스트 다음 위치에 복사본 삽입
+                    all_tests.insert(current_index + 1, (category, copied_test))
+                    
+                    # 테스트 데이터 재구성
+                    self.test_data = {}
+                    for cat, t in all_tests:
+                        if cat not in self.test_data:
+                            self.test_data[cat] = []
+                        self.test_data[cat].append(t)
+                    
+                    # 테이블 새로고침
+                    self.refresh_test_cases_list()
+                    
+                    # 복사된 행 선택
+                    self.test_cases_table.selectRow(current_row + 1)
+                    
+                    self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 복제했습니다.")
+        
+        def on_add_empty_test_case(self):
+            """선택된 행에 빈 테스트케이스 추가 (Add Test Case 기능 수행)"""
+            current_row = self.test_cases_table.currentRow()
+            if current_row < 0:
+                return
+                
+            category_item = self.test_cases_table.item(current_row, 0)
+            if not category_item:
+                return
+                
+            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            if not test:
+                return
+            
+            # 빈 테스트 케이스 생성
+            empty_test = {
+                'name': 'New Test Case',
+                'operation': '',
+                'input_a': '',
+                'input_b': '',
+                'expected_a': '',
+                'expected_b': '',
+                'params': {}
+            }
+            
+            # 해당 행에 빈 테스트케이스 삽입
+            if category in self.test_data:
+                # 현재 테스트의 위치 찾기
+                test_index = self.test_data[category].index(test)
+                if test_index >= 0:
+                    # 현재 테스트 다음 위치에 빈 테스트케이스 삽입
+                    self.test_data[category].insert(test_index + 1, empty_test)
+                    
+                    # 테이블 새로고침
+                    self.refresh_test_cases_list()
+                    
+                    # 새로 추가된 행 선택
+                    self.test_cases_table.selectRow(current_row + 1)
+                    
+                    # 편집 필드에 빈 테스트케이스 정보 설정
+                    self.on_test_case_selected()
+                    
+                    self.log(f"빈 테스트 케이스를 '{category}' 카테고리에 추가했습니다.")
+        
+        def on_run_single_test(self):
+            """선택된 테스트 케이스를 실행하고 결과를 검증합니다."""
+            current_row = self.test_cases_table.currentRow()
+            if current_row < 0:
+                return
+                
+            category_item = self.test_cases_table.item(current_row, 0)
+            if not category_item:
+                return
+                
+            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            if not test:
+                return
+            
+            # 테스트 정보 추출
+            name = test.get('name', 'Unnamed')
+            operation = test.get('operation', '')
+            input_a_str = test.get('input_a', '')
+            input_b_str = test.get('input_b', '')
+            params = test.get('params', {})
+            
+            if not input_a_str:
+                self.log(f"❌ 테스트 실행 실패: {name} - 입력 A가 비어있습니다.")
+                return
+            
+            # 입력 필드에 테스트 데이터 설정
+            self.input_a.setText(input_a_str)
+            if input_b_str:
+                self.input_b.setText(input_b_str)
+            else:
+                self.input_b.clear()
+            
+            # 테스트 실행 및 검증
+            try:
+                from shape import Shape
+                shape_a = Shape.from_string(input_a_str)
+                
+                # swap 연산 처리 (이중 입력/출력)
+                if operation == "swap":
+                    if not input_b_str:
+                        self.log(f"❌ 테스트 실행 실패: {name} - 'swap'은 'input_b'가 필요합니다.")
+                        return
+                    
+                    shape_b = Shape.from_string(input_b_str)
+                    actual_a, actual_b = Shape.swap(shape_a, shape_b)
+                    actual_a_code, actual_b_code = repr(actual_a), repr(actual_b)
+                    
+                    expected_a_shape = Shape.from_string(test.get('expected_a', ""))
+                    expected_b_shape = Shape.from_string(test.get('expected_b', ""))
+                    expected_a_code, expected_b_code = repr(expected_a_shape), repr(expected_b_shape)
+                    
+                    # 결과 검증
+                    if actual_a_code == expected_a_code and actual_b_code == expected_b_code:
+                        self.log(f"✅ 테스트 통과: {name}")
+                        self.log(f"  - 입력A: {input_a_str}, 입력B: {input_b_str}")
+                        self.log(f"  - 예상A: {expected_a_code}, 예상B: {expected_b_code}")
+                        self.log(f"  - 실제A: {actual_a_code}, 실제B: {actual_b_code}")
+                    else:
+                        self.log(f"❌ 테스트 실패: {name}")
+                        self.log(f"  - 입력A: {input_a_str}, 입력B: {input_b_str}")
+                        self.log(f"  - 예상A: {expected_a_code}, 예상B: {expected_b_code}")
+                        self.log(f"  - 실제A: {actual_a_code}, 실제B: {actual_b_code}")
+                    return
+                
+                # classifier 연산 처리 (특별한 출력 형식)
+                if operation == "classifier":
+                    result_string, reason = shape_a.classifier()
+                    expected = test.get('expected_a', "")
+                    
+                    if expected in result_string:
+                        self.log(f"✅ 테스트 통과: {name}")
+                        self.log(f"  - 입력: {input_a_str}")
+                        self.log(f"  - 예상: {expected}")
+                        self.log(f"  - 실제: {result_string} (사유: {reason})")
+                    else:
+                        self.log(f"❌ 테스트 실패: {name}")
+                        self.log(f"  - 입력: {input_a_str}")
+                        self.log(f"  - 예상: {expected}")
+                        self.log(f"  - 실제: {result_string} (사유: {reason})")
+                    return
+                
+                # 일반 연산 처리
+                actual_shape = None
+                if input_b_str:
+                    shape_b = Shape.from_string(input_b_str)
+                    if operation == "stack":
+                        actual_shape = Shape.stack(shape_a, shape_b)
+                    else:
+                        self.log(f"❌ 테스트 실행 실패: {name} - 연산 '{operation}'은 입력 B를 지원하지 않습니다.")
+                        return
+                else:
+                    if operation == "apply_physics":
+                        actual_shape = shape_a.apply_physics()
+                    elif operation == "destroy_half":
+                        actual_shape = shape_a.destroy_half()
+                    elif operation == "push_pin":
+                        actual_shape = shape_a.push_pin()
+                    elif operation == "paint":
+                        actual_shape = shape_a.paint(params.get('color', 'r'))
+                    elif operation == "crystal_generator":
+                        actual_shape = shape_a.crystal_generator(params.get('color', 'r'))
+                    elif operation == "rotate":
+                        actual_shape = shape_a.rotate(params.get('clockwise', True))
+                    elif operation == "cutter":
+                        actual_shape = shape_a.cutter()
+                    elif operation == "simple_cutter":
+                        actual_shape = shape_a.simple_cutter()
+                    elif operation == "quad_cutter":
+                        actual_shape = shape_a.quad_cutter()
+                    elif operation == "mirror":
+                        actual_shape = shape_a.mirror()
+                    elif operation == "cornerize":
+                        actual_shape = shape_a.cornerize()
+                    elif operation == "simplify":
+                        actual_shape = shape_a.simplify()
+                    elif operation == "detail":
+                        actual_shape = shape_a.detail()
+                    elif operation == "corner1":
+                        actual_shape = shape_a.corner1()
+                    elif operation == "reverse":
+                        actual_shape = shape_a.reverse()
+                    else:
+                        self.log(f"❌ 테스트 실행 실패: {name} - 알 수 없는 연산: {operation}")
+                        return
+                
+                # 결과 검증
+                actual_code = repr(actual_shape)
+                expected_shape = Shape.from_string(test.get('expected_a', ""))
+                expected_code = repr(expected_shape)
+                
+                if actual_code == expected_code:
+                    self.log(f"✅ 테스트 통과: {name}")
+                    self.log(f"  - 입력: {input_a_str}")
+                    self.log(f"  - 예상: {expected_code}")
+                    self.log(f"  - 실제: {actual_code}")
+                else:
+                    self.log(f"❌ 테스트 실패: {name}")
+                    self.log(f"  - 입력: {input_a_str}")
+                    self.log(f"  - 예상: {expected_code}")
+                    self.log(f"  - 실제: {actual_code}")
+                
+            except Exception as e:
+                self.log(f"🔥 테스트 실행 오류: {name} - {e.__class__.__name__}: {e}")
+                import traceback
+                self.log(traceback.format_exc())
+        
+        def reset_tests(self):
+            """원본 tests.json 파일을 불러와 모든 변경사항을 초기화합니다."""
+            try:
+                # 원본 tests.json 파일 불러오기
+                if os.path.exists("tests.json"):
+                    with open("tests.json", "r", encoding="utf-8") as f:
+                        original_data = json.load(f)
+                    
+                    # 현재 테스트 데이터를 원본으로 교체
+                    self.test_data = original_data
+                    
+                    # 테이블 새로고침
+                    self.refresh_test_cases_list()
+                    
+                    # 편집 필드 초기화
+                    self.clear_test_edit_fields()
+                    
+                    total_count = sum(len(tests) for tests in self.test_data.values())
+                    self.log(f"초기화 완료: 원본 tests.json에서 {total_count}개 테스트 케이스를 불러왔습니다.")
+                    
+                else:
+                    self.log("원본 tests.json 파일을 찾을 수 없습니다.")
+                    QMessageBox.warning(self, _("ui.msg.title.warning"), 
+                                      "원본 tests.json 파일이 존재하지 않습니다.")
+                    
+            except Exception as e:
+                self.log(f"테스트 초기화 중 오류 발생: {str(e)}")
+                QMessageBox.critical(self, _("ui.msg.title.error"), 
+                                   f"테스트 초기화 중 오류가 발생했습니다:\n{str(e)}")
+        
+
+        
+        def on_test_rows_reordered(self, from_row, to_row):
+            """드래그앤드롭으로 테스트 케이스 순서가 변경되었을 때 호출됩니다."""
+            # 테스트 데이터에서 순서 조절
+            all_tests = []
+            for category, tests in self.test_data.items():
+                for test in tests:
+                    all_tests.append((category, test))
+            
+            if 0 <= from_row < len(all_tests) and 0 <= to_row < len(all_tests):
+                # 순서 조절
+                item = all_tests.pop(from_row)
+                all_tests.insert(to_row, item)
+                
+                # 테스트 데이터 재구성
+                self.test_data = {}
+                for category, test in all_tests:
+                    if category not in self.test_data:
+                        self.test_data[category] = []
+                    self.test_data[category].append(test)
+                
+                # 테이블 새로고침
+                self.refresh_test_cases_list()
+                
+                # 드롭된 행 선택
+                self.test_cases_table.selectRow(to_row)
+                
+                self.log(f"테스트 케이스 순서를 조절했습니다.")
+        
+        def on_table_item_changed(self, item):
+            """테이블 셀이 편집되었을 때 실제 데이터를 업데이트합니다."""
+            if not item:
+                return
+                
+            current_row = item.row()
+            current_column = item.column()
+            
+            # 테스트명 컬럼(1)만 편집 가능
+            if current_column != 1:
+                return
+                
+            category_item = self.test_cases_table.item(current_row, 0)
+            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            if not test:
+                return
+                
+            # 테스트명 업데이트
+            new_name = item.text()
+            if new_name != test.get('name', ''):
+                test['name'] = new_name
+                self.log(f"테스트명을 '{new_name}'으로 업데이트했습니다.")
+        
+        def on_test_case_selected(self):
+            """테스트 케이스가 선택되었을 때 편집 필드를 업데이트합니다."""
+            current_row = self.test_cases_table.currentRow()
+            if current_row < 0:
+                return
+            
+            category_item = self.test_cases_table.item(current_row, 0)
+            if not category_item:
+                return
+                
+            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            
+            # 카테고리 설정
+            index = self.category_combo.findText(category)
+            if index >= 0:
+                self.category_combo.setCurrentIndex(index)
+            else:
+                # 연산이 목록에 없으면 첫 번째 항목으로 설정
+                self.operation_combo.setCurrentIndex(0)
+            
+            # 필드들 설정
+            self.test_name_edit.setText(test.get("name", ""))
+            
+            operation = test.get("operation", "")
+            index = self.operation_combo.findText(operation)
+            if index >= 0:
+                self.operation_combo.setCurrentIndex(index)
+            else:
+                # 연산이 목록에 없으면 첫 번째 항목으로 설정
+                self.operation_combo.setCurrentIndex(0)
+            
+            # 연산에 따른 필드 상태를 먼저 업데이트
+            self.on_operation_changed(self.operation_combo.currentText())
+            
+            # 필드 채우는 동안 업데이트 중단
+            self._suspend_field_updates = True
+            try:
+                # 그 다음에 데이터를 필드에 설정
+                self.input_a_edit.setText(test.get("input_a", ""))
+                self.input_b_edit.setText(test.get("input_b", ""))
+                self.expected_a_edit.setText(test.get("expected_a", ""))
+                self.expected_b_edit.setText(test.get("expected_b", ""))
+                
+                # 매개변수 JSON 문자열로 변환
+                params = test.get("params", {})
+                if params:
+                    self.params_edit.setText(json.dumps(params, ensure_ascii=False))
+                else:
+                    self.params_edit.clear()
+            finally:
+                self._suspend_field_updates = False
+        
+
+        
+
+        
+
+        
+        def clear_test_edit_fields(self):
+            """테스트 편집 필드들을 초기화합니다."""
+            self.test_name_edit.clear()
+            self.operation_combo.setCurrentIndex(0)
+            self.input_a_edit.clear()
+            self.input_b_edit.clear()
+            self.expected_a_edit.clear()
+            self.expected_b_edit.clear()
+            self.params_edit.clear()
+            
+            # 연산에 따른 필드 상태 업데이트
+            self.on_operation_changed(self.operation_combo.currentText())
+        
+        # 메서드를 클래스에 바인딩
+        self.on_operation_changed = on_operation_changed.__get__(self, ShapezGUI)
+        self.load_test_cases = load_test_cases.__get__(self, ShapezGUI)
+        self.save_test_cases = save_test_cases.__get__(self, ShapezGUI)
+        self.refresh_test_cases_list = refresh_test_cases_list.__get__(self, ShapezGUI)
+        self.add_test_case = add_test_case.__get__(self, ShapezGUI)
+        self.on_test_case_selected = on_test_case_selected.__get__(self, ShapezGUI)
+        self.on_table_item_changed = on_table_item_changed.__get__(self, ShapezGUI)
+        self.on_input_field_changed = on_input_field_changed.__get__(self, ShapezGUI)
+        self.show_context_menu = show_context_menu.__get__(self, ShapezGUI)
+        self.on_copy_test_case = on_copy_test_case.__get__(self, ShapezGUI)
+        self.on_add_empty_test_case = on_add_empty_test_case.__get__(self, ShapezGUI)
+        self.on_run_single_test = on_run_single_test.__get__(self, ShapezGUI)
+        self.reset_tests = reset_tests.__get__(self, ShapezGUI)
+        self.on_test_rows_reordered = on_test_rows_reordered.__get__(self, ShapezGUI)
+        self.clear_test_edit_fields = clear_test_edit_fields.__get__(self, ShapezGUI)
+        
         self.initUI()
+        
+        # 테스트 에디터 단축키 설정 (UI 초기화 완료 후)
+        self.setup_test_editor_shortcuts()
         
         # 초기 언어 적용
         try:
@@ -721,6 +1392,45 @@ class ShapezGUI(QMainWindow):
         
         # 저장된 설정 불러오기 (initUI 호출 후에 위젯들이 초기화된 상태에서 값을 로드)
         self.load_settings()
+        
+        # 테스트 에디터 시그널 연결 및 초기화
+        # 버튼 클릭 이벤트 연결
+        self.save_tests_btn.clicked.connect(self.save_test_cases)
+        self.reset_tests_btn.clicked.connect(self.reset_tests)
+        
+        # 테스트 케이스 선택 이벤트 연결
+        self.test_cases_table.itemSelectionChanged.connect(self.on_test_case_selected)
+        
+        # 테이블 셀 편집 완료 시그널 연결
+        self.test_cases_table.itemChanged.connect(self.on_table_item_changed)
+        
+        # 키보드 삭제 및 우클릭 컨텍스트 메뉴 설정
+        self.test_cases_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.test_cases_table.customContextMenuRequested.connect(self.show_context_menu)
+        
+        # 드래그앤드롭으로 순서 조절 설정 (DragDropTableWidget에서 자동 처리)
+        self.test_cases_table.rows_reordered.connect(self.on_test_rows_reordered)
+        
+        # 편집 버튼 이벤트 연결 제거 - 자동반영, 키보드/우클릭 삭제, 드래그앤드롭 순서 조절로 대체
+        
+        # 연산 변경 시 필드 표시/숨김 처리
+        self.operation_combo.currentTextChanged.connect(self.on_operation_changed)
+        
+        # 입력 필드 변경 시 자동 반영 (시그널은 가드 플래그로 보호)
+        self.input_a_edit.textChanged.connect(self.on_input_field_changed)
+        self.input_b_edit.textChanged.connect(self.on_input_field_changed)
+        self.expected_a_edit.textChanged.connect(self.on_input_field_changed)
+        self.expected_b_edit.textChanged.connect(self.on_input_field_changed)
+        
+        # 초기 필드 상태 설정
+        self.on_operation_changed("apply_physics")
+        
+        # 초기 테스트 데이터 로드
+        self.load_test_cases()
+        
+
+
+
 
     def load_settings(self):
         """저장된 설정을 불러옵니다."""
@@ -755,6 +1465,56 @@ class ShapezGUI(QMainWindow):
         # 자동 적용 체크박스 상태 복원 (위젯이 생성된 후에 설정)
         if hasattr(self, 'auto_apply_checkbox'):
             self.auto_apply_checkbox.setChecked(auto_apply_enabled)
+    
+    def setup_test_editor_shortcuts(self):
+        """테스트 에디터 단축키 설정"""
+        # Delete: 선택된 테스트 케이스 삭제
+        self.delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self.test_cases_table)
+        self.delete_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.delete_shortcut.activated.connect(self.delete_test_case)
+        
+        self.log("테스트 에디터 단축키 설정 완료 (Delete)")
+    
+    def delete_test_case(self):
+        """선택된 테스트 케이스를 삭제합니다."""
+        current_row = self.test_cases_table.currentRow()
+        if current_row < 0:
+            return
+            
+        category_item = self.test_cases_table.item(current_row, 0)
+        if not category_item:
+            return
+            
+        category, test = category_item.data(Qt.ItemDataRole.UserRole)
+        if not test:
+            return
+        
+        # 확인 메시지
+        reply = QMessageBox.question(
+            self, 
+            _("ui.msg.title.confirm"), 
+            _("ui.msg.confirm_delete_test", name=test.get('name', 'Unnamed')),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # 테스트 데이터에서 제거
+            if category in self.test_data and test in self.test_data[category]:
+                self.test_data[category].remove(test)
+                
+                # 카테고리가 비어있으면 카테고리도 제거
+                if not self.test_data[category]:
+                    del self.test_data[category]
+                    self.category_combo.removeItem(self.category_combo.findText(category))
+                
+                # 테이블 새로고침
+                self.refresh_test_cases_list()
+                
+                # 편집 필드 초기화
+                self.clear_test_edit_fields()
+                
+                self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 삭제했습니다.")
 
     def initUI(self):
         main_layout = QVBoxLayout(self.central_widget)
@@ -1166,10 +1926,9 @@ class ShapezGUI(QMainWindow):
         reverse_layout.addWidget(self.origin_list)
         right_panel.addWidget(reverse_group)
         
-        test_group = QGroupBox("자동 테스트"); test_layout = QVBoxLayout(test_group)
-        test_layout.addWidget(QPushButton("전체 테스트 실행", clicked=self.run_forward_tests))
-        test_layout.addWidget(QPushButton("역연산 테스트 실행", clicked=self.run_reverse_tests))
-        right_panel.addWidget(test_group)
+
+        
+
         
         # 출력 (분석도구 탭 하단)
         output_group = QGroupBox("출력")
@@ -1266,6 +2025,144 @@ class ShapezGUI(QMainWindow):
         # 공정트리 초기화 - 빈 메시지 표시
         self._clear_process_tree()
         
+        # 테스트 편집기 탭 추가
+        test_editor_tab_widget = QWidget()
+        test_editor_tab_layout = QVBoxLayout(test_editor_tab_widget)
+        
+        # 자동 테스트 컨테이너 (맨 위)
+        auto_test_group = QGroupBox(_("ui.groups.auto_test"))
+        auto_test_layout = QVBoxLayout(auto_test_group)
+        
+        # 전체 테스트 실행 버튼
+        run_all_tests_btn = QPushButton(_("ui.btn.run_all_tests"))
+        run_all_tests_btn.clicked.connect(self.run_forward_tests)
+        auto_test_layout.addWidget(run_all_tests_btn)
+        
+        # 역연산 테스트 실행 버튼
+        run_reverse_tests_btn = QPushButton(_("ui.btn.run_reverse_tests"))
+        run_reverse_tests_btn.clicked.connect(self.run_reverse_tests)
+        auto_test_layout.addWidget(run_reverse_tests_btn)
+        
+        test_editor_tab_layout.addWidget(auto_test_group)
+        
+        # 테스트 케이스 편집기 그룹
+        test_editor_group = QGroupBox(_("ui.groups.test_editor"))
+        test_editor_layout = QVBoxLayout(test_editor_group)
+        
+        # 버튼 행
+        test_editor_buttons = QHBoxLayout()
+        
+        self.save_tests_btn = QPushButton(_("ui.btn.save_tests"))
+        self.save_tests_btn.setToolTip(_("ui.tooltip.save_tests"))
+        test_editor_buttons.addWidget(self.save_tests_btn)
+        
+        self.reset_tests_btn = QPushButton(_("ui.btn.reset_tests"))
+        self.reset_tests_btn.setToolTip(_("ui.tooltip.reset_tests"))
+        test_editor_buttons.addWidget(self.reset_tests_btn)
+        
+        test_editor_layout.addLayout(test_editor_buttons)
+        
+        # 테스트 케이스 목록 (테이블 형태로 표시)
+        self.test_cases_table = DragDropTableWidget()
+        self.test_cases_table.setColumnCount(5)
+        self.test_cases_table.setHorizontalHeaderLabels([
+            _("ui.table.header.category"), 
+            _("ui.table.header.name"), 
+            _("ui.table.header.operation"),
+            _("ui.table.header.input"), 
+            _("ui.table.header.output")
+        ])
+        # 컬럼 너비 설정 (가로 간격 줄임)
+        self.test_cases_table.setColumnWidth(0, 80)   # 카테고리 (줄임)
+        self.test_cases_table.setColumnWidth(1, 150)  # 테스트명
+        self.test_cases_table.setColumnWidth(2, 100)  # 연산
+        self.test_cases_table.setColumnWidth(3, 160)  # 입력 (늘림)
+        self.test_cases_table.setColumnWidth(4, 160)  # 출력 (늘림)
+        self.test_cases_table.horizontalHeader().setStretchLastSection(False)
+        self.test_cases_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.test_cases_table.setAlternatingRowColors(True)
+        self.test_cases_table.setSortingEnabled(True)
+        test_editor_layout.addWidget(self.test_cases_table)
+        
+        # 테스트 케이스 편집 영역
+        test_edit_group = QGroupBox(_("ui.test_editor.edit_title"))
+        test_edit_layout = QVBoxLayout(test_edit_group)
+        
+
+        
+        # 편집 컨트롤들
+        edit_controls = QGridLayout()
+        
+        # 카테고리 선택
+        edit_controls.addWidget(QLabel(_("ui.label.category")), 0, 0)
+        self.category_combo = QComboBox()
+        self.category_combo.setEditable(True)
+        self.category_combo.setPlaceholderText(_("ui.placeholder.category"))
+        edit_controls.addWidget(self.category_combo, 0, 1)
+        
+        # 테스트명
+        edit_controls.addWidget(QLabel(_("ui.label.test_name")), 1, 0)
+        self.test_name_edit = QLineEdit()
+        self.test_name_edit.setPlaceholderText(_("ui.placeholder.test_name"))
+        edit_controls.addWidget(self.test_name_edit, 1, 1)
+        
+        # 연산
+        edit_controls.addWidget(QLabel(_("ui.label.operation")), 2, 0)
+        self.operation_combo = QComboBox()
+        self.operation_combo.addItems([
+            "apply_physics", "destroy_half", "stack", "paint", "crystal_generator",
+            "push_pin", "rotate", "swap", "classifier", "cutter", "simple_cutter",
+            "quad_cutter", "mirror", "cornerize", "simplify", "detail", "corner1", "reverse"
+        ])
+        edit_controls.addWidget(self.operation_combo, 2, 1)
+        
+
+        
+        # 입력 A (항상 표시)
+        edit_controls.addWidget(QLabel(_("ui.label.input_a")), 3, 0)
+        self.input_a_edit = QLineEdit()
+        self.input_a_edit.setPlaceholderText(_("ui.placeholder.input_shape"))
+        edit_controls.addWidget(self.input_a_edit, 3, 1)
+        
+        # 입력 B (일부 연산에만 필요)
+        self.input_b_label = QLabel(_("ui.label.input_b"))
+        self.input_b_edit = QLineEdit()
+        self.input_b_edit.setPlaceholderText(_("ui.placeholder.input_shape"))
+        edit_controls.addWidget(self.input_b_label, 4, 0)
+        edit_controls.addWidget(self.input_b_edit, 4, 1)
+        
+        # 예상결과 A, B (이중 출력 연산용)
+        self.expected_a_label = QLabel(_("ui.label.expected_a"))
+        self.expected_a_edit = QLineEdit()
+        self.expected_a_edit.setPlaceholderText(_("ui.placeholder.input_shape"))
+        edit_controls.addWidget(self.expected_a_label, 5, 0)
+        edit_controls.addWidget(self.expected_a_edit, 5, 1)
+        
+        self.expected_b_label = QLabel(_("ui.label.expected_b"))
+        self.expected_b_edit = QLineEdit()
+        self.expected_b_edit.setPlaceholderText(_("ui.placeholder.input_shape"))
+        edit_controls.addWidget(self.expected_b_label, 6, 0)
+        edit_controls.addWidget(self.expected_b_edit, 6, 1)
+        
+        # 매개변수
+        edit_controls.addWidget(QLabel(_("ui.label.params")), 0, 2)
+        self.params_edit = QLineEdit()
+        self.params_edit.setPlaceholderText(_("ui.placeholder.params"))
+        edit_controls.addWidget(self.params_edit, 0, 2)
+        
+        test_edit_layout.addLayout(edit_controls)
+        
+        # 편집 버튼들 제거 - 자동반영, 키보드/우클릭 삭제, 드래그앤드롭 순서 조절로 대체
+        
+        test_editor_layout.addWidget(test_edit_group)
+        test_editor_tab_layout.addWidget(test_editor_group)
+        
+        # 테스트 편집기 탭 추가
+        idx = right_tabs.addTab(test_editor_tab_widget, _("ui.tabs.test_editor"))
+        right_tabs.tabBar().setTabData(idx, ("key", "ui.tabs.test_editor", None))
+        
+        # 연산 변경 시 필드 표시/숨김 처리는 connect_test_editor_signals에서 연결
+        
         # 탭 변경 이벤트 연결
         right_tabs.currentChanged.connect(self.on_main_tab_changed)
         self.main_tabs = right_tabs  # 메인 탭 위젯 저장
@@ -1306,6 +2203,8 @@ class ShapezGUI(QMainWindow):
         
         # 초기 입력 표시 (load_settings에서 처리되므로 여기서는 제거)
         # self.update_input_display()
+        
+        # 테스트 에디터 시그널 연결 및 초기화는 __init__ 끝에서 처리
 
     def closeEvent(self, event):
         """애플리케이션 종료 시 설정을 저장합니다."""
@@ -1837,7 +2736,7 @@ class ShapezGUI(QMainWindow):
                         elif operation == "classifier":
                             # classifier 연산은 이제 (분류결과, 사유) 튜플을 반환함
                             result_string, reason = shape_a.classifier()
-                            expected = test.get('expected', "")
+                            expected = test.get('expected_a', "")
                             
                             # 예상 문자열이 결과 문자열에 포함되어 있는지 검사
                             if expected in result_string:
@@ -1849,7 +2748,7 @@ class ShapezGUI(QMainWindow):
                         else: raise ValueError(f"연산 '{operation}'은 입력 A만으로는 수행할 수 없습니다.")
                     
                     actual_code = repr(actual_shape)
-                    expected_shape = Shape.from_string(test.get('expected', ""))
+                    expected_shape = Shape.from_string(test.get('expected_a', ""))
                     expected_code = repr(expected_shape)
 
                     if actual_code == expected_code:
@@ -1982,6 +2881,9 @@ class ShapezGUI(QMainWindow):
 
         summary = f"역연산 테스트 종료: {total_count}개 중 {passed_count}개 통과 ({passed_count/total_count if total_count > 0 else 0:.1%})"
         self.log(f"\n=== {summary} ===\n")
+
+        # 테스트 편집기 시그널 연결
+        self.connect_test_editor_signals()
 
     # =================== 키보드 단축키 설정 ===================
     
@@ -2199,7 +3101,7 @@ class ShapezGUI(QMainWindow):
         
         self.add_to_history()
         self.update_input_display()
-
+    
     def handle_quadrant_change(self, input_name, layer_index, quad_index, new_quadrant):
         """셀 내용 변경을 처리합니다."""
         self.log_verbose(f"셀 변경: {input_name}[{layer_index}][{quad_index}] -> {new_quadrant}")
@@ -3960,10 +4862,17 @@ class DragDropTableWidget(QTableWidget):
         self.hovered_item = None
 
     def show_shape_tooltip(self):
-        if not self.hovered_item or not self.hovered_item.text().strip():
+        if not self.hovered_item:
             return
-        shape_code = self.hovered_item.text().strip()
         try:
+            if not self.hovered_item.text().strip():
+                return
+        except RuntimeError:
+            # QTableWidgetItem이 이미 삭제된 경우
+            self.hovered_item = None
+            return
+        try:
+            shape_code = self.hovered_item.text().strip()
             from shape import Shape
             shape = Shape.from_string(shape_code)
             self.shape_tooltip = ShapeTooltipWidget(shape)
@@ -4172,6 +5081,9 @@ class BatchWorkerThread(QThread):
         except Exception as e:
             # 도형 파싱 실패 시 기본 툴팁 사용
             self.setToolTip(_("ui.tooltip.shape_code", code=shape_code) + "\n" + _("ui.tooltip.parse_error", error=str(e)))
+
+
+
     
     def hide_shape_tooltip(self):
         """도형 툴팁 숨기기"""
@@ -4447,7 +5359,7 @@ class DataTabWidget(QWidget):
         self.clear_button.clicked.connect(self.on_clear_data)
 
         # (신규 위치) 새 탭 버튼을 동일 행에 배치
-        self.new_tab_button = QPushButton(_("ui.btn.new_tab"))
+        self.new_tab_button = QPushButton(_("ui.btn.add_tab"))
         # 메인 윈도우의 on_add_new_data_tab 호출
         self.new_tab_button.clicked.connect(lambda: self.get_main_window().on_add_new_data_tab() if self.get_main_window() else None)
 
@@ -5486,6 +6398,192 @@ class DataTabWidget(QWidget):
         shape.pad_layers(max_layers)
         shape.layers[layer_index].quadrants[quad_index] = new_quadrant
         self._update_row_code(row, repr(shape))
+
+    
+            
+        category, test = item.data(Qt.ItemDataRole.UserRole)
+        
+        # 카테고리 설정
+        index = self.category_combo.findText(category)
+        if index >= 0:
+            self.category_combo.setCurrentIndex(index)
+        
+        # 필드들 설정
+        self.test_name_edit.setText(test.get("name", ""))
+        
+        operation = test.get("operation", "")
+        index = self.operation_combo.findText(operation)
+        if index >= 0:
+            self.operation_combo.setCurrentIndex(index)
+        else:
+            # 연산이 목록에 없으면 첫 번째 항목으로 설정
+            self.operation_combo.setCurrentIndex(0)
+        
+        self.input_a_edit.setText(test.get("input_a", ""))
+        self.input_b_edit.setText(test.get("input_b", ""))
+        self.expected_a_edit.setText(test.get("expected_a", ""))
+        self.expected_b_edit.setText(test.get("expected_b", ""))
+        
+        # 매개변수 JSON 문자열로 변환
+        params = test.get("params", {})
+        if params:
+            self.params_edit.setText(json.dumps(params, ensure_ascii=False))
+        else:
+            self.params_edit.clear()
+        
+        # 연산에 따른 필드 상태 업데이트
+        self.on_operation_changed(self.operation_combo.currentText())
+
+    def update_test_case(self):
+        """선택된 테스트 케이스를 업데이트합니다."""
+        current_item = self.test_cases_list.currentItem()
+        if not current_item:
+            return
+            
+        category, test = current_item.data(Qt.ItemDataRole.UserRole)
+        
+        # 필드 값들 가져오기
+        test["name"] = self.test_name_edit.text()
+        test["operation"] = self.operation_combo.currentText()
+        test["input_a"] = self.input_a_edit.text()
+        test["input_b"] = self.input_b_edit.text()
+        test["expected_a"] = self.expected_a_edit.text()
+        test["expected_b"] = self.expected_b_edit.text()
+        
+        # 매개변수 파싱
+        params_text = self.params_edit.text().strip()
+        if params_text:
+            try:
+                test["params"] = json.loads(params_text)
+            except json.JSONDecodeError as e:
+                QMessageBox.warning(self, _("ui.msg.title.warning"), 
+                                  _("ui.msg.invalid_json", error=str(e)))
+                return
+        else:
+            test["params"] = {}
+        
+        # 카테고리 변경 처리
+        new_category = self.category_combo.currentText()
+        if new_category != category:
+            # 기존 카테고리에서 제거
+            self.test_data[category].remove(test)
+            if not self.test_data[category]:  # 빈 카테고리 제거
+                del self.test_data[category]
+                index = self.category_combo.findText(category)
+                if index >= 0:
+                    self.category_combo.removeItem(index)
+            
+            # 새 카테고리에 추가
+            if new_category not in self.test_data:
+                self.test_data[new_category] = []
+                self.category_combo.addItem(new_category)
+            self.test_data[new_category].append(test)
+        
+        # 목록 새로고침
+        self.refresh_test_cases_list()
+        
+        # 업데이트된 항목 선택
+        for i in range(self.test_cases_list.count()):
+            item = self.test_cases_list.item(i)
+            item_category, item_test = item.data(Qt.ItemDataRole.UserRole)
+            if item_test == test:
+                self.test_cases_list.setCurrentItem(item)
+                break
+        
+        self.log(f"테스트 케이스 '{test['name']}'을(를) 업데이트했습니다.")
+
+    def delete_test_case(self):
+        """선택된 테스트 케이스를 삭제합니다."""
+        current_item = self.test_cases_list.currentItem()
+        if not current_item:
+            return
+            
+        reply = QMessageBox.question(self, _("ui.msg.title.warning"), 
+                                   _("ui.msg.confirm_delete"),
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            category, test = current_item.data(Qt.ItemDataRole.UserRole)
+            self.test_data[category].remove(test)
+            
+            # 빈 카테고리 제거
+            if not self.test_data[category]:
+                del self.test_data[category]
+                index = self.category_combo.findText(category)
+                if index >= 0:
+                    self.category_combo.removeItem(index)
+            
+            self.refresh_test_cases_list()
+            
+            # 편집 필드 초기화
+            self.clear_test_edit_fields()
+            
+            self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 삭제했습니다.")
+
+    def move_test_case_up(self):
+        """테스트 케이스를 위로 이동합니다."""
+        current_item = self.test_cases_list.currentItem()
+        if not current_item:
+            return
+            
+        current_row = self.test_cases_list.row(current_item)
+        if current_row <= 0:
+            return
+            
+        category, test = current_item.data(Qt.ItemDataRole.UserRole)
+        tests = self.test_data[category]
+        
+        # 리스트에서 위치 교환
+        test_index = tests.index(test)
+        if test_index > 0:
+            tests[test_index], tests[test_index - 1] = tests[test_index - 1], tests[test_index]
+            self.refresh_test_cases_list()
+            
+            # 이동된 항목 선택
+            new_item = self.test_cases_list.item(current_row - 1)
+            if new_item:
+                self.test_cases_list.setCurrentItem(new_item)
+            
+            self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 위로 이동했습니다.")
+
+    def move_test_case_down(self):
+        """테스트 케이스를 아래로 이동합니다."""
+        current_item = self.test_cases_list.currentItem()
+        if not current_item:
+            return
+            
+        current_row = self.test_cases_list.row(current_item)
+        if current_row >= self.test_cases_list.count() - 1:
+            return
+            
+        category, test = current_item.data(Qt.ItemDataRole.UserRole)
+        tests = self.test_data[category]
+        
+        # 리스트에서 위치 교환
+        test_index = tests.index(test)
+        if test_index < len(tests) - 1:
+            tests[test_index], tests[test_index + 1] = tests[test_index + 1], tests[test_index]
+            self.refresh_test_cases_list()
+            
+            # 이동된 항목 선택
+            new_item = self.test_cases_list.item(current_row + 1)
+            if new_item:
+                self.test_cases_list.setCurrentItem(new_item)
+            
+            self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 아래로 이동했습니다.")
+
+    def clear_test_edit_fields(self):
+        """테스트 편집 필드들을 초기화합니다."""
+        self.test_name_edit.clear()
+        self.operation_combo.setCurrentIndex(0)
+        self.input_a_edit.clear()
+        self.input_b_edit.clear()
+        self.expected_a_edit.clear()
+        self.expected_b_edit.clear()
+        self.params_edit.clear()
+        
+        # 연산에 따른 필드 상태 업데이트
+        self.on_operation_changed(self.operation_combo.currentText())
 
 class TreeGraphicsView(QGraphicsView):
     def __init__(self, *args, **kwargs):

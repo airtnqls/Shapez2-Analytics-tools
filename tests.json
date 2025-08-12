@@ -1,440 +1,455 @@
 {
-    "물리/기본": [
-      {
-        "name": "기본 중력",
-        "operation": "apply_physics",
-        "input_a": "--------:CuCuCuCu",
-        "expected": "CuCuCuCu"
+  "물리/기본": [
+    {
+      "name": "기본 중력",
+      "operation": "apply_physics",
+      "input_a": "--------:CuCuCuCu",
+      "expected_a": "CuCuCuCu"
+    },
+    {
+      "name": "기본 중력 (중간 무시)",
+      "operation": "apply_physics",
+      "input_a": "P---P---:----P---:----cr--:--Cu--Cu",
+      "expected_a": "P-CuP-Cu:----P---:----cr--"
+    },
+    {
+      "name": "핀 지지 (성공)",
+      "operation": "apply_physics",
+      "input_a": "P-P-P-P-:crcrcrcr",
+      "expected_a": "P-P-P-P-:crcrcrcr"
+    },
+    {
+      "name": "핀 지지 (실패 및 연쇄 파괴)",
+      "operation": "apply_physics",
+      "input_a": "----P-P-:--crcr--",
+      "expected_a": "----P-P-:--crcr--"
+    },
+    {
+      "name": "크리스탈 낙하",
+      "operation": "apply_physics",
+      "input_a": "--------:crcrcrcr",
+      "expected_a": ""
+    },
+    {
+      "name": "단순 낙하",
+      "operation": "apply_physics",
+      "input_a": "--------:cr------",
+      "expected_a": ""
+    },
+    {
+      "name": "크리스탈 충돌",
+      "operation": "apply_physics",
+      "input_a": "cr------:crcrcrcr:--------:cr------",
+      "expected_a": "cr------:crcrcrcr"
+    },
+    {
+      "name": "핀 지지 테스트",
+      "operation": "apply_physics",
+      "input_a": "P-------:P-------:P-----cr:crcrcrcr",
+      "expected_a": "P-------:P-------:P-----cr:crcrcrcr"
+    },
+    {
+      "name": "핀 지지 테스트2",
+      "operation": "apply_physics",
+      "input_a": "cr------:P-------:------cr:crcrcrcr",
+      "expected_a": "cr------:P-------"
+    },
+    {
+      "name": "복합 테스트",
+      "operation": "apply_physics",
+      "input_a": "cw------:P-crRg--",
+      "expected_a": "cw--Rg--:P-------"
+    },
+    {
+      "name": "복합 테스트2",
+      "operation": "apply_physics",
+      "input_a": "------Cu:CuCu--P-",
+      "expected_a": "CuCu--Cu:------P-"
+    },
+    {
+      "name": "복합 테스트3",
+      "operation": "apply_physics",
+      "input_a": "--Cu----:--------:RuRu----",
+      "expected_a": "--Cu----:RuRu----"
+    },
+    {
+      "name": "복합 테스트3",
+      "operation": "apply_physics",
+      "input_a": "--------:--Cu----:--------:P-Ru----",
+      "expected_a": "P-Cu----:--Ru----"
+    }
+  ],
+  "건물 기능": [
+    {
+      "name": "절반 파괴기",
+      "operation": "destroy_half",
+      "input_a": "SrSrSrSr:CuCuCuCu",
+      "expected_a": "SrSr----:CuCu----"
+    },
+    {
+      "name": "절반 파괴기 (크리스탈 연쇄 파괴)",
+      "operation": "destroy_half",
+      "input_a": "crcrSrSr:CucucuCu",
+      "expected_a": "Cu------"
+    },
+    {
+      "name": "절반 파괴기 (단일 핀 레이어 제작)",
+      "operation": "destroy_half",
+      "input_a": "P-P-P-P-:cucucucu",
+      "expected_a": "P-P-----"
+    },
+    {
+      "name": "절반 파괴기 (크리스탈 회피)",
+      "operation": "destroy_half",
+      "input_a": "SrcrSrcr:cucuCuCu",
+      "expected_a": "Srcr----:cucu----"
+    },
+    {
+      "name": "절반 파괴기 (고급 - 갭:모양:크리스탈)",
+      "operation": "destroy_half",
+      "input_a": "cwCuCucw:CuCuCuCu:crCuCuCu",
+      "expected_a": "--Cu----:CuCu----:crCu----"
+    },
+    {
+      "name": "절반 파괴기 (고급 - 갭:모양:크리스탈의 실패 케이스)",
+      "operation": "destroy_half",
+      "input_a": "cwcwcwcw:cwCuCuCu:CuCuCuCu:crCuCuCu",
+      "expected_a": "--Cu----:CuCu----:--Cu----"
+    },
+    {
+      "name": "절반 파괴기 (고급 - 모양:갭:크리스탈)",
+      "operation": "destroy_half",
+      "input_a": "Su--Cu--:P-CuCu--:CucrCu--",
+      "expected_a": "SuCu----:P-------:Cucr----"
+    },
+    {
+      "name": "스태커 (기본)",
+      "operation": "stack",
+      "input_a": "crcrcrcr",
+      "input_b": "SrSrSrSr",
+      "expected_a": "crcrcrcr:SrSrSrSr"
+    },
+    {
+      "name": "스태커 (테트리스)",
+      "operation": "stack",
+      "input_a": "CgCgCgCg:CgCg----",
+      "input_b": "----SrSr:SrSrSrSr",
+      "expected_a": "CgCgCgCg:CgCgSrSr:SrSrSrSr"
+    },
+    {
+      "name": "스태커 (크리스탈)",
+      "operation": "stack",
+      "input_a": "crSrSrcr",
+      "input_b": "crcrcrSr",
+      "expected_a": "crSrSrcr:------Sr"
+    },
+    {
+      "name": "스태커 (5층 초과)",
+      "operation": "stack",
+      "input_a": "CuCuCuCu:CuCuCuCu:CuCuCuCu",
+      "input_b": "RuRuRuRu:RuRuRuRu:RuRuRuRu",
+      "expected_a": "CuCuCuCu:CuCuCuCu:CuCuCuCu:RuRuRuRu:RuRuRuRu"
+    },
+    {
+      "name": "스태커 (단일 핀 레이어 제작)",
+      "operation": "stack",
+      "input_a": "--CuCuCu:--CuCuCu",
+      "input_b": "P-P-P-P-:CuCuCuCu",
+      "expected_a": "P-CuCuCu:--CuCuCu:--P-P-P-:CuCuCuCu"
+    },
+    {
+      "name": "스태커 (단일 핀 레이어 제작)",
+      "operation": "stack",
+      "input_a": "--CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu",
+      "input_b": "P-P-P-P-:CuCuCuCu",
+      "expected_a": "P-CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu"
+    },
+    {
+      "name": "페인터 (파란색)",
+      "operation": "paint",
+      "input_a": "CrCrCrCr:SgSgSgSg",
+      "params": {
+        "color": "b"
       },
-      {
-        "name": "기본 중력 (중간 무시)",
-        "operation": "apply_physics",
-        "input_a": "P---P---:----P---:----cr--:--Cu--Cu",
-        "expected": "P-CuP-Cu:----P---:----cr--"
+      "expected_a": "CrCrCrCr:SbSbSbSb"
+    },
+    {
+      "name": "페인터 (핀)",
+      "operation": "paint",
+      "input_a": "CuCuCrCr:------P-",
+      "params": {
+        "color": "g"
       },
-      {
-        "name": "핀 지지 (성공)",
-        "operation": "apply_physics",
-        "input_a": "P-P-P-P-:crcrcrcr",
-        "expected": "P-P-P-P-:crcrcrcr"
+      "expected_a": "CuCuCrCr:------P-"
+    },
+    {
+      "name": "페인터 (복합)",
+      "operation": "paint",
+      "input_a": "Cu----Cu:Cucc--P-",
+      "params": {
+        "color": "w"
       },
-      {
-        "name": "핀 지지 (실패 및 연쇄 파괴)",
-        "operation": "apply_physics",
-        "input_a": "----P-P-:--crcr--",
-        "expected": "----P-P-:--crcr--"
+      "expected_a": "Cu----Cu:Cwcc--P-"
+    },
+    {
+      "name": "크리스탈 생성기",
+      "operation": "crystal_generator",
+      "input_a": "Cr--cr--:P-P-----",
+      "params": {
+        "color": "g"
       },
-      {
-        "name": "크리스탈 낙하",
-        "operation": "apply_physics",
-        "input_a": "--------:crcrcrcr",
-        "expected": ""
+      "expected_a": "Crcgcrcg:cgcgcgcg"
+    },
+    {
+      "name": "핀 푸셔",
+      "operation": "push_pin",
+      "input_a": "SrSrSrSr",
+      "expected_a": "P-P-P-P-:SrSrSrSr"
+    },
+    {
+      "name": "핀 푸셔 (가장 아래 레이어만 적용)",
+      "operation": "push_pin",
+      "input_a": "SrSr----",
+      "expected_a": "P-P-----:SrSr----"
+    },
+    {
+      "name": "핀 푸셔 (가장 아래 레이어만 적용2)",
+      "operation": "push_pin",
+      "input_a": "SrSr----:CrCrCrCr",
+      "expected_a": "P-P-----:SrSr----:CrCrCrCr"
+    },
+    {
+      "name": "핀 푸셔 (크리스탈 연쇄 파괴)",
+      "operation": "push_pin",
+      "input_a": "SrSr----:CrCrCrCr:crcrcrcr:cr------:cr------",
+      "expected_a": "P-P-----:SrSr----:CrCrCrCr"
+    },
+    {
+      "name": "핀 푸셔 (분리 원리)",
+      "operation": "push_pin",
+      "input_a": "cwcwP---:cwCuP---:cwCuCu--:cw------:cw------",
+      "expected_a": "P-P-P---:--CuP---:----P---:--CuCu--"
+    },
+    {
+      "name": "핀 푸셔 (도형 파괴 원리)",
+      "operation": "push_pin",
+      "input_a": "cwcw----:cwP-----:cwP-----:cwP-----:cwCu----",
+      "expected_a": "P-P-----:--P-----:--P-----:--P-----"
+    },
+    {
+      "name": "핀 푸셔 (세컨드 크리스탈 파괴)",
+      "operation": "push_pin",
+      "input_a": "cwcwcw--:cw--Cu--:cw--cw--:cw------:cw------",
+      "expected_a": "P-P-P---:----Cu--"
+    },
+    {
+      "name": "핀 푸셔 (연결성 테스트)",
+      "operation": "push_pin",
+      "input_a": "cw----Cu:cwCucw--:cwcwCu--:cw------:cw------",
+      "expected_a": "P-CuCuP-:------Cu"
+    },
+    {
+      "name": "핀 푸셔 (단일 핀 레이어 제작)",
+      "operation": "push_pin",
+      "input_a": "crcrcrcr:crcrcrcr:crcrcrcr:crcrcrcr:crcrcrcr",
+      "expected_a": "P-P-P-P-"
+    },
+    {
+      "name": "핀 푸셔 (고급-집게발)",
+      "operation": "push_pin",
+      "input_a": "cw--P---:cwCucrCu:cw------:cw------:cw------",
+      "expected_a": "P---P---:----P---:--CucrCu"
+    },
+    {
+      "name": "핀 푸셔 (핀 게이트)",
+      "operation": "push_pin",
+      "input_a": "cwcwcwP-:CuP-cwCu:crCucw--:----cw--:----cw--",
+      "expected_a": "P-P-P-P-:--P---P-:Cu----Cu:crCu----"
+    },
+    {
+      "name": "핀 푸셔 (도형 게이트)",
+      "operation": "push_pin",
+      "input_a": "cwcwCuP-:CucwcwCu:P-Cccwcw:CucrCucw:------cw",
+      "expected_a": "P-P-P-P-:--CcCuP-:Cu----Cu:P-------:CucrCu--"
+    },
+    {
+      "name": "핀 푸셔 (드롭+게이트)",
+      "operation": "push_pin",
+      "input_a": "Cu--Cucw:P-Cccwcw:Cu--Cccw:CucrCucw:------cw",
+      "expected_a": "P-CcP-P-:Cu--Cu--:P---Cc--:Cu------:CucrCu--"
+    },
+    {
+      "name": "회전 (시계방향)",
+      "operation": "rotate",
+      "input_a": "Cr----Sb",
+      "params": {
+        "clockwise": true
       },
-      {
-        "name": "단순 낙하",
-        "operation": "apply_physics", 
-        "input_a": "--------:cr------",
-        "expected": ""
+      "expected_a": "SbCr----"
+    },
+    {
+      "name": "회전 (반시계방향)",
+      "operation": "rotate",
+      "input_a": "Cr----Sb",
+      "params": {
+        "clockwise": false
       },
-      {
-        "name": "크리스탈 충돌",
-        "operation": "apply_physics",
-        "input_a": "cr------:crcrcrcr:--------:cr------",
-        "expected": "cr------:crcrcrcr"
+      "expected_a": "----SbCr"
+    },
+    {
+      "name": "일반 스와퍼",
+      "operation": "swap",
+      "input_a": "CrCcCcCc",
+      "input_b": "SrSrSrSr",
+      "expected_a": "CrCcSrSr",
+      "expected_b": "SrSrCcCc"
+    },
+    {
+      "name": "스와퍼 중력",
+      "operation": "swap",
+      "input_a": "P-------:Cu----Cu",
+      "input_b": "P-------:Cu----Cu",
+      "expected_a": "P-----Cu:Cu------",
+      "expected_b": "P-----Cu:Cu------"
+    },
+    {
+      "name": "스와퍼 합체",
+      "operation": "swap",
+      "input_a": "CuCu----",
+      "input_b": "----CuCu",
+      "expected_a": "CuCuCuCu",
+      "expected_b": ""
+    },
+    {
+      "name": "스와퍼 크리스탈",
+      "operation": "swap",
+      "input_a": "cccc----:Cu----Cu",
+      "input_b": "cr----cr:Cu----Cu",
+      "expected_a": "cccc--Cu:Cu------",
+      "expected_b": "Cu----Cu"
+    },
+    {
+      "name": "단순 분류",
+      "operation": "classifier",
+      "input_a": "SS-P",
+      "expected_a": "단순_기하형"
+    },
+    {
+      "name": "크리스탈 분류",
+      "operation": "classifier",
+      "input_a": "cS-P",
+      "expected_a": "스왑"
+    },
+    {
+      "name": "스왑 분류",
+      "operation": "classifier",
+      "input_a": "cP-P:P-SS:--cS",
+      "expected_a": "스왑"
+    },
+    {
+      "name": "하이브리드 분류",
+      "operation": "classifier",
+      "input_a": "c---:SSSS",
+      "expected_a": "하이브리드"
+    },
+    {
+      "name": "클로 분류",
+      "operation": "classifier",
+      "input_a": "P-P-:P---:cS-S",
+      "expected_a": "클로"
+    },
+    {
+      "name": "임시, 연산자: 분류",
+      "operation": "classifier",
+      "input_a": "CrCr--Cr--",
+      "expected_a": "단순_기하형"
+    },
+    {
+      "name": "임시, 연산자: 분류",
+      "operation": "classifier",
+      "input_a": "CrCr--Cr--",
+      "expected_a": "단순_기하형"
+    },
+    {
+      "name": "임시, 연산자: 분류",
+      "operation": "classifier",
+      "input_a": "CrCr--Cr--",
+      "expected_a": "단순_기하형"
+    }
+  ],
+  "데이터 처리": [],
+  "역연산": [
+    {
+      "name": "역 절반 파괴기",
+      "input_a": "SrSr----:CuCu----",
+      "expected_a": "SrSrSrSr:CuCuCuCu"
+    },
+    {
+      "name": "역 스태커",
+      "input_a": "crcrcrcr:SrSrSrSr",
+      "expected_a": "crcrcrcr",
+      "expected_b": "SrSrSrSr"
+    },
+    {
+      "name": "크리스탈 생성기",
+      "input_a": "Crcgcrcg:cgcgcgcg",
+      "params": {
+        "color": "g"
       },
-      {
-        "name": "핀 지지 테스트",
-        "operation": "apply_physics",
-        "input_a": "P-------:P-------:P-----cr:crcrcrcr",
-        "expected": "P-------:P-------:P-----cr:crcrcrcr"
-      },
-      {
-        "name": "핀 지지 테스트2",
-        "operation": "apply_physics",
-        "input_a": "cr------:P-------:------cr:crcrcrcr",
-        "expected": "cr------:P-------"
-      },
-      {
-        "name": "복합 테스트",
-        "operation": "apply_physics",
-        "input_a": "cw------:P-crRg--",
-        "expected": "cw--Rg--:P-------"
-      },
-      {
-        "name": "복합 테스트2",
-        "operation": "apply_physics",
-        "input_a": "------Cu:CuCu--P-",
-        "expected": "CuCu--Cu:------P-"
-      },
-      {
-        "name": "복합 테스트3",
-        "operation": "apply_physics",
-        "input_a": "--Cu----:--------:RuRu----",
-        "expected": "--Cu----:RuRu----"
-      },
-      {
-        "name": "복합 테스트3",
-        "operation": "apply_physics",
-        "input_a": "--------:--Cu----:--------:P-Ru----",
-        "expected": "P-Cu----:--Ru----"
-      }
-    ],
-    "건물 기능": [
-      {
-        "name": "절반 파괴기",
-        "operation": "destroy_half",
-        "input_a": "SrSrSrSr:CuCuCuCu",
-        "expected": "SrSr----:CuCu----"
-      },
-      {
-        "name": "절반 파괴기 (크리스탈 연쇄 파괴)",
-        "operation": "destroy_half",
-        "input_a": "crcrSrSr:CucucuCu",
-        "expected": "Cu------"
-      },
-      {
-        "name": "절반 파괴기 (단일 핀 레이어 제작)",
-        "operation": "destroy_half",
-        "input_a": "P-P-P-P-:cucucucu",
-        "expected": "P-P-----"
-      },
-      {
-        "name": "절반 파괴기 (크리스탈 회피)",
-        "operation": "destroy_half",
-        "input_a": "SrcrSrcr:cucuCuCu",
-        "expected": "Srcr----:cucu----"
-      },
-      {
-        "name": "절반 파괴기 (고급 - 갭:모양:크리스탈)",
-        "operation": "destroy_half",
-        "input_a": "cwCuCucw:CuCuCuCu:crCuCuCu",
-        "expected": "--Cu----:CuCu----:crCu----"
-      },
-      {
-        "name": "절반 파괴기 (고급 - 갭:모양:크리스탈의 실패 케이스)",
-        "operation": "destroy_half",
-        "input_a": "cwcwcwcw:cwCuCuCu:CuCuCuCu:crCuCuCu",
-        "expected": "--Cu----:CuCu----:--Cu----"
-      },
-      {
-        "name": "절반 파괴기 (고급 - 모양:갭:크리스탈)",
-        "operation": "destroy_half",
-        "input_a": "Su--Cu--:P-CuCu--:CucrCu--",
-        "expected": "SuCu----:P-------:Cucr----"
-      },
-      {
-        "name": "스태커 (기본)",
-        "operation": "stack",
-        "input_a": "crcrcrcr",
-        "input_b": "SrSrSrSr",
-        "expected": "crcrcrcr:SrSrSrSr"
-      },
-      {
-        "name": "스태커 (테트리스)",
-        "operation": "stack",
-        "input_a": "CgCgCgCg:CgCg----",
-        "input_b": "----SrSr:SrSrSrSr",
-        "expected": "CgCgCgCg:CgCgSrSr:SrSrSrSr"
-      },
-      {
-        "name": "스태커 (크리스탈)",
-        "operation": "stack",
-        "input_a": "crSrSrcr",
-        "input_b": "crcrcrSr",
-        "expected": "crSrSrcr:------Sr"
-      },
-      {
-        "name": "스태커 (5층 초과)",
-        "operation": "stack",
-        "input_a": "CuCuCuCu:CuCuCuCu:CuCuCuCu",
-        "input_b": "RuRuRuRu:RuRuRuRu:RuRuRuRu",
-        "expected": "CuCuCuCu:CuCuCuCu:CuCuCuCu:RuRuRuRu:RuRuRuRu"
-      },
-      {
-        "name": "스태커 (단일 핀 레이어 제작)",
-        "operation": "stack",
-        "input_a": "--CuCuCu:--CuCuCu",
-        "input_b": "P-P-P-P-:CuCuCuCu",
-        "expected": "P-CuCuCu:--CuCuCu:--P-P-P-:CuCuCuCu"
-      },
-      {
-        "name": "스태커 (단일 핀 레이어 제작)",
-        "operation": "stack",
-        "input_a": "--CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu",
-        "input_b": "P-P-P-P-:CuCuCuCu",
-        "expected": "P-CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu"
-      },
-      {
-        "name": "페인터 (파란색)",
-        "operation": "paint",
-        "input_a": "CrCrCrCr:SgSgSgSg",
-        "params": { "color": "b" },
-        "expected": "CrCrCrCr:SbSbSbSb"
-      },
-      {
-        "name": "페인터 (핀)",
-        "operation": "paint",
-        "input_a": "CuCuCrCr:------P-",
-        "params": { "color": "g" },
-        "expected": "CuCuCrCr:------P-"
-      },
-      {
-        "name": "페인터 (복합)",
-        "operation": "paint",
-        "input_a": "Cu----Cu:Cucc--P-",
-        "params": { "color": "w" },
-        "expected": "Cu----Cu:Cwcc--P-"
-      },
-      {
-        "name": "크리스탈 생성기",
-        "operation": "crystal_generator",
-        "input_a": "Cr--cr--:P-P-----",
-        "params": { "color": "g" },
-        "expected": "Crcgcrcg:cgcgcgcg"
-      },
-      {
-        "name": "핀 푸셔",
-        "operation": "push_pin",
-        "input_a": "SrSrSrSr",
-        "expected": "P-P-P-P-:SrSrSrSr"
-      },
-      {
-        "name": "핀 푸셔 (가장 아래 레이어만 적용)",
-        "operation": "push_pin",
-        "input_a": "SrSr----",
-        "expected": "P-P-----:SrSr----"
-      },
-      {
-        "name": "핀 푸셔 (가장 아래 레이어만 적용2)",
-        "operation": "push_pin",
-        "input_a": "SrSr----:CrCrCrCr",
-        "expected": "P-P-----:SrSr----:CrCrCrCr"
-      },
-      {
-        "name": "핀 푸셔 (크리스탈 연쇄 파괴)",
-        "operation": "push_pin",
-        "input_a": "SrSr----:CrCrCrCr:crcrcrcr:cr------:cr------",
-        "expected": "P-P-----:SrSr----:CrCrCrCr"
-      },
-      {
-        "name": "핀 푸셔 (분리 원리)",
-        "operation": "push_pin",
-        "input_a": "cwcwP---:cwCuP---:cwCuCu--:cw------:cw------",
-        "expected": "P-P-P---:--CuP---:----P---:--CuCu--"
-      },
-      {
-        "name": "핀 푸셔 (도형 파괴 원리)",
-        "operation": "push_pin",
-        "input_a": "cwcw----:cwP-----:cwP-----:cwP-----:cwCu----",
-        "expected": "P-P-----:--P-----:--P-----:--P-----"
-      },
-      {
-        "name": "핀 푸셔 (세컨드 크리스탈 파괴)",
-        "operation": "push_pin",
-        "input_a": "cwcwcw--:cw--Cu--:cw--cw--:cw------:cw------",
-        "expected": "P-P-P---:----Cu--"
-      },
-      {
-        "name": "핀 푸셔 (연결성 테스트)",
-        "operation": "push_pin",
-        "input_a": "cw----Cu:cwCucw--:cwcwCu--:cw------:cw------",
-        "expected": "P-CuCuP-:------Cu"
-      },
-      {
-        "name": "핀 푸셔 (단일 핀 레이어 제작)",
-        "operation": "push_pin",
-        "input_a": "crcrcrcr:crcrcrcr:crcrcrcr:crcrcrcr:crcrcrcr",
-        "expected": "P-P-P-P-"
-      },
-      {
-        "name": "핀 푸셔 (고급-집게발)",
-        "operation": "push_pin",
-        "input_a": "cw--P---:cwCucrCu:cw------:cw------:cw------",
-        "expected": "P---P---:----P---:--CucrCu"
-      },
-      {
-        "name": "핀 푸셔 (핀 게이트)",
-        "operation": "push_pin",
-        "input_a": "cwcwcwP-:CuP-cwCu:crCucw--:----cw--:----cw--",
-        "expected": "P-P-P-P-:--P---P-:Cu----Cu:crCu----"
-      },
-      {
-        "name": "핀 푸셔 (도형 게이트)",
-        "operation": "push_pin",
-        "input_a": "cwcwCuP-:CucwcwCu:P-Cccwcw:CucrCucw:------cw",
-        "expected": "P-P-P-P-:--CcCuP-:Cu----Cu:P-------:CucrCu--"
-      },
-      {
-        "name": "핀 푸셔 (드롭+게이트)",
-        "operation": "push_pin",
-        "input_a": "Cu--Cucw:P-Cccwcw:Cu--Cccw:CucrCucw:------cw",
-        "expected": "P-CcP-P-:Cu--Cu--:P---Cc--:Cu------:CucrCu--"
-      },
-      {
-        "name": "회전 (시계방향)",
-        "operation": "rotate",
-        "input_a": "Cr----Sb",
-        "params": { "clockwise": true },
-        "expected": "SbCr----"
-      },
-      {
-        "name": "회전 (반시계방향)",
-        "operation": "rotate",
-        "input_a": "Cr----Sb",
-        "params": { "clockwise": false },
-        "expected": "----SbCr"
-      },
-      {
-        "name": "일반 스와퍼",
-        "operation": "swap",
-        "input_a": "CrCcCcCc",
-        "input_b": "SrSrSrSr",
-        "expected_a": "CrCcSrSr",
-        "expected_b": "SrSrCcCc"
-      },
-      {
-        "name": "스와퍼 중력",
-        "operation": "swap",
-        "input_a": "P-------:Cu----Cu",
-        "input_b": "P-------:Cu----Cu",
-        "expected_a": "P-----Cu:Cu------",
-        "expected_b": "P-----Cu:Cu------"
-      },
-      {
-        "name": "스와퍼 합체",
-        "operation": "swap",
-        "input_a": "CuCu----",
-        "input_b": "----CuCu",
-        "expected_a": "CuCuCuCu",
-        "expected_b": ""
-      },
-      {
-        "name": "스와퍼 크리스탈",
-        "operation": "swap",
-        "input_a": "cccc----:Cu----Cu",
-        "input_b": "cr----cr:Cu----Cu",
-        "expected_a": "cccc--Cu:Cu------",
-        "expected_b": "Cu----Cu"
-      },
-      {
-        "name": "단순 분류",
-        "operation": "classifier",
-        "input_a": "SS-P",
-        "expected": "단순_기하형"
-      },
-      {
-        "name": "크리스탈 분류",
-        "operation": "classifier",
-        "input_a": "cS-P",
-        "expected": "스왑"
-      },
-      {
-        "name": "스왑 분류",
-        "operation": "classifier",
-        "input_a": "cP-P:P-SS:--cS",
-        "expected": "스왑"
-      },
-      {
-        "name": "하이브리드 분류",
-        "operation": "classifier",
-        "input_a": "c---:SSSS",
-        "expected": "하이브리드"
-      },
-      {
-        "name": "클로 분류",
-        "operation": "classifier",
-        "input_a": "P-P-:P---:cS-S",
-        "expected": "클로"
-      },
-      {
-        "name": "임시, 연산자: 분류",
-        "operation": "classifier",
-        "input_a": "CrCr--Cr--",
-        "expected": "단순_기하형"
-      },
-      {
-        "name": "임시, 연산자: 분류",
-        "operation": "classifier",
-        "input_a": "CrCr--Cr--",
-        "expected": "단순_기하형"
-      },
-      {
-        "name": "임시, 연산자: 분류",
-        "operation": "classifier",
-        "input_a": "CrCr--Cr--",
-        "expected": "단순_기하형"
-      }
-    ],
-    "역연산": [
-        {
-            "name": "역 절반 파괴기",
-            "input_a": "SrSr----:CuCu----",
-            "expected": "SrSrSrSr:CuCuCuCu"
-        },
-        {
-            "name": "역 스태커",
-            "input_a": "crcrcrcr:SrSrSrSr",
-            "expected_a": "crcrcrcr",
-            "expected_b": "SrSrSrSr"
-        },
-        {
-            "name": "크리스탈 생성기",
-            "input_a": "Crcgcrcg:cgcgcgcg",
-            "params": { "color": "g" },
-            "expected": "Cr--cr--:P-P-----"
-        },
-        {
-            "name": "핀 푸셔",
-            "operation": "push_pin",
-            "input_a": "P-P-P-P-:SrSrSrSr",
-            "expected": "SrSrSrSr"
-        },
-        {
-            "name": "핀 푸셔 역연산 (고급 -S-c)",
-            "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
-            "expected": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
-        },
-        {
-            "name": "-",
-            "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
-            "expected": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
-        },
-        {
-            "name": "핀 푸셔 역연산 (고급 -S-c)",
-            "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
-            "expected": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
-        },
-        {
-            "name": "핀 푸셔 역연산 (고급 -Sc)",
-            "input_a": "--Cu----:CuCu----:crCu----",
-            "expected": "cwCuCucw:CuCuCuCu:crCuCuCu"
-        },
-        {
-            "name": "핀 푸셔 역연산 (고급 S-c)",
-            "input_a": "SuCu----:P-------:Cucr----",
-            "expected": "Su--Cu--:P-CuCu--:CucrCu--"
-        },
-        {
-            "name": "핀 푸셔 역연산 (고급 cS-c 변형)",
-            "input_a": "Cucc----:SuCu----:P-------:Cucr----",
-            "expected": "CuccCuCu:Su--Cu--:P-CuCu--:CucrCu--"
-        },
-        {
-            "name": "핀 푸셔 역연산 (고급 집게발)",
-            "input_a": "P---P---:----P---:--CucrCu",
-            "operation": "push_pin",
-            "expected": "cw--P---:cwCucrCu:cw------:cw------:cw------"
-        },
-        {
-            "name": "핀 푸셔 역연산 (고급 -S-c)",
-            "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
-            "operation": "push_pin",
-            "expected": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
-        },
-        {
-            "name": "역연산 존재성 테스트",
-            "input_a": "CuCuCuCu",
-            "operation": "exist"
-        }
-    ]
-  }
+      "expected_a": "Cr--cr--:P-P-----"
+    },
+    {
+      "name": "핀 푸셔",
+      "operation": "push_pin",
+      "input_a": "P-P-P-P-:SrSrSrSr",
+      "expected_a": "SrSrSrSr"
+    },
+    {
+      "name": "핀 푸셔 역연산 (고급 -S-c)",
+      "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
+      "expected_a": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
+    },
+    {
+      "name": "-",
+      "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
+      "expected_a": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
+    },
+    {
+      "name": "핀 푸셔 역연산 (고급 -S-c)",
+      "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
+      "expected_a": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
+    },
+    {
+      "name": "핀 푸셔 역연산 (고급 -Sc)",
+      "input_a": "--Cu----:CuCu----:crCu----",
+      "expected_a": "cwCuCucw:CuCuCuCu:crCuCuCu"
+    },
+    {
+      "name": "핀 푸셔 역연산 (고급 S-c)",
+      "input_a": "SuCu----:P-------:Cucr----",
+      "expected_a": "Su--Cu--:P-CuCu--:CucrCu--"
+    },
+    {
+      "name": "핀 푸셔 역연산 (고급 cS-c 변형)",
+      "input_a": "Cucc----:SuCu----:P-------:Cucr----",
+      "expected_a": "CuccCuCu:Su--Cu--:P-CuCu--:CucrCu--"
+    },
+    {
+      "name": "핀 푸셔 역연산 (고급 집게발)",
+      "input_a": "P---P---:----P---:--CucrCu",
+      "operation": "push_pin",
+      "expected_a": "cw--P---:cwCucrCu:cw------:cw------:cw------"
+    },
+    {
+      "name": "핀 푸셔 역연산 (고급 -S-c)",
+      "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
+      "operation": "push_pin",
+      "expected_a": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
+    },
+    {
+      "name": "역연산 존재성 테스트",
+      "input_a": "CuCuCuCu",
+      "operation": "exist"
+    }
+  ]
+}
