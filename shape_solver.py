@@ -1,5 +1,5 @@
 from __future__ import annotations
-from shape_analyzer import analyze_shape, ShapeType
+from shape_classifier import analyze_shape, ShapeType
 from shape import Shape
 
 

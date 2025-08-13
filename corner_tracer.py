@@ -1,5 +1,5 @@
 from shape import Shape
-from shape_analyzer import ShapeType
+from shape_classifier import ShapeType
 
 def 가장오른쪽_클러스터_위치찾기(s, char):
     """가장 오른쪽 특정 문자 클러스터의 가장 왼쪽 위치를 찾음"""

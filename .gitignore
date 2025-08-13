@@ -165,7 +165,7 @@ cython_debug/
 *.ui.py
 *.qrc.py
 
-# Shapez2 specific
+# Shapez2Analyzer specific
 *.log
 *.tmp
 *.cache
@@ -173,6 +173,17 @@ data/temp/
 data/output/
 results/
 output/
+
+# Security and privacy
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+config/secrets/
+.env.local
+.env.production
+.env.staging
 
 # OS specific
 .DS_Store

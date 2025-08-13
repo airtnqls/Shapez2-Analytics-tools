@@ -1,5 +1,5 @@
 {
-  "app.title": "Shapez 2 분석 도구",
+  "app.title": "Shapez2Analyzer - 도형 시뮬레이터 및 분석 도구",
   "ui.mode": "모드 설정",
   "ui.max_layers": "최대 층수:",
   "ui.max_layers.option.5": "5 (광기 모드)",

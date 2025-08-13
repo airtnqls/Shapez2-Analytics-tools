@@ -4,7 +4,7 @@
 
 from typing import List, Dict, Optional, Tuple
 from shape import Shape
-from shape_analyzer import analyze_shape_simple
+from shape_classifier import analyze_shape_simple
 from corner_tracer import build_cutable_shape, build_pinable_shape
 
 

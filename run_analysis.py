@@ -5,7 +5,7 @@ Claw 분석을 실행하는 스크립트
 """
 
 from claw_tracer import _log
-from shape_analyzer import analyze_shape
+from shape_classifier import analyze_shape
 from shape import Shape
 from i18n import _
 import sys

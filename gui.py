@@ -15,21 +15,49 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF, QPainter, QPixmap, QIcon
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF, QSettings, QProcess
-import numpy as np
 
-# pyqtgraph 임포트
-try:
-    import pyqtgraph as pg
-except ImportError:
-    print("PyQtGraph가 설치되지 않았습니다. 'pip install pyqtgraph'를 실행해주세요.")
-    pg = None
+
 
 # shape.py에서 백엔드 클래스를 임포트합니다.
 from shape import Quadrant, Shape, ReverseTracer, InterruptedError
 from process_tree_solver import process_tree_solver, ProcessNode
 from i18n import load_locales, _, set_language
 
-LOCALES_DIR = os.path.join(os.path.dirname(__file__), "locales")
+def get_resource_path(relative_path):
+    """PyInstaller 빌드 후에도 리소스 파일을 찾을 수 있도록 하는 함수"""
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller로 빌드된 경우
+        return os.path.join(sys._MEIPASS, relative_path)
+    else:
+        # 일반 실행의 경우
+        return os.path.join(os.path.dirname(__file__), relative_path)
+
+
+def get_data_directory(filename=None):
+    """사용자 데이터 저장 디렉토리 경로를 반환하는 함수
+    
+    Args:
+        filename (str, optional): 파일명이 주어지면 전체 파일 경로를 반환
+        
+    Returns:
+        str: 디렉토리 경로 또는 전체 파일 경로
+    """
+    if hasattr(sys, '_MEIPASS'):
+        # --onefile 빌드의 경우 사용자 홈 디렉토리에 data 폴더 생성
+        base_dir = os.path.join(os.path.expanduser("~"), "Shapez2Analyzer", "data")
+    elif hasattr(sys, 'frozen'):
+        # --onedir 빌드의 경우 exe 위치 기준으로 data 폴더 생성
+        exe_dir = os.path.dirname(sys.executable)
+        base_dir = os.path.join(exe_dir, "data")
+    else:
+        # 일반 실행의 경우 현재 디렉토리의 data 폴더 사용
+        base_dir = "data"
+    
+    if filename:
+        return os.path.join(base_dir, filename)
+    return base_dir
+
+LOCALES_DIR = get_resource_path("locales")
 try:
     load_locales(LOCALES_DIR)
 except Exception:
@@ -47,13 +75,10 @@ def _set_label_text(widget, text):
 
 
 def load_icon_pixmap(filename: str, size: int = 16) -> Optional[QPixmap]:
-    """icons/ 또는 icon/ 디렉터리에서 파일을 찾아 로드한 뒤 지정 크기로 스케일합니다.
-    파일이 없으면 None 반환.
-    """
-    base_dir = os.path.dirname(__file__)
+    """PyInstaller 빌드 후에도 아이콘을 찾을 수 있도록 수정된 함수"""
     candidates = [
-        os.path.join(base_dir, "icons", filename),
-        os.path.join(base_dir, "icon", filename),
+        get_resource_path(os.path.join("icons", filename)),
+        get_resource_path(os.path.join("icon", filename)),
     ]
     for path in candidates:
         if os.path.exists(path):
@@ -3072,7 +3097,7 @@ class ShapezGUI(QMainWindow):
 
         self.add_to_history()
         self.update_input_display()
-
+    
     def handle_column_drop(self, src_input_name, src_quad_idx, tgt_input_name, tgt_quad_idx):
         self.log_verbose(f"열 드롭: {src_input_name}[{src_quad_idx}] -> {tgt_input_name}[{tgt_quad_idx}]")
         
@@ -3711,7 +3736,7 @@ class ShapezGUI(QMainWindow):
     
     def on_remove_impossible(self):
         """불가능 제거 버튼 클릭 시 호출 - 불가능한 패턴이거나 오류 발생시 제거"""
-        from shape_analyzer import analyze_shape, ShapeType
+        from shape_classifier import analyze_shape, ShapeType
         
         # 대량처리 탭이 활성화되어 있으면 대량처리만 실행 (입력 A/B 무시)
         bar = self.main_tabs.tabBar()
@@ -3905,10 +3930,13 @@ class ShapezGUI(QMainWindow):
 
     def on_browse_file(self):
         """파일 찾아보기 대화상자 열기 및 자동 로드"""
+        # 기본 경로 설정
+        default_dir = get_data_directory()
+            
         file_path, _selected_filter = QFileDialog.getOpenFileName(
             self,
             "도형 데이터 파일 선택",
-            "data/",  # 기본 경로를 data 폴더로 설정
+            default_dir,  # 기본 경로를 data 폴더로 설정
             "텍스트 파일 (*.txt);;모든 파일 (*.*)"
         )
         
@@ -5867,7 +5895,8 @@ class DataTabWidget(QWidget):
         import os
         
         # data 폴더가 없으면 생성
-        data_dir = "data"
+        data_dir = get_data_directory()
+        
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
         
@@ -5896,10 +5925,13 @@ class DataTabWidget(QWidget):
             QMessageBox.information(self, "알림", "저장할 데이터가 없습니다.")
             return
         
+        # 기본 저장 경로 설정
+        default_path = get_data_directory(f"{self.tab_name}.txt")
+            
         file_path, _selected_filter = QFileDialog.getSaveFileName(
             self,
             "다른 이름으로 저장",
-            f"data/{self.tab_name}.txt",
+            default_path,
             "텍스트 파일 (*.txt);;모든 파일 (*.*)"
         )
         
@@ -6398,41 +6430,6 @@ class DataTabWidget(QWidget):
         shape.pad_layers(max_layers)
         shape.layers[layer_index].quadrants[quad_index] = new_quadrant
         self._update_row_code(row, repr(shape))
-
-    
-            
-        category, test = item.data(Qt.ItemDataRole.UserRole)
-        
-        # 카테고리 설정
-        index = self.category_combo.findText(category)
-        if index >= 0:
-            self.category_combo.setCurrentIndex(index)
-        
-        # 필드들 설정
-        self.test_name_edit.setText(test.get("name", ""))
-        
-        operation = test.get("operation", "")
-        index = self.operation_combo.findText(operation)
-        if index >= 0:
-            self.operation_combo.setCurrentIndex(index)
-        else:
-            # 연산이 목록에 없으면 첫 번째 항목으로 설정
-            self.operation_combo.setCurrentIndex(0)
-        
-        self.input_a_edit.setText(test.get("input_a", ""))
-        self.input_b_edit.setText(test.get("input_b", ""))
-        self.expected_a_edit.setText(test.get("expected_a", ""))
-        self.expected_b_edit.setText(test.get("expected_b", ""))
-        
-        # 매개변수 JSON 문자열로 변환
-        params = test.get("params", {})
-        if params:
-            self.params_edit.setText(json.dumps(params, ensure_ascii=False))
-        else:
-            self.params_edit.clear()
-        
-        # 연산에 따른 필드 상태 업데이트
-        self.on_operation_changed(self.operation_combo.currentText())
 
     def update_test_case(self):
         """선택된 테스트 케이스를 업데이트합니다."""

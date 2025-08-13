@@ -1,5 +1,5 @@
 {
-  "app.title": "Shapez 2 Analyzer",
+  "app.title": "Shapez2Analyzer - Shape Simulator and Analysis Tool",
   "ui.mode": "Mode",
   "ui.max_layers": "Max Layers:",
   "ui.max_layers.option.5": "5 (Insane Mode)",

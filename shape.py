@@ -4,7 +4,7 @@ import json
 from typing import List, Tuple, Optional, Set
 from PyQt6.QtCore import QThread, pyqtSignal
 import itertools
-from shape_analyzer import analyze_shape
+from shape_classifier import analyze_shape
 
 # ==============================================================================
 #  1. Shapez 2 시뮬레이터 백엔드
