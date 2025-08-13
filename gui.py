@@ -6607,10 +6607,10 @@ class TreeGraphicsView(QGraphicsView):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     
-    # 스태커 아이콘을 프로그램 아이콘으로 설정
-    stacker_icon = load_icon_pixmap("stacker.png", 32)
-    if stacker_icon:
-        app.setWindowIcon(QIcon(stacker_icon))
+    # 프로그램 아이콘 설정
+    app_icon = QIcon("icons/icon.ico")
+    if app_icon and not app_icon.isNull():
+        app.setWindowIcon(app_icon)
     
     ex = ShapezGUI()
     ex.show()

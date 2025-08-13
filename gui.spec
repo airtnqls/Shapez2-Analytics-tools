@@ -51,7 +51,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icons/stacker.png' if os.path.exists('icons/stacker.png') else None,
+    icon='icons/icon.ico' if os.path.exists('icons/icon.ico') else None,
 )
 
 coll = COLLECT(
