@@ -37,7 +37,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Shapez2Analyzer-${{ matrix.os }}-${{ matrix.python-version }}
-        path: dist/Shapez2/
+        path: dist/
+        retention-days: 30
 
   release:
     needs: build
@@ -61,5 +62,18 @@ jobs:
           Shapez2Analyzer-macos-latest-*/*
         draft: false
         prerelease: false
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        body: |
+          ## Shapez2 Analyzer ${{ github.ref_name }}
+          
+          ### Windows
+          - **Shapez2Analyzer.exe**: Windows executable file
+          
+          ### macOS
+          - **Shapez2**: macOS executable file
+          
+          ### Changes
+          See detailed changes on [GitHub](https://github.com/${{ github.repository }}/compare).
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
