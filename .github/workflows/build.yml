@@ -37,12 +37,14 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Shapez2Analyzer-${{ matrix.os }}-${{ matrix.python-version }}
-        path: dist/
+        path: dist/Shapez2/
 
   release:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout code
@@ -55,8 +57,8 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          Shapez2Analyzer-windows-latest-*/dist/*.exe
-          Shapez2Analyzer-macos-latest-*/dist/*
+          Shapez2Analyzer-windows-latest-*/*.exe
+          Shapez2Analyzer-macos-latest-*/*
         draft: false
         prerelease: false
       env:
