@@ -40,7 +40,12 @@ jobs:
         powershell Compress-Archive -Path "Shapez2" -DestinationPath "Shapez2Analyzer-Windows.zip"
         cd ..
 
-
+    - name: Create macOS TAR.GZ (macOS only)
+      if: matrix.os == 'macos-latest'
+      run: |
+        cd dist
+        tar -czf "Shapez2Analyzer-macOS.tar.gz" "Shapez2"
+        cd ..
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -70,7 +75,7 @@ jobs:
       with:
         files: |
           Shapez2Analyzer-windows-latest-*/*.zip
-          Shapez2Analyzer-macos-latest-*/*
+          Shapez2Analyzer-macos-latest-*/*.tar.gz
         draft: false
         prerelease: false
         tag_name: ${{ github.ref_name }}
@@ -79,10 +84,14 @@ jobs:
           ## Shapez2 Analyzer ${{ github.ref_name }}
           
           ### Windows
-          - **Shapez2Analyzer-Windows.zip**: Windows executable and dependencies
+          - **Shapez2Analyzer-Windows.zip**: Windows application
           
           ### macOS
-          - **Shapez2**: macOS app folder (drag to Applications)
+          - **Shapez2Analyzer-macOS.tar.gz**: macOS application
+          
+          ### Security Notice
+          Security warnings may appear when running.
+          This is normal for unsigned applications and not a security risk.
           
           ### Changes
           See detailed changes on [GitHub](https://github.com/${{ github.repository }}/compare).
