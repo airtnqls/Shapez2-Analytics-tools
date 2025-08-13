@@ -33,11 +33,22 @@ jobs:
     - name: Build with PyInstaller
       run: pyinstaller --noconfirm gui.spec
 
+    - name: Create Windows ZIP (Windows only)
+      if: matrix.os == 'windows-latest'
+      run: |
+        cd dist
+        powershell Compress-Archive -Path "Shapez2" -DestinationPath "Shapez2Analyzer-Windows.zip"
+        cd ..
+
+
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: Shapez2Analyzer-${{ matrix.os }}-${{ matrix.python-version }}
-        path: dist/
+        path: |
+          dist/
+          dist/*.zip
         retention-days: 30
 
   release:
@@ -58,7 +69,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          Shapez2Analyzer-windows-latest-*/*.exe
+          Shapez2Analyzer-windows-latest-*/*.zip
           Shapez2Analyzer-macos-latest-*/*
         draft: false
         prerelease: false
@@ -68,10 +79,10 @@ jobs:
           ## Shapez2 Analyzer ${{ github.ref_name }}
           
           ### Windows
-          - **Shapez2Analyzer.exe**: Windows executable file
+          - **Shapez2Analyzer-Windows.zip**: Windows executable and dependencies
           
           ### macOS
-          - **Shapez2**: macOS executable file
+          - **Shapez2**: macOS app folder (drag to Applications)
           
           ### Changes
           See detailed changes on [GitHub](https://github.com/${{ github.repository }}/compare).
