@@ -34,6 +34,8 @@ build.bat
 
 - **Process Tree**: Implement process tree visualization
 - **Claw Hybrid**: Implement claw and hybrid shape analysis
+- Scaling beyond 6 floors
+- Expand quadrants like hexmode
 
 ## Project Structure
 
