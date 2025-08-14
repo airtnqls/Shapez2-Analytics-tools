@@ -6,22 +6,24 @@ from PyQt6.QtCore import QThread, pyqtSignal
 import itertools
 from shape_classifier import analyze_shape
 
+from i18n import _
+
 # ==============================================================================
 #  1. Shapez 2 시뮬레이터 백엔드
 # ==============================================================================
 class Quadrant:
     VALID_SHAPES = ['C', 'S', 'R', 'W', 'c', 'P']; VALID_COLORS = ['r', 'g', 'b', 'm', 'c', 'y', 'u', 'w']
     def __init__(self, shape: str, color: str):
-        if shape not in self.VALID_SHAPES: raise ValueError(f"잘못된 모양: {shape}")
-        if color not in self.VALID_COLORS: raise ValueError(f"잘못된 색상: {color}")
-        if shape == 'P' and color != 'u': raise ValueError("핀('P')은 색상이 없을 수만 있습니다('u').")
+        if shape not in self.VALID_SHAPES: raise ValueError(_("error.shape.invalid", shape=shape))
+        if color not in self.VALID_COLORS: raise ValueError(_("error.color.invalid", color=color))
+        if shape == 'P' and color != 'u': raise ValueError(_("error.pin.color"))
         self.shape = shape; self.color = color
     def __repr__(self) -> str: return f"{self.shape}{self.color if self.shape != 'P' else '-'}"
     def copy(self): return Quadrant(self.shape, self.color)
 
 class Layer:
     def __init__(self, quadrants: List[Optional[Quadrant]]):
-        if len(quadrants) != 4: raise ValueError("레이어는 4개의 사분면을 가져야 합니다.")
+        if len(quadrants) != 4: raise ValueError(_("error.layer.quadrants"))
         self.quadrants = quadrants
     def __repr__(self) -> str:
         q = self.quadrants; output_order = [q[0], q[1], q[2], q[3]] # TR, BR, BL, TL
@@ -43,7 +45,7 @@ class Shape:
             # 개별 도형의 최대 층 수 설정 (기본값 또는 레이어 수 중 큰 값)
             self.max_layers = max(Shape.MAX_LAYERS, len(layers_or_code))
         else:
-            raise ValueError("Shape 초기화는 레이어 리스트 또는 문자열만 허용됩니다.")
+            raise ValueError(_("error.shape.init"))
 
     def classifier(self) -> tuple[str, str]:
         # 각 레이어를 4개의 도형 문자로 변환 (색상 생략)
@@ -368,7 +370,7 @@ class Shape:
     def apply_physics(self, debug=False) -> Shape | tuple[Shape, str]:
         s = self.copy()
         if not s.layers:
-            return (s, "디버그: 빈 모양") if debug else s
+            return (s, _("debug.empty_shape")) if debug else s
 
         debug_log = []
 
@@ -422,7 +424,7 @@ class Shape:
                 continue 
 
             if not unsupported_coords:
-                if debug: debug_log.append("상태 안정됨, 루프 종료.")
+                if debug: debug_log.append(_("debug.stable_state"))
                 break 
 
             moved_in_this_tick = False
@@ -479,10 +481,10 @@ class Shape:
                             s.layers[new_l].quadrants[q_old] = piece
 
             if not moved_in_this_tick:
-                if debug: debug_log.append("움직임 없음, 안정화 완료.")
+                if debug: debug_log.append(_("debug.no_movement"))
                 break
             elif debug:
-                debug_log.append("그룹 이동 발생, 다음 스텝으로.")
+                debug_log.append(_("debug.group_movement"))
         
         while len(s.layers) > 0 and s.layers[-1].is_empty():
             s.layers.pop()
@@ -779,7 +781,7 @@ class Shape:
 
 
 class InterruptedError(Exception):
-    """A custom exception for cancelling the worker thread."""
+    """A custom exception for cancelling the worker thread. (Features don't use)"""
     pass
 
 # ==============================================================================
@@ -1338,10 +1340,6 @@ class ReverseTracer:
 
 
 if __name__ == '__main__':
-    from PyQt6.QtWidgets import QApplication
-    from gui import ShapezGUI
-    
-    app = QApplication(sys.argv)
-    ex = ShapezGUI()
-    ex.show()
-    sys.exit(app.exec())
+    print("shape.py는 독립적으로 실행할 수 없습니다.")
+    print("GUI를 실행하려면 'python gui.py'를 실행하세요.")
+    print("또는 'python -c \"from shape import Shape; print(Shape('CRSW'))\"'로 테스트할 수 있습니다.")

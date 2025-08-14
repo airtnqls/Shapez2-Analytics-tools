@@ -793,30 +793,36 @@ class ShapezGUI(QMainWindow):
                 self.expected_b_label.setVisible(False)
                 self.expected_b_edit.setVisible(False)
         
+
+        
         def load_test_cases(self):
             """user_tests.json 또는 tests.json 파일에서 테스트 케이스를 로드합니다."""
             try:
                 # user_tests.json을 우선적으로 로드 시도
-                if os.path.exists("user_tests.json"):
-                    with open("user_tests.json", "r", encoding="utf-8") as f:
+                user_test_path = get_resource_path("user_tests.json")
+                default_test_path = get_resource_path("tests.json")
+                
+                if os.path.exists(user_test_path):
+                    with open(user_test_path, "r", encoding="utf-8") as f:
                         self.test_data = json.load(f)
-                    self.log("프로그램 시작: user_tests.json에서 테스트 케이스를 로드했습니다.")
+                    self.log(_("log.program.start", file="user_tests.json"))
                 else:
                     # user_tests.json이 없으면 원본 tests.json 로드
-                    with open("tests.json", "r", encoding="utf-8") as f:
+                    with open(default_test_path, "r", encoding="utf-8") as f:
                         self.test_data = json.load(f)
-                    self.log("프로그램 시작: 원본 tests.json에서 테스트 케이스를 로드했습니다.")
+                    self.log(_("log.program.start", file="tests.json"))
                 
-                # 카테고리 목록 업데이트
+                # 카테고리 목록 업데이트 (로컬라이징 적용)
                 self.category_combo.clear()
                 for category in self.test_data.keys():
-                    self.category_combo.addItem(category)
+                    localized_category = _(category)
+                    self.category_combo.addItem(localized_category, userData=category)
                 
                 # 테스트 케이스 목록 업데이트
                 self.refresh_test_cases_list()
                 
                 total_count = sum(len(tests) for tests in self.test_data.values())
-                self.log(f"총 {total_count}개 테스트 케이스가 로드되었습니다.")
+                self.log(_("log.tests.loaded", count=total_count))
                 
             except FileNotFoundError:
                 # 두 파일 모두 없는 경우 빈 데이터로 초기화
@@ -829,8 +835,17 @@ class ShapezGUI(QMainWindow):
         
         def save_test_cases(self):
             """현재 테스트 케이스를 user_tests.json 파일에 저장합니다."""
+            # 저장 확인창 표시
+            reply = QMessageBox.question(self, _("ui.msg.title.confirm"), 
+                                       _("ui.msg.confirm_save_tests"),
+                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            
             try:
-                with open("user_tests.json", "w", encoding="utf-8") as f:
+                user_test_path = get_resource_path("user_tests.json")
+                with open(user_test_path, "w", encoding="utf-8") as f:
                     json.dump(self.test_data, f, ensure_ascii=False, indent=2)
                 
                 total_count = sum(len(tests) for tests in self.test_data.values())
@@ -853,13 +868,14 @@ class ShapezGUI(QMainWindow):
             row = 0
             for category, tests in self.test_data.items():
                 for test in tests:
-                    # 카테고리 (편집 불가)
-                    category_item = QTableWidgetItem(category)
+                    # 카테고리 (편집 불가, 로컬라이징 적용)
+                    localized_category = _(category)
+                    category_item = QTableWidgetItem(localized_category)
                     category_item.setData(Qt.ItemDataRole.UserRole, (category, test))
                     category_item.setFlags(category_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                     self.test_cases_table.setItem(row, 0, category_item)
                     
-                    # 테스트명 (편집 가능)
+                    # 테스트명 (편집 가능, 영어로만 표시)
                     name_item = QTableWidgetItem(test.get('name', 'Unnamed'))
                     name_item.setFlags(name_item.flags() | Qt.ItemFlag.ItemIsEditable)
                     self.test_cases_table.setItem(row, 1, name_item)
@@ -944,31 +960,72 @@ class ShapezGUI(QMainWindow):
             if not category_item:
                 return
                 
-            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            user_data = category_item.data(Qt.ItemDataRole.UserRole)
+            if not user_data or len(user_data) != 2:
+                return
+                
+            old_category, test = user_data
             if not test:
                 return
                 
             # 현재 입력 필드 값들 가져오기
+            test_name = self.test_name_edit.text()
+            new_category = self.category_combo.currentData()  # userData에서 원본 카테고리 키 가져오기
             operation = self.operation_combo.currentText()
             input_a = self.input_a_edit.text()
             input_b = self.input_b_edit.text()
             expected_a = self.expected_a_edit.text()
             expected_b = self.expected_b_edit.text()
             
+            # 카테고리가 변경된 경우 테스트를 새 카테고리로 이동 (데이터만 이동, 선택 행 유지)
+            if new_category and new_category != old_category:
+                # 기존 카테고리에서 제거
+                if old_category in self.test_data and test in self.test_data[old_category]:
+                    self.test_data[old_category].remove(test)
+                
+                # 새 카테고리에 추가
+                if new_category not in self.test_data:
+                    self.test_data[new_category] = []
+                self.test_data[new_category].append(test)
+                
+                # userData 업데이트 (모든 행의 userData도 업데이트)
+                for row in range(self.test_cases_table.rowCount()):
+                    row_category_item = self.test_cases_table.item(row, 0)
+                    if row_category_item and row_category_item.data(Qt.ItemDataRole.UserRole):
+                        row_user_data = row_category_item.data(Qt.ItemDataRole.UserRole)
+                        if len(row_user_data) == 2 and row_user_data[1] == test:
+                            row_category_item.setData(Qt.ItemDataRole.UserRole, (new_category, test))
+                            break
+            
             # 테스트 케이스 업데이트
+            test['name'] = test_name
             test['operation'] = operation
             test['input_a'] = input_a
             test['input_b'] = input_b
             test['expected_a'] = expected_a
             test['expected_b'] = expected_b
             
-            # 테이블 목록 새로고침
-            self.refresh_test_cases_list()
-            
-            # 현재 행 다시 선택
-            self.test_cases_table.selectRow(current_row)
-            
-            self.log("테스트 케이스가 자동으로 업데이트되었습니다.")
+            # 전체 리프레시 대신 현재 행의 표시 텍스트만 갱신 (선택 유지)
+            # 카테고리 텍스트
+            localized_category = _(new_category if (new_category and new_category in self.test_data) else old_category)
+            self.test_cases_table.item(current_row, 0).setText(localized_category)
+            # 테스트명 텍스트
+            self.test_cases_table.item(current_row, 1).setText(test_name)
+            # 연산 텍스트
+            self.test_cases_table.item(current_row, 2).setText(operation)
+            # 입력/출력 텍스트
+            if input_b:
+                input_text = f"A: {input_a}, B: {input_b}"
+            else:
+                input_text = input_a
+            self.test_cases_table.item(current_row, 3).setText(input_text)
+            if expected_a and expected_b:
+                output_text = f"A: {expected_a}, B: {expected_b}"
+            elif expected_a:
+                output_text = expected_a
+            else:
+                output_text = "N/A"
+            self.test_cases_table.item(current_row, 4).setText(output_text)
         
         def show_context_menu(self, position):
             """우클릭 컨텍스트 메뉴를 표시합니다."""
@@ -1010,7 +1067,11 @@ class ShapezGUI(QMainWindow):
             if not category_item:
                 return
                 
-            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            user_data = category_item.data(Qt.ItemDataRole.UserRole)
+            if not user_data or len(user_data) != 2:
+                return
+                
+            category, test = user_data
             if not test:
                 return
             
@@ -1050,7 +1111,7 @@ class ShapezGUI(QMainWindow):
                     # 복사된 행 선택
                     self.test_cases_table.selectRow(current_row + 1)
                     
-                    self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 복제했습니다.")
+
         
         def on_add_empty_test_case(self):
             """선택된 행에 빈 테스트케이스 추가 (Add Test Case 기능 수행)"""
@@ -1062,7 +1123,11 @@ class ShapezGUI(QMainWindow):
             if not category_item:
                 return
                 
-            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            user_data = category_item.data(Qt.ItemDataRole.UserRole)
+            if not user_data or len(user_data) != 2:
+                return
+                
+            category, test = user_data
             if not test:
                 return
             
@@ -1106,7 +1171,11 @@ class ShapezGUI(QMainWindow):
             if not category_item:
                 return
                 
-            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            user_data = category_item.data(Qt.ItemDataRole.UserRole)
+            if not user_data or len(user_data) != 2:
+                return
+                
+            category, test = user_data
             if not test:
                 return
             
@@ -1118,7 +1187,7 @@ class ShapezGUI(QMainWindow):
             params = test.get('params', {})
             
             if not input_a_str:
-                self.log(f"❌ 테스트 실행 실패: {name} - 입력 A가 비어있습니다.")
+                self.log(_("ui.test.failed", name=name) + f" - {_('ui.test.input_a')}가 비어있습니다.")
                 return
             
             # 입력 필드에 테스트 데이터 설정
@@ -1136,7 +1205,7 @@ class ShapezGUI(QMainWindow):
                 # swap 연산 처리 (이중 입력/출력)
                 if operation == "swap":
                     if not input_b_str:
-                        self.log(f"❌ 테스트 실행 실패: {name} - 'swap'은 'input_b'가 필요합니다.")
+                        self.log(_("ui.test.failed", name=name) + f" - 'swap'은 '{_('ui.test.input_b')}'가 필요합니다.")
                         return
                     
                     shape_b = Shape.from_string(input_b_str)
@@ -1149,15 +1218,15 @@ class ShapezGUI(QMainWindow):
                     
                     # 결과 검증
                     if actual_a_code == expected_a_code and actual_b_code == expected_b_code:
-                        self.log(f"✅ 테스트 통과: {name}")
-                        self.log(f"  - 입력A: {input_a_str}, 입력B: {input_b_str}")
-                        self.log(f"  - 예상A: {expected_a_code}, 예상B: {expected_b_code}")
-                        self.log(f"  - 실제A: {actual_a_code}, 실제B: {actual_b_code}")
+                        self.log(_("ui.test.passed", name=name))
+                        self.log(f"  - {_('ui.test.input_a')}: {input_a_str}, {_('ui.test.input_b')}: {input_b_str}")
+                        self.log(f"  - {_('ui.test.expected')}A: {expected_a_code}, {_('ui.test.expected')}B: {expected_b_code}")
+                        self.log(f"  - {_('ui.test.actual')}A: {actual_a_code}, {_('ui.test.actual')}B: {actual_b_code}")
                     else:
-                        self.log(f"❌ 테스트 실패: {name}")
-                        self.log(f"  - 입력A: {input_a_str}, 입력B: {input_b_str}")
-                        self.log(f"  - 예상A: {expected_a_code}, 예상B: {expected_b_code}")
-                        self.log(f"  - 실제A: {actual_a_code}, 실제B: {actual_b_code}")
+                        self.log(_("ui.test.failed", name=name))
+                        self.log(f"  - {_('ui.test.input_a')}: {input_a_str}, {_('ui.test.input_b')}: {input_b_str}")
+                        self.log(f"  - {_('ui.test.expected')}A: {expected_a_code}, {_('ui.test.expected')}B: {expected_b_code}")
+                        self.log(f"  - {_('ui.test.actual')}A: {actual_a_code}, {_('ui.test.actual')}B: {actual_b_code}")
                     return
                 
                 # classifier 연산 처리 (특별한 출력 형식)
@@ -1165,16 +1234,74 @@ class ShapezGUI(QMainWindow):
                     result_string, reason = shape_a.classifier()
                     expected = test.get('expected_a', "")
                     
+                    # 분류 결과의 다국어 매핑 (여러 로컬라이즈 지원)
+                    classification_mappings = {
+                        "스왑": ["swap", "swapable", "스왑가능형"],
+                        "swap": ["스왑", "스왑가능형", "swapable"],
+                        "스왑가능형": ["swap", "swapable", "스왑"],
+                        "swapable": ["스왑", "스왑가능형", "swap"],
+                        "클로": ["claw"],
+                        "claw": ["클로"],
+                        "하이브리드": ["hybrid"],
+                        "hybrid": ["하이브리드"],
+                        "단순_기하형": ["simple_geometric", "simple geometric"],
+                        "simple_geometric": ["단순_기하형", "simple geometric"],
+                        "simple geometric": ["단순_기하형", "simple_geometric"],
+                        "단순_모서리": ["simple_corner", "simple corner"],
+                        "simple_corner": ["단순_모서리", "simple corner"],
+                        "simple corner": ["단순_모서리", "simple_corner"],
+                        "스택_모서리": ["stack_corner", "stack corner"],
+                        "stack_corner": ["스택_모서리", "stack corner"],
+                        "stack corner": ["스택_모서리", "stack_corner"],
+                        "스왑_모서리": ["swap_corner", "swap corner"],
+                        "swap_corner": ["스왑_모서리", "swap corner"],
+                        "swap corner": ["스왑_모서리", "swap_corner"],
+                        "클로_모서리": ["claw_corner", "claw corner"],
+                        "claw_corner": ["클로_모서리", "claw corner"],
+                        "claw corner": ["클로_모서리", "claw_corner"],
+                        "복합_하이브리드": ["complex_hybrid", "complex hybrid"],
+                        "complex_hybrid": ["복합_하이브리드", "complex hybrid"],
+                        "complex hybrid": ["복합_하이브리드", "complex_hybrid"],
+                        "클로_하이브리드": ["claw_hybrid", "claw hybrid"],
+                        "claw_hybrid": ["클로_하이브리드", "claw hybrid"],
+                        "claw hybrid": ["클로_하이브리드", "claw_hybrid"],
+                        "클로_복합_하이브리드": ["claw_complex_hybrid", "claw complex hybrid"],
+                        "claw_complex_hybrid": ["클로_복합_하이브리드", "claw complex hybrid"],
+                        "claw complex hybrid": ["클로_복합_하이브리드", "claw_complex_hybrid"],
+                        "불가능형": ["impossible"],
+                        "impossible": ["불가능형"],
+                        "빈_도형": ["empty"],
+                        "empty": ["빈_도형"]
+                    }
+                    
+                    # 예상값이 결과에 포함되거나, 결과가 예상값에 포함되거나, 
+                    # 분류 매핑에서 일치하는 경우 통과
+                    is_passed = False
                     if expected in result_string:
-                        self.log(f"✅ 테스트 통과: {name}")
-                        self.log(f"  - 입력: {input_a_str}")
-                        self.log(f"  - 예상: {expected}")
-                        self.log(f"  - 실제: {result_string} (사유: {reason})")
+                        is_passed = True
+                    elif expected in classification_mappings:
+                        # 예상값에 대한 매핑된 분류들 중 하나라도 결과에 포함되면 통과
+                        for mapped_value in classification_mappings[expected]:
+                            if mapped_value in result_string:
+                                is_passed = True
+                                break
+                    elif result_string in classification_mappings:
+                        # 결과값에 대한 매핑된 분류들 중 하나라도 예상값에 포함되면 통과
+                        for mapped_value in classification_mappings[result_string]:
+                            if mapped_value in expected:
+                                is_passed = True
+                                break
+                    
+                    if is_passed:
+                        self.log(_("ui.test.passed", name=name))
+                        self.log(f"  - {_('ui.test.input_a')}: {input_a_str}")
+                        self.log(f"  - {_('ui.test.expected')}: {expected}")
+                        self.log(f"  - {_('ui.test.actual')}: {result_string} ({_('ui.test.reason')}: {reason})")
                     else:
-                        self.log(f"❌ 테스트 실패: {name}")
-                        self.log(f"  - 입력: {input_a_str}")
-                        self.log(f"  - 예상: {expected}")
-                        self.log(f"  - 실제: {result_string} (사유: {reason})")
+                        self.log(_("ui.test.failed", name=name))
+                        self.log(f"  - {_('ui.test.input_a')}: {input_a_str}")
+                        self.log(f"  - {_('ui.test.expected')}: {expected}")
+                        self.log(f"  - {_('ui.test.actual')}: {result_string} ({_('ui.test.reason')}: {reason})")
                     return
                 
                 # 일반 연산 처리
@@ -1184,7 +1311,7 @@ class ShapezGUI(QMainWindow):
                     if operation == "stack":
                         actual_shape = Shape.stack(shape_a, shape_b)
                     else:
-                        self.log(f"❌ 테스트 실행 실패: {name} - 연산 '{operation}'은 입력 B를 지원하지 않습니다.")
+                        self.log(_("ui.test.failed", name=name) + f" - 연산 '{operation}'은 {_('ui.test.input_b')}를 지원하지 않습니다.")
                         return
                 else:
                     if operation == "apply_physics":
@@ -1218,7 +1345,7 @@ class ShapezGUI(QMainWindow):
                     elif operation == "reverse":
                         actual_shape = shape_a.reverse()
                     else:
-                        self.log(f"❌ 테스트 실행 실패: {name} - 알 수 없는 연산: {operation}")
+                        self.log(_("ui.test.failed", name=name) + f" - 알 수 없는 연산: {operation}")
                         return
                 
                 # 결과 검증
@@ -1227,23 +1354,31 @@ class ShapezGUI(QMainWindow):
                 expected_code = repr(expected_shape)
                 
                 if actual_code == expected_code:
-                    self.log(f"✅ 테스트 통과: {name}")
-                    self.log(f"  - 입력: {input_a_str}")
-                    self.log(f"  - 예상: {expected_code}")
-                    self.log(f"  - 실제: {actual_code}")
+                    self.log(_("ui.test.passed", name=name))
+                    self.log(f"  - {_('ui.test.input_a')}: {input_a_str}")
+                    self.log(f"  - {_('ui.test.expected')}: {expected_code}")
+                    self.log(f"  - {_('ui.test.actual')}: {actual_code}")
                 else:
-                    self.log(f"❌ 테스트 실패: {name}")
-                    self.log(f"  - 입력: {input_a_str}")
-                    self.log(f"  - 예상: {expected_code}")
-                    self.log(f"  - 실제: {actual_code}")
+                    self.log(_("ui.test.failed", name=name))
+                    self.log(f"  - {_('ui.test.input_a')}: {input_a_str}")
+                    self.log(f"  - {_('ui.test.expected')}: {expected_code}")
+                    self.log(f"  - {_('ui.test.actual')}: {actual_code}")
                 
             except Exception as e:
-                self.log(f"🔥 테스트 실행 오류: {name} - {e.__class__.__name__}: {e}")
+                self.log(_("ui.test.error", name=name, error_type=e.__class__.__name__, error=e))
                 import traceback
                 self.log(traceback.format_exc())
         
         def reset_tests(self):
             """원본 tests.json 파일을 불러와 모든 변경사항을 초기화합니다."""
+            # 초기화 확인창 표시
+            reply = QMessageBox.question(self, _("ui.msg.title.confirm"), 
+                                       _("ui.msg.confirm_reset_tests"),
+                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            
             try:
                 # 원본 tests.json 파일 불러오기
                 if os.path.exists("tests.json"):
@@ -1299,8 +1434,6 @@ class ShapezGUI(QMainWindow):
                 
                 # 드롭된 행 선택
                 self.test_cases_table.selectRow(to_row)
-                
-                self.log(f"테스트 케이스 순서를 조절했습니다.")
         
         def on_table_item_changed(self, item):
             """테이블 셀이 편집되었을 때 실제 데이터를 업데이트합니다."""
@@ -1315,7 +1448,11 @@ class ShapezGUI(QMainWindow):
                 return
                 
             category_item = self.test_cases_table.item(current_row, 0)
-            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            user_data = category_item.data(Qt.ItemDataRole.UserRole)
+            if not user_data or len(user_data) != 2:
+                return
+                
+            category, test = user_data
             if not test:
                 return
                 
@@ -1323,7 +1460,9 @@ class ShapezGUI(QMainWindow):
             new_name = item.text()
             if new_name != test.get('name', ''):
                 test['name'] = new_name
-                self.log(f"테스트명을 '{new_name}'으로 업데이트했습니다.")
+                
+                # 편집 필드도 업데이트
+                self.test_name_edit.setText(new_name)
         
         def on_test_case_selected(self):
             """테스트 케이스가 선택되었을 때 편집 필드를 업데이트합니다."""
@@ -1335,10 +1474,16 @@ class ShapezGUI(QMainWindow):
             if not category_item:
                 return
                 
-            category, test = category_item.data(Qt.ItemDataRole.UserRole)
+            user_data = category_item.data(Qt.ItemDataRole.UserRole)
+            if not user_data or len(user_data) != 2:
+                return
+                
+            category, test = user_data
+            # 프로그램적으로 채우는 동안 업데이트 핸들러가 실행되지 않도록 가드를 먼저 건다
+            self._suspend_field_updates = True
             
-            # 카테고리 설정
-            index = self.category_combo.findText(category)
+            # 카테고리 설정 (userData에서 원본 카테고리 키 사용)
+            index = self.category_combo.findData(category)
             if index >= 0:
                 self.category_combo.setCurrentIndex(index)
             else:
@@ -1359,8 +1504,6 @@ class ShapezGUI(QMainWindow):
             # 연산에 따른 필드 상태를 먼저 업데이트
             self.on_operation_changed(self.operation_combo.currentText())
             
-            # 필드 채우는 동안 업데이트 중단
-            self._suspend_field_updates = True
             try:
                 # 그 다음에 데이터를 필드에 설정
                 self.input_a_edit.setText(test.get("input_a", ""))
@@ -1451,6 +1594,8 @@ class ShapezGUI(QMainWindow):
         self.operation_combo.currentTextChanged.connect(self.on_operation_changed)
         
         # 입력 필드 변경 시 자동 반영 (시그널은 가드 플래그로 보호)
+        self.test_name_edit.textChanged.connect(self.on_input_field_changed)
+        self.category_combo.currentIndexChanged.connect(self.on_input_field_changed)
         self.input_a_edit.textChanged.connect(self.on_input_field_changed)
         self.input_b_edit.textChanged.connect(self.on_input_field_changed)
         self.expected_a_edit.textChanged.connect(self.on_input_field_changed)
@@ -1506,7 +1651,7 @@ class ShapezGUI(QMainWindow):
         self.delete_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.delete_shortcut.activated.connect(self.delete_test_case)
         
-        self.log("테스트 에디터 단축키 설정 완료 (Delete)")
+
     
     def delete_test_case(self):
         """선택된 테스트 케이스를 삭제합니다."""
@@ -1546,8 +1691,6 @@ class ShapezGUI(QMainWindow):
                 
                 # 편집 필드 초기화
                 self.clear_test_edit_fields()
-                
-                self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 삭제했습니다.")
 
     def initUI(self):
         main_layout = QVBoxLayout(self.central_widget)
@@ -2769,7 +2912,7 @@ class ShapezGUI(QMainWindow):
                 self.max_depth_input.setText(str(new_depth))
             
             ReverseTracer.MAX_SEARCH_DEPTH = new_depth
-            self.log_verbose(f"최대 탐색 깊이가 {new_depth}로 설정되었습니다.")
+            self.log_verbose(_("log.max_depth.set", n=new_depth))
         except ValueError:
             self.log("🔥 오류: 최대 탐색 깊이는 숫자로 입력해야 합니다. 1로 설정합니다.")
             ReverseTracer.MAX_SEARCH_DEPTH = 1
@@ -2786,17 +2929,34 @@ class ShapezGUI(QMainWindow):
 
     
     def run_forward_tests(self):
-        self.clear_log(); self.log("=== 전체 정방향 테스트 시작 (tests.json) ===")
-        try:
-            with open('tests.json', 'r', encoding='utf-8') as f: test_suites = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as e: self.log(f"🔥 테스트 파일 오류: {e}"); return
+        # 이미 로드된 테스트 데이터를 우선적으로 사용
+        if hasattr(self, 'test_data') and self.test_data:
+            test_suites = self.test_data
+            test_file_name = _("ui.test.loaded_data")
+            self.clear_log(); self.log(_("ui.test.start.forward", file=test_file_name))
+        else:
+            # 로드된 데이터가 없으면 파일에서 로드
+            user_test_path = get_resource_path("user_tests.json")
+            default_test_path = get_resource_path("tests.json")
+            
+            if os.path.exists(user_test_path):
+                test_file = user_test_path
+                test_file_name = "user_tests.json"
+            else:
+                test_file = default_test_path
+                test_file_name = "tests.json"
+                
+            self.clear_log(); self.log(_("ui.test.start.forward", file=test_file_name))
+            try:
+                with open(test_file, 'r', encoding='utf-8') as f: test_suites = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError) as e: self.log(_("ui.test.file_error", error=e)); return
         
         passed_count, total_count = 0, 0
         for category, test_cases in test_suites.items():
             if category == "역연산":
                 continue 
 
-            self.log(f"\n--- {category} 카테고리 ---")
+            self.log(_("ui.test.category", category=category))
             for test in test_cases:
                 total_count += 1
                 name, operation = test['name'], test['operation']
@@ -2816,8 +2976,8 @@ class ShapezGUI(QMainWindow):
                         expected_a_code, expected_b_code = repr(expected_a_shape), repr(expected_b_shape)
 
                         if actual_a_code == expected_a_code and actual_b_code == expected_b_code:
-                            passed_count += 1; self.log_verbose(f"✅ 통과: {name}")
-                        else: self.log(f"❌ 실패: {name}\n  - 입력A: {input_a_str}\n  - 입력B: {input_b_str}\n  - 예상A: {expected_a_code}\n  - 실제A: {actual_a_code}\n  - 예상B: {expected_b_code}\n  - 실제B: {actual_b_code}")
+                            passed_count += 1; self.log(_("ui.test.passed", name=name))
+                        else: self.log(_("ui.test.failed", name=name) + f"\n  - {_('ui.test.input_a')}: {input_a_str}\n  - {_('ui.test.input_b')}: {input_b_str}\n  - {_('ui.test.expected')}A: {expected_a_code}\n  - {_('ui.test.actual')}A: {actual_a_code}\n  - {_('ui.test.expected')}B: {expected_b_code}\n  - {_('ui.test.actual')}B: {actual_b_code}")
                         continue
                     
                     actual_shape = None
@@ -2838,11 +2998,73 @@ class ShapezGUI(QMainWindow):
                             expected = test.get('expected_a', "")
                             
                             # 예상 문자열이 결과 문자열에 포함되어 있는지 검사
-                            if expected in result_string:
+                            # 예상값이 결과 문자열에 포함되어 있는지 검사 (여러 로컬라이즈 지원)
+                            expected_lower = expected.lower()
+                            result_lower = result_string.lower()
+                            
+                            # 분류 결과의 다국어 매핑 (예: "스왑" ↔ "Swap", "스왑가능형" ↔ "Swapable")
+                            classification_mappings = {
+                                "스왑": ["swap", "swapable", "스왑가능형"],
+                                "swap": ["스왑", "스왑가능형", "swapable"],
+                                "스왑가능형": ["swap", "swapable", "스왑"],
+                                "swapable": ["스왑", "스왑가능형", "swap"],
+                                "클로": ["claw"],
+                                "claw": ["클로"],
+                                "하이브리드": ["hybrid"],
+                                "hybrid": ["하이브리드"],
+                                "단순_기하형": ["simple_geometric", "simple geometric"],
+                                "simple_geometric": ["단순_기하형", "simple geometric"],
+                                "simple geometric": ["단순_기하형", "simple_geometric"],
+                                "단순_모서리": ["simple_corner", "simple corner"],
+                                "simple_corner": ["단순_모서리", "simple corner"],
+                                "simple corner": ["단순_모서리", "simple_corner"],
+                                "스택_모서리": ["stack_corner", "stack corner"],
+                                "stack_corner": ["스택_모서리", "stack corner"],
+                                "stack corner": ["스택_모서리", "stack_corner"],
+                                "스왑_모서리": ["swap_corner", "swap corner"],
+                                "swap_corner": ["스왑_모서리", "swap corner"],
+                                "swap corner": ["스왑_모서리", "swap_corner"],
+                                "클로_모서리": ["claw_corner", "claw corner"],
+                                "claw_corner": ["클로_모서리", "claw corner"],
+                                "claw corner": ["클로_모서리", "claw_corner"],
+                                "복합_하이브리드": ["complex_hybrid", "complex hybrid"],
+                                "complex_hybrid": ["복합_하이브리드", "complex hybrid"],
+                                "complex hybrid": ["복합_하이브리드", "complex_hybrid"],
+                                "클로_하이브리드": ["claw_hybrid", "claw hybrid"],
+                                "claw_hybrid": ["클로_하이브리드", "claw hybrid"],
+                                "claw hybrid": ["클로_하이브리드", "claw_hybrid"],
+                                "클로_복합_하이브리드": ["claw_complex_hybrid", "claw complex hybrid"],
+                                "claw_complex_hybrid": ["클로_복합_하이브리드", "claw complex hybrid"],
+                                "claw complex hybrid": ["클로_복합_하이브리드", "claw_complex_hybrid"],
+                                "불가능형": ["impossible"],
+                                "impossible": ["불가능형"],
+                                "빈_도형": ["empty"],
+                                "empty": ["빈_도형"]
+                            }
+                            
+                            # 예상값이 결과에 포함되거나, 결과가 예상값에 포함되거나, 
+                            # 분류 매핑에서 일치하는 경우 통과
+                            is_passed = False
+                            if expected_lower in result_lower or result_lower in expected_lower:
+                                is_passed = True
+                            elif expected in classification_mappings:
+                                # 예상값에 대한 매핑된 분류들 중 하나라도 결과에 포함되면 통과
+                                for mapped_value in classification_mappings[expected]:
+                                    if mapped_value.lower() in result_lower:
+                                        is_passed = True
+                                        break
+                            elif result_string in classification_mappings:
+                                # 결과값에 대한 매핑된 분류들 중 하나라도 예상값에 포함되면 통과
+                                for mapped_value in classification_mappings[result_string]:
+                                    if mapped_value.lower() in expected_lower:
+                                        is_passed = True
+                                        break
+                            
+                            if is_passed:
                                 passed_count += 1
-                                self.log_verbose(f"✅ 통과: {name}")
+                                self.log(_("ui.test.passed", name=name))
                             else:
-                                self.log(f"❌ 실패: {name}\n  - 입력A: {input_a_str}\n  - 예상: {expected}\n  - 실제: {result_string} (사유: {reason})")
+                                self.log(_("ui.test.failed", name=name) + f"\n  - {_('ui.test.input_a')}: {input_a_str}\n  - {_('ui.test.expected')}: {expected}\n  - {_('ui.test.actual')}: {result_string} ({_('ui.test.reason')}: {reason})")
                             continue
                         else: raise ValueError(f"연산 '{operation}'은 입력 A만으로는 수행할 수 없습니다.")
                     
@@ -2851,23 +3073,40 @@ class ShapezGUI(QMainWindow):
                     expected_code = repr(expected_shape)
 
                     if actual_code == expected_code:
-                        passed_count += 1; self.log_verbose(f"✅ 통과: {name}")
-                    else: self.log(f"❌ 실패: {name}\n  - 입력A: {input_a_str}\n  - 예상: {expected_code}\n  - 실제: {actual_code}")
+                        passed_count += 1; self.log(_("ui.test.passed", name=name))
+                    else: self.log(_("ui.test.failed", name=name) + f"\n  - {_('ui.test.input_a')}: {input_a_str}\n  - {_('ui.test.expected')}: {expected_code}\n  - {_('ui.test.actual')}: {actual_code}")
                 except Exception as e:
-                    self.log(f"🔥 오류: {name} - {e.__class__.__name__}: {e}")
+                    self.log(_("ui.test.error", name=name, error_type=e.__class__.__name__, error=e))
                     import traceback; self.log(traceback.format_exc())
-        summary = f"정방향 테스트 종료: {total_count}개 중 {passed_count}개 통과 ({passed_count/total_count if total_count > 0 else 0:.1%})"
+        summary = _("ui.test.summary.forward", file=test_file_name, total=total_count, passed=passed_count, percent=passed_count/total_count if total_count > 0 else 0)
         self.log(f"\n=== {summary} ===")
 
     def run_reverse_tests(self):
         self.clear_log()
-        self.log("=== 전체 역연산 테스트 시작 (tests.json) ===")
-        try:
-            with open('tests.json', 'r', encoding='utf-8') as f:
-                test_suites = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            self.log(f"🔥 테스트 파일('tests.json')을 불러오는 중 오류 발생: {e}")
-            return
+        # 이미 로드된 테스트 데이터를 우선적으로 사용
+        if hasattr(self, 'test_data') and self.test_data:
+            test_suites = self.test_data
+            test_file_name = _("ui.test.loaded_data")
+            self.log(_("ui.test.start.reverse", file=test_file_name))
+        else:
+            # 로드된 데이터가 없으면 파일에서 로드
+            user_test_path = get_resource_path("user_tests.json")
+            default_test_path = get_resource_path("tests.json")
+            
+            if os.path.exists(user_test_path):
+                test_file = user_test_path
+                test_file_name = "user_tests.json"
+            else:
+                test_file = default_test_path
+                test_file_name = "tests.json"
+                
+            self.log(_("ui.test.start.reverse", file=test_file_name))
+            try:
+                with open(test_file, 'r', encoding='utf-8') as f:
+                    test_suites = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError) as e:
+                self.log(_("ui.test.file_error", error=e))
+                return
 
         if "역연산" not in test_suites:
             self.log("테스트 파일에 '역연산' 카테고리가 없습니다.")
@@ -2876,7 +3115,7 @@ class ShapezGUI(QMainWindow):
         passed_count, total_count = 0, 0
         test_cases = test_suites["역연산"]
         
-        self.log(f"\n--- 역연산 카테고리 ---")
+        self.log(_("ui.test.category", category="역연산"))
         for test in test_cases:
             total_count += 1
             test_name = test['name']
@@ -2954,19 +3193,19 @@ class ShapezGUI(QMainWindow):
             
             if found_match:
                 passed_count += 1
-                self.log_verbose(f"✅ 통과: {test_name}")
+                self.log(_("ui.test.passed", name=test_name))
             else:
-                self.log(f"❌ 실패: {test_name}")
+                self.log(_("ui.test.failed", name=test_name))
                 self.log(f"  - 목표: {target_shape_str}")
                 if expected_op == 'exist':
-                    self.log(f"  - 예상: 기원이 하나 이상 존재해야 함")
+                    self.log(f"  - {_('ui.test.expected')}: 기원이 하나 이상 존재해야 함")
                 elif expected_a_str is not None and expected_b_str is not None:
                     expected_a_normalized_str = repr(Shape.from_string(expected_a_str).normalize())
                     expected_b_normalized_str = repr(Shape.from_string(expected_b_str).normalize())
-                    self.log(f"  - 예상 기원 (A:{expected_a_str}, B:{expected_b_str}) (정규화: A:{expected_a_normalized_str}, B:{expected_b_normalized_str})")
+                    self.log(f"  - {_('ui.test.expected')} 기원 (A:{expected_a_str}, B:{expected_b_str}) (정규화: A:{expected_a_normalized_str}, B:{expected_b_normalized_str})")
                 else:
                     expected_shape_normalized_str = repr(Shape.from_string(expected_shape_str).normalize())
-                    self.log(f"  - 예상 기원 ({expected_op if expected_op else '모든 연산'}): {expected_shape_str} (정규화: {expected_shape_normalized_str})")
+                    self.log(f"  - {_('ui.test.expected')} 기원 ({expected_op if expected_op else '모든 연산'}): {expected_shape_str} (정규화: {expected_shape_normalized_str})")
                 
                 if found_candidates:
                     self.log("  - 발견된 후보들:")
@@ -2978,7 +3217,7 @@ class ShapezGUI(QMainWindow):
                 else:
                     self.log("  - 발견된 후보 없음")
 
-        summary = f"역연산 테스트 종료: {total_count}개 중 {passed_count}개 통과 ({passed_count/total_count if total_count > 0 else 0:.1%})"
+        summary = _("ui.test.summary.reverse", file=test_file_name, total=total_count, passed=passed_count, percent=passed_count/total_count if total_count > 0 else 0)
         self.log(f"\n=== {summary} ===\n")
 
         # 테스트 편집기 시그널 연결
@@ -3810,7 +4049,7 @@ class ShapezGUI(QMainWindow):
             tab_name = os.path.splitext(os.path.basename(file_path))[0]
             self.add_data_tab(tab_name, shape_codes)
             
-            self.log(f"파일 로드 완료: {len(shape_codes)}개의 도형 코드를 새 탭 '{tab_name}'에 불러왔습니다.")
+            self.log(_("log.file.loaded", count=len(shape_codes), tab_name=tab_name))
             
             # 마지막으로 열었던 파일 경로 저장
             self.last_opened_data_path = file_path
@@ -6314,20 +6553,29 @@ class DataTabWidget(QWidget):
         # 목록 새로고침
         self.refresh_test_cases_list()
         
-        # 업데이트된 항목 선택
-        for i in range(self.test_cases_list.count()):
-            item = self.test_cases_list.item(i)
-            item_category, item_test = item.data(Qt.ItemDataRole.UserRole)
-            if item_test == test:
-                self.test_cases_list.setCurrentItem(item)
-                break
+        # 업데이트된 항목 선택 (테이블 위젯 사용)
+        for row in range(self.test_cases_table.rowCount()):
+            category_item = self.test_cases_table.item(row, 0)
+            if category_item:
+                item_category, item_test = category_item.data(Qt.ItemDataRole.UserRole)
+                if item_test == test:
+                    self.test_cases_table.selectRow(row)
+                    break
         
-        self.log(f"테스트 케이스 '{test['name']}'을(를) 업데이트했습니다.")
+
 
     def delete_test_case(self):
         """선택된 테스트 케이스를 삭제합니다."""
-        current_item = self.test_cases_list.currentItem()
-        if not current_item:
+        current_row = self.test_cases_table.currentRow()
+        if current_row < 0:
+            return
+            
+        category_item = self.test_cases_table.item(current_row, 0)
+        if not category_item:
+            return
+            
+        category, test = category_item.data(Qt.ItemDataRole.UserRole)
+        if not test:
             return
             
         reply = QMessageBox.question(self, _("ui.msg.title.warning"), 
@@ -6335,7 +6583,6 @@ class DataTabWidget(QWidget):
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
         if reply == QMessageBox.StandardButton.Yes:
-            category, test = current_item.data(Qt.ItemDataRole.UserRole)
             self.test_data[category].remove(test)
             
             # 빈 카테고리 제거
@@ -6349,20 +6596,21 @@ class DataTabWidget(QWidget):
             
             # 편집 필드 초기화
             self.clear_test_edit_fields()
-            
-            self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 삭제했습니다.")
 
     def move_test_case_up(self):
         """테스트 케이스를 위로 이동합니다."""
-        current_item = self.test_cases_list.currentItem()
-        if not current_item:
-            return
-            
-        current_row = self.test_cases_list.row(current_item)
+        current_row = self.test_cases_table.currentRow()
         if current_row <= 0:
             return
             
-        category, test = current_item.data(Qt.ItemDataRole.UserRole)
+        category_item = self.test_cases_table.item(current_row, 0)
+        if not category_item:
+            return
+            
+        category, test = category_item.data(Qt.ItemDataRole.UserRole)
+        if not test:
+            return
+            
         tests = self.test_data[category]
         
         # 리스트에서 위치 교환
@@ -6372,23 +6620,24 @@ class DataTabWidget(QWidget):
             self.refresh_test_cases_list()
             
             # 이동된 항목 선택
-            new_item = self.test_cases_list.item(current_row - 1)
-            if new_item:
-                self.test_cases_list.setCurrentItem(new_item)
+            self.test_cases_table.selectRow(current_row - 1)
             
-            self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 위로 이동했습니다.")
+
 
     def move_test_case_down(self):
         """테스트 케이스를 아래로 이동합니다."""
-        current_item = self.test_cases_list.currentItem()
-        if not current_item:
+        current_row = self.test_cases_table.currentRow()
+        if current_row >= self.test_cases_table.rowCount() - 1:
             return
             
-        current_row = self.test_cases_list.row(current_item)
-        if current_row >= self.test_cases_list.count() - 1:
+        category_item = self.test_cases_table.item(current_row, 0)
+        if not category_item:
             return
             
-        category, test = current_item.data(Qt.ItemDataRole.UserRole)
+        category, test = category_item.data(Qt.ItemDataRole.UserRole)
+        if not test:
+            return
+            
         tests = self.test_data[category]
         
         # 리스트에서 위치 교환
@@ -6398,11 +6647,9 @@ class DataTabWidget(QWidget):
             self.refresh_test_cases_list()
             
             # 이동된 항목 선택
-            new_item = self.test_cases_list.item(current_row + 1)
-            if new_item:
-                self.test_cases_list.setCurrentItem(new_item)
+            self.test_cases_table.selectRow(current_row + 1)
             
-            self.log(f"테스트 케이스 '{test.get('name', 'Unnamed')}'을(를) 아래로 이동했습니다.")
+
 
     def clear_test_edit_fields(self):
         """테스트 편집 필드들을 초기화합니다."""

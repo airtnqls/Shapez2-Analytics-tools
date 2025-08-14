@@ -1,24 +1,25 @@
 from __future__ import annotations
 from enum import Enum
 import re
+
 from i18n import _
 
 
 class ShapeType(Enum):
     """도형 분류 타입"""
-    EMPTY = "빈_도형"
-    SIMPLE_CORNER = "단순_모서리"
-    STACK_CORNER = "스택_모서리"
-    SWAP_CORNER = "스왑_모서리"
-    CLAW_CORNER = "클로_모서리"
-    SIMPLE_GEOMETRIC = "단순_기하형"
-    SWAPABLE = "스왑가능형"
-    HYBRID = "하이브리드"
-    COMPLEX_HYBRID = "복합_하이브리드"
-    CLAW = "클로"
-    CLAW_HYBRID = "클로_하이브리드"
-    CLAW_COMPLEX_HYBRID = "클로_복합_하이브리드"
-    IMPOSSIBLE = "불가능형"
+    EMPTY = _("analyzer.shape_types.empty")
+    SIMPLE_CORNER = _("analyzer.shape_types.simple_corner")
+    STACK_CORNER = _("analyzer.shape_types.stack_corner")
+    SWAP_CORNER = _("analyzer.shape_types.swap_corner")
+    CLAW_CORNER = _("analyzer.shape_types.claw_corner")
+    SIMPLE_GEOMETRIC = _("analyzer.shape_types.simple_geometric")
+    SWAPABLE = _("analyzer.shape_types.swapable")
+    HYBRID = _("analyzer.shape_types.hybrid")
+    COMPLEX_HYBRID = _("analyzer.shape_types.complex_hybrid")
+    CLAW = _("analyzer.shape_types.claw")
+    CLAW_HYBRID = _("analyzer.shape_types.claw_hybrid")
+    CLAW_COMPLEX_HYBRID = _("analyzer.shape_types.claw_complex_hybrid")
+    IMPOSSIBLE = _("analyzer.shape_types.impossible")
 
 
 def get_piece(shape: str, layer: int, quadrant: int) -> str:
@@ -97,11 +98,11 @@ def _check_impossible_patterns(pillars: list[str]) -> tuple[str | None, str | No
         tuple[str | None, str | None]: (분류_결과, 분류_사유)
     """
     impossible_patterns_for_type = [
-        (r'^P*-+c', "코너 룰1. ^P*-+c"),
-        (r'[^P]P.*c', "코너 룰2. [^P]P.*c"),
-        (r'c-.*c', "코너 룰3. c-.*c"),
-        (r'c.-+c', "코너 룰4. c.-+c"),
-        (r'^S*-?S*c.*-S-+c', "코너 룰5. ^S*-?S*c.*-S-+c")
+        (r'^P*-+c', _("analyzer.corner_rules.rule1")),
+        (r'[^P]P.*c', _("analyzer.corner_rules.rule2")),
+        (r'c-.*c', _("analyzer.corner_rules.rule3")),
+        (r'c.-+c', _("analyzer.corner_rules.rule4")),
+        (r'^S*-?S*c.*-S-+c', _("analyzer.corner_rules.rule5"))
     ]
     
     for pillar_idx, pillar in enumerate(pillars):
@@ -124,9 +125,9 @@ def _get_initial_shape_classification(shape: str) -> tuple[str, str]:
     """
     if shape.strip() == "" or shape.replace("-", "").replace(":", "") == "":
         return ShapeType.EMPTY.value, _("analyzer.empty")
-    elif 'c' not in shape:  # 크리스탈이 없는 경우 최우선 단순기하형
+    elif 'c' not in shape:  # 크리스탈이 없는 경우
         return ShapeType.SIMPLE_GEOMETRIC.value, _("analyzer.no_crystal")
-    else:  # 크리스탈이 포함된 경우, 추가 분류가 필요함을 알림
+    else:  # 크리스탈이 포함된 경우
         return ShapeType.SIMPLE_GEOMETRIC.value, ""
 
 
@@ -142,20 +143,20 @@ def _check_limitations(pillars: list[str]) -> set[str]:
     """
     found_limitations = set()
     limitation_rules = [
-        (r'^S*-?S*c', "핀푸쉬X", "OR"),      # 하나라도 해당하면 제한
-        (r'-S-+c', "스왑X", "OR"),        # 하나라도 해당하면 제한
-        (r'c$', "스택X", "AND"),          # 모두 해당해야 제한
+        (r'^S*-?S*c', _("analyzer.limitations.pin_push_x"), "OR"),      # OR 조건: 하나의 기둥이라도 패턴에 맞으면 제한사항 추가
+        (r'-S-+c', _("analyzer.limitations.swap_x"), "OR"),        # OR 조건: 하나의 기둥이라도 패턴에 맞으면 제한사항 추가
+        (r'c$', _("analyzer.limitations.stack_x"), "AND"),          # AND 조건: 모든 기둥이 패턴에 맞아야 제한사항 추가
     ]
 
     for pattern, description, logic_type in limitation_rules:
         if logic_type == "OR":
-            # OR 조건: 하나의 기둥이라도 패턴에 맞으면 제한사항 추가
+            # 하나라도 해당하면 제한
             for pillar in pillars:
                 if re.search(pattern, pillar):
                     found_limitations.add(description)
                     break
         elif logic_type == "AND":
-            # AND 조건: 모든 기둥이 패턴에 맞아야 제한사항 추가
+            # 모두 해당해야 제한
             is_and_condition_met = True
             for pillar in pillars:
                 if not re.search(pattern, pillar):
@@ -196,7 +197,7 @@ def _check_swap_impossibility(shape_obj) -> str | None:
     try:
         rotated_shape_obj = shape_obj.rotate(clockwise=True)
         west_half_rotated, east_half_rotated = rotated_shape_obj.simple_cutter()
-        if (repr(west_half_rotated) != repr(west_half_rotated.apply_physics())) or \
+        if (repr(west_half_rotated) != repr(east_half_rotated.apply_physics())) or \
            (repr(east_half_rotated) != repr(east_half_rotated.apply_physics())):
             is_14_23_swap_impossible = True
     except Exception:
@@ -205,12 +206,12 @@ def _check_swap_impossibility(shape_obj) -> str | None:
     # 스왑 불가능 상태 판별
     swap_notes = []
     if is_12_34_swap_impossible:
-        swap_notes.append("12/34스왑 불가")
+        swap_notes.append(_("analyzer.swap_status.swap_12_34_impossible"))
     if is_14_23_swap_impossible:
-        swap_notes.append("14/23스왑 불가")
+        swap_notes.append(_("analyzer.swap_status.swap_14_23_impossible"))
 
     if is_12_34_swap_impossible and is_14_23_swap_impossible:
-        return "Claw"
+        return _("analyzer.swap_status.claw")
     elif swap_notes:
         return ", ".join(swap_notes)
     else:
@@ -235,7 +236,7 @@ def _remove_top_non_empty_layer(shape_obj):
 
     # 최상위부터 역순으로 탐색하여 비어있지 않은 층을 찾고 제거
     for i in range(len(new_layers) - 1, -1, -1):
-        if repr(new_layers[i]).strip('-') != '':
+        if repr(new_layers[i]).strip('-') != "":
             removed_layer_content = new_layers.pop(i)
             break
             
@@ -260,7 +261,7 @@ def _handle_crystal_free_classification(initial_swap_diagnosis: str | None, foun
     classification_type = ShapeType.SIMPLE_GEOMETRIC.value
     reasons = [_("analyzer.no_crystal")]
     
-    # 스왑 상태를 사유에 추가
+    # 크리스탈이 없는 경우 최우선 단순기하형
     if initial_swap_diagnosis is not None:
         reasons.append(initial_swap_diagnosis)
     
@@ -288,7 +289,7 @@ def _perform_layer_removal_loop(current_working_shape_obj):
     while current_working_shape_obj:
         loop_swap_check_result = _check_swap_impossibility(current_working_shape_obj)
         
-        if loop_swap_check_result == "Claw":
+        if loop_swap_check_result == _("analyzer.swap_status.claw"):
             # 여전히 Claw인 경우, 레이어 제거 시도
             old_shape_obj_for_removal_check = current_working_shape_obj.copy()
             current_working_shape_obj, removed_layer_part = _remove_top_non_empty_layer(current_working_shape_obj)
@@ -304,7 +305,7 @@ def _perform_layer_removal_loop(current_working_shape_obj):
                 final_swap_status_after_loop = _check_swap_impossibility(current_working_shape_obj)
                 break
         else:
-            # 더 이상 "Claw"가 아님 (None 또는 특정 불가능성)
+            # 더 이상 Claw가 아님 (None 또는 특정 불가능성)
             final_swap_status_after_loop = loop_swap_check_result
             break
     
@@ -325,13 +326,13 @@ def _classify_no_layer_removal_case(current_type: str, base_reason: str, initial
     """
     reasons = []
     
-    if initial_swap_diagnosis is None or "Claw" not in initial_swap_diagnosis:
+    if initial_swap_diagnosis is None or _("analyzer.swap_status.claw") not in initial_swap_diagnosis:
         classification_type = ShapeType.SWAPABLE.value
         if base_reason and base_reason not in [ShapeType.IMPOSSIBLE.value, ShapeType.EMPTY.value]:
             reasons.append(base_reason)
         if initial_swap_diagnosis is not None:
             reasons.append(initial_swap_diagnosis)
-    else:  # initial_swap_diagnosis is "Claw"
+    else:  # initial_swap_diagnosis is Claw
         classification_type = current_type
         reasons.append(initial_swap_diagnosis)
     
@@ -357,7 +358,7 @@ def _classify_layer_removal_case(base_reason: str, removed_hybrid_layers_content
     # CLAW_INCLUDED 또는 HYBRID로 분류
     if any('c' in layer_content for layer_content in removed_hybrid_layers_content):
         classification_type = ShapeType.CLAW.value
-        if base_reason and base_reason not in reasons and base_reason != "":
+        if base_reason and base_reason not in reasons and base_reason != _("analyzer.empty_string"):
             reasons.insert(0, base_reason)
         reasons.append(_("analyzer.claw"))
     else:
@@ -394,7 +395,7 @@ def _finalize_reasons(reasons: list[str]) -> str:
             deduplicated_reasons.append(reason)
             seen_reasons.add(reason)
     
-    return " | ".join(filter(None, deduplicated_reasons))
+            return " | ".join(filter(None, deduplicated_reasons))
 
 
 def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
@@ -425,8 +426,8 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         # q1_pillar만으로 물리 안정성 검사를 위한 임시 Shape 객체 생성
         if shape_obj:
             # q1_pillar을 기반으로 임시 도형 생성하여 물리 안정성 검사
-            temp_shape_str = ':'.join(q1_pillar) if q1_pillar else ""
-            if temp_shape_str:
+            temp_shape_str = ':'.join(q1_pillar) if q1_pillar else _("analyzer.empty_string")
+            if temp_shape_str != _("analyzer.empty_string"):
                 try:
                     from shape import Shape
                     temp_shape_obj = Shape.from_string(temp_shape_str)
@@ -443,7 +444,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         is_claw_corner_pattern = re.search(r'-S-+c', q1_pillar)
 
         # 핀 사유 공통 처리
-        pin_reason = _("analyzer.pin") if has_pin_at_bottom else ""
+        pin_reason = _("analyzer.pin") if has_pin_at_bottom else _("analyzer.empty_string")
         
         # 클로모서리: -S-+c 패턴으로 인해 스왑X로 판정받은 경우
         if is_claw_corner_pattern:
@@ -455,7 +456,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         if physically_unstable or has_crystal:
             return ShapeType.STACK_CORNER.value, pin_reason
         # 단순모서리: 1사분면을 제외한 모든 사분면이 비워져 있는 모든 경우
-        return ShapeType.SIMPLE_CORNER.value, ""
+        return ShapeType.SIMPLE_CORNER.value, _("analyzer.empty_string")
 
     # ========== 2단계: 기존 분류 로직 (모서리가 아닌 경우) ==========
     # 물리 안정성 검사
@@ -506,7 +507,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
 
         # ========== 6단계: 기타 제한사항 추가 ==========
         if found_limitations:
-            final_reasons.append(_("analyzer.limitations", list=", ".join(sorted(list(found_limitations)))))
+            final_reasons.append(_("analyzer.limitations", list=_("analyzer.limitations.separator").join(sorted(list(found_limitations)))))
 
     # ========== 7단계: 최종 결과 반환 ==========
     # 클로 추가 검사
