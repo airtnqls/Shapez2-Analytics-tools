@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QMessageBox, QMenu, QTabBar, QGraphicsDropShadowEffect,
     QGraphicsScene, QGraphicsView, QGraphicsWidget, QGraphicsProxyWidget
 )
-from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF, QPainter, QPixmap, QIcon
+from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF, QPainter, QPixmap, QIcon, QBrush
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF, QSettings, QProcess
 
 
@@ -507,10 +507,26 @@ class ShapeWidget(QFrame):
     def get_target_indices(self, event):
         target_widget = self.childAt(event.position().toPoint())
         
+        # 도형 바깥으로 드롭된 경우 None 반환
+        if target_widget is None:
+            return None, None, None, None
+        
         temp_widget = target_widget
         while temp_widget is not None and not (isinstance(temp_widget, QuadrantWidget) or isinstance(temp_widget, RowHeaderWidget) or isinstance(temp_widget, ColumnHeaderWidget)):
-            mapped_point = temp_widget.mapFromGlobal(event.globalPosition().toPoint())
+            # PyQt6에서는 globalPosition() 대신 globalPos() 사용
+            try:
+                global_pos = event.globalPos()
+            except AttributeError:
+                # PyQt6에서 globalPos()가 없는 경우 position() 사용
+                global_pos = event.position().toPoint()
+            
+            mapped_point = temp_widget.mapFromGlobal(global_pos)
             temp_widget = temp_widget.childAt(mapped_point)
+            
+            # 무한 루프 방지
+            if temp_widget == target_widget:
+                break
+                
         target_widget = temp_widget
 
         if isinstance(target_widget, QuadrantWidget):
@@ -524,70 +540,109 @@ class ShapeWidget(QFrame):
 
     def handle_quadrant_drop(self, event, mime_text):
         parts = mime_text.split('/')
-        if len(parts) != 4: return
+        if len(parts) != 4: 
+            event.ignore()
+            return
 
         source_input_name, source_layer, source_quad = parts[1], int(parts[2]), int(parts[3])
         
         drop_type, target_input_name, target_layer, target_quad = self.get_target_indices(event)
         
-        if drop_type != "quadrant" or target_input_name is None: return
+        # 도형 바깥으로 드롭된 경우 무시
+        if drop_type != "quadrant" or target_input_name is None:
+            event.ignore()
+            return
 
         if (source_input_name == target_input_name and source_layer == target_layer and source_quad == target_quad):
+            event.ignore()
             return
             
         # 우선 주입된 handler로 처리, 없으면 메인 윈도우로 폴백
-        if self.handler and hasattr(self.handler, 'handle_quadrant_drop'):
-            self.handler.handle_quadrant_drop(source_input_name, source_layer, source_quad, target_input_name, target_layer, target_quad)
-            event.acceptProposedAction()
-        else:
-            main_window = self.window()
-            if hasattr(main_window, 'handle_quadrant_drop'):
-                main_window.handle_quadrant_drop(source_input_name, source_layer, source_quad, target_input_name, target_layer, target_quad)
+        try:
+            if self.handler and hasattr(self.handler, 'handle_quadrant_drop'):
+                self.handler.handle_quadrant_drop(source_input_name, source_layer, source_quad, target_input_name, target_layer, target_quad)
                 event.acceptProposedAction()
+            else:
+                main_window = self.window()
+                if hasattr(main_window, 'handle_quadrant_drop'):
+                    main_window.handle_quadrant_drop(source_input_name, source_layer, source_quad, target_input_name, target_layer, target_quad)
+                    event.acceptProposedAction()
+                else:
+                    event.ignore()
+        except Exception as e:
+            # 오류 발생 시 드롭 무시
+            print(f"드롭 처리 중 오류 발생: {e}")
+            event.ignore()
 
     def handle_row_drop(self, event, mime_text):
         parts = mime_text.split('/')
-        if len(parts) != 3: return
+        if len(parts) != 3: 
+            event.ignore()
+            return
         
         source_input_name, source_layer = parts[1], int(parts[2])
 
         drop_type, target_input_name, target_layer, _ = self.get_target_indices(event)
 
-        if drop_type not in ["row", "quadrant"] or target_input_name is None: return
-
-        if (source_input_name == target_input_name and source_layer == target_layer):
+        # 도형 바깥으로 드롭된 경우 무시
+        if drop_type not in ["row", "quadrant"] or target_input_name is None:
+            event.ignore()
             return
 
-        if self.handler and hasattr(self.handler, 'handle_row_drop'):
-            self.handler.handle_row_drop(source_input_name, source_layer, target_input_name, target_layer)
-            event.acceptProposedAction()
-        else:
-            main_window = self.window()
-            if hasattr(main_window, 'handle_row_drop'):
-                main_window.handle_row_drop(source_input_name, source_layer, target_input_name, target_layer)
+        if (source_input_name == target_input_name and source_layer == target_layer):
+            event.ignore()
+            return
+
+        try:
+            if self.handler and hasattr(self.handler, 'handle_row_drop'):
+                self.handler.handle_row_drop(source_input_name, source_layer, target_input_name, target_layer)
                 event.acceptProposedAction()
+            else:
+                main_window = self.window()
+                if hasattr(main_window, 'handle_row_drop'):
+                    main_window.handle_row_drop(source_input_name, source_layer, target_input_name, target_layer)
+                    event.acceptProposedAction()
+                else:
+                    event.ignore()
+        except Exception as e:
+            # 오류 발생 시 드롭 무시
+            print(f"행 드롭 처리 중 오류 발생: {e}")
+            event.ignore()
             
     def handle_column_drop(self, event, mime_text):
         parts = mime_text.split('/')
-        if len(parts) != 3: return
+        if len(parts) != 3: 
+            event.ignore()
+            return
 
         source_input_name, source_quad = parts[1], int(parts[2])
 
         drop_type, target_input_name, _, target_quad = self.get_target_indices(event)
 
-        if drop_type not in ["col", "quadrant"] or target_input_name is None: return
+        # 도형 바깥으로 드롭된 경우 무시
+        if drop_type not in ["col", "quadrant"] or target_input_name is None:
+            event.ignore()
+            return
 
         if (source_input_name == target_input_name and source_quad == target_quad):
+            event.ignore()
             return
         
-        if self.handler and hasattr(self.handler, 'handle_column_drop'):
-            self.handler.handle_column_drop(source_input_name, source_quad, target_input_name, target_quad)
-            event.acceptProposedAction()
-        else:
-            main_window = self.window()
-            if hasattr(main_window, 'handle_column_drop'):
-                main_window.handle_column_drop(source_input_name, source_quad, target_input_name, target_quad)
+        try:
+            if self.handler and hasattr(self.handler, 'handle_column_drop'):
+                self.handler.handle_column_drop(source_input_name, source_quad, target_input_name, target_quad)
                 event.acceptProposedAction()
+            else:
+                main_window = self.window()
+                if hasattr(main_window, 'handle_column_drop'):
+                    main_window.handle_column_drop(source_input_name, source_quad, target_input_name, target_quad)
+                    event.acceptProposedAction()
+                else:
+                    event.ignore()
+        except Exception as e:
+            # 오류 발생 시 드롭 무시
+            print(f"열 드롭 처리 중 오류 발생: {e}")
+            event.ignore()
 
 class InputHistory:
     """입력 필드의 히스토리를 관리하는 클래스 (A, B 통합 + 출력 상태)"""
@@ -1780,9 +1835,13 @@ class ShapezGUI(QMainWindow):
         self.input_a = QLineEdit(); self.input_a.setObjectName(_("ui.input.a")) # 초기값은 load_settings에서 설정
         self.input_b = QLineEdit(); self.input_b.setObjectName(_("ui.input.b")) # 초기값은 load_settings에서 설정
         
-        # 실시간 출력 업데이트를 위한 텍스트 변경 이벤트 연결
-        self.input_a.textChanged.connect(self.on_input_a_changed)
-        self.input_b.textChanged.connect(self.on_input_b_changed)
+        # 입력 완료 시 히스토리에 저장하기 위한 이벤트 연결
+        self.input_a.editingFinished.connect(self.on_input_a_finished)
+        self.input_b.editingFinished.connect(self.on_input_b_finished)
+        
+        # 실시간 출력 업데이트를 위한 텍스트 변경 이벤트 연결 (히스토리 저장 없음)
+        self.input_a.textChanged.connect(self.on_input_text_changed)
+        self.input_b.textChanged.connect(self.on_input_text_changed)
         
         # 입력 A 행
         self._label_input_a = QLabel(_("ui.input.a"))
@@ -3482,16 +3541,20 @@ class ShapezGUI(QMainWindow):
     
     # =================== 히스토리 관리 메서드들 ===================
     
-    def on_input_a_changed(self):
-        """입력 A 텍스트 변경 시 호출"""
+    def on_input_a_finished(self):
+        """입력 A 입력 완료 시 호출"""
         if not self.history_update_in_progress:
             self.add_to_history()
         self.update_input_display()
     
-    def on_input_b_changed(self):
-        """입력 B 텍스트 변경 시 호출"""
+    def on_input_b_finished(self):
+        """입력 B 입력 완료 시 호출"""
         if not self.history_update_in_progress:
             self.add_to_history()
+        self.update_input_display()
+    
+    def on_input_text_changed(self):
+        """입력 텍스트 변경 시 호출 (히스토리 저장 없이 출력만 업데이트)"""
         self.update_input_display()
     
     def add_to_history(self, outputs: Optional[list] = None):
@@ -3686,7 +3749,6 @@ class ShapezGUI(QMainWindow):
                     for extra in append_list:
                         current_tab.data.append(extra)
                     current_tab.update_table()
-                    current_tab.add_to_data_history(f"{operation_name} 완료")
                     self.log(_("ui.progress.summary", n=len(result_map), e=error_count))
                     if error_count > 0:
                         QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
@@ -3733,7 +3795,6 @@ class ShapezGUI(QMainWindow):
         for i, new_value in result_data_map.items():
             current_tab.data[i] = new_value
         current_tab.update_table()
-        current_tab.add_to_data_history(f"{operation_name} 완료")
         self.log(f"대량처리 완료: {len(result_data_map)}개 항목 처리, {error_count}개 오류")
         if error_count > 0:
             QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
@@ -3771,6 +3832,9 @@ class ShapezGUI(QMainWindow):
             total_count = len(indices_to_process)
             if total_count > 5000:
                 # 비동기 처리 + 프로그레스/취소
+                # 작업 전 현재 상태를 히스토리에 저장
+                current_tab.add_to_data_history(f"작업 전 ({operation_name})")
+                
                 progress = QProgressDialog(self)
                 progress.setWindowTitle(_("ui.msg.title.info"))
                 progress.setLabelText(_("ui.progress.batch_running"))
@@ -3811,7 +3875,6 @@ class ShapezGUI(QMainWindow):
                         current_tab.update_table()
                         if current_tab.visualization_checkbox.isChecked():
                             QTimer.singleShot(100, current_tab._update_visible_shapes)
-                        current_tab.add_to_data_history(f"{operation_name} 완료")
                         self.log(_("ui.progress.summary", n=len(result_map), e=error_count))
                         if error_count > 0:
                             QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
@@ -3823,7 +3886,6 @@ class ShapezGUI(QMainWindow):
                 return
             else:
                 # 동기 처리 (5천 이하)
-                current_tab.add_to_data_history(f"작업 전 ({operation_name})")
                 result_data_map = {}
                 error_count = 0
                 for i in indices_to_process:
@@ -3848,7 +3910,6 @@ class ShapezGUI(QMainWindow):
                 current_tab.update_table()
                 if current_tab.visualization_checkbox.isChecked():
                     QTimer.singleShot(100, current_tab._update_visible_shapes)
-                current_tab.add_to_data_history(f"{operation_name} 완료")
                 if error_count > 0:
                     self.log(f"{operation_name} 완료: {len(result_data_map)}개 결과 생성, {error_count}개 오류")
                 else:
@@ -3943,9 +4004,6 @@ class ShapezGUI(QMainWindow):
             # 현재 탭의 데이터를 필터링된 결과로 교체
             current_tab.data = valid_data
             current_tab.update_table()
-            
-            # 작업 완료 후 히스토리에 추가
-            current_tab.add_to_data_history("불가능 제거 완료")
             
             self.log(f"불가능 제거 완료: {len(valid_data)}개 유효, {removed_count}개 제거")
         else:
@@ -4168,33 +4226,30 @@ class ShapezGUI(QMainWindow):
             text_item = self.tree_scene.addText("트리 생성 중 예상치 못한 오류가 발생했습니다.")
             text_item.setPos(-150, 50)
             text_item.setDefaultTextColor(QColor(200, 50, 50))
+            
     def _display_process_tree(self, root_node: ProcessNode):
         """유동적 크기 기반 트리 시각화"""
         # scene 완전 초기화
         self.tree_scene.clear()
         
-        # 디버깅: 트리 시각화 시작
-        print(f"트리 시각화 시작: {root_node.shape_code} [ID: {root_node.node_id}]")
+        # 전체 캔버스를 흰색으로 클리어
+        self.tree_scene.setBackgroundBrush(QBrush(QColor(255, 255, 255)))
         
         # 1단계: 노드 위젯들을 생성하고 임시 위치에 배치하여 실제 크기 측정
         node_widgets = {}
         node_sizes = {}
         
         levels = process_tree_solver.get_tree_levels(root_node)
-        print(f"트리 레벨 수: {len(levels)}")
         
         processed_nodes = set()  # 중복 노드 방지
         
         for i, level_nodes in enumerate(levels):
-            print(f"레벨 {i}: {len(level_nodes)}개 노드")
             for node in level_nodes:
                 # 이미 처리된 노드는 건너뛰기
                 if node.node_id in processed_nodes:
-                    print(f"  중복 노드 건너뛰기: {node.shape_code} [ID: {node.node_id}]")
                     continue
                     
                 processed_nodes.add(node.node_id)
-                print(f"  노드: {node.shape_code} [ID: {node.node_id}]")
                 widget = self._create_process_node_widget(node)
                 proxy = self.tree_scene.addWidget(widget)
                 proxy.setPos(0, 0)  # 임시 위치
@@ -4219,90 +4274,6 @@ class ShapezGUI(QMainWindow):
         
         # scene 크기 최적화
         self.tree_scene.setSceneRect(self.tree_scene.itemsBoundingRect().adjusted(-30, -30, 30, 30))
-    
-    def _calculate_tree_positions_optimized(self, root_node: ProcessNode):
-        """동적 위치 계산으로 자연스러운 트리 구조 구현"""
-        positions = {}
-        levels = process_tree_solver.get_tree_levels(root_node)
-        
-        node_width = 160   # 가로 간격 더 증가 (겹침 완전 방지)
-        node_height = 140  # 세로 간격 더 증가 (세로 겹침 방지)
-        
-        # 하위 레벨부터 상위 레벨로 역순 계산 (bottom-up)
-        for level_idx in reversed(range(len(levels))):
-            level_nodes = levels[level_idx]
-            y = level_idx * node_height
-            
-            if level_idx == len(levels) - 1:
-                # 최하위 레벨 (기본 원료들): 균등 분산 배치
-                if len(level_nodes) == 1:
-                    positions[level_nodes[0]] = (0, y)
-                else:
-                    total_width = (len(level_nodes) - 1) * node_width
-                    start_x = -total_width / 2
-                    for node_idx, node in enumerate(level_nodes):
-                        x = start_x + node_idx * node_width
-                        positions[node] = (x, y)
-            else:
-                # 상위 레벨: 자식 노드들의 중앙에 배치
-                for node in level_nodes:
-                    if node.input_ids:
-                        # 자식 노드들의 x 좌표 평균 계산
-                        child_x_positions = []
-                        for input_id in node.input_ids:
-                            child = process_tree_solver.get_node_by_id(input_id)
-                            if child and child in positions:
-                                child_x_positions.append(positions[child][0])
-                        
-                        if child_x_positions:
-                            avg_x = sum(child_x_positions) / len(child_x_positions)
-                            positions[node] = (avg_x, y)
-                        else:
-                            positions[node] = (0, y)
-                    else:
-                        positions[node] = (0, y)
-                
-                # 같은 레벨의 노드들이 겹치지 않도록 조정
-                self._adjust_same_level_positions(level_nodes, positions, node_width)
-        
-        return positions
-    
-    def _adjust_same_level_positions(self, level_nodes, positions, min_spacing):
-        """같은 레벨 노드들의 겹침 방지"""
-        if len(level_nodes) <= 1:
-            return
-            
-        # x 좌표로 정렬
-        sorted_nodes = sorted(level_nodes, key=lambda n: positions[n][0])
-        
-        # 겹침 해결
-        for i in range(1, len(sorted_nodes)):
-            current_node = sorted_nodes[i]
-            prev_node = sorted_nodes[i-1]
-            
-            current_x, current_y = positions[current_node]
-            prev_x, prev_y = positions[prev_node]
-            
-            # 최소 간격보다 가까우면 조정
-            if current_x - prev_x < min_spacing:
-                new_x = prev_x + min_spacing
-                positions[current_node] = (new_x, current_y)
-    
-    def _calculate_tree_positions(self, root_node: ProcessNode):
-        """기존 호환성을 위한 래퍼 함수"""
-        return self._calculate_tree_positions_optimized(root_node)
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
     
     def _draw_flexible_arrows(self, root_node: ProcessNode, positions, node_sizes):
         """실제 노드 크기 기반 화살표 그리기"""
@@ -4491,7 +4462,94 @@ class ShapezGUI(QMainWindow):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # 도형 시각화
-        if node.shape_obj and node.operation != process_tree_solver.IMPOSSIBLE_OPERATION:
+        if node.shape_code == "...":
+            # 생략 자식 노드는 [ . . . ] 형태로 표시
+            skip_widget = QLabel("[ . . . ]")
+            skip_widget.setStyleSheet("""
+                color: #666;
+                font-size: 18px;
+                font-weight: bold;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                background-color: #f8f8f8;
+                padding: 12px;
+            """)
+            skip_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(skip_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        elif node.operation == process_tree_solver.IMPOSSIBLE_OPERATION:
+            # IMPOSSIBLE 노드는 실제 도형을 표시하되 빨간 테두리로 표시
+            if node.shape_code and node.shape_code != "?":
+                try:
+                    # 실제 도형 객체 생성 시도
+                    from shape import Shape
+                    shape_obj = Shape.from_string(node.shape_code)
+                    if shape_obj:
+                        shape_widget = ShapeWidget(shape_obj, compact=True)
+                        shape_widget.setStyleSheet("""
+                            background-color: white; 
+                            border: 2px solid red; 
+                            border-radius: 4px; 
+                            padding: 4px;
+                        """)
+                        shape_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+                        layout.addWidget(shape_widget, 0, Qt.AlignmentFlag.AlignCenter)
+                    else:
+                        # 도형 객체 생성 실패 시 코드 텍스트로 표시
+                        impossible_widget = QLabel(node.shape_code)
+                        impossible_widget.setStyleSheet("""
+                            color: red;
+                            font-size: 12px;
+                            font-weight: bold;
+                            border: 2px solid red;
+                            border-radius: 4px;
+                            background-color: white;
+                            padding: 8px;
+                        """)
+                        impossible_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        layout.addWidget(impossible_widget, 0, Qt.AlignmentFlag.AlignCenter)
+                except Exception:
+                    # 예외 발생 시 코드 텍스트로 표시
+                    impossible_widget = QLabel(node.shape_code)
+                    impossible_widget.setStyleSheet("""
+                        color: red;
+                        font-size: 12px;
+                        font-weight: bold;
+                        border: 2px solid red;
+                        border-radius: 4px;
+                        background-color: white;
+                        padding: 8px;
+                    """)
+                    impossible_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    layout.addWidget(impossible_widget, 0, Qt.AlignmentFlag.AlignCenter)
+            else:
+                # shape_code가 없는 경우 물음표로 표시
+                impossible_widget = QLabel("?")
+                impossible_widget.setStyleSheet("""
+                    color: red;
+                    font-size: 24px;
+                    font-weight: bold;
+                    border: 1px solid #999;
+                    border-radius: 4px;
+                    background-color: white;
+                    padding: 15px;
+                """)
+                impossible_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                layout.addWidget(impossible_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        elif node.shape_code == "?" and node.operation == "불가능한 도형의 하위":
+            # 불가능한 도형의 하위 노드는 빨간 물음표로 표시
+            impossible_widget = QLabel("?")
+            impossible_widget.setStyleSheet("""
+                color: red;
+                font-size: 24px;
+                font-weight: bold;
+                border: 1px solid #999;
+                border-radius: 4px;
+                background-color: white;
+                padding: 15px;
+            """)
+            impossible_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(impossible_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        elif node.shape_obj and node.operation != process_tree_solver.IMPOSSIBLE_OPERATION:
             shape_widget = ShapeWidget(node.shape_obj, compact=True)
             shape_widget.setStyleSheet("background-color: white; border: 1px solid #999; border-radius: 4px; padding: 4px;")
             shape_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
@@ -4502,6 +4560,51 @@ class ShapezGUI(QMainWindow):
             error_widget.setStyleSheet("color: red; font-size: 24px; border: 1px solid #999; border-radius: 4px; background-color: white; padding: 15px;")
             error_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(error_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # 분류 정보 표시 (노드 이름)
+        if hasattr(node, 'classification') and node.classification:
+            # 분류 키를 번역된 텍스트로 변환
+            try:
+                translated_classification = _(node.classification)
+            except:
+                # 번역 키가 없는 경우 원본 키 사용
+                translated_classification = node.classification
+            
+            classification_label = QLabel(translated_classification)
+            classification_label.setStyleSheet("""
+                QLabel {
+                    color: #333;
+                    font-size: 10px;
+                    font-weight: bold;
+                    background-color: rgba(240, 240, 240, 200);
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    padding: 2px 4px;
+                    margin: 2px;
+                }
+            """)
+            classification_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(classification_label, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        # 분류 사유 표시 (있는 경우)
+        if hasattr(node, 'classification_reason') and node.classification_reason:
+            # 사유 키를 번역된 텍스트로 변환
+            translated_reason = node.classification_reason
+            
+            reason_label = QLabel(translated_reason)
+            reason_label.setStyleSheet("""
+                QLabel {
+                    color: #666;
+                    font-size: 8px;
+                    background-color: rgba(250, 250, 250, 200);
+                    border: 1px solid #ddd;
+                    border-radius: 2px;
+                    padding: 1px 3px;
+                    margin: 1px;
+                }
+            """)
+            reason_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(reason_label, 0, Qt.AlignmentFlag.AlignCenter)
         
         # 컨테이너도 자동 크기 조정
         container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
@@ -4516,13 +4619,47 @@ class ShapezGUI(QMainWindow):
         """)
         
         # 툴팁 텍스트 구성
-        shape_name = getattr(node.shape_obj, 'name', None) or "(이름 없음)"
         if node.operation == process_tree_solver.IMPOSSIBLE_OPERATION:
+            tooltip = _("ui.tooltip.process.impossible", code=node.shape_code)
+            # IMPOSSIBLE 노드에도 분류와 사유가 있으면 표시
+            if hasattr(node, 'classification') and node.classification:
+                try:
+                    translated_classification = _(node.classification)
+                except:
+                    translated_classification = node.classification
+                tooltip += "\n" + _("ui.tooltip.classification", classification=translated_classification)
+            
+            if hasattr(node, 'classification_reason') and node.classification_reason:
+                try:
+                    translated_reason = _(node.classification_reason)
+                except:
+                    translated_reason = node.classification_reason
+                tooltip += "\n" + _("ui.tooltip.reason", reason=translated_reason)
+        elif node.operation == "생략":
+            # 생략 노드의 경우 로컬라이징된 텍스트 사용
+            tooltip = _("ui.tooltip.process.skipped", code=node.shape_code)
+        elif node.shape_code == "?":
+            # 물음표 노드의 경우 (이제는 거의 사용되지 않음)
             tooltip = _("ui.tooltip.process.impossible", code=node.shape_code)
         else:
             tooltip = _("ui.tooltip.process", operation=str(node.operation), code=node.shape_code)
-            if shape_name:
-                tooltip += "\n" + _("ui.tooltip.shape_name", name=shape_name)
+            if hasattr(node, 'classification') and node.classification:
+                # 분류 키를 번역된 텍스트로 변환
+                try:
+                    translated_classification = _(node.classification)
+                except:
+                    # 번역 키가 없는 경우 원본 키 사용
+                    translated_classification = node.classification
+                tooltip += "\n" + _("ui.tooltip.classification", classification=translated_classification)
+            
+            if hasattr(node, 'classification_reason') and node.classification_reason:
+                # 사유 키를 번역된 텍스트로 변환
+                try:
+                    translated_reason = _(node.classification_reason)
+                except:
+                    # 번역 키가 없는 경우 원본 키 사용
+                    translated_reason = node.classification_reason
+                tooltip += "\n" + _("ui.tooltip.reason", reason=translated_reason)
         container.setToolTip(tooltip)
         
         return container
@@ -4546,26 +4683,13 @@ class ShapezGUI(QMainWindow):
             # 데이터를 ProcessNode 트리로 변환
             root_node = process_tree_solver.create_tree_from_data(example_tree_data)
             
-            # 디버깅: 예시 트리 생성 결과 확인
+            # 예시 트리 생성 결과 확인
             if root_node:
-                print(f"예시 트리 생성 성공: {root_node.shape_code} [ID: {root_node.node_id}]")
-                print(f"작업: {root_node.operation}")
-                print(f"자식 노드 수: {len(root_node.input_ids)}")
-                
                 # 노드 매핑 확인
                 all_nodes = process_tree_solver.get_all_nodes()
-                print(f"총 노드 수: {len(all_nodes)}")
                 
                 # 트리 레벨 확인
                 levels = process_tree_solver.get_tree_levels(root_node)
-                print(f"트리 레벨 수: {len(levels)}")
-                
-                for i, level in enumerate(levels):
-                    print(f"레벨 {i}: {len(level)}개 노드")
-                    for node in level:
-                        print(f"  - {node.shape_code} ({node.operation}) [ID: {node.node_id}]")
-            else:
-                print("예시 트리 생성 실패")
             
             # 플렉서블 시스템으로 트리 표시
             self._display_process_tree(root_node)
@@ -4577,9 +4701,7 @@ class ShapezGUI(QMainWindow):
             desc_text.setDefaultTextColor(QColor(100, 100, 100))
             
         except Exception as e:
-            print(f"예시 트리 생성 오류: {e}")
-            import traceback
-            traceback.print_exc()
+            pass
     
 
     

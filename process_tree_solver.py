@@ -4,8 +4,13 @@
 
 from typing import List, Dict, Optional, Tuple
 from shape import Shape
-from shape_classifier import analyze_shape_simple
+from shape_classifier import analyze_shape, ShapeType
 from corner_tracer import build_cutable_shape, build_pinable_shape
+from i18n import _
+# claw_tracer와 같은 다른 트레이서 모듈도 필요에 따라 임포트해야 합니다.
+# from claw_tracer import claw_process
+# from hybrid_tracer import hybrid_process 
+# from quad_cutter import quad_process
 
 
 class ProcessNode:
@@ -17,10 +22,16 @@ class ProcessNode:
         self.node_id = node_id or f"node_{id(self)}"  # 고유 ID
         self.input_ids = input_ids or []  # 입력으로 사용된 다른 노드들의 ID
         self.shape_obj = None
+        self.classification = ""  # 도형 분류 결과
+        self.classification_reason = ""  # 도형 분류 사유
         
         # 도형 객체 생성 시도
         try:
             self.shape_obj = Shape.from_string(shape_code)
+            # 도형 분류 수행 (분류와 사유 모두 저장)
+            if self.shape_obj:
+                self.classification, self.classification_reason = analyze_shape(shape_code, self.shape_obj)
+                
         except Exception:
             self.shape_obj = None
     
@@ -203,36 +214,8 @@ class ProcessTreeSolver:
             target_shape_obj = Shape.from_string(target_shape_code)
             root_node.shape_obj = target_shape_obj # 루트 노드에 shape_obj 설정
             
-            # 2. 도형 분석 - 논리적으로 불가능한 도형인지 확인
-            analysis_result = analyze_shape_simple(target_shape_code, target_shape_obj)
-            if "불가능" in analysis_result:
-                # 도형 코드 자체는 유효하지만, 논리적으로 불가능한 도형인 경우
-                # 루트 노드 아래에 불가능한 자식 노드를 추가
-                impossible_child_node = ProcessNode(target_shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
-                self._add_node_to_map(impossible_child_node)
-                root_node.input_ids.append(impossible_child_node.node_id)
-                root_node.operation = "불가능"
-                return root_node
-                
-            # 3. 임시 구현: claw_tracer 결과를 사용하여 간단한 트리 생성
-            # _create_simple_tree가 반환하는 서브트리를 루트의 자식으로 추가
-            simple_tree_root = self._create_simple_tree(target_shape_code, target_shape_obj)
-            # _create_simple_tree는 이제 자식 노드만 반환 (또는 루트와 자식 포함된 서브트리)
-            # 여기서는 simple_tree_root의 자식들을 가져와서 현재 root_node의 자식으로 설정
-            # 그리고 simple_tree_root의 operation을 현재 root_node의 operation으로 설정
-            if simple_tree_root:
-                root_node.input_ids.extend(simple_tree_root.input_ids)
-                if simple_tree_root.operation != "목표": # 목표가 아니면 업데이트
-                    root_node.operation = simple_tree_root.operation
-                
-                # simple_tree_root의 모든 노드들을 nodes_map에 추가
-                self._collect_all_nodes(simple_tree_root)
-            else:
-                # _create_simple_tree가 None을 반환하는 경우 (오류 처리)
-                impossible_child_node = ProcessNode(target_shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
-                self._add_node_to_map(impossible_child_node)
-                root_node.input_ids.append(impossible_child_node.node_id)
-                root_node.operation = "생성 오류"
+            # 2. 도형 분석 및 재귀적 트리 생성
+            self._create_simple_tree(root_node)
 
             return root_node
             
@@ -258,74 +241,277 @@ class ProcessTreeSolver:
         except Exception:
             return corner_result
     
-    def _create_simple_tree(self, target_shape_code: str, target_shape: Shape) -> ProcessNode:
+    def _create_simple_tree(self, current_node: ProcessNode, depth: int = 0):
         """
-        임시 구현: corner_tracer를 사용하여 간단한 2단계 트리를 생성합니다.
-        이 함수는 목표 도형에 대한 공정 서브트리의 루트 노드를 반환합니다.
+        주어진 노드의 도형을 분석하여 실제 공정 트리를 재귀적으로 생성합니다.
+        도형의 종류에 따라 적절한 연산을 수행하고 하위 노드를 생성합니다.
         """
-        # 여기서 생성되는 루트 노드는 solve_process_tree에서 최종 루트의 자식으로 연결될 것임.
-        # 따라서 target_shape_code에 대한 중간 단계의 루트 노드로 생각.
-        current_node_for_tracing = ProcessNode(target_shape_code, "코너추적대상", self._generate_node_id())
-        current_node_for_tracing.shape_obj = target_shape # shape_obj도 설정
-        
-        # 현재 노드를 nodes_map에 추가
-        self._add_node_to_map(current_node_for_tracing)
-        
+        if not current_node or not current_node.is_valid():
+            current_node.operation = self.IMPOSSIBLE_OPERATION
+            return
 
-        
+        # 깊이 제한으로 무한루프 방지
+        if depth >= self.max_depth:
+            current_node.operation = f"최대 깊이 도달 ({depth})"
+            return
+
+        target_shape_code = current_node.shape_code
+        target_shape = current_node.shape_obj
+
         try:
-            # corner_tracer를 사용하여 이전 단계 도형 찾기
-            if target_shape_code and target_shape_code[0] == 'P':
-                corner_result = build_pinable_shape(target_shape_code)
-            else:
-                corner_result = build_cutable_shape(target_shape_code)
+            # 분류 정보가 없으면 다시 분석
+            if not current_node.classification and target_shape:
+                current_node.classification, current_node.classification_reason = analyze_shape(target_shape_code, target_shape)
+                print(f"DEBUG: _create_simple_tree에서 분류 재수행 - 분류: {current_node.classification}, 사유: {current_node.classification_reason}")
             
-            if corner_result and corner_result != target_shape_code:
-                previous_shape_code = self._extract_first_layer(corner_result)
-                
-                # 이전 단계 도형이 유효한지 다시 확인
-                prev_shape_obj = Shape.from_string(previous_shape_code)
-                if not prev_shape_obj: # 유효하지 않으면 불가능 노드로 표시
-                    previous_node = ProcessNode(previous_shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
-                else:
-                    previous_node = ProcessNode(previous_shape_code, "corner", self._generate_node_id())
-                
-                # 노드를 nodes_map에 추가
-                self._add_node_to_map(previous_node)
-
-                
-                current_node_for_tracing.input_ids = [previous_node.node_id]
-                current_node_for_tracing.operation = "corner 적용"
-                
-                # 더 간단한 기본 도형이 있는지 확인 (임시로 단순화)
-                if previous_node.operation != self.IMPOSSIBLE_OPERATION and self._is_simple_shape(previous_shape_code):
-                    # 기본 도형으로 간주
-                    previous_node.operation = "기본 도형"
-                elif previous_node.operation != self.IMPOSSIBLE_OPERATION: # 불가능 노드가 아닐 때만 분해 시도
-                    base_shape = self._get_base_shape(previous_shape_code)
-                    if base_shape != previous_shape_code:
-                        # 기본 도형이 유효한지 확인
-                        base_shape_obj = Shape.from_string(base_shape)
-                        if not base_shape_obj:
-                            base_node = ProcessNode(base_shape, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
-                        else:
-                            base_node = ProcessNode(base_shape, "기본 도형", self._generate_node_id())
-                        
-                        # 기본 노드도 nodes_map에 추가
-                        self._add_node_to_map(base_node)
-                        
-                        previous_node.input_ids = [base_node.node_id]
-                        previous_node.operation = "조합"
-                        
+            shape_type = current_node.classification
+            
+            # 도형 종류에 따른 연산 수행 및 하위 노드 생성
+            self._process_shape_by_type(current_node, target_shape_code, target_shape, shape_type, depth)
+            
         except Exception as e:
-            # corner tracer 처리 중 오류가 발생하면, 하위 노드를 불가능 노드로 설정
-            # 루트 노드 자체는 유지하되, 하위에 불가능 노드 추가
+            # 분석 중 오류 발생 시 불가능 노드로 설정
             impossible_child_node = ProcessNode(target_shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
             self._add_node_to_map(impossible_child_node)
-            current_node_for_tracing.input_ids = [impossible_child_node.node_id]
-            current_node_for_tracing.operation = "코너추적실패"
+            current_node.input_ids = [impossible_child_node.node_id]
+            current_node.operation = "분석 오류"
             
-        return current_node_for_tracing
+    def _process_shape_by_type(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, shape_type: str, depth: int = 0):
+        """
+        도형 종류에 따라 적절한 연산을 수행하고 하위 노드를 생성합니다.
+        """
+        # 자식이 없는 경우들 (Terminal nodes)
+        if shape_type in [
+            ShapeType.EMPTY.value,
+            ShapeType.BASIC.value
+        ]:
+            current_node.operation = shape_type
+            return
+        elif shape_type == ShapeType.IMPOSSIBLE.value:
+            # IMPOSSIBLE 타입은 실제 도형 코드를 유지하되 불가능 표시
+            current_node.operation = self.IMPOSSIBLE_OPERATION
+            # 분류 정보도 전달
+            if hasattr(current_node, 'classification'):
+                current_node.classification = current_node.classification
+            if hasattr(current_node, 'classification_reason'):
+                current_node.classification_reason = current_node.classification_reason
+            
+            # 불가능한 도형의 하위 노드는 물음표로 생성
+            question_mark_node = ProcessNode("?", "불가능한 도형의 하위", self._generate_node_id())
+            self._add_node_to_map(question_mark_node)
+            current_node.input_ids = [question_mark_node.node_id]
+            return
+        
+        # "생략" 자식 노드를 가지는 타입들
+        elif shape_type in [
+            ShapeType.SIMPLE_CORNER.value,
+            ShapeType.STACK_CORNER.value,
+            ShapeType.SWAP_CORNER.value,
+            ShapeType.SIMPLE_GEOMETRIC.value,
+            ShapeType.SWAPABLE.value
+        ]:
+            current_node.operation = "생략"
+            # "생략" 자식 노드 생성 (shape_code를 "..."으로 설정)
+            skip_node = ProcessNode("...", "생략", self._generate_node_id())
+            self._add_node_to_map(skip_node)
+            current_node.input_ids = [skip_node.node_id]
+            return
+        
+        # 코너 트레이서가 필요한 경우
+        elif shape_type == ShapeType.CLAW_CORNER.value:
+            self._apply_corner_tracer(current_node, shape_code, shape_obj, depth)
+        
+        # 쿼드 연산이 필요한 경우 (깊이가 깊으면 기본 도형으로 처리)
+        elif shape_type == ShapeType.SWAPABLE.value and depth < 100:
+            # 깊이가 100 미만인 경우에만 쿼드 연산 적용
+            self._apply_quad_operation(current_node, shape_code, shape_obj, depth)
+        
+        # 하이브리드 트레이서가 필요한 경우들 (깊이가 깊으면 기본 도형으로 처리)
+        elif shape_type in [
+            ShapeType.HYBRID.value,
+            ShapeType.COMPLEX_HYBRID.value,
+            ShapeType.CLAW_HYBRID.value,
+            ShapeType.CLAW_COMPLEX_HYBRID.value
+        ]:
+            if depth >= 100:  # 깊이가 100 이상이면 기본 도형으로 처리
+                current_node.operation = "기본 도형 (깊이 제한)"
+                return
+            self._apply_hybrid_tracer(current_node, shape_code, shape_obj, depth)
+        
+        # 클로 트레이서가 필요한 경우 (깊이가 깊으면 기본 도형으로 처리)
+        elif shape_type == ShapeType.CLAW.value:
+            if depth >= 100:  # 깊이가 100 이상이면 기본 도형으로 처리
+                current_node.operation = "기본 도형 (깊이 제한)"
+                return
+            self._apply_claw_tracer(current_node, shape_code, shape_obj, depth)
+        
+        else:
+            # 알 수 없는 타입인 경우
+            current_node.operation = f"알 수 없는 타입: {shape_type}"
+    
+    def _apply_corner_tracer(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
+        """코너 트레이서를 적용하여 하위 노드를 생성합니다."""
+        current_node.operation = _("process_tree.operation.corner_tracer")
+        try:
+            # corner_tracer를 사용하여 이전 단계 도형 찾기
+            if shape_code and shape_code[0] == 'P':
+                corner_result = build_pinable_shape(shape_code)
+            else:
+                corner_result = build_cutable_shape(shape_code)
+            
+            if corner_result and corner_result != shape_code:
+                previous_shape_code = self._extract_first_layer(corner_result)
+                
+                # 이전 단계 도형으로 자식 노드 생성
+                previous_node = ProcessNode(previous_shape_code, _("process_tree.operation.corner_result"), self._generate_node_id())
+                self._add_node_to_map(previous_node)
+                current_node.input_ids = [previous_node.node_id]
+
+                # 재귀적으로 하위 트리 생성
+                self._create_simple_tree(previous_node, depth + 1)
+            else:
+                # 코너 트레이서 결과가 없는 경우, 여기서 종료
+                current_node.operation = _("process_tree.operation.corner_tracer_no_result")
+                
+        except Exception as e:
+            # 코너 트레이서 처리 중 오류 발생
+            impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
+            self._add_node_to_map(impossible_node)
+            current_node.input_ids = [impossible_node.node_id]
+            current_node.operation = _("process_tree.operation.corner_tracer_error")
+    
+    def _apply_operation_and_recurse(self, current_node: ProcessNode, operation_name: str, decomposer_func, depth: int, *args):
+        """특정 연산을 적용하고 결과에 대해 재귀적으로 트리를 생성하는 헬퍼 함수"""
+        current_node.operation = operation_name
+        try:
+            # 실제 분해 함수 호출
+            child_shape_codes = decomposer_func(*args)
+            
+            if not child_shape_codes:
+                current_node.operation += _("process_tree.operation.no_result_suffix")
+                return
+
+            for child_code in child_shape_codes:
+                child_node = ProcessNode(child_code, _("process_tree.operation.decompose_result"), self._generate_node_id())
+                self._add_node_to_map(child_node)
+                current_node.input_ids.append(child_node.node_id)
+                
+                # 각 자식에 대해 재귀적으로 트리 생성
+                self._create_simple_tree(child_node, depth + 1)
+                    
+        except Exception as e:
+            # 연산 처리 중 오류 발생
+            impossible_node = ProcessNode(current_node.shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
+            self._add_node_to_map(impossible_node)
+            current_node.input_ids = [impossible_node.node_id]
+            current_node.operation = _("process_tree.operation.error", operation=operation_name)
+
+    def _apply_quad_operation(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
+        """쿼드 연산을 적용하여 하위 노드를 생성합니다."""
+        try:
+            # 실제 쿼드 커터 연산 수행 (Shape.quad_cutter() 사용)
+            if shape_obj:
+                quad_results = shape_obj.quad_cutter()
+                if quad_results and len(quad_results) == 4:
+                    current_node.operation = _("process_tree.operation.quad")
+                    # 4개의 사분면 결과에 대해 자식 노드 생성
+                    for i, quad_shape in enumerate(quad_results):
+                        if quad_shape and quad_shape.layers:
+                            quad_code = repr(quad_shape)
+                            child_node = ProcessNode(quad_code, _("process_tree.operation.quad_result"), self._generate_node_id())
+                            self._add_node_to_map(child_node)
+                            current_node.input_ids.append(child_node.node_id)
+                            # 재귀적으로 하위 트리 생성
+                            self._create_simple_tree(child_node, depth + 1)
+                    
+                    if not current_node.input_ids:
+                        current_node.operation = _("process_tree.operation.quad_no_result")
+                else:
+                    current_node.operation = _("process_tree.operation.quad_no_result")
+            else:
+                current_node.operation = _("process_tree.operation.quad_no_result")
+        except Exception as e:
+            # 쿼드 연산 처리 중 오류 발생
+            impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
+            self._add_node_to_map(impossible_node)
+            current_node.input_ids = [impossible_node.node_id]
+            current_node.operation = _("process_tree.operation.quad_error")
+    
+    def _apply_hybrid_tracer(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
+        """하이브리드 트레이서를 적용하여 하위 노드를 생성합니다."""
+        try:
+            from data_operations import hybrid_shape
+            results = hybrid_shape(shape_code)
+            if results and len(results) == 2:
+                current_node.operation = _("process_tree.operation.hybrid_tracer")
+                # 두 개의 결과에 대해 자식 노드 생성
+                for i, result in enumerate(results):
+                    if result and result != shape_code:
+                        child_node = ProcessNode(result, _("process_tree.operation.hybrid_result"), self._generate_node_id())
+                        self._add_node_to_map(child_node)
+                        current_node.input_ids.append(child_node.node_id)
+                        # 재귀적으로 하위 트리 생성
+                        self._create_simple_tree(child_node, depth + 1)
+                
+                if not current_node.input_ids:
+                    current_node.operation = _("process_tree.operation.hybrid_no_result")
+            else:
+                current_node.operation = _("process_tree.operation.hybrid_no_result")
+        except Exception as e:
+            # 하이브리드 트레이서 처리 중 오류 발생
+            impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
+            self._add_node_to_map(impossible_node)
+            current_node.input_ids = [impossible_node.node_id]
+            current_node.operation = _("process_tree.operation.hybrid_error")
+    
+    def _apply_claw_tracer(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
+        """클로 트레이서를 적용하여 하위 노드를 생성합니다."""
+        try:
+            from data_operations import claw_shape_for_gui
+            result = claw_shape_for_gui(shape_code)
+            
+            # 디버깅을 위한 로그 출력
+            print(f"DEBUG: claw_shape_for_gui 결과 - 입력: {shape_code}, 출력: {result}")
+            
+            if result and result != shape_code:
+                # 결과가 있는 경우 자식 노드 생성
+                child_node = ProcessNode(result, _("process_tree.operation.claw_result"), self._generate_node_id())
+                self._add_node_to_map(child_node)
+                current_node.input_ids = [child_node.node_id]
+                current_node.operation = _("process_tree.operation.claw_tracer")
+                # 재귀적으로 하위 트리 생성
+                self._create_simple_tree(child_node, depth + 1)
+            else:
+                current_node.operation = _("process_tree.operation.claw_no_result")
+        except Exception as e:
+            # 클로 트레이서 처리 중 오류 발생
+            print(f"DEBUG: claw_tracer 오류: {str(e)}")
+            impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
+            self._add_node_to_map(impossible_node)
+            current_node.input_ids = [impossible_node.node_id]
+            current_node.operation = _("process_tree.operation.claw_error")
+    
+    def _decompose_to_base_shapes(self, shape_code: str, shape_obj: Shape) -> List[str]:
+        """도형을 기본 도형들로 분해합니다. 임시 구현입니다."""
+        try:
+            # 임시로 첫 번째 층의 각 사분면을 개별 도형으로 분해
+            if not shape_obj or not shape_obj.layers:
+                return []
+            
+            first_layer = shape_obj.layers[0]
+            base_shapes = []
+            
+            for i, quadrant in enumerate(first_layer.quadrants):
+                if quadrant and quadrant.shape and quadrant.color:
+                    # 단일 조각으로 꽉 찬 레이어 생성 (예: Cu------ -> CuCuCuCu)
+                    base_shape_str = f"{quadrant.shape}{quadrant.color}" * 4
+                    if base_shape_str not in base_shapes:
+                         base_shapes.append(base_shape_str)
+            
+            return base_shapes if base_shapes else []
+            
+        except Exception:
+            return []
     
     def _is_simple_shape(self, shape_code: str) -> bool:
         """도형이 단순한 기본 도형인지 확인"""
@@ -683,4 +869,4 @@ class ProcessTreeSolver:
 
 
 # 전역 솔버 인스턴스
-process_tree_solver = ProcessTreeSolver() 
+process_tree_solver = ProcessTreeSolver()
