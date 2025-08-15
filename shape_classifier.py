@@ -358,7 +358,7 @@ def _classify_layer_removal_case(base_reason: str, removed_hybrid_layers_content
     # CLAW_INCLUDED 또는 HYBRID로 분류
     if any('c' in layer_content for layer_content in removed_hybrid_layers_content):
         classification_type = ShapeType.CLAW.value
-        if base_reason and base_reason not in reasons and base_reason != _("analyzer.empty_string"):
+        if base_reason and base_reason not in reasons and base_reason != _("analyzer.empty"):
             reasons.insert(0, base_reason)
         reasons.append(_("analyzer.claw"))
     else:
@@ -426,8 +426,8 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         # q1_pillar만으로 물리 안정성 검사를 위한 임시 Shape 객체 생성
         if shape_obj:
             # q1_pillar을 기반으로 임시 도형 생성하여 물리 안정성 검사
-            temp_shape_str = ':'.join(q1_pillar) if q1_pillar else _("analyzer.empty_string")
-            if temp_shape_str != _("analyzer.empty_string"):
+            temp_shape_str = ':'.join(q1_pillar) if q1_pillar else _("analyzer.empty")
+            if temp_shape_str != _("analyzer.empty"):
                 try:
                     from shape import Shape
                     temp_shape_obj = Shape.from_string(temp_shape_str)
@@ -444,7 +444,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         is_claw_corner_pattern = re.search(r'-S-+c', q1_pillar)
 
         # 핀 사유 공통 처리
-        pin_reason = _("analyzer.pin") if has_pin_at_bottom else _("analyzer.empty_string")
+        pin_reason = _("analyzer.pin") if has_pin_at_bottom else _("analyzer.empty")
         
         # 클로모서리: -S-+c 패턴으로 인해 스왑X로 판정받은 경우
         if is_claw_corner_pattern:
@@ -456,7 +456,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         if physically_unstable or has_crystal:
             return ShapeType.STACK_CORNER.value, pin_reason
         # 단순모서리: 1사분면을 제외한 모든 사분면이 비워져 있는 모든 경우
-        return ShapeType.SIMPLE_CORNER.value, _("analyzer.empty_string")
+        return ShapeType.SIMPLE_CORNER.value, _("analyzer.empty")
 
     # ========== 2단계: 기존 분류 로직 (모서리가 아닌 경우) ==========
     # 물리 안정성 검사

@@ -4129,6 +4129,23 @@ class ShapezGUI(QMainWindow):
             # 공정 트리 계산
             root_node = process_tree_solver.solve_process_tree(input_shape_code)
             
+            # 디버깅: 트리 생성 결과 확인
+            if root_node:
+                self.log(f"트리 생성 성공: {root_node.shape_code} [ID: {root_node.node_id}]")
+                self.log(f"작업: {root_node.operation}")
+                self.log(f"자식 노드 수: {len(root_node.input_ids)}")
+                
+                # 노드 매핑 확인
+                all_nodes = process_tree_solver.get_all_nodes()
+                self.log(f"총 노드 수: {len(all_nodes)}")
+                
+                # 트리 레벨 확인
+                levels = process_tree_solver.get_tree_levels(root_node)
+                self.log(f"트리 레벨 수: {len(levels)}")
+                
+                for i, level in enumerate(levels):
+                    self.log(f"레벨 {i}: {len(level)}개 노드")
+            
             # 트리 시각화
             self._display_process_tree(root_node)
             
@@ -4156,13 +4173,28 @@ class ShapezGUI(QMainWindow):
         # scene 완전 초기화
         self.tree_scene.clear()
         
+        # 디버깅: 트리 시각화 시작
+        print(f"트리 시각화 시작: {root_node.shape_code} [ID: {root_node.node_id}]")
+        
         # 1단계: 노드 위젯들을 생성하고 임시 위치에 배치하여 실제 크기 측정
         node_widgets = {}
         node_sizes = {}
         
         levels = process_tree_solver.get_tree_levels(root_node)
-        for level_nodes in levels:
+        print(f"트리 레벨 수: {len(levels)}")
+        
+        processed_nodes = set()  # 중복 노드 방지
+        
+        for i, level_nodes in enumerate(levels):
+            print(f"레벨 {i}: {len(level_nodes)}개 노드")
             for node in level_nodes:
+                # 이미 처리된 노드는 건너뛰기
+                if node.node_id in processed_nodes:
+                    print(f"  중복 노드 건너뛰기: {node.shape_code} [ID: {node.node_id}]")
+                    continue
+                    
+                processed_nodes.add(node.node_id)
+                print(f"  노드: {node.shape_code} [ID: {node.node_id}]")
                 widget = self._create_process_node_widget(node)
                 proxy = self.tree_scene.addWidget(widget)
                 proxy.setPos(0, 0)  # 임시 위치
@@ -4175,7 +4207,7 @@ class ShapezGUI(QMainWindow):
                 node_sizes[node] = (size.width(), size.height())
         
         # 2단계: 실제 크기를 바탕으로 유동적 위치 계산
-        node_positions = self._calculate_flexible_positions(root_node, node_sizes)
+        node_positions = process_tree_solver.calculate_tree_positions(root_node, node_sizes)
         
         # 3단계: 계산된 위치로 노드들 재배치
         for node, (x, y) in node_positions.items():
@@ -4214,9 +4246,14 @@ class ShapezGUI(QMainWindow):
             else:
                 # 상위 레벨: 자식 노드들의 중앙에 배치
                 for node in level_nodes:
-                    if node.inputs:
+                    if node.input_ids:
                         # 자식 노드들의 x 좌표 평균 계산
-                        child_x_positions = [positions[child][0] for child in node.inputs if child in positions]
+                        child_x_positions = []
+                        for input_id in node.input_ids:
+                            child = process_tree_solver.get_node_by_id(input_id)
+                            if child and child in positions:
+                                child_x_positions.append(positions[child][0])
+                        
                         if child_x_positions:
                             avg_x = sum(child_x_positions) / len(child_x_positions)
                             positions[node] = (avg_x, y)
@@ -4255,125 +4292,15 @@ class ShapezGUI(QMainWindow):
         """기존 호환성을 위한 래퍼 함수"""
         return self._calculate_tree_positions_optimized(root_node)
     
-    def _calculate_flexible_positions(self, root_node: ProcessNode, node_sizes):
-        """간단하고 확실한 겹침 방지 위치 계산 (동적 세로 간격)"""
-        positions = {}
-        levels = process_tree_solver.get_tree_levels(root_node)
-        
-        # 간격 설정
-        horizontal_gap = 40   # 가로 간격 
-        base_vertical_gap = 30  # 기본 세로 간격
-        
-        # 각 레벨의 최대 높이를 계산하여 동적 Y 좌표 결정
-        level_y_positions = self._calculate_dynamic_level_heights(levels, node_sizes, base_vertical_gap)
-        
-        # 각 레벨을 독립적으로 처리 (bottom-up)
-        for level_idx in reversed(range(len(levels))):
-            level_nodes = levels[level_idx]
-            base_y = level_y_positions[level_idx]
-            
-            if level_idx == len(levels) - 1:
-                # 최하위 레벨: 단순 가로 배치
-                self._layout_nodes_horizontally(level_nodes, node_sizes, positions, base_y, horizontal_gap)
-            else:
-                # 상위 레벨: 자식들 기준으로 배치하되 겹침 완전 방지
-                self._layout_parent_nodes(level_nodes, node_sizes, positions, base_y, horizontal_gap)
-        
-        return positions
+
     
-    def _calculate_dynamic_level_heights(self, levels, node_sizes, base_gap):
-        """각 레벨의 최대 노드 높이를 고려하여 동적으로 Y 좌표 계산"""
-        level_y_positions = {}
-        
-        # 위 레벨부터 아래로 내려가면서 Y 좌표 계산
-        for level_idx in range(len(levels)):
-            level_nodes = levels[level_idx]
-            
-            if level_idx == 0:
-                # 최상위 레벨은 Y=0에서 시작
-                level_y_positions[level_idx] = 0
-            else:
-                # 현재 레벨보다 위 레벨의 최대 높이 구하기
-                upper_level_idx = level_idx - 1
-                upper_level_nodes = levels[upper_level_idx]
-                
-                # 위 레벨에서 가장 높은 노드의 높이 찾기
-                max_height_above = 0
-                for node in upper_level_nodes:
-                    if node in node_sizes:
-                        _, height = node_sizes[node]
-                        max_height_above = max(max_height_above, height)
-                
-                # 현재 레벨의 Y 좌표 = 위 레벨 Y + (위 레벨 최대 높이 + 간격)
-                current_y = level_y_positions[upper_level_idx] + max_height_above + base_gap
-                level_y_positions[level_idx] = current_y
-        
-        return level_y_positions
+
     
-    def _layout_nodes_horizontally(self, nodes, node_sizes, positions, y, gap):
-        """노드들을 가로로 배치 (겹침 절대 없음)"""
-        if not nodes:
-            return
-            
-        # 전체 폭 계산
-        total_width = sum(node_sizes[node][0] for node in nodes) + gap * (len(nodes) - 1)
-        start_x = -total_width / 2
-        
-        current_x = start_x
-        for node in nodes:
-            width, height = node_sizes[node]
-            positions[node] = (current_x, y)
-            current_x += width + gap
+
     
-    def _layout_parent_nodes(self, nodes, node_sizes, positions, base_y, gap):
-        """부모 노드들을 자식들 기준으로 배치하되 겹침 방지"""
-        if not nodes:
-            return
-            
-        # 1단계: 이상적인 위치 계산 (자식들의 중앙)
-        ideal_positions = []
-        for node in nodes:
-            if node.inputs:
-                child_centers = []
-                for child in node.inputs:
-                    if child in positions:
-                        child_x, child_y = positions[child]
-                        child_width, child_height = node_sizes[child]
-                        child_center_x = child_x + child_width / 2
-                        child_centers.append(child_center_x)
-                
-                if child_centers:
-                    avg_center_x = sum(child_centers) / len(child_centers)
-                    node_width = node_sizes[node][0]
-                    ideal_x = avg_center_x - node_width / 2
-                    ideal_positions.append((node, ideal_x))
-                else:
-                    ideal_positions.append((node, 0))
-            else:
-                ideal_positions.append((node, 0))
-        
-        # 2단계: x 좌표로 정렬
-        ideal_positions.sort(key=lambda x: x[1])
-        
-        # 3단계: 겹침 해결하면서 실제 위치 배정
-        actual_positions = []
-        for i, (node, ideal_x) in enumerate(ideal_positions):
-            node_width = node_sizes[node][0]
-            
-            if i == 0:
-                # 첫 번째 노드는 이상적 위치 그대로
-                actual_x = ideal_x
-            else:
-                # 이전 노드와 겹치지 않도록 조정
-                prev_node, prev_x = actual_positions[-1]
-                prev_width = node_sizes[prev_node][0]
-                min_x = prev_x + prev_width + gap
-                
-                # 이상적 위치와 최소 위치 중 더 큰 값 선택
-                actual_x = max(ideal_x, min_x)
-            
-            actual_positions.append((node, actual_x))
-            positions[node] = (actual_x, base_y)
+
+    
+
     
 
     
@@ -4382,14 +4309,15 @@ class ShapezGUI(QMainWindow):
         import math
         
         def draw_connections_recursive(node):
-            if not node.inputs:
+            if not node.input_ids:
                 return
                 
             parent_pos = positions[node]
             parent_width, parent_height = node_sizes[node]
             
-            for child_node in node.inputs:
-                if child_node not in positions:
+            for input_id in node.input_ids:
+                child_node = process_tree_solver.get_node_by_id(input_id)
+                if not child_node or child_node not in positions:
                     continue
                     
                 child_pos = positions[child_node]
@@ -4467,11 +4395,15 @@ class ShapezGUI(QMainWindow):
         NODE_HEIGHT = 70
         
         def draw_connections_recursive(node):
-            if not node.inputs:
+            if not node.input_ids:
                 return
                 
             parent_pos = positions[node]
-            for child_node in node.inputs:
+            for input_id in node.input_ids:
+                child_node = process_tree_solver.get_node_by_id(input_id)
+                if not child_node or child_node not in positions:
+                    continue
+                    
                 child_pos = positions[child_node]
                 
                 # 연결선 좌표 계산 (노드 경계 기준)
@@ -4608,66 +4540,38 @@ class ShapezGUI(QMainWindow):
     def _show_example_tree(self):
         """복잡한 구조의 예시 트리를 표시 (데이터 기반 구현)"""
         try:
-            # 복잡한 4레벨 예시 트리 데이터 정의
-            example_tree_data = {
-                "shape_code": "CuCuCuCu:RrRrRrRr:CcCcCcCc:P-P-P-P-",
-                "operation": "최종목표", 
-                "inputs": [
-                    {
-                        "shape_code": "CuCuCuCu:RrRrRrRr:CcCcCcCc",
-                        "operation": "2차조합",
-                        "inputs": [
-                            {
-                                "shape_code": "CuCuCuCu:RrRrRrRr", 
-                                "operation": "1차가공",
-                                "inputs": [
-                                    {"shape_code": "CuCuCuCu", "operation": "원료", "inputs": []},
-                                    {"shape_code": "RrRrRrRr", "operation": "원료", "inputs": []}
-                                ]
-                            },
-                            {
-                                "shape_code": "CcCcCcCc:SsSsSsSs",
-                                "operation": "1차가공", 
-                                "inputs": [
-                                    {"shape_code": "CcCcCcCc", "operation": "원료", "inputs": []},
-                                    {"shape_code": "SsSsSsSs", "operation": "원료", "inputs": []}
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "shape_code": "P-P-P-P-:Cu------:Rr------",
-                        "operation": "2차조합",
-                        "inputs": [
-                            {
-                                "shape_code": "P-P-P-P-:Cu------",
-                                "operation": "1차가공",
-                                "inputs": [
-                                    {"shape_code": "P-P-P-P-", "operation": "원료", "inputs": []},
-                                    {"shape_code": "Cu------", "operation": "원료", "inputs": []}
-                                ]
-                            },
-                            {
-                                "shape_code": "Rr------:CcCcCcCc", 
-                                "operation": "1차가공",
-                                "inputs": [
-                                    {"shape_code": "Rr------", "operation": "원료", "inputs": []},
-                                    {"shape_code": "CcCcCcCc", "operation": "원료", "inputs": []}  # 재사용
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            }
+            # process_tree_solver에서 복잡한 예시 트리 데이터 생성
+            example_tree_data = process_tree_solver.create_example_tree_data()
             
             # 데이터를 ProcessNode 트리로 변환
             root_node = process_tree_solver.create_tree_from_data(example_tree_data)
+            
+            # 디버깅: 예시 트리 생성 결과 확인
+            if root_node:
+                print(f"예시 트리 생성 성공: {root_node.shape_code} [ID: {root_node.node_id}]")
+                print(f"작업: {root_node.operation}")
+                print(f"자식 노드 수: {len(root_node.input_ids)}")
+                
+                # 노드 매핑 확인
+                all_nodes = process_tree_solver.get_all_nodes()
+                print(f"총 노드 수: {len(all_nodes)}")
+                
+                # 트리 레벨 확인
+                levels = process_tree_solver.get_tree_levels(root_node)
+                print(f"트리 레벨 수: {len(levels)}")
+                
+                for i, level in enumerate(levels):
+                    print(f"레벨 {i}: {len(level)}개 노드")
+                    for node in level:
+                        print(f"  - {node.shape_code} ({node.operation}) [ID: {node.node_id}]")
+            else:
+                print("예시 트리 생성 실패")
             
             # 플렉서블 시스템으로 트리 표시
             self._display_process_tree(root_node)
             
             # 설명 텍스트 추가
-            desc_text = self.tree_scene.addText("복잡한 예시 트리입니다. '공정트리 생성'으로 실제 트리를 생성하세요.", 
+            desc_text = self.tree_scene.addText("복잡한 관계를 포함한 예시 트리입니다. '공정트리 생성'으로 실제 트리를 생성하세요.", 
                                               QFont("Arial", 10))
             desc_text.setPos(-150, -50)
             desc_text.setDefaultTextColor(QColor(100, 100, 100))
