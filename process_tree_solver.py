@@ -307,8 +307,7 @@ class ProcessTreeSolver:
             ShapeType.SIMPLE_CORNER.value,
             ShapeType.STACK_CORNER.value,
             ShapeType.SWAP_CORNER.value,
-            ShapeType.SIMPLE_GEOMETRIC.value,
-            ShapeType.SWAPABLE.value
+            ShapeType.SIMPLE_GEOMETRIC.value
         ]:
             current_node.operation = "생략"
             # "생략" 자식 노드 생성 (shape_code를 "..."으로 설정)

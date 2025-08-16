@@ -251,20 +251,24 @@ def _check_swap_impossibility(shape_obj) -> str | None:
     # 12/34 스왑 불가능성 확인
     try:
         west_half, east_half = shape_obj.simple_cutter()
-        if (repr(west_half) != repr(west_half.apply_physics())) or \
-           (repr(east_half) != repr(east_half.apply_physics())):
+        west_physics = west_half.apply_physics()
+        east_physics = east_half.apply_physics()
+        if (repr(west_half) != repr(west_physics)) or \
+           (repr(east_half) != repr(east_physics)):
             is_12_34_swap_impossible = True
-    except Exception:
+    except Exception as e:
         is_12_34_swap_impossible = True  # 오류 발생 시 해당 스왑은 불가능하다고 간주
 
     # 14/23 스왑 불가능성 확인 (90도 회전 후)
     try:
         rotated_shape_obj = shape_obj.rotate(clockwise=True)
         west_half_rotated, east_half_rotated = rotated_shape_obj.simple_cutter()
-        if (repr(west_half_rotated) != repr(east_half_rotated.apply_physics())) or \
-           (repr(east_half_rotated) != repr(east_half_rotated.apply_physics())):
+        west_rotated_physics = west_half_rotated.apply_physics()
+        east_rotated_physics = east_half_rotated.apply_physics()
+        if (repr(west_half_rotated) != repr(west_rotated_physics)) or \
+           (repr(east_half_rotated) != repr(east_rotated_physics)):
             is_14_23_swap_impossible = True
-    except Exception:
+    except Exception as e:
         is_14_23_swap_impossible = True  # 오류 발생 시 해당 스왑은 불가능하다고 간주
 
     # 스왑 불가능 상태 판별
