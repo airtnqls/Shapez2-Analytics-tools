@@ -1836,12 +1836,8 @@ class ShapezGUI(QMainWindow):
         self.input_b = QLineEdit(); self.input_b.setObjectName(_("ui.input.b")) # 초기값은 load_settings에서 설정
         
         # 입력 완료 시 히스토리에 저장하기 위한 이벤트 연결
-        self.input_a.editingFinished.connect(self.on_input_a_finished)
-        self.input_b.editingFinished.connect(self.on_input_b_finished)
-        
-        # 실시간 출력 업데이트를 위한 텍스트 변경 이벤트 연결 (히스토리 저장 없음)
-        self.input_a.textChanged.connect(self.on_input_text_changed)
-        self.input_b.textChanged.connect(self.on_input_text_changed)
+        self.input_a.textChanged.connect(self.on_input_a_changed)
+        self.input_b.textChanged.connect(self.on_input_b_changed)
         
         # 입력 A 행
         self._label_input_a = QLabel(_("ui.input.a"))
@@ -3541,20 +3537,16 @@ class ShapezGUI(QMainWindow):
     
     # =================== 히스토리 관리 메서드들 ===================
     
-    def on_input_a_finished(self):
+    def on_input_a_changed(self):
         """입력 A 입력 완료 시 호출"""
         if not self.history_update_in_progress:
             self.add_to_history()
         self.update_input_display()
     
-    def on_input_b_finished(self):
+    def on_input_b_changed(self):
         """입력 B 입력 완료 시 호출"""
         if not self.history_update_in_progress:
             self.add_to_history()
-        self.update_input_display()
-    
-    def on_input_text_changed(self):
-        """입력 텍스트 변경 시 호출 (히스토리 저장 없이 출력만 업데이트)"""
         self.update_input_display()
     
     def add_to_history(self, outputs: Optional[list] = None):
@@ -3749,6 +3741,7 @@ class ShapezGUI(QMainWindow):
                     for extra in append_list:
                         current_tab.data.append(extra)
                     current_tab.update_table()
+                    current_tab.add_to_data_history(f"{operation_name} 완료")
                     self.log(_("ui.progress.summary", n=len(result_map), e=error_count))
                     if error_count > 0:
                         QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
@@ -3795,6 +3788,7 @@ class ShapezGUI(QMainWindow):
         for i, new_value in result_data_map.items():
             current_tab.data[i] = new_value
         current_tab.update_table()
+        current_tab.add_to_data_history(f"{operation_name} 완료")
         self.log(f"대량처리 완료: {len(result_data_map)}개 항목 처리, {error_count}개 오류")
         if error_count > 0:
             QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
@@ -3832,9 +3826,6 @@ class ShapezGUI(QMainWindow):
             total_count = len(indices_to_process)
             if total_count > 5000:
                 # 비동기 처리 + 프로그레스/취소
-                # 작업 전 현재 상태를 히스토리에 저장
-                current_tab.add_to_data_history(f"작업 전 ({operation_name})")
-                
                 progress = QProgressDialog(self)
                 progress.setWindowTitle(_("ui.msg.title.info"))
                 progress.setLabelText(_("ui.progress.batch_running"))
@@ -3875,6 +3866,7 @@ class ShapezGUI(QMainWindow):
                         current_tab.update_table()
                         if current_tab.visualization_checkbox.isChecked():
                             QTimer.singleShot(100, current_tab._update_visible_shapes)
+                        current_tab.add_to_data_history(f"{operation_name} 완료")
                         self.log(_("ui.progress.summary", n=len(result_map), e=error_count))
                         if error_count > 0:
                             QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
@@ -3886,6 +3878,7 @@ class ShapezGUI(QMainWindow):
                 return
             else:
                 # 동기 처리 (5천 이하)
+                current_tab.add_to_data_history(f"작업 전 ({operation_name})")
                 result_data_map = {}
                 error_count = 0
                 for i in indices_to_process:
@@ -3910,6 +3903,7 @@ class ShapezGUI(QMainWindow):
                 current_tab.update_table()
                 if current_tab.visualization_checkbox.isChecked():
                     QTimer.singleShot(100, current_tab._update_visible_shapes)
+                current_tab.add_to_data_history(f"{operation_name} 완료")
                 if error_count > 0:
                     self.log(f"{operation_name} 완료: {len(result_data_map)}개 결과 생성, {error_count}개 오류")
                 else:
@@ -4004,6 +3998,9 @@ class ShapezGUI(QMainWindow):
             # 현재 탭의 데이터를 필터링된 결과로 교체
             current_tab.data = valid_data
             current_tab.update_table()
+            
+            # 작업 완료 후 히스토리에 추가
+            current_tab.add_to_data_history("불가능 제거 완료")
             
             self.log(f"불가능 제거 완료: {len(valid_data)}개 유효, {removed_count}개 제거")
         else:
