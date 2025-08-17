@@ -47,7 +47,7 @@
     "ui.btn.classifier": "Classifier",
     "ui.datatab.visualize": "Visualize shapes",
     "ui.datatab.search": "Search:",
-    "ui.datatab.search.placeholder": "_ means any. Example to search a 2-layer '-S-c' pattern: ____:-S-c",
+    "ui.datatab.search.placeholder": "_ means any. Example to search a 2-layer '-S-c' pattern) ____:-S-c:____:____:____",
     "ui.btn.save": "Save",
     "ui.btn.save_as": "Save As",
     "ui.btn.clone": "Clone",

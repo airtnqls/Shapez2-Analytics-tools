@@ -47,7 +47,7 @@
     "ui.btn.classifier": "분류기",
     "ui.datatab.visualize": "도형 시각화",
     "ui.datatab.search": "검색:",
-    "ui.datatab.search.placeholder": "_ 는 any 라는 뜻입니다. 2층의 -S-c 패턴을 검색 예시 : ____:-S-c",
+    "ui.datatab.search.placeholder": "_ 는 any 라는 뜻입니다. 2층의 -S-c 패턴을 검색 예시) ____:-S-c:____:____:____",
     "ui.btn.save": "저장",
     "ui.btn.save_as": "다른 이름으로 저장",
     "ui.btn.clone": "복제",

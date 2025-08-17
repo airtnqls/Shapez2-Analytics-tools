@@ -210,6 +210,79 @@ class OriginFinderThread(QThread):
     def cancel(self):
         self.is_cancelled = True
 
+
+class SearchFilterThread(QThread):
+    """검색 필터링을 백그라운드에서 수행하는 스레드"""
+    filter_results = pyqtSignal(dict)  # {row_index: should_show}
+    
+    def __init__(self, keyword, data_snapshot, is_comparison_table=False):
+        super().__init__()
+        self.keyword = keyword.strip()
+        self.data_snapshot = list(data_snapshot)  # 데이터 스냅샷 복사
+        self.is_comparison_table = is_comparison_table
+        self._cancel_requested = False
+    
+    def cancel(self):
+        self._cancel_requested = True
+    
+    def run(self):
+        results = {}
+        
+        if not self.keyword:
+            # 빈 검색어면 모든 행 표시
+            for row in range(len(self.data_snapshot)):
+                if self._cancel_requested:
+                    return
+                results[row] = True
+            self.filter_results.emit(results)
+            return
+        
+        # 도형 매칭 기반 필터링: '_'는 와일드카드, '-'는 완전 매칭용 빈칸
+        try:
+            from shape import Shape
+            pattern_shape, wildcard_mask = Shape.parse_pattern_with_wildcard(self.keyword, wildcard_char='_')
+        except Exception:
+            # 파싱 실패 시 모든 행 표시
+            for row in range(len(self.data_snapshot)):
+                if self._cancel_requested:
+                    return
+                results[row] = True
+            self.filter_results.emit(results)
+            return
+        
+        def row_matches_shape_code(code: str) -> bool:
+            try:
+                target = Shape.from_string(code)
+                return target.contains_pattern(pattern_shape, wildcard_mask=wildcard_mask, treat_empty_as_wildcard=False)
+            except Exception:
+                return False
+        
+        for row in range(len(self.data_snapshot)):
+            if self._cancel_requested:
+                return
+                
+            if self.is_comparison_table:
+                # 비교 테이블인 경우 두 열 모두 확인
+                if len(self.data_snapshot[row]) >= 2:
+                    code_a = str(self.data_snapshot[row][0]) if self.data_snapshot[row][0] else ""
+                    code_b = str(self.data_snapshot[row][1]) if self.data_snapshot[row][1] else ""
+                    match_found = row_matches_shape_code(code_a) or row_matches_shape_code(code_b)
+                else:
+                    match_found = False
+            else:
+                # 일반 테이블인 경우 두 번째 열(도형 코드) 확인
+                if len(self.data_snapshot[row]) >= 2:
+                    code = str(self.data_snapshot[row][1]) if self.data_snapshot[row][1] else ""
+                    match_found = row_matches_shape_code(code)
+                else:
+                    match_found = False
+            
+            results[row] = match_found
+        
+        if not self._cancel_requested:
+            self.filter_results.emit(results)
+
+
 COLOR_MAP = {'r':'#E33','g':'#3E3','b':'#33E','m':'#E3E','c':'#3EE','y':'#EE3','u':'#BBB','w':'#FFF','C':'#CDD','P':'#999'}
 
 class QuadrantWidget(QLabel):
@@ -2455,6 +2528,13 @@ class ShapezGUI(QMainWindow):
         if self.origin_finder_thread and self.origin_finder_thread.isRunning():
             self.origin_finder_thread.cancel()
             self.origin_finder_thread.wait()
+        
+        # 모든 데이터 탭의 검색 스레드 정리
+        for i in range(self.data_tabs.count()):
+            tab_widget = self.data_tabs.widget(i)
+            if hasattr(tab_widget, '_search_filter_thread') and tab_widget._search_filter_thread and tab_widget._search_filter_thread.isRunning():
+                tab_widget._search_filter_thread.cancel()
+                tab_widget._search_filter_thread.wait()
 
         event.accept()
 
@@ -5383,7 +5463,10 @@ class DataTabWidget(QWidget):
         # 검색 디바운스 타이머
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
-        self._search_timer.timeout.connect(self._apply_search_filter)
+        self._search_timer.timeout.connect(self._start_search_filter)
+        
+        # 검색 필터 스레드
+        self._search_filter_thread = None
         
         # 초기 데이터를 히스토리에 추가
         if self.data:
@@ -5821,12 +5904,62 @@ class DataTabWidget(QWidget):
 
     def on_search_text_changed(self, _text: str):
         """검색어 변경 시 디바운스로 필터 적용"""
+        # 기존 검색 스레드가 실행 중이면 취소
+        if self._search_filter_thread and self._search_filter_thread.isRunning():
+            self._search_filter_thread.cancel()
+            self._search_filter_thread.wait()
+        
         # 대량 데이터 대비 디바운스
         try:
-            self._search_timer.start(120)
+            self._search_timer.start(200)
         except Exception:
             # 타이머 사용 불가 시 즉시 적용
-            self._apply_search_filter()
+            self._start_search_filter()
+
+    def _start_search_filter(self):
+        """검색 필터링을 비동기로 시작"""
+        try:
+            keyword = self.search_input.text().strip()
+        except Exception:
+            keyword = ""
+        
+        # 기존 스레드가 실행 중이면 취소
+        if self._search_filter_thread and self._search_filter_thread.isRunning():
+            self._search_filter_thread.cancel()
+            self._search_filter_thread.wait()
+        
+        # 데이터 스냅샷 생성 (테이블에서 현재 데이터 추출)
+        data_snapshot = []
+        row_count = self.data_table.rowCount()
+        for row in range(row_count):
+            row_data = []
+            for col in range(self.data_table.columnCount()):
+                item = self.data_table.item(row, col)
+                row_data.append(item.text() if item else "")
+            data_snapshot.append(row_data)
+        
+        # 검색 스레드 시작
+        self._search_filter_thread = SearchFilterThread(keyword, data_snapshot, self.is_comparison_table)
+        self._search_filter_thread.filter_results.connect(self._apply_filter_results)
+        self._search_filter_thread.start()
+
+    def _apply_filter_results(self, results: dict):
+        """검색 결과를 UI에 적용"""
+        try:
+            for row, should_show in results.items():
+                if row < self.data_table.rowCount():
+                    self.data_table.setRowHidden(row, not should_show)
+            
+            # 필터 변경 시 선택 영역 정리: 숨겨진 행은 선택 해제
+            try:
+                self.data_table._prune_hidden_from_selection()
+            except Exception:
+                pass
+            
+            # 필터 적용 후, 보이는 영역 업데이트를 쓰로틀로 호출
+            self._on_scroll_value_changed(0)
+        except Exception as e:
+            print(f"필터 결과 적용 중 오류: {e}")
 
     def _apply_search_filter(self):
         """검색어가 포함되는 행만 표시 (대소문자 구분)"""
@@ -6684,6 +6817,14 @@ class DataTabWidget(QWidget):
         
         # 연산에 따른 필드 상태 업데이트
         self.on_operation_changed(self.operation_combo.currentText())
+
+    def closeEvent(self, event):
+        """탭이 닫힐 때 스레드 정리"""
+        if self._search_filter_thread and self._search_filter_thread.isRunning():
+            self._search_filter_thread.cancel()
+            self._search_filter_thread.wait()
+        super().closeEvent(event)
+
 
 class TreeGraphicsView(QGraphicsView):
     def __init__(self, *args, **kwargs):
