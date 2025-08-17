@@ -225,6 +225,142 @@ class SearchFilterThread(QThread):
     def cancel(self):
         self._cancel_requested = True
     
+    def _parse_search_pattern(self, keyword):
+        """검색 패턴을 파싱하여 특수 문자를 처리합니다."""
+        if not keyword:
+            return {
+                'clean_keyword': '',
+                'exact_match': False,
+                'starts_with': False,
+                'ends_with': False,
+                'original': keyword
+            }
+        
+        # 특수 문자 처리
+        clean_keyword = keyword
+        exact_match = False
+        starts_with = False
+        ends_with = False
+        
+        # ^pattern$ : 정확히 일치
+        if keyword.startswith('^') and keyword.endswith('$'):
+            clean_keyword = keyword[1:-1]
+            exact_match = True
+        # ^pattern : 시작 부분 일치
+        elif keyword.startswith('^'):
+            clean_keyword = keyword[1:]
+            starts_with = True
+        # pattern$ : 끝 부분 일치  
+        elif keyword.endswith('$'):
+            clean_keyword = keyword[:-1]
+            ends_with = True
+        
+        return {
+            'clean_keyword': clean_keyword,
+            'exact_match': exact_match,
+            'starts_with': starts_with,
+            'ends_with': ends_with,
+            'original': keyword
+        }
+    
+    def _matches_simplified_string(self, simplified_str, search_keyword):
+        """단순화된 문자열에서 검색어 패턴을 매칭합니다."""
+        try:
+            # 특수 문자 파싱
+            search_pattern = self._parse_search_pattern(search_keyword)
+            target_str = simplified_str.lower()
+            pattern_str = search_pattern['clean_keyword'].lower()
+            
+            # 모든 검색을 와일드카드 지원 매칭으로 통일
+            if search_pattern['exact_match']:
+                # ^pattern$ : 정확히 일치 (와일드카드 지원)
+                return self._matches_with_wildcard_exact(target_str, pattern_str)
+            elif search_pattern['starts_with']:
+                # ^pattern : 시작 부분 일치 (와일드카드 지원)
+                return self._matches_with_wildcard_starts(target_str, pattern_str)
+            elif search_pattern['ends_with']:
+                # pattern$ : 끝 부분 일치 (와일드카드 지원)
+                return self._matches_with_wildcard_ends(target_str, pattern_str)
+            else:
+                # pattern : 포함 여부 (와일드카드 지원)
+                return self._matches_with_wildcard(target_str, pattern_str)
+        except Exception:
+            return False
+    
+    def _matches_with_wildcard(self, target_str, pattern_str):
+        """와일드카드 '_'를 지원하는 포함 검색"""
+        try:
+            # '_'가 없으면 단순 포함 검색
+            if '_' not in pattern_str:
+                return pattern_str in target_str
+            
+            # '_'가 있으면 정규식 패턴으로 변환하여 매칭
+            import re
+            # '_'를 '.'로 변환 (모든 문자와 매칭)
+            regex_pattern = pattern_str.replace('_', '.')
+            return bool(re.search(regex_pattern, target_str))
+        except Exception:
+            return pattern_str in target_str
+    
+    def _matches_with_wildcard_exact(self, target_str, pattern_str):
+        """와일드카드 '_'를 지원하는 정확한 일치 검색"""
+        try:
+            # '_'가 없으면 단순 정확 일치
+            if '_' not in pattern_str:
+                return target_str == pattern_str
+            
+            # '_'가 있으면 정규식 패턴으로 변환하여 매칭
+            import re
+            # '_'를 '.'로 변환, 전체 문자열과 정확히 매칭
+            regex_pattern = '^' + pattern_str.replace('_', '.') + '$'
+            return bool(re.match(regex_pattern, target_str))
+        except Exception:
+            return target_str == pattern_str
+    
+    def _matches_with_wildcard_starts(self, target_str, pattern_str):
+        """와일드카드 '_'를 지원하는 시작 부분 일치 검색"""
+        try:
+            # '_'가 없으면 단순 시작 부분 일치
+            if '_' not in pattern_str:
+                return target_str.startswith(pattern_str)
+            
+            # '_'가 있으면 정규식 패턴으로 변환하여 매칭
+            import re
+            # '_'를 '.'로 변환, 시작 부분만 매칭
+            regex_pattern = '^' + pattern_str.replace('_', '.')
+            return bool(re.match(regex_pattern, target_str))
+        except Exception:
+            return target_str.startswith(pattern_str)
+    
+    def _matches_with_wildcard_ends(self, target_str, pattern_str):
+        """와일드카드 '_'를 지원하는 끝 부분 일치 검색"""
+        try:
+            # '_'가 없으면 단순 끝 부분 일치
+            if '_' not in pattern_str:
+                return target_str.endswith(pattern_str)
+            
+            # '_'가 있으면 정규식 패턴으로 변환하여 매칭
+            import re
+            # '_'를 '.'로 변환, 끝 부분만 매칭
+            regex_pattern = pattern_str.replace('_', '.') + '$'
+            return bool(re.search(regex_pattern, target_str))
+        except Exception:
+            return target_str.endswith(pattern_str)
+    
+    def _simplify_shape_to_string(self, target_shape):
+        """Shape를 단순화된 문자열로 변환합니다."""
+        try:
+            # data_operations.py의 simplify_shape 함수 사용
+            from data_operations import simplify_shape
+            shape_str = str(target_shape)
+            return simplify_shape(shape_str)
+        except Exception:
+            return str(target_shape)
+    
+
+    
+
+    
     def run(self):
         results = {}
         
@@ -237,25 +373,20 @@ class SearchFilterThread(QThread):
             self.filter_results.emit(results)
             return
         
-        # 도형 매칭 기반 필터링: '_'는 와일드카드, '-'는 완전 매칭용 빈칸
-        try:
-            from shape import Shape
-            pattern_shape, wildcard_mask = Shape.parse_pattern_with_wildcard(self.keyword, wildcard_char='_')
-        except Exception:
-            # 파싱 실패 시 모든 행 표시
-            for row in range(len(self.data_snapshot)):
-                if self._cancel_requested:
-                    return
-                results[row] = True
-            self.filter_results.emit(results)
-            return
-        
+        # 모든 검색을 단순화된 문자열 기반으로 처리
         def row_matches_shape_code(code: str) -> bool:
             try:
-                target = Shape.from_string(code)
-                return target.contains_pattern(pattern_shape, wildcard_mask=wildcard_mask, treat_empty_as_wildcard=False)
+                # 데이터를 Shape → 문자열 → 단순화된 문자열로 변환
+                from shape import Shape
+                from data_operations import simplify_shape
+                target_shape = Shape.from_string(code)
+                simplified_str = simplify_shape(str(target_shape))
+                
+                # 검색어 패턴 매칭 (^, $, _ 모두 지원)
+                return self._matches_simplified_string(simplified_str, self.keyword)
             except Exception:
-                return False
+                # Shape 변환 실패 시 원본 문자열로 검색
+                return self._matches_simplified_string(code, self.keyword)
         
         for row in range(len(self.data_snapshot)):
             if self._cancel_requested:
@@ -5502,7 +5633,10 @@ class DataTabWidget(QWidget):
         # 데이터 테이블
         self.data_table = DragDropTableWidget()
         self.data_table.setColumnCount(2)
-        self.data_table.setHorizontalHeaderLabels([_("ui.table.validity"), _("ui.table.shape_code")])
+        self.data_table.setHorizontalHeaderLabels([_("ui.table.classification"), _("ui.table.shape_code")])
+        
+        # 헤더에 정렬 가능함을 나타내는 툴팁 설정
+        self.data_table.horizontalHeader().setToolTip(_("ui.table.sort.ascending"))
         # 창 크기 확장 시 유효성과 도형 코드 컬럼이 늘어나도록 설정
         self.data_table.horizontalHeader().setStretchLastSection(False)
         self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
@@ -5511,6 +5645,9 @@ class DataTabWidget(QWidget):
         self.data_table.customContextMenuRequested.connect(self.on_table_context_menu)
         self.data_table.rows_reordered.connect(self.on_data_moved)
         self.data_table.itemChanged.connect(self.on_table_item_changed)
+        
+        # 헤더 클릭 시 정렬 기능 추가
+        self.data_table.horizontalHeader().sectionClicked.connect(self.on_header_clicked)
         
         # 테이블 셀 내용을 수직 중앙 정렬
         self.data_table.setStyleSheet("""
@@ -5660,6 +5797,182 @@ class DataTabWidget(QWidget):
         if main_window:
             main_window.log_verbose("대량처리 탭 단축키 설정 완료 (Ctrl+C, Ctrl+V, Delete, Ctrl+S, Ctrl+Shift+S)")
     
+    def on_header_clicked(self, logical_index):
+        """테이블 헤더 클릭 시 정렬 처리"""
+        if not self.data:
+            return
+            
+        if logical_index == 0:  # 분류 컬럼
+            # 5천 개 초과 시 비동기 처리 + 진행 상황 표시/취소 지원
+            total_count = len(self.data)
+            if total_count > 5000:
+                # 진행 대화상자
+                progress = QProgressDialog(self)
+                progress.setWindowTitle(_("ui.msg.title.info"))
+                progress.setLabelText(_("ui.progress.sorting_classification"))
+                progress.setCancelButtonText(_("ui.progress.cancel"))
+                progress.setRange(0, total_count)
+                progress.setAutoClose(False)
+                progress.setAutoReset(False)
+                progress.setMinimumDuration(0)  # 즉시 표시
+                progress.show()
+
+                # 롤백을 위한 스냅샷 저장
+                original_data_snapshot = list(self.data)
+
+                # 취소 플래그
+                canceled = False
+
+                # 비동기로 분류 계산 및 정렬 작업 수행
+                def perform_sorting():
+                    nonlocal canceled
+                    try:
+                        # 분류 기준 정렬을 위해 모든 데이터의 분류를 먼저 계산
+                        self._calculate_all_classifications_with_progress(progress)
+                        
+                        if canceled or progress.wasCanceled():
+                            # 취소 시 되돌리기
+                            self.data = original_data_snapshot
+                            self.update_table()
+                            self.add_to_data_history(_("ui.history.revert_due_to_cancel"))
+                            main_window = self.get_main_window()
+                            if main_window:
+                                main_window.log(_("ui.progress.canceled"))
+                            return
+                        
+                        # 분류 결과를 기준으로 정렬된 인덱스 순서를 얻음
+                        progress.setLabelText(_("ui.progress.sorting_data"))
+                        progress.setValue(0)
+                        
+                        sorted_indices = sorted(range(len(self.data)), key=lambda i: self._classification_cache.get(i, ""))
+                        
+                        # 실제 데이터를 분류 순서에 맞춰 재배치
+                        sorted_data = [self.data[i] for i in sorted_indices]
+                        self.data[:] = sorted_data
+                        
+                        progress.setValue(total_count)
+                        progress.close()
+                        
+                        # 히스토리에 추가
+                        self.add_to_data_history(_("ui.table.sort.by_classification"))
+                        
+                        main_window = self.get_main_window()
+                        if main_window:
+                            main_window.log_verbose(_("ui.table.sort.by_classification"))
+                            
+                    except Exception as e:
+                        progress.close()
+                        # 오류 시 되돌리기
+                        self.data = original_data_snapshot
+                        self.update_table()
+                        QMessageBox.warning(self, _("ui.msg.title.error"), f"정렬 중 오류 발생: {str(e)}")
+                        return
+
+                # 취소 시그널 연결
+                def on_cancel():
+                    nonlocal canceled
+                    canceled = True
+                    progress.close()
+
+                progress.canceled.connect(on_cancel)
+
+                # 비동기로 실행
+                QTimer.singleShot(0, perform_sorting)
+                return
+            else:
+                # 데이터가 적으면 일반 방식으로 처리
+                # 분류 기준 정렬을 위해 모든 데이터의 분류를 먼저 계산
+                self._calculate_all_classifications()
+                
+                # 분류 결과를 기준으로 정렬된 인덱스 순서를 얻음
+                sorted_indices = sorted(range(len(self.data)), key=lambda i: self._classification_cache.get(i, ""))
+                
+                # 실제 데이터를 분류 순서에 맞춰 재배치
+                sorted_data = [self.data[i] for i in sorted_indices]
+                self.data[:] = sorted_data
+                
+                # 히스토리에 추가
+                self.add_to_data_history(_("ui.table.sort.by_classification"))
+                
+                main_window = self.get_main_window()
+                if main_window:
+                    main_window.log_verbose(_("ui.table.sort.by_classification"))
+                
+        elif logical_index == 1:  # 도형 코드 컬럼
+            # 도형 코드 기준으로 정렬
+            self.data.sort(key=lambda x: x)
+            
+            # 히스토리에 추가
+            self.add_to_data_history(_("ui.table.sort.by_shape_code"))
+            
+            main_window = self.get_main_window()
+            if main_window:
+                main_window.log_verbose(_("ui.table.sort.by_shape_code"))
+        
+        # 테이블 UI 새로고침
+        self.update_table()
+    
+    def _calculate_all_classifications(self):
+        """모든 데이터의 분류를 미리 계산합니다."""
+        if self.is_comparison_table:
+            return
+            
+        # 분류 계산 결과를 저장할 딕셔너리
+        self._classification_cache = {}
+        
+        for i, shape_code in enumerate(self.data):
+            if shape_code.strip():
+                try:
+                    shape = parse_shape_or_none(shape_code.strip())
+                    if shape:
+                        res, reason = shape.classifier()
+                        classification_text = f"{_(res)} ({_(reason)})"
+                        self._classification_cache[i] = classification_text
+                    else:
+                        self._classification_cache[i] = _("ui.table.error", error="파싱 실패")
+                except Exception as e:
+                    self._classification_cache[i] = _("ui.table.error", error=str(e))
+            else:
+                self._classification_cache[i] = _("enum.shape_type.empty") + " (" + _("analyzer.empty") + ")"
+    
+    def _calculate_all_classifications_with_progress(self, progress_dialog):
+        """진행률을 표시하며 모든 데이터의 분류를 미리 계산합니다."""
+        if self.is_comparison_table:
+            return
+            
+        # 분류 계산 결과를 저장할 딕셔너리
+        self._classification_cache = {}
+        
+        for i, shape_code in enumerate(self.data):
+            # 진행률 업데이트 (100개마다만 업데이트하여 성능 향상)
+            if i % 100 == 0 or i == len(self.data) - 1:
+                progress_dialog.setValue(i)
+                
+                # 취소 확인 (진행률 업데이트 시에만)
+                if progress_dialog.wasCanceled():
+                    return
+                
+                # UI 이벤트 처리 (진행률 업데이트 시에만)
+                QApplication.processEvents()
+            
+            if shape_code.strip():
+                try:
+                    shape = parse_shape_or_none(shape_code.strip())
+                    if shape:
+                        res, reason = shape.classifier()
+                        classification_text = f"{_(res)} ({_(reason)})"
+                        self._classification_cache[i] = classification_text
+                    else:
+                        self._classification_cache[i] = _("ui.table.error", error="파싱 실패")
+                except Exception as e:
+                    self._classification_cache[i] = _("ui.table.error", error=str(e))
+            else:
+                self._classification_cache[i] = _("enum.shape_type.empty") + " (" + _("analyzer.empty") + ")"
+        
+        # 완료
+        progress_dialog.setValue(len(self.data))
+    
+
     def on_data_moved(self, from_row, to_row):
         """드래그 앤 드롭으로 데이터 이동"""
         
@@ -6369,7 +6682,7 @@ class DataTabWidget(QWidget):
             self._clear_all_shape_widgets() # 모든 시각화 위젯 제거
             if self.data_table.columnCount() == 3:
                 self.data_table.setColumnCount(2)
-                self.data_table.setHorizontalHeaderLabels([_("ui.table.validity"), _("ui.table.shape_code")])
+                self.data_table.setHorizontalHeaderLabels([_("ui.table.classification"), _("ui.table.shape_code")])
                 # 창 크기 확장 시 유효성과 도형 코드 컬럼이 늘어나도록 설정
                 self.data_table.horizontalHeader().setStretchLastSection(False)
                 self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
