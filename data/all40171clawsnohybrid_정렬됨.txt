@@ -11054,7 +11054,7 @@ PP--:PS--:ScSS:S-Sc:cS--
 PP--:PS--:ScSS:c---:cS--
 PP--:PS--:ScSS:c---:cS-S
 PP--:PS--:ScSS:c-Sc:cS--
-PP--:PS--:cS-S:--Sc
+--P-P---:--P-Su--:SucwSu--:cw----Su
 PP--:PS--:cSS-:S---:cS--
 PP--:PS--:cSS-:S---:cS-S
 PP--:PS--:cSS-:S--S:cS--
@@ -11166,7 +11166,7 @@ PP--:SP--:ScSS:S-Sc:cS--
 PP--:SP--:ScSS:c---:cS--
 PP--:SP--:ScSS:c---:cS-S
 PP--:SP--:ScSS:c-Sc:cS--
-PP--:SP--:cS-S:--Sc
+--P-P---:--SuP---:SucwSu--:cw----Su
 PP--:SP--:cSS-:S---:cS--
 PP--:SP--:cSS-:S--S:cS--
 PP--:SP--:cSS-:c---:cS--
@@ -11211,7 +11211,7 @@ PP--:SS--:ScSS:S---:cS-S
 PP--:SS--:ScSS:S-Sc:cS--
 PP--:SS--:ScSS:c---:cS--
 PP--:SS--:ScSS:c-Sc:cS--
-PP--:SS--:cS-S:--Sc
+--P-P---:--SuSu--:SucwSu--:cw----Su
 PP--:SS--:cSS-:S---:cS--
 PP--:SS--:cSS-:S--S:cS--
 PP--:SS--:cSS-:c---:cS--
@@ -11338,7 +11338,7 @@ PP--:cS--:ScSS:S---:cS-S
 PP--:cS--:ScSS:S-Sc:cS--
 PP--:cS--:ScSS:c---:cS--
 PP--:cS--:ScSS:c-Sc:cS--
-PP--:cS--:cS-S:--Sc
+--P-P---:--cwSu--:SucwSu--:cw----Su
 PP--:cS--:cSS-:S---:cS--
 PP--:cS--:cSS-:S---:cS-S
 PP--:cS--:cSS-:S--S:cS--
@@ -11380,7 +11380,7 @@ PP--:cc--:ScSS:S---:cS-S
 PP--:cc--:ScSS:S-Sc:cS--
 PP--:cc--:ScSS:c---:cS--
 PP--:cc--:ScSS:c-Sc:cS--
-PP--:cc--:cS-S:--Sc
+--P-P---:--cwcw--:SucwSu--:cw----Su
 PP--:cc--:cSS-:S---:cS--
 PP--:cc--:cSS-:S---:cS-S
 PP--:cc--:cSS-:S--S:cS--
@@ -11667,7 +11667,7 @@ PP-P:PP-S:ScSc:S---:cS-S
 PP-P:PP-S:c-SS:S---:cS-S
 PP-P:PP-S:c-SS:c---:cS-S
 PP-P:PP-S:c-Sc:S---:cS-S
-PP-P:PP-S:cP--:S-Sc
+P-P-P---:SuP-P---:--cwP---:cwSu--Su
 PP-P:PP-S:cPSc:S---:cS-S
 PP-P:PP-S:cPSc:c---:cS-S
 PP-P:PP-S:cSS-:S---:cS--
@@ -12007,7 +12007,7 @@ PP-P:PS-S:ScSc:S---:cS-S
 PP-P:PS-S:ScSc:c---:cS-S
 PP-P:PS-S:c-Sc:c---:cS-S
 PP-P:PS-S:cPSc:S---:cS-S
-PP-P:PS-S:cS--:S-Sc
+P-P-P---:SuP-Su--:--cwSu--:cwSu--Su
 PP-P:PS-S:cSS-:S---:cS--
 PP-P:PS-S:cSS-:S---:cS-S
 PP-P:PS-S:cSS-:S--S:cS--
@@ -12708,10 +12708,10 @@ PP-P:SP-S:ScSS:c---:cS-S
 PP-P:SP-S:ScSc:S---:cS-S
 PP-P:SP-S:ScSc:c---:cS-S
 PP-P:SP-S:c-Sc:c---:cS-S
-PP-P:SP-S:cP--:S-Sc
+P-P-P---:SuSuP---:--cwP---:cwSu--Su
 PP-P:SP-S:cPSc:S---:cS-S
 PP-P:SP-S:cPSc:c---:cS-S
-PP-P:SP-S:cS--:S-Sc
+P-P-P---:SuSuP---:--cwSu--:cwSu--Su
 PP-P:SP-S:cSS-:S---:cS--
 PP-P:SP-S:cSS-:S--S:cS--
 PP-P:SP-S:cSS-:S-Sc:cS--
@@ -13607,9 +13607,9 @@ PP-P:cP-S:ScSS:S---:cS-S
 PP-P:cP-S:ScSc:S---:cS-S
 PP-P:cP-S:c-Sc:S---:cS-S
 PP-P:cP-S:c-Sc:c---:cS-S
-PP-P:cP-S:cP--:S-Sc
+P-P-P---:SucwP---:--cwP---:cwSu--Su
 PP-P:cP-S:cPSS:S---:cS-S
-PP-P:cP-S:cS--:S-Sc
+P-P-P---:SucwP---:--cwSu--:cwSu--Su
 PP-P:cP-S:cSS-:S---:cS--
 PP-P:cP-S:cSS-:S--S:cS--
 PP-P:cP-S:cSS-:S-Sc:cS--
@@ -13870,7 +13870,7 @@ PP-P:cc-S:c-Sc:S---:cS-S
 PP-P:cc-S:c-Sc:c---:cS-S
 PP-P:cc-S:cPSS:S---:cS-S
 PP-P:cc-S:cPSc:c---:cS-S
-PP-P:cc-S:cS--:S-Sc
+P-P-P---:Sucwcw--:--cwSu--:cwSu--Su
 PP-P:cc-S:cSS-:S---:cS--
 PP-P:cc-S:cSS-:S---:cS-S
 PP-P:cc-S:cSS-:S--S:cS--
@@ -14194,7 +14194,7 @@ PPP-:PPP-:c-c-:S-S-:cS-S
 PPP-:PPP-:c-c-:c-S-:cS-S
 PPP-:PPP-:c-cS:S-S-:cS-S
 PPP-:PPP-:c-cS:c-S-:cS-S
-PPP-:PPP-:cP-S:--Sc
+--P-P-P-:--P-P-P-:SucwP---:cw----Su
 PPP-:PPP-:cPPS:S-Pc:cS--
 PPP-:PPP-:cPPS:S-Sc:cS--
 PPP-:PPP-:cPPS:c-Pc:cS--
@@ -14303,7 +14303,7 @@ PPP-:PPS-:cPSS:S---:cS-S
 PPP-:PPS-:cPc-:c-S-:cS-S
 PPP-:PPS-:cPcS:S-S-:cS-S
 PPP-:PPS-:cPcS:c-S-:cS-S
-PPP-:PPS-:cS-S:--Sc
+--P-P-P-:--P-P-Su:SucwSu--:cw----Su
 PPP-:PPS-:cSc-:c-S-:cS-S
 PPP-:PPS-:cScS:c-S-:cS-S
 PPP-:PPS-:ccS-:S---:cS-S
@@ -14431,7 +14431,7 @@ PPP-:PPc-:cPc-:S-S-:cS-S
 PPP-:PPc-:cPc-:c-S-:cS-S
 PPP-:PPc-:cPcS:S-S-:cS-S
 PPP-:PPc-:cPcS:c-S-:cS-S
-PPP-:PPc-:cS-S:--Sc
+--P-P-P-:--P-P-cw:SucwSu--:cw----Su
 PPP-:PPc-:cSS-:S---:cS-S
 PPP-:PPc-:cSS-:S--S:cS--
 PPP-:PPc-:cSS-:c--S:cS--
@@ -15010,7 +15010,7 @@ PPP-:PcP-:cPc-:S-S-:cS-S
 PPP-:PcP-:cPcS:S-S-:cS-S
 PPP-:PcP-:cS--:S--S:cS--
 PPP-:PcP-:cS--:c--S:cS--
-PPP-:PcP-:cS-S:--Sc
+--P-P-P-:--P-cwP-:SucwSu--:cw----Su
 PPP-:PcP-:cS-S:S---:cS--
 PPP-:PcP-:cS-S:c---:cS--
 PPP-:PcP-:cSPS:S-Pc:cS--
@@ -15167,7 +15167,7 @@ PPP-:PcS-:cS--:S---:cS-S
 PPP-:PcS-:cS--:S--S:cS--
 PPP-:PcS-:cS--:c---:cS-S
 PPP-:PcS-:cS--:c--S:cS--
-PPP-:PcS-:cS-S:--Sc
+--P-P-P-:--P-cwSu:SucwSu--:cw----Su
 PPP-:PcS-:cS-S:S---:cS--
 PPP-:PcS-:cS-S:c---:cS--
 PPP-:PcS-:cSc-:S-S-:cS-S
@@ -15513,7 +15513,7 @@ PPP-:SPP-:c-PS:S-Sc:cS--
 PPP-:SPP-:c-PS:c-Pc:cS--
 PPP-:SPP-:c-PS:c-Sc:cS--
 PPP-:SPP-:c-c-:S-S-:cS-S
-PPP-:SPP-:cP-S:--Sc
+--P-P-P-:--SuP-P-:SucwP---:cw----Su
 PPP-:SPP-:cPPS:S-Pc:cS--
 PPP-:SPP-:cPPS:S-Sc:cS--
 PPP-:SPP-:cPPS:c-Pc:cS--
@@ -15604,11 +15604,11 @@ PPP-:SPS-:c-SS:S---:cS-S
 PPP-:SPS-:c-c-:c-S-:cS-S
 PPP-:SPS-:c-cS:S-S-:cS-S
 PPP-:SPS-:c-cS:c-S-:cS-S
-PPP-:SPS-:cP-S:--Sc
+--P-P-P-:--SuP-Su:SucwP---:cw----Su
 PPP-:SPS-:cPc-:S-S-:cS-S
 PPP-:SPS-:cPc-:c-S-:cS-S
 PPP-:SPS-:cPcS:S-S-:cS-S
-PPP-:SPS-:cS-S:--Sc
+--P-P-P-:--SuP-Su:SucwSu--:cw----Su
 PPP-:SPS-:cSc-:S-S-:cS-S
 PPP-:SPS-:cSc-:c-S-:cS-S
 PPP-:SPS-:ccS-:S--S:cS--
@@ -15891,7 +15891,7 @@ PPP-:SSP-:cPPS:c-Pc:cS--
 PPP-:SSP-:cPPS:c-Sc:cS--
 PPP-:SSP-:cPcS:S-S-:cS-S
 PPP-:SSP-:cPcS:c-S-:cS-S
-PPP-:SSP-:cS-S:--Sc
+--P-P-P-:--SuSuP-:SucwSu--:cw----Su
 PPP-:SSP-:cSPS:S-Pc:cS--
 PPP-:SSP-:cSPS:S-Sc:cS--
 PPP-:SSP-:cSPS:c-Pc:cS--
@@ -16287,7 +16287,7 @@ PPP-:ScP-:cPcS:c-S-:cS-S
 PPP-:ScP-:cS--:S--S:cS--
 PPP-:ScP-:cS--:c---:cS-S
 PPP-:ScP-:cS--:c--S:cS--
-PPP-:ScP-:cS-S:--Sc
+--P-P-P-:--SucwP-:SucwSu--:cw----Su
 PPP-:ScP-:cS-S:S---:cS--
 PPP-:ScP-:cS-S:c---:cS--
 PPP-:ScP-:cSPS:S-Pc:cS--
@@ -16437,7 +16437,7 @@ PPP-:ScS-:cPcS:S-S-:cS-S
 PPP-:ScS-:cS--:S--S:cS--
 PPP-:ScS-:cS--:c---:cS-S
 PPP-:ScS-:cS--:c--S:cS--
-PPP-:ScS-:cS-S:--Sc
+--P-P-P-:--SucwSu:SucwSu--:cw----Su
 PPP-:ScS-:cS-S:S---:cS--
 PPP-:ScS-:cS-S:S---:cS-S
 PPP-:ScS-:cS-S:c---:cS--
@@ -16651,7 +16651,7 @@ PPP-:cPP-:c-SS:c---:cS-S
 PPP-:cPP-:c-c-:S-S-:cS-S
 PPP-:cPP-:c-cS:S-S-:cS-S
 PPP-:cPP-:c-cS:c-S-:cS-S
-PPP-:cPP-:cP-S:--Sc
+--P-P-P-:--cwP-P-:SucwP---:cw----Su
 PPP-:cPP-:cPPS:S-Pc:cS--
 PPP-:cPP-:cPPS:S-Sc:cS--
 PPP-:cPP-:cPPS:c-Pc:cS--
@@ -16845,7 +16845,7 @@ PPP-:cSP-:cPPS:c-Pc:cS--
 PPP-:cSP-:cPPS:c-Sc:cS--
 PPP-:cSP-:cPSS:S---:cS-S
 PPP-:cSP-:cPSS:c---:cS-S
-PPP-:cSP-:cS-S:--Sc
+--P-P-P-:--cwSuP-:SucwSu--:cw----Su
 PPP-:cSP-:cSPS:S-Pc:cS--
 PPP-:cSP-:cSPS:S-Sc:cS--
 PPP-:cSP-:cSPS:c-Pc:cS--
@@ -16935,7 +16935,7 @@ PPP-:cSc-:cPSS:S---:cS-S
 PPP-:cSc-:cPSS:c---:cS-S
 PPP-:cSc-:cPc-:c-S-:cS-S
 PPP-:cSc-:cPcS:c-S-:cS-S
-PPP-:cSc-:cS-S:--Sc
+--P-P-P-:--cwSucw:SucwSu--:cw----Su
 PPP-:cSc-:cSS-:S--S:cS--
 PPP-:cSc-:cSS-:c---:cS-S
 PPP-:cSc-:cSS-:c--S:cS--
@@ -17125,7 +17125,7 @@ PPP-:ccS-:cPcS:c-S-:cS-S
 PPP-:ccS-:cS--:S--S:cS--
 PPP-:ccS-:cS--:c---:cS-S
 PPP-:ccS-:cS--:c--S:cS--
-PPP-:ccS-:cS-S:--Sc
+--P-P-P-:--cwcwSu:SucwSu--:cw----Su
 PPP-:ccS-:cS-S:S---:cS--
 PPP-:ccS-:cS-S:c---:cS--
 PPP-:ccS-:cS-S:c---:cS-S
@@ -17179,7 +17179,7 @@ PPP-:ccc-:cPSS:c---:cS-S
 PPP-:ccc-:cPc-:c-S-:cS-S
 PPP-:ccc-:cPcS:S-S-:cS-S
 PPP-:ccc-:cPcS:c-S-:cS-S
-PPP-:ccc-:cS-S:--Sc
+--P-P-P-:--cwcwcw:SucwSu--:cw----Su
 PPP-:ccc-:cSS-:S--S:cS--
 PPP-:ccc-:cSS-:c--S:cS--
 PPP-:ccc-:cSc-:S-S-:cS-S
@@ -19250,7 +19250,7 @@ PPPP:PPSS:Sccc:-SS-:cS-S
 PPPP:PPSS:Sccc:S-S-:cS-S
 PPPP:PPSS:c-c-:S-S-:cS-S
 PPPP:PPSS:c-c-:c-S-:cS-S
-PPPP:PPSS:cP--:S-Sc
+P-P-P-P-:SuP-P-Su:--cwP---:cwSu--Su
 PPPP:PPSS:cPSc:S---:cS-S
 PPPP:PPSS:cPSc:c---:cS-S
 PPPP:PPSS:cPc-:S-S-:cS-S
@@ -21841,7 +21841,7 @@ PPPP:PSSS:cPcP:S-S-:cS-S
 PPPP:PSSS:cPcP:c-S-:cS-S
 PPPP:PSSS:cPcS:S-S-:cS-S
 PPPP:PSSS:cPcS:c-S-:cS-S
-PPPP:PSSS:cS--:S-Sc
+P-P-P-P-:SuP-SuSu:--cwSu--:cwSu--Su
 PPPP:PSSS:cSSc:S---:cS-S
 PPPP:PSSS:cSSc:c---:cS-S
 PPPP:PSSS:cSc-:S-S-:cS-S
@@ -23603,7 +23603,7 @@ PPPP:PcPS:cPcS:c-S-:cS-S
 PPPP:PcPS:cPcc:S-S-:cS-S
 PPPP:PcPS:cS--:S---:cS-S
 PPPP:PcPS:cS--:S--S:cS--
-PPPP:PcPS:cS--:S-Sc
+P-P-P-P-:SuP-cwP-:--cwSu--:cwSu--Su
 PPPP:PcPS:cS--:c--S:cS--
 PPPP:PcPS:cS-P:S---:cS-S
 PPPP:PcPS:cS-S:c---:cS-S
@@ -25349,7 +25349,7 @@ PPPP:PccS:cPc-:S-S-:cS-S
 PPPP:PccS:cPcS:S-S-:cS-S
 PPPP:PccS:cPcS:c-S-:cS-S
 PPPP:PccS:cPcc:S-S-:cS-S
-PPPP:PccS:cS--:S-Sc
+P-P-P-P-:SuP-cwcw:--cwSu--:cwSu--Su
 PPPP:PccS:cSS-:S--S:cS--
 PPPP:PccS:cSS-:c---:cS-S
 PPPP:PccS:cSS-:c--S:cS--
@@ -26964,7 +26964,7 @@ PPPP:SPPS:c-c-:S-S-:cS-S
 PPPP:SPPS:c-cS:c-S-:cS-S
 PPPP:SPPS:c-cc:S-S-:cS-S
 PPPP:SPPS:c-cc:c-S-:cS-S
-PPPP:SPPS:cP--:S-Sc
+P-P-P-P-:SuSuP-P-:--cwP---:cwSu--Su
 PPPP:SPPS:cPP-:S-Pc:cS--
 PPPP:SPPS:cPP-:c-Pc:cS--
 PPPP:SPPS:cPSc:c---:cS-S
@@ -28014,7 +28014,7 @@ PPPP:SPSS:c-cP:c-S-:cS-S
 PPPP:SPSS:c-cS:S-S-:cS-S
 PPPP:SPSS:c-cS:c-S-:cS-S
 PPPP:SPSS:c-cc:S-S-:cS-S
-PPPP:SPSS:cP--:S-Sc
+P-P-P-P-:SuSuP-Su:--cwP---:cwSu--Su
 PPPP:SPSS:cP-c:S---:cS-S
 PPPP:SPSS:cPSc:c---:cS-S
 PPPP:SPSS:cPc-:S-S-:cS-S
@@ -32579,7 +32579,7 @@ PPPP:SScS:cPSP:c---:cS-S
 PPPP:SScS:cPcP:S-S-:cS-S
 PPPP:SScS:cPcP:c-S-:cS-S
 PPPP:SScS:cPcS:S-S-:cS-S
-PPPP:SScS:cS--:S-Sc
+P-P-P-P-:SuSuSucw:--cwSu--:cwSu--Su
 PPPP:SScS:cSS-:S--S:cS--
 PPPP:SScS:cSS-:c--S:cS--
 PPPP:SScS:cSSP:S---:cS-S
@@ -36688,7 +36688,7 @@ PPPP:cPPS:c-c-:c-S-:cS-S
 PPPP:cPPS:c-cP:S-S-:cS-S
 PPPP:cPPS:c-cS:c-S-:cS-S
 PPPP:cPPS:c-cc:c-S-:cS-S
-PPPP:cPPS:cP--:S-Sc
+P-P-P-P-:SucwP-P-:--cwP---:cwSu--Su
 PPPP:cPPS:cPP-:S-Pc:cS--
 PPPP:cPPS:cPP-:c-Pc:cS--
 PPPP:cPPS:cPPc:c---:cS-S
@@ -36700,7 +36700,7 @@ PPPP:cPPS:cPcP:c-S-:cS-S
 PPPP:cPPS:cPcS:S-S-:cS-S
 PPPP:cPPS:cPcS:c-S-:cS-S
 PPPP:cPPS:cPcc:c-S-:cS-S
-PPPP:cPPS:cS--:S-Sc
+P-P-P-P-:SucwP-P-:--cwSu--:cwSu--Su
 PPPP:cPPS:cSP-:S-Pc:cS--
 PPPP:cPPS:cSP-:c-Pc:cS--
 PPPP:cPPS:cSPc:S---:cS-S
@@ -37502,7 +37502,7 @@ PPPP:cSPS:cPc-:c-S-:cS-S
 PPPP:cSPS:cPcP:S-S-:cS-S
 PPPP:cSPS:cPcP:c-S-:cS-S
 PPPP:cSPS:cPcc:S-S-:cS-S
-PPPP:cSPS:cS--:S-Sc
+P-P-P-P-:SucwSuP-:--cwSu--:cwSu--Su
 PPPP:cSPS:cSP-:S-Pc:cS--
 PPPP:cSPS:cSP-:c-Pc:cS--
 PPPP:cSPS:cSSc:S---:cS-S
@@ -38875,7 +38875,7 @@ PPPP:cccS:cPcP:S-S-:cS-S
 PPPP:cccS:cPcS:c-S-:cS-S
 PPPP:cccS:cPcc:S-S-:cS-S
 PPPP:cccS:cPcc:c-S-:cS-S
-PPPP:cccS:cS--:S-Sc
+P-P-P-P-:Sucwcwcw:--cwSu--:cwSu--Su
 PPPP:cccS:cSS-:S--S:cS--
 PPPP:cccS:cSS-:c--S:cS--
 PPPP:cccS:cSSP:c---:cS-S

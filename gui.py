@@ -226,126 +226,42 @@ class SearchFilterThread(QThread):
         self._cancel_requested = True
     
     def _parse_search_pattern(self, keyword):
-        """검색 패턴을 파싱하여 특수 문자를 처리합니다."""
+        """검색 패턴을 파싱하여 정규표현식으로 변환합니다."""
         if not keyword:
             return {
-                'clean_keyword': '',
-                'exact_match': False,
-                'starts_with': False,
-                'ends_with': False,
+                'regex_pattern': '',
                 'original': keyword
             }
         
-        # 특수 문자 처리
-        clean_keyword = keyword
-        exact_match = False
-        starts_with = False
-        ends_with = False
-        
-        # ^pattern$ : 정확히 일치
-        if keyword.startswith('^') and keyword.endswith('$'):
-            clean_keyword = keyword[1:-1]
-            exact_match = True
-        # ^pattern : 시작 부분 일치
-        elif keyword.startswith('^'):
-            clean_keyword = keyword[1:]
-            starts_with = True
-        # pattern$ : 끝 부분 일치  
-        elif keyword.endswith('$'):
-            clean_keyword = keyword[:-1]
-            ends_with = True
+        # '_'를 '.'로 변환 (와일드카드)
+        regex_pattern = keyword.replace('_', '.')
         
         return {
-            'clean_keyword': clean_keyword,
-            'exact_match': exact_match,
-            'starts_with': starts_with,
-            'ends_with': ends_with,
+            'regex_pattern': regex_pattern,
             'original': keyword
         }
     
     def _matches_simplified_string(self, simplified_str, search_keyword):
         """단순화된 문자열에서 검색어 패턴을 매칭합니다."""
         try:
-            # 특수 문자 파싱
+            # 정규표현식 패턴 파싱
             search_pattern = self._parse_search_pattern(search_keyword)
             target_str = simplified_str.lower()
-            pattern_str = search_pattern['clean_keyword'].lower()
+            regex_pattern = search_pattern['regex_pattern'].lower()
             
-            # 모든 검색을 와일드카드 지원 매칭으로 통일
-            if search_pattern['exact_match']:
-                # ^pattern$ : 정확히 일치 (와일드카드 지원)
-                return self._matches_with_wildcard_exact(target_str, pattern_str)
-            elif search_pattern['starts_with']:
-                # ^pattern : 시작 부분 일치 (와일드카드 지원)
-                return self._matches_with_wildcard_starts(target_str, pattern_str)
-            elif search_pattern['ends_with']:
-                # pattern$ : 끝 부분 일치 (와일드카드 지원)
-                return self._matches_with_wildcard_ends(target_str, pattern_str)
-            else:
-                # pattern : 포함 여부 (와일드카드 지원)
-                return self._matches_with_wildcard(target_str, pattern_str)
+            # 빈 패턴이면 모든 문자열과 매칭
+            if not regex_pattern:
+                return True
+            
+            # 정규표현식으로 매칭
+            import re
+            return bool(re.search(regex_pattern, target_str))
         except Exception:
             return False
     
-    def _matches_with_wildcard(self, target_str, pattern_str):
-        """와일드카드 '_'를 지원하는 포함 검색"""
-        try:
-            # '_'가 없으면 단순 포함 검색
-            if '_' not in pattern_str:
-                return pattern_str in target_str
-            
-            # '_'가 있으면 정규식 패턴으로 변환하여 매칭
-            import re
-            # '_'를 '.'로 변환 (모든 문자와 매칭)
-            regex_pattern = pattern_str.replace('_', '.')
-            return bool(re.search(regex_pattern, target_str))
-        except Exception:
-            return pattern_str in target_str
+
     
-    def _matches_with_wildcard_exact(self, target_str, pattern_str):
-        """와일드카드 '_'를 지원하는 정확한 일치 검색"""
-        try:
-            # '_'가 없으면 단순 정확 일치
-            if '_' not in pattern_str:
-                return target_str == pattern_str
-            
-            # '_'가 있으면 정규식 패턴으로 변환하여 매칭
-            import re
-            # '_'를 '.'로 변환, 전체 문자열과 정확히 매칭
-            regex_pattern = '^' + pattern_str.replace('_', '.') + '$'
-            return bool(re.match(regex_pattern, target_str))
-        except Exception:
-            return target_str == pattern_str
-    
-    def _matches_with_wildcard_starts(self, target_str, pattern_str):
-        """와일드카드 '_'를 지원하는 시작 부분 일치 검색"""
-        try:
-            # '_'가 없으면 단순 시작 부분 일치
-            if '_' not in pattern_str:
-                return target_str.startswith(pattern_str)
-            
-            # '_'가 있으면 정규식 패턴으로 변환하여 매칭
-            import re
-            # '_'를 '.'로 변환, 시작 부분만 매칭
-            regex_pattern = '^' + pattern_str.replace('_', '.')
-            return bool(re.match(regex_pattern, target_str))
-        except Exception:
-            return target_str.startswith(pattern_str)
-    
-    def _matches_with_wildcard_ends(self, target_str, pattern_str):
-        """와일드카드 '_'를 지원하는 끝 부분 일치 검색"""
-        try:
-            # '_'가 없으면 단순 끝 부분 일치
-            if '_' not in pattern_str:
-                return target_str.endswith(pattern_str)
-            
-            # '_'가 있으면 정규식 패턴으로 변환하여 매칭
-            import re
-            # '_'를 '.'로 변환, 끝 부분만 매칭
-            regex_pattern = pattern_str.replace('_', '.') + '$'
-            return bool(re.search(regex_pattern, target_str))
-        except Exception:
-            return target_str.endswith(pattern_str)
+
     
     def _simplify_shape_to_string(self, target_shape):
         """Shape를 단순화된 문자열로 변환합니다."""
@@ -382,7 +298,7 @@ class SearchFilterThread(QThread):
                 target_shape = Shape.from_string(code)
                 simplified_str = simplify_shape(str(target_shape))
                 
-                # 검색어 패턴 매칭 (^, $, _ 모두 지원)
+                # 검색어 패턴 매칭 (정규표현식 지원)
                 return self._matches_simplified_string(simplified_str, self.keyword)
             except Exception:
                 # Shape 변환 실패 시 원본 문자열로 검색
@@ -3605,6 +3521,12 @@ class ShapezGUI(QMainWindow):
         self.cornerize_btn.setText(_("ui.btn.cornerize"))
         self.cornerize_btn.setToolTip(_("tooltip.cornerize"))
         
+        # 데이터 탭들의 UI 재번역
+        for i in range(self.data_tabs.count()):
+            tab_widget = self.data_tabs.widget(i)
+            if hasattr(tab_widget, '_retranslate_ui'):
+                tab_widget._retranslate_ui()
+        
 
 
     def setup_enter_key_for_apply(self):
@@ -5617,6 +5539,7 @@ class DataTabWidget(QWidget):
 
         # 검색 라벨 + 입력
         self.search_label = QLabel(_("ui.datatab.search"))
+        self.search_label.setToolTip(_("ui.datatab.search.tooltip"))
         control_layout.addWidget(self.search_label)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(_("ui.datatab.search.placeholder"))
@@ -7130,6 +7053,14 @@ class DataTabWidget(QWidget):
         
         # 연산에 따른 필드 상태 업데이트
         self.on_operation_changed(self.operation_combo.currentText())
+
+    def _retranslate_ui(self):
+        """UI 텍스트를 현재 언어로 재번역"""
+        self.search_label.setText(_("ui.datatab.search"))
+        self.search_label.setToolTip(_("ui.datatab.search.tooltip"))
+        self.search_input.setPlaceholderText(_("ui.datatab.search.placeholder"))
+        self.visualization_checkbox.setText(_("ui.datatab.visualize"))
+        self.visualization_checkbox.setToolTip(_("ui.datatab.visualize"))
 
     def closeEvent(self, event):
         """탭이 닫힐 때 스레드 정리"""
