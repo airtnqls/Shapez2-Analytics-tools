@@ -128,7 +128,7 @@ def solve_shape_simple(shape: str, shape_obj: Shape = None) -> str:
 
 if __name__ == "__main__":
     # 테스트 코드
-    from i18n import _
+    from i18n import t
     test_shapes = [
         "SSSS:----",  # 단순 기하형
         "SSSS:cccc",  # _("solver.test.claw_possibility")

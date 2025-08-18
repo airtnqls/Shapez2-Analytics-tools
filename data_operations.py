@@ -4,7 +4,7 @@ GUI에서 데이터 처리 작업을 수행하는 함수들을 포함합니다.
 """
 
 from typing import List, Optional, Tuple
-from i18n import _
+from i18n import t
 from shape import Shape
 from shape_classifier import analyze_shape, ShapeType
 
@@ -183,9 +183,9 @@ def hybrid_shape(shape_code: str) -> List[str]:
         if not shape_code.strip():
             return ["", ""]
         
-        from hybrid_tracer import HybridTracer
+        from hybrid_tracer import hybrid
         shape = Shape.from_string(shape_code)
-        output_a, output_b = HybridTracer.hybrid(shape)
+        output_a, output_b = hybrid(shape)
         
         # 두 개의 별도 결과 반환
         result_a = repr(output_a) if output_a.layers else ""
@@ -262,18 +262,18 @@ def process_batch_operation(shape_code: str, operation_name: str, input_b_text: 
             return repr(res_a), append_values
         elif operation_name == "stack":
             if not input_b_text:
-                return _("error.input.b.empty"), []
+                return t("error.input.b.empty"), []
             shape_b = Shape.from_string(input_b_text)
             result_shape = Shape.stack(shape, shape_b)
         elif operation_name == "swap":
             if not input_b_text:
-                return _("error.input.b.empty"), []
+                return t("error.input.b.empty"), []
             shape_b = Shape.from_string(input_b_text)
             result_a, result_b = Shape.swap(shape, shape_b)
             append_values.append(repr(result_b))
             return repr(result_a), append_values
         
-        return (repr(result_shape) if result_shape is not None else _("ui.table.error", error="no result")), append_values
+        return (repr(result_shape) if result_shape is not None else t("ui.table.error", error="no result")), append_values
         
     except Exception as e:
         return f"오류: {str(e)}", []

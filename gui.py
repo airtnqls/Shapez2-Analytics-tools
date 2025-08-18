@@ -22,14 +22,14 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPo
 # shape.py에서 백엔드 클래스를 임포트합니다.
 from shape import Quadrant, Shape, ReverseTracer, InterruptedError
 from process_tree_solver import process_tree_solver, ProcessNode
-from i18n import load_locales, _, set_language
+from i18n import load_locales, t, set_language
 from data_operations import (
     get_data_directory, simplify_shape, detail_shape, corner_1q_shape,
     reverse_shape, corner_shape_for_gui, claw_shape_for_gui, mirror_shape_for_gui,
     cornerize_shape, hybrid_shape, remove_impossible_shapes, process_batch_operation,
     calculate_complexity, parse_shape_or_none
 )
-from hybrid_tracer import HybridTracer
+ 
 
 def get_resource_path(relative_path):
     """PyInstaller 빌드 후에도 리소스 파일을 찾을 수 있도록 하는 함수"""
@@ -124,7 +124,7 @@ class OriginFinderThread(QThread):
 
     def run(self):
         # i18n 함수를 명시적으로 참조
-        from i18n import _
+        from i18n import t
         total_steps = 4 + (4 * 2) + 1
         step = 0
 
@@ -143,26 +143,26 @@ class OriginFinderThread(QThread):
                     self.candidate_found.emit()
 
         try:
-            update_progress(_("log.reverse_tracing.physics"))
-            self.log(_("log.reverse_tracing.physics.search"))
+            update_progress(t("log.reverse_tracing.physics"))
+            self.log(t("log.reverse_tracing.physics.search"))
             cands = ReverseTracer.inverse_apply_physics(self.target_shape, self.search_depth, self.max_physics_height, self)
             add_candidates(cands)
             if self.is_cancelled: raise InterruptedError
             
-            update_progress(_("log.reverse_tracing.pin_pusher"))
-            self.log(_("log.reverse_tracing.pin_pusher.search"))
+            update_progress(t("log.reverse_tracing.pin_pusher"))
+            self.log(t("log.reverse_tracing.pin_pusher.search"))
             cands = ReverseTracer.inverse_push_pin(self.target_shape, self.search_depth, self.max_physics_height, self)
             add_candidates(cands)
             if self.is_cancelled: raise InterruptedError
 
-            update_progress(_("log.reverse_tracing.crystal_generator"))
-            self.log(_("log.reverse_tracing.crystal_generator.search"))
+            update_progress(t("log.reverse_tracing.crystal_generator"))
+            self.log(t("log.reverse_tracing.crystal_generator.search"))
             cands = ReverseTracer.inverse_crystal_generator(self.target_shape, self.search_depth, self)
             add_candidates(cands)
             if self.is_cancelled: raise InterruptedError
             
-            update_progress(_("log.reverse_tracing.stacker"))
-            self.log(_("log.reverse_tracing.stacker.search"))
+            update_progress(t("log.reverse_tracing.stacker"))
+            self.log(t("log.reverse_tracing.stacker.search"))
             cands = ReverseTracer.inverse_stack(self.target_shape, self.search_depth, self)
             add_candidates(cands)
             if self.is_cancelled: raise InterruptedError
@@ -171,20 +171,20 @@ class OriginFinderThread(QThread):
                 rotated_target = self.target_shape.copy()
                 for _j in range(i): rotated_target = rotated_target.rotate(clockwise=True)
                 
-                update_progress(_("log.reverse_tracing.half_destroyer.rotation", rotation=i+1))
-                self.log(_("log.reverse_tracing.half_destroyer.search", rotation=i+1))
+                update_progress(t("log.reverse_tracing.half_destroyer.rotation", rotation=i+1))
+                self.log(t("log.reverse_tracing.half_destroyer.search", rotation=i+1))
                 cands_dh = ReverseTracer.inverse_destroy_half(rotated_target, i, self.search_depth, self)
                 add_candidates(cands_dh)
                 if self.is_cancelled: raise InterruptedError
                 
-                update_progress(_("log.reverse_tracing.swapper.rotation", rotation=i+1))
-                self.log(_("log.reverse_tracing.swapper.search", rotation=i+1))
+                update_progress(t("log.reverse_tracing.swapper.rotation", rotation=i+1))
+                self.log(t("log.reverse_tracing.swapper.search", rotation=i+1))
                 cands_sw = ReverseTracer.inverse_swap(rotated_target, i, self.search_depth, self)
                 add_candidates(cands_sw)
                 if self.is_cancelled: raise InterruptedError
 
-            update_progress(_("log.reverse_tracing.remove_duplicates"))
-            self.log(_("log.reverse_tracing.remove_duplicates.search"))
+            update_progress(t("log.reverse_tracing.remove_duplicates"))
+            self.log(t("log.reverse_tracing.remove_duplicates.search"))
             unique_candidates = []
             seen_canonical_keys = set()
             for op_name, origin_shape in self.candidates:
@@ -198,7 +198,7 @@ class OriginFinderThread(QThread):
                 self.finished.emit(unique_candidates)
 
         except InterruptedError:
-            self.log(_("log.reverse_tracing.canceled"))
+            self.log(t("log.reverse_tracing.canceled"))
             unique_candidates = []
             seen_canonical_keys = set()
             for op_name, origin_shape in self.candidates:
@@ -579,7 +579,7 @@ class ShapeWidget(QFrame):
                 grid_layout.addWidget(empty_quadrant, start_row, j + 1)
             
             # 중앙에 빈 도형 라벨 추가 (전체 4개 열에 걸쳐 배치하여 가로 중앙 정렬)
-            destroyed_label = QLabel(_("ui.shape.destroyed"))
+            destroyed_label = QLabel(t("ui.shape.destroyed"))
             destroyed_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             destroyed_label.setStyleSheet("QLabel { color: #888888; font-weight: bold; font-size: 12px; }")
             
@@ -590,7 +590,7 @@ class ShapeWidget(QFrame):
         input_name = input_name
         # 입력 이름이 명시되었으면 헤더 표시, 아니면 제목 기반 감지
         show_headers = input_name is not None
-        if not show_headers and self.title and self.title.startswith(_("ui.input.prefix")):
+        if not show_headers and self.title and self.title.startswith(t("ui.input.prefix")):
             input_name = self.title.split(" ")[1]
             show_headers = True
 
@@ -896,7 +896,7 @@ class DataHistory:
 class ShapezGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(_("app.title"))
+        self.setWindowTitle(t("app.title"))
         self._setup_language_ui_done = False
 
         # QSettings 초기화 및 저장된 언어 로드
@@ -999,39 +999,39 @@ class ShapezGUI(QMainWindow):
                 if os.path.exists(user_test_path):
                     with open(user_test_path, "r", encoding="utf-8") as f:
                         self.test_data = json.load(f)
-                    self.log(_("log.program.start", file="user_tests.json"))
+                    self.log(t("log.program.start", file="user_tests.json"))
                 else:
                     # user_tests.json이 없으면 원본 tests.json 로드
                     with open(default_test_path, "r", encoding="utf-8") as f:
                         self.test_data = json.load(f)
-                    self.log(_("log.program.start", file="tests.json"))
+                    self.log(t("log.program.start", file="tests.json"))
                 
                 # 카테고리 목록 업데이트 (로컬라이징 적용)
                 self.category_combo.clear()
                 for category in self.test_data.keys():
-                    localized_category = _(category)
+                    localized_category = t(category)
                     self.category_combo.addItem(localized_category, userData=category)
                 
                 # 테스트 케이스 목록 업데이트
                 self.refresh_test_cases_list()
                 
                 total_count = sum(len(tests) for tests in self.test_data.values())
-                self.log(_("log.tests.loaded", count=total_count))
+                self.log(t("log.tests.loaded", count=total_count))
                 
             except FileNotFoundError:
                 # 두 파일 모두 없는 경우 빈 데이터로 초기화
                 self.test_data = {}
-                self.log(_("log.test.file_not_found"))
+                self.log(t("log.test.file_not_found"))
             except Exception as e:
-                self.log(_("log.test.load_error", error=str(e)))
+                self.log(t("log.test.load_error", error=str(e)))
                 # 오류가 발생해도 빈 데이터로 초기화
                 self.test_data = {}
         
         def save_test_cases(self):
             """현재 테스트 케이스를 user_tests.json 파일에 저장합니다."""
             # 저장 확인창 표시
-            reply = QMessageBox.question(self, _("ui.msg.title.confirm"), 
-                                       _("ui.msg.confirm_save_tests"),
+            reply = QMessageBox.question(self, t("ui.msg.title.confirm"), 
+                                       t("ui.msg.confirm_save_tests"),
                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             
             if reply != QMessageBox.StandardButton.Yes:
@@ -1043,12 +1043,12 @@ class ShapezGUI(QMainWindow):
                     json.dump(self.test_data, f, ensure_ascii=False, indent=2)
                 
                 total_count = sum(len(tests) for tests in self.test_data.values())
-                self.log(_("log.test.saved", count=total_count))
+                self.log(t("log.test.saved", count=total_count))
                 
             except Exception as e:
-                self.log(_("log.test.save_error", error=str(e)))
-                QMessageBox.critical(self, _("ui.msg.title.error"), 
-                                   _("ui.msg.save_error", error=str(e)))
+                self.log(t("log.test.save_error", error=str(e)))
+                QMessageBox.critical(self, t("ui.msg.title.error"), 
+                                   t("ui.msg.save_error", error=str(e)))
         
         def refresh_test_cases_list(self):
             """테스트 케이스 목록을 새로고침합니다."""
@@ -1063,7 +1063,7 @@ class ShapezGUI(QMainWindow):
             for category, tests in self.test_data.items():
                 for test in tests:
                     # 카테고리 (편집 불가, 로컬라이징 적용)
-                    localized_category = _(category)
+                    localized_category = t(category)
                     category_item = QTableWidgetItem(localized_category)
                     category_item.setData(Qt.ItemDataRole.UserRole, (category, test))
                     category_item.setFlags(category_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
@@ -1113,14 +1113,14 @@ class ShapezGUI(QMainWindow):
                 self.test_data = {}
             
             # 기본 카테고리 선택
-            category = self.category_combo.currentText() or _("ui.category.new")
+            category = self.category_combo.currentText() or t("ui.category.new")
             if category not in self.test_data:
                 self.test_data[category] = []
                 self.category_combo.addItem(category)
             
             # 새 테스트 케이스 생성
             new_test = {
-                "name": _("ui.test.new"),
+                "name": t("ui.test.new"),
                 "operation": self.operation_combo.currentText(),
                 "input_a": "",
                 "input_b": "",
@@ -1138,7 +1138,7 @@ class ShapezGUI(QMainWindow):
                 self.test_cases_table.selectRow(last_row)
                 self.on_test_case_selected()
             
-            self.log(_("log.test.added"))
+            self.log(t("log.test.added"))
         
         def on_input_field_changed(self):
             """입력 필드가 변경되었을 때 자동으로 테스트 케이스를 업데이트합니다."""
@@ -1201,7 +1201,7 @@ class ShapezGUI(QMainWindow):
             
             # 전체 리프레시 대신 현재 행의 표시 텍스트만 갱신 (선택 유지)
             # 카테고리 텍스트
-            localized_category = _(new_category if (new_category and new_category in self.test_data) else old_category)
+            localized_category = t(new_category if (new_category and new_category in self.test_data) else old_category)
             self.test_cases_table.item(current_row, 0).setText(localized_category)
             # 테스트명 텍스트
             self.test_cases_table.item(current_row, 1).setText(test_name)
@@ -1229,23 +1229,23 @@ class ShapezGUI(QMainWindow):
             context_menu = QMenu(self.test_cases_table)
             
             # 복사 기능 (해당 행 아래에 완전히 같은 테스트케이스 추가)
-            copy_action = context_menu.addAction(_("ui.ctx.copy"))
+            copy_action = context_menu.addAction(t("ui.ctx.copy"))
             copy_action.triggered.connect(self.on_copy_test_case)
             
             # 추가 기능 (빈 테스트케이스 추가)
-            add_action = context_menu.addAction(_("ui.ctx.add"))
+            add_action = context_menu.addAction(t("ui.ctx.add"))
             add_action.triggered.connect(self.on_add_empty_test_case)
             
             context_menu.addSeparator()
             
             # 테스트 실행 기능
-            run_action = context_menu.addAction(_("ui.ctx.run"))
+            run_action = context_menu.addAction(t("ui.ctx.run"))
             run_action.triggered.connect(self.on_run_single_test)
             
             context_menu.addSeparator()
             
             # 삭제 기능
-            delete_action = context_menu.addAction(_("ui.ctx.delete"))
+            delete_action = context_menu.addAction(t("ui.ctx.delete"))
             delete_action.triggered.connect(self.delete_test_case)
             
             # 컨텍스트 메뉴 표시
@@ -1353,7 +1353,7 @@ class ShapezGUI(QMainWindow):
                     # 편집 필드에 빈 테스트케이스 정보 설정
                     self.on_test_case_selected()
                     
-                    self.log(_("log.test.empty_added", category=category))
+                    self.log(t("log.test.empty_added", category=category))
         
         def on_run_single_test(self):
             """선택된 테스트 케이스를 실행하고 결과를 검증합니다."""
@@ -1381,7 +1381,7 @@ class ShapezGUI(QMainWindow):
             params = test.get('params', {})
             
             if not input_a_str:
-                self.log(_("ui.test.failed", name=name) + f" - {_('ui.test.input_a')} {_('log.test.input_a.empty')}")
+                self.log(t("ui.test.failed", name=name) + f" - {t('ui.test.input_a')} {t('log.test.input_a.empty')}")
                 return
             
             # 입력 필드에 테스트 데이터 설정
@@ -1399,7 +1399,7 @@ class ShapezGUI(QMainWindow):
                 # swap 연산 처리 (이중 입력/출력)
                 if operation == "swap":
                     if not input_b_str:
-                        self.log(_("ui.test.failed", name=name) + f" - {_('log.operation.swap_requires_b', input_b=_('ui.test.input_b'))}")
+                        self.log(t("ui.test.failed", name=name) + f" - {t('log.operation.swap_requires_b', input_b=t('ui.test.input_b'))}")
                         return
                     
                     shape_b = Shape.from_string(input_b_str)
@@ -1412,15 +1412,15 @@ class ShapezGUI(QMainWindow):
                     
                     # 결과 검증
                     if actual_a_code == expected_a_code and actual_b_code == expected_b_code:
-                        self.log(_("ui.test.passed", name=name))
-                        self.log(f"  - {_('ui.test.input_a')}: {input_a_str}, {_('ui.test.input_b')}: {input_b_str}")
-                        self.log(f"  - {_('ui.test.expected')}A: {expected_a_code}, {_('ui.test.expected')}B: {expected_b_code}")
-                        self.log(f"  - {_('ui.test.actual')}A: {actual_a_code}, {_('ui.test.actual')}B: {actual_b_code}")
+                        self.log(t("ui.test.passed", name=name))
+                        self.log(f"  - {t('ui.test.input_a')}: {input_a_str}, {t('ui.test.input_b')}: {input_b_str}")
+                        self.log(f"  - {t('ui.test.expected')}A: {expected_a_code}, {t('ui.test.expected')}B: {expected_b_code}")
+                        self.log(f"  - {t('ui.test.actual')}A: {actual_a_code}, {t('ui.test.actual')}B: {actual_b_code}")
                     else:
-                        self.log(_("ui.test.failed", name=name))
-                        self.log(f"  - {_('ui.test.input_a')}: {input_a_str}, {_('ui.test.input_b')}: {input_b_str}")
-                        self.log(f"  - {_('ui.test.expected')}A: {expected_a_code}, {_('ui.test.expected')}B: {expected_b_code}")
-                        self.log(f"  - {_('ui.test.actual')}A: {actual_a_code}, {_('ui.test.actual')}B: {actual_b_code}")
+                        self.log(t("ui.test.failed", name=name))
+                        self.log(f"  - {t('ui.test.input_a')}: {input_a_str}, {t('ui.test.input_b')}: {input_b_str}")
+                        self.log(f"  - {t('ui.test.expected')}A: {expected_a_code}, {t('ui.test.expected')}B: {expected_b_code}")
+                        self.log(f"  - {t('ui.test.actual')}A: {actual_a_code}, {t('ui.test.actual')}B: {actual_b_code}")
                     return
                 
                 # classifier 연산 처리 (특별한 출력 형식)
@@ -1430,41 +1430,41 @@ class ShapezGUI(QMainWindow):
                     
                     # 분류 결과의 다국어 매핑 (여러 로컬라이즈 지원)
                     classification_mappings = {
-                        _("enum.shape_type.swapable"): ["swap", "swapable", _("enum.shape_type.swapable")],
-                        "swap": [_("enum.shape_type.swapable"), _("enum.shape_type.swapable"), "swapable"],
-                        "swapable": [_("enum.shape_type.swapable"), _("enum.shape_type.swapable"), "swap"],
-                        _("enum.shape_type.claw"): ["claw"],
-                        "claw": [_("enum.shape_type.claw")],
-                        _("enum.shape_type.hybrid"): ["hybrid"],
-                        "hybrid": [_("enum.shape_type.hybrid")],
-                        _("enum.shape_type.simple_geometric"): ["simple_geometric", "simple geometric"],
-                        "simple_geometric": [_("enum.shape_type.simple_geometric"), "simple geometric"],
-                        "simple geometric": [_("enum.shape_type.simple_geometric"), "simple_geometric"],
-                        _("enum.shape_type.simple_corner"): ["simple_corner", "simple corner"],
-                        "simple_corner": [_("enum.shape_type.simple_corner"), "simple corner"],
-                        "simple corner": [_("enum.shape_type.simple_corner"), "simple_corner"],
-                        _("enum.shape_type.stack_corner"): ["stack_corner", "stack corner"],
-                        "stack_corner": [_("enum.shape_type.stack_corner"), "stack corner"],
-                        "stack corner": [_("enum.shape_type.stack_corner"), "stack_corner"],
-                        _("enum.shape_type.swap_corner"): ["swap_corner", "swap corner"],
-                        "swap_corner": [_("enum.shape_type.swap_corner"), "swap corner"],
-                        "swap corner": [_("enum.shape_type.swap_corner"), "swap_corner"],
-                        _("enum.shape_type.claw_corner"): ["claw_corner", "claw corner"],
-                        "claw_corner": [_("enum.shape_type.claw_corner"), "claw corner"],
-                        "claw corner": [_("enum.shape_type.claw_corner"), "claw_corner"],
-                        _("enum.shape_type.complex_hybrid"): ["complex_hybrid", "complex hybrid"],
-                        "complex_hybrid": [_("enum.shape_type.complex_hybrid"), "complex hybrid"],
-                        "complex hybrid": [_("enum.shape_type.complex_hybrid"), "complex_hybrid"],
-                        _("enum.shape_type.claw_hybrid"): ["claw_hybrid", "claw hybrid"],
-                        "claw_hybrid": [_("enum.shape_type.claw_hybrid"), "claw hybrid"],
-                        "claw hybrid": [_("enum.shape_type.claw_hybrid"), "claw_hybrid"],
-                        _("enum.shape_type.claw_complex_hybrid"): ["claw_complex_hybrid", "claw complex hybrid"],
-                        "claw_complex_hybrid": [_("enum.shape_type.claw_complex_hybrid"), "claw complex hybrid"],
-                        "claw complex hybrid": [_("enum.shape_type.claw_complex_hybrid"), "claw_complex_hybrid"],
-                        _("enum.shape_type.impossible"): ["impossible"],
-                        "impossible": [_("enum.shape_type.impossible")],
-                        _("enum.shape_type.empty"): ["empty"],
-                        "empty": [_("enum.shape_type.empty")]
+                        t("enum.shape_type.swapable"): ["swap", "swapable", t("enum.shape_type.swapable")],
+                        "swap": [t("enum.shape_type.swapable"), t("enum.shape_type.swapable"), "swapable"],
+                        "swapable": [t("enum.shape_type.swapable"), t("enum.shape_type.swapable"), "swap"],
+                        t("enum.shape_type.claw"): ["claw"],
+                        "claw": [t("enum.shape_type.claw")],
+                        t("enum.shape_type.hybrid"): ["hybrid"],
+                        "hybrid": [t("enum.shape_type.hybrid")],
+                        t("enum.shape_type.simple_geometric"): ["simple_geometric", "simple geometric"],
+                        "simple_geometric": [t("enum.shape_type.simple_geometric"), "simple geometric"],
+                        "simple geometric": [t("enum.shape_type.simple_geometric"), "simple_geometric"],
+                        t("enum.shape_type.simple_corner"): ["simple_corner", "simple corner"],
+                        "simple_corner": [t("enum.shape_type.simple_corner"), "simple corner"],
+                        "simple corner": [t("enum.shape_type.simple_corner"), "simple_corner"],
+                        t("enum.shape_type.stack_corner"): ["stack_corner", "stack corner"],
+                        "stack_corner": [t("enum.shape_type.stack_corner"), "stack corner"],
+                        "stack corner": [t("enum.shape_type.stack_corner"), "stack_corner"],
+                        t("enum.shape_type.swap_corner"): ["swap_corner", "swap corner"],
+                        "swap_corner": [t("enum.shape_type.swap_corner"), "swap corner"],
+                        "swap corner": [t("enum.shape_type.swap_corner"), "swap_corner"],
+                        t("enum.shape_type.claw_corner"): ["claw_corner", "claw corner"],
+                        "claw_corner": [t("enum.shape_type.claw_corner"), "claw corner"],
+                        "claw corner": [t("enum.shape_type.claw_corner"), "claw_corner"],
+                        t("enum.shape_type.complex_hybrid"): ["complex_hybrid", "complex hybrid"],
+                        "complex_hybrid": [t("enum.shape_type.complex_hybrid"), "complex hybrid"],
+                        "complex hybrid": [t("enum.shape_type.complex_hybrid"), "complex_hybrid"],
+                        t("enum.shape_type.claw_hybrid"): ["claw_hybrid", "claw hybrid"],
+                        "claw_hybrid": [t("enum.shape_type.claw_hybrid"), "claw hybrid"],
+                        "claw hybrid": [t("enum.shape_type.claw_hybrid"), "claw_hybrid"],
+                        t("enum.shape_type.claw_complex_hybrid"): ["claw_complex_hybrid", "claw complex hybrid"],
+                        "claw_complex_hybrid": [t("enum.shape_type.claw_complex_hybrid"), "claw complex hybrid"],
+                        "claw complex hybrid": [t("enum.shape_type.claw_complex_hybrid"), "claw_complex_hybrid"],
+                        t("enum.shape_type.impossible"): ["impossible"],
+                        "impossible": [t("enum.shape_type.impossible")],
+                        t("enum.shape_type.empty"): ["empty"],
+                        "empty": [t("enum.shape_type.empty")]
                     }
                     
                     # 예상값이 결과에 포함되거나, 결과가 예상값에 포함되거나, 
@@ -1486,15 +1486,15 @@ class ShapezGUI(QMainWindow):
                                 break
                     
                     if is_passed:
-                        self.log(_("ui.test.passed", name=name))
-                        self.log(f"  - {_('ui.test.input_a')}: {input_a_str}")
-                        self.log(f"  - {_('ui.test.expected')}: {expected}")
-                        self.log(f"  - {_('ui.test.actual')}: {result_string} ({_('ui.test.reason')}: {reason})")
+                        self.log(t("ui.test.passed", name=name))
+                        self.log(f"  - {t('ui.test.input_a')}: {input_a_str}")
+                        self.log(f"  - {t('ui.test.expected')}: {expected}")
+                        self.log(f"  - {t('ui.test.actual')}: {result_string} ({t('ui.test.reason')}: {reason})")
                     else:
-                        self.log(_("ui.test.failed", name=name))
-                        self.log(f"  - {_('ui.test.input_a')}: {input_a_str}")
-                        self.log(f"  - {_('ui.test.expected')}: {expected}")
-                        self.log(f"  - {_('ui.test.actual')}: {result_string} ({_('ui.test.reason')}: {reason})")
+                        self.log(t("ui.test.failed", name=name))
+                        self.log(f"  - {t('ui.test.input_a')}: {input_a_str}")
+                        self.log(f"  - {t('ui.test.expected')}: {expected}")
+                        self.log(f"  - {t('ui.test.actual')}: {result_string} ({t('ui.test.reason')}: {reason})")
                     return
                 
                 # 일반 연산 처리
@@ -1504,7 +1504,7 @@ class ShapezGUI(QMainWindow):
                     if operation == "stack":
                         actual_shape = Shape.stack(shape_a, shape_b)
                     else:
-                        self.log(_("ui.test.failed", name=name) + f" - {_('log.operation.unsupported_b', operation=operation, input_b=_('ui.test.input_b'))}")
+                        self.log(t("ui.test.failed", name=name) + f" - {t('log.operation.unsupported_b', operation=operation, input_b=t('ui.test.input_b'))}")
                         return
                 else:
                     if operation == "apply_physics":
@@ -1538,7 +1538,7 @@ class ShapezGUI(QMainWindow):
                     elif operation == "reverse":
                         actual_shape = shape_a.reverse()
                     else:
-                        self.log(_("ui.test.failed", name=name) + f" - {_('log.operation.unknown', operation=operation)}")
+                        self.log(t("ui.test.failed", name=name) + f" - {t('log.operation.unknown', operation=operation)}")
                         return
                 
                 # 결과 검증
@@ -1547,26 +1547,26 @@ class ShapezGUI(QMainWindow):
                 expected_code = repr(expected_shape)
                 
                 if actual_code == expected_code:
-                    self.log(_("ui.test.passed", name=name))
-                    self.log(f"  - {_('ui.test.input_a')}: {input_a_str}")
-                    self.log(f"  - {_('ui.test.expected')}: {expected_code}")
-                    self.log(f"  - {_('ui.test.actual')}: {actual_code}")
+                    self.log(t("ui.test.passed", name=name))
+                    self.log(f"  - {t('ui.test.input_a')}: {input_a_str}")
+                    self.log(f"  - {t('ui.test.expected')}: {expected_code}")
+                    self.log(f"  - {t('ui.test.actual')}: {actual_code}")
                 else:
-                    self.log(_("ui.test.failed", name=name))
-                    self.log(f"  - {_('ui.test.input_a')}: {input_a_str}")
-                    self.log(f"  - {_('ui.test.expected')}: {expected_code}")
-                    self.log(f"  - {_('ui.test.actual')}: {actual_code}")
+                    self.log(t("ui.test.failed", name=name))
+                    self.log(f"  - {t('ui.test.input_a')}: {input_a_str}")
+                    self.log(f"  - {t('ui.test.expected')}: {expected_code}")
+                    self.log(f"  - {t('ui.test.actual')}: {actual_code}")
                 
             except Exception as e:
-                self.log(_("ui.test.error", name=name, error_type=e.__class__.__name__, error=e))
+                self.log(t("ui.test.error", name=name, error_type=e.__class__.__name__, error=e))
                 import traceback
                 self.log(traceback.format_exc())
         
         def reset_tests(self):
             """원본 tests.json 파일을 불러와 모든 변경사항을 초기화합니다."""
             # 초기화 확인창 표시
-            reply = QMessageBox.question(self, _("ui.msg.title.confirm"), 
-                                       _("ui.msg.confirm_reset_tests"),
+            reply = QMessageBox.question(self, t("ui.msg.title.confirm"), 
+                                       t("ui.msg.confirm_reset_tests"),
                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             
             if reply != QMessageBox.StandardButton.Yes:
@@ -1588,17 +1588,17 @@ class ShapezGUI(QMainWindow):
                     self.clear_test_edit_fields()
                     
                     total_count = sum(len(tests) for tests in self.test_data.values())
-                    self.log(_("log.test.reset_complete", count=total_count))
+                    self.log(t("log.test.reset_complete", count=total_count))
                     
                 else:
-                    self.log(_("log.test.reset_file_not_found"))
-                    QMessageBox.warning(self, _("ui.msg.title.warning"), 
-                                                                              _("log.test.reset_file_not_found"))
+                    self.log(t("log.test.reset_file_not_found"))
+                    QMessageBox.warning(self, t("ui.msg.title.warning"), 
+                                                                              t("log.test.reset_file_not_found"))
                     
             except Exception as e:
-                self.log(_("log.test.reset_error", error=str(e)))
-                QMessageBox.critical(self, _("ui.msg.title.error"), 
-                                                                        _("log.test.reset_error", error=str(e)))
+                self.log(t("log.test.reset_error", error=str(e)))
+                QMessageBox.critical(self, t("ui.msg.title.error"), 
+                                                                        t("log.test.reset_error", error=str(e)))
         
 
         
@@ -1819,15 +1819,15 @@ class ShapezGUI(QMainWindow):
         if last_data_path and os.path.exists(last_data_path):
             self.file_path_label.setText(last_data_path)
             self.file_path_label.setStyleSheet("color: black;")
-            self.log_verbose(_("log.file.path_loaded", path=last_data_path))
+            self.log_verbose(t("log.file.path_loaded", path=last_data_path))
             # 파일 선택 후 자동으로 로드
             self.load_file(last_data_path)
         else:
-            self.log_verbose(_("log.file.path_invalid"))
+            self.log_verbose(t("log.file.path_invalid"))
         
         # 파일 로드가 성공하지 않았을 때만 샘플데이터 추가
         if not self.file_load_success:
-            self.add_data_tab(_("ui.sample"), ["CuCuCuCu", "RrRrRrRr", "P-P-P-P-"])
+            self.add_data_tab(t("ui.sample"), ["CuCuCuCu", "RrRrRrRr", "P-P-P-P-"])
 
         # 설정 로드 후, 히스토리 초기 상태를 업데이트합니다.
         self.input_history.add_entry(input_a_text, input_b_text)
@@ -1863,8 +1863,8 @@ class ShapezGUI(QMainWindow):
         # 확인 메시지
         reply = QMessageBox.question(
             self, 
-            _("ui.msg.title.confirm"), 
-            _("ui.msg.confirm_delete_test", name=test.get('name', 'Unnamed')),
+            t("ui.msg.title.confirm"), 
+            t("ui.msg.confirm_delete_test", name=test.get('name', 'Unnamed')),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -1905,14 +1905,14 @@ class ShapezGUI(QMainWindow):
         # 언어 선택 바 (왼쪽 패널 맨 위)
         lang_bar = QHBoxLayout()
         globe_label = QLabel()
-        globe_label.setToolTip(_("ui.lang.label"))
+        globe_label.setToolTip(t("ui.lang.label"))
         globe_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         globe_label.setFixedSize(18, 18)
         # 아이콘 파일을 icons/ 또는 icon/ 경로에서 로드
         pm = load_icon_pixmap("globe.png", 16) or load_icon_pixmap("globe.svg", 16)
         globe_label.setPixmap(pm)
         lang_bar.addWidget(globe_label)
-        self.lang_label = QLabel(_("ui.lang.label"))
+        self.lang_label = QLabel(t("ui.lang.label"))
         lang_bar.addWidget(self.lang_label)
         self.lang_combo = QComboBox()
         # Language names should be displayed in their native forms and not localized
@@ -1928,25 +1928,25 @@ class ShapezGUI(QMainWindow):
         lang_bar.addStretch()
         left_panel.addLayout(lang_bar)
         
-        mode_group = QGroupBox(_("ui.mode"))
+        mode_group = QGroupBox(t("ui.mode"))
         mode_layout = QGridLayout(mode_group)
         
         self.max_layers_combo = QComboBox()
         # 텍스트는 번역 키, 값은 숫자 userData로 보관
-        self.max_layers_combo.addItem(_("ui.max_layers.option.5"), 5)
-        self.max_layers_combo.addItem(_("ui.max_layers.option.4"), 4)
+        self.max_layers_combo.addItem(t("ui.max_layers.option.5"), 5)
+        self.max_layers_combo.addItem(t("ui.max_layers.option.4"), 4)
         self.max_layers_combo.currentIndexChanged.connect(self.on_max_layers_changed)
-        self._label_max_layers = QLabel(_("ui.max_layers"))
+        self._label_max_layers = QLabel(t("ui.max_layers"))
         mode_layout.addWidget(self._label_max_layers, 0, 0)
         mode_layout.addWidget(self.max_layers_combo, 0, 1)
         
         self.max_depth_input = QLineEdit("4")
         self.max_depth_input.editingFinished.connect(self.on_max_depth_changed)
-        mode_layout.addWidget(QLabel(_("ui.max_depth")), 1, 0)
+        mode_layout.addWidget(QLabel(t("ui.max_depth")), 1, 0)
         mode_layout.addWidget(self.max_depth_input, 1, 1)
 
         self.max_physics_height_input = QLineEdit("2")
-        mode_layout.addWidget(QLabel(_("ui.max_physics_height")), 2, 0)
+        mode_layout.addWidget(QLabel(t("ui.max_physics_height")), 2, 0)
         mode_layout.addWidget(self.max_physics_height_input, 2, 1)
 
 
@@ -1970,35 +1970,35 @@ class ShapezGUI(QMainWindow):
         self.on_max_layers_changed()
         self.on_max_depth_changed()
 
-        input_group = QGroupBox(_("ui.input.group")); input_layout = QGridLayout(input_group)
-        self.input_a = QLineEdit(); self.input_a.setObjectName(_("ui.input.a")) # 초기값은 load_settings에서 설정
-        self.input_b = QLineEdit(); self.input_b.setObjectName(_("ui.input.b")) # 초기값은 load_settings에서 설정
+        input_group = QGroupBox(t("ui.input.group")); input_layout = QGridLayout(input_group)
+        self.input_a = QLineEdit(); self.input_a.setObjectName(t("ui.input.a")) # 초기값은 load_settings에서 설정
+        self.input_b = QLineEdit(); self.input_b.setObjectName(t("ui.input.b")) # 초기값은 load_settings에서 설정
         
         # 입력 완료 시 히스토리에 저장하기 위한 이벤트 연결
         self.input_a.textChanged.connect(self.on_input_a_changed)
         self.input_b.textChanged.connect(self.on_input_b_changed)
         
         # 입력 A 행
-        self._label_input_a = QLabel(_("ui.input.a"))
+        self._label_input_a = QLabel(t("ui.input.a"))
         input_layout.addWidget(self._label_input_a, 0, 0)
         input_layout.addWidget(self.input_a, 0, 1)
         
         # 입력 B 행
-        self._label_input_b = QLabel(_("ui.input.b"))
+        self._label_input_b = QLabel(t("ui.input.b"))
         input_layout.addWidget(self._label_input_b, 1, 0)
         input_layout.addWidget(self.input_b, 1, 1)
         
         # 통합 Undo/Redo 버튼 (입력 A 행에 배치)
         self.undo_button = QPushButton("↶")
         self.undo_button.setMaximumWidth(30)
-        self.undo_button.setToolTip(_("ui.tooltip.undo"))
+        self.undo_button.setToolTip(t("ui.tooltip.undo"))
         self.undo_button.clicked.connect(self.on_undo)
         self.undo_button.setEnabled(False)
         input_layout.addWidget(self.undo_button, 0, 2)
         
         self.redo_button = QPushButton("↷")
         self.redo_button.setMaximumWidth(30)
-        self.redo_button.setToolTip(_("ui.tooltip.redo"))
+        self.redo_button.setToolTip(t("ui.tooltip.redo"))
         self.redo_button.clicked.connect(self.on_redo)
         self.redo_button.setEnabled(False)
         input_layout.addWidget(self.redo_button, 0, 3)
@@ -2017,53 +2017,53 @@ class ShapezGUI(QMainWindow):
         # 엔터키로 적용 버튼 활성화
         self.setup_enter_key_for_apply()
         
-        control_group = QGroupBox(_("ui.groups.buildings")); control_layout = QGridLayout(control_group)
+        control_group = QGroupBox(t("ui.groups.buildings")); control_layout = QGridLayout(control_group)
         
         # 건물 작동 버튼들을 저장
-        self.destroy_half_btn = QPushButton(_("ui.btn.destroy_half"))
+        self.destroy_half_btn = QPushButton(t("ui.btn.destroy_half"))
         self.destroy_half_btn.clicked.connect(self.on_destroy_half)
-        self.destroy_half_btn.setToolTip(_("tooltip.destroy_half"))
+        self.destroy_half_btn.setToolTip(t("tooltip.destroy_half"))
         # 아이콘 추가
         icon = load_icon_pixmap("half-destroyer.png", 16)
         if icon:
             self.destroy_half_btn.setIcon(QIcon(icon))
         control_layout.addWidget(self.destroy_half_btn, 0, 0, 1, 1)
         
-        self.stack_btn = QPushButton(_("ui.btn.stack"))
+        self.stack_btn = QPushButton(t("ui.btn.stack"))
         self.stack_btn.clicked.connect(self.on_stack)
-        self.stack_btn.setToolTip(_("tooltip.stack"))
+        self.stack_btn.setToolTip(t("tooltip.stack"))
         # 아이콘 추가
         icon = load_icon_pixmap("stacker.png", 16)
         if icon:
             self.stack_btn.setIcon(QIcon(icon))
         control_layout.addWidget(self.stack_btn, 0, 1, 1, 1)
         
-        self.push_pin_btn = QPushButton(_("ui.btn.push_pin"))
+        self.push_pin_btn = QPushButton(t("ui.btn.push_pin"))
         self.push_pin_btn.clicked.connect(self.on_push_pin)
-        self.push_pin_btn.setToolTip(_("tooltip.push_pin"))
+        self.push_pin_btn.setToolTip(t("tooltip.push_pin"))
         # 아이콘 추가
         icon = load_icon_pixmap("pin-pusher.png", 16)
         if icon:
             self.push_pin_btn.setIcon(QIcon(icon))
         control_layout.addWidget(self.push_pin_btn, 1, 0)
         
-        self.apply_physics_btn = QPushButton(_("ui.btn.apply_physics"))
+        self.apply_physics_btn = QPushButton(t("ui.btn.apply_physics"))
         self.apply_physics_btn.clicked.connect(self.on_apply_physics)
-        self.apply_physics_btn.setToolTip(_("tooltip.apply_physics"))
+        self.apply_physics_btn.setToolTip(t("tooltip.apply_physics"))
         control_layout.addWidget(self.apply_physics_btn, 1, 1)
         
-        self.swap_btn = QPushButton(_("ui.btn.swap"))
+        self.swap_btn = QPushButton(t("ui.btn.swap"))
         self.swap_btn.clicked.connect(self.on_swap)
-        self.swap_btn.setToolTip(_("tooltip.swap"))
+        self.swap_btn.setToolTip(t("tooltip.swap"))
         # 아이콘 추가
         icon = load_icon_pixmap("swapper.png", 16)
         if icon:
             self.swap_btn.setIcon(QIcon(icon))
         control_layout.addWidget(self.swap_btn, 2, 0)
         
-        self.cutter_btn = QPushButton(_("ui.btn.cutter"))
+        self.cutter_btn = QPushButton(t("ui.btn.cutter"))
         self.cutter_btn.clicked.connect(self.on_cutter)
-        self.cutter_btn.setToolTip(_("tooltip.cutter"))
+        self.cutter_btn.setToolTip(t("tooltip.cutter"))
         # 아이콘 추가
         icon = load_icon_pixmap("cutter.png", 16)
         if icon:
@@ -2071,18 +2071,18 @@ class ShapezGUI(QMainWindow):
         control_layout.addWidget(self.cutter_btn, 2, 1)
         
         rotate_hbox = QHBoxLayout()
-        self.rotate_cw_btn = QPushButton(_("ui.btn.rotate_cw"))
+        self.rotate_cw_btn = QPushButton(t("ui.btn.rotate_cw"))
         self.rotate_cw_btn.clicked.connect(lambda: self.on_rotate(True))
-        self.rotate_cw_btn.setToolTip(_("tooltip.rotate_cw"))
+        self.rotate_cw_btn.setToolTip(t("tooltip.rotate_cw"))
         # 아이콘 추가
         icon = load_icon_pixmap("rotator-cw.png", 16)
         if icon:
             self.rotate_cw_btn.setIcon(QIcon(icon))
         rotate_hbox.addWidget(self.rotate_cw_btn)
 
-        self.rotate_ccw_btn = QPushButton(_("ui.btn.rotate_ccw"))
+        self.rotate_ccw_btn = QPushButton(t("ui.btn.rotate_ccw"))
         self.rotate_ccw_btn.clicked.connect(lambda: self.on_rotate(False))
-        self.rotate_ccw_btn.setToolTip(_("tooltip.rotate_ccw"))
+        self.rotate_ccw_btn.setToolTip(t("tooltip.rotate_ccw"))
         # 아이콘 추가
         icon = load_icon_pixmap("rotator-ccw.png", 16)
         if icon:
@@ -2090,32 +2090,32 @@ class ShapezGUI(QMainWindow):
         rotate_hbox.addWidget(self.rotate_ccw_btn)
         control_layout.addLayout(rotate_hbox, 3, 0, 1, 2)
         
-        self.rotate_180_btn = QPushButton(_("ui.btn.rotate180"))
+        self.rotate_180_btn = QPushButton(t("ui.btn.rotate180"))
         self.rotate_180_btn.clicked.connect(self.on_rotate_180_building)
-        self.rotate_180_btn.setToolTip(_("tooltip.rotate_180"))
+        self.rotate_180_btn.setToolTip(t("tooltip.rotate_180"))
         # 아이콘 추가
         icon = load_icon_pixmap("rotator-180.png", 16)
         if icon:
             self.rotate_180_btn.setIcon(QIcon(icon))
         control_layout.addWidget(self.rotate_180_btn, 4, 0)
         
-        self.classifier_btn = QPushButton(_("ui.btn.classifier"))
+        self.classifier_btn = QPushButton(t("ui.btn.classifier"))
         self.classifier_btn.clicked.connect(self.on_classifier)
-        self.classifier_btn.setToolTip(_("tooltip.classifier"))
+        self.classifier_btn.setToolTip(t("tooltip.classifier"))
         control_layout.addWidget(self.classifier_btn, 4, 1, 1, 1)
         
-        self.simple_cutter_btn = QPushButton(_("ui.btn.simple_cutter"))
+        self.simple_cutter_btn = QPushButton(t("ui.btn.simple_cutter"))
         self.simple_cutter_btn.clicked.connect(self.on_simple_cutter)
-        self.simple_cutter_btn.setToolTip(_("tooltip.simple_cutter"))
+        self.simple_cutter_btn.setToolTip(t("tooltip.simple_cutter"))
         control_layout.addWidget(self.simple_cutter_btn, 5, 0, 1, 1)
         
-        self.quad_cutter_btn = QPushButton(_("ui.btn.quad_cutter"))
+        self.quad_cutter_btn = QPushButton(t("ui.btn.quad_cutter"))
         self.quad_cutter_btn.clicked.connect(self.on_quad_cutter)
-        self.quad_cutter_btn.setToolTip(_("tooltip.quad_cutter"))
+        self.quad_cutter_btn.setToolTip(t("tooltip.quad_cutter"))
         control_layout.addWidget(self.quad_cutter_btn, 5, 1, 1, 1)
         
         paint_hbox = QHBoxLayout()
-        paint_hbox.addWidget(QLabel(_("ui.painter.label")))
+        paint_hbox.addWidget(QLabel(t("ui.painter.label")))
         self.paint_color = QComboBox()
         for color in Quadrant.VALID_COLORS:
             # 색상 아이콘 생성 (14x14, 검은색 테두리)
@@ -2129,9 +2129,9 @@ class ShapezGUI(QMainWindow):
             self.paint_color.addItem(QIcon(icon_pixmap), color)
         paint_hbox.addWidget(self.paint_color)
         self.paint_color.setFixedWidth(60)  # 드롭다운 너비를 반절로 고정
-        self.paint_btn = QPushButton(_("ui.btn.paint"))
+        self.paint_btn = QPushButton(t("ui.btn.paint"))
         self.paint_btn.clicked.connect(self.on_paint)
-        self.paint_btn.setToolTip(_("tooltip.paint"))
+        self.paint_btn.setToolTip(t("tooltip.paint"))
         # 아이콘 추가
         icon = load_icon_pixmap("painter.png", 16)
         if icon:
@@ -2140,7 +2140,7 @@ class ShapezGUI(QMainWindow):
         control_layout.addLayout(paint_hbox, 6, 0, 1, 2) # Moved to row 6
         
         crystal_hbox = QHBoxLayout()
-        crystal_hbox.addWidget(QLabel(_("ui.crystal.label")))
+        crystal_hbox.addWidget(QLabel(t("ui.crystal.label")))
         self.crystal_color = QComboBox()
         for color in [c for c in Quadrant.VALID_COLORS if c != 'u']:
             # 색상 아이콘 생성 (14x14, 검은색 테두리)
@@ -2154,9 +2154,9 @@ class ShapezGUI(QMainWindow):
             self.crystal_color.addItem(QIcon(icon_pixmap), color)
         crystal_hbox.addWidget(self.crystal_color)
         self.crystal_color.setFixedWidth(60)  # 드롭다운 너비를 반절로 고정
-        self.crystal_btn = QPushButton(_("ui.btn.generate"))
+        self.crystal_btn = QPushButton(t("ui.btn.generate"))
         self.crystal_btn.clicked.connect(self.on_crystal_gen)
-        self.crystal_btn.setToolTip(_("tooltip.crystal"))
+        self.crystal_btn.setToolTip(t("tooltip.crystal"))
         # 아이콘 추가
         icon = load_icon_pixmap("crystal-generator.png", 16)
         if icon:
@@ -2167,15 +2167,15 @@ class ShapezGUI(QMainWindow):
         # (이전 위치에서 이동됨) 분류기 버튼은 180회전과 같은 행으로 이동
         
         # 적용 버튼과 자동 적용 체크박스
-        self.apply_button = QPushButton(_("ui.apply_outputs"))
+        self.apply_button = QPushButton(t("ui.apply_outputs"))
         self.apply_button.clicked.connect(self.on_apply_outputs)
         self.apply_button.setEnabled(False)  # 초기에는 비활성화
-        self.apply_button.setToolTip(_("tooltip.apply_outputs") if _("tooltip.apply_outputs") != "tooltip.apply_outputs" else "출력 결과를 입력 필드에 적용합니다.\n\n예시:\n출력 A: CuCu\n출력 B: P-P-\n적용 후: 입력 A = CuCu, 입력 B = P-P-")
+        self.apply_button.setToolTip(t("tooltip.apply_outputs") if t("tooltip.apply_outputs") != "tooltip.apply_outputs" else "출력 결과를 입력 필드에 적용합니다.\n\n예시:\n출력 A: CuCu\n출력 B: P-P-\n적용 후: 입력 A = CuCu, 입력 B = P-P-")
         control_layout.addWidget(self.apply_button, 8, 0)
         
-        self.auto_apply_checkbox = QCheckBox(_("ui.auto_apply"))
-        self.auto_apply_checkbox.setToolTip(_("tooltip.apply_outputs"))
-        self.auto_apply_checkbox.setText(_("ui.auto_apply"))
+        self.auto_apply_checkbox = QCheckBox(t("ui.auto_apply"))
+        self.auto_apply_checkbox.setToolTip(t("tooltip.apply_outputs"))
+        self.auto_apply_checkbox.setText(t("ui.auto_apply"))
         control_layout.addWidget(self.auto_apply_checkbox, 8, 1)
 
         # 버튼 최소 너비 통일 (라벨 길이에 따른 최대 sizeHint 기반)
@@ -2210,57 +2210,57 @@ class ShapezGUI(QMainWindow):
         left_panel.addWidget(control_group)
         
         # 추가 데이터 처리 컨테이너
-        data_process_group = QGroupBox(_("ui.groups.data_process"))
+        data_process_group = QGroupBox(t("ui.groups.data_process"))
         data_process_layout = QGridLayout(data_process_group)
         
-        self.simplify_btn = QPushButton(_("ui.btn.simplify"))
+        self.simplify_btn = QPushButton(t("ui.btn.simplify"))
         self.simplify_btn.clicked.connect(self.on_simplify)
-        self.simplify_btn.setToolTip(_("tooltip.simplify"))
+        self.simplify_btn.setToolTip(t("tooltip.simplify"))
         data_process_layout.addWidget(self.simplify_btn, 0, 0)
         
-        self.detail_btn = QPushButton(_("ui.btn.detail"))
+        self.detail_btn = QPushButton(t("ui.btn.detail"))
         self.detail_btn.clicked.connect(self.on_detail)
-        self.detail_btn.setToolTip(_("tooltip.detail"))
+        self.detail_btn.setToolTip(t("tooltip.detail"))
         data_process_layout.addWidget(self.detail_btn, 0, 1)
         
-        self.corner_3q_btn = QPushButton(_("ui.btn.corner1"))
+        self.corner_3q_btn = QPushButton(t("ui.btn.corner1"))
         self.corner_3q_btn.clicked.connect(self.on_corner_1q)
-        self.corner_3q_btn.setToolTip(_("tooltip.corner1"))
+        self.corner_3q_btn.setToolTip(t("tooltip.corner1"))
         data_process_layout.addWidget(self.corner_3q_btn, 1, 0)
         
-        self.remove_impossible_btn = QPushButton(_("ui.btn.remove_impossible"))
+        self.remove_impossible_btn = QPushButton(t("ui.btn.remove_impossible"))
         self.remove_impossible_btn.clicked.connect(self.on_remove_impossible)
-        self.remove_impossible_btn.setToolTip(_("tooltip.remove_impossible"))
+        self.remove_impossible_btn.setToolTip(t("tooltip.remove_impossible"))
         data_process_layout.addWidget(self.remove_impossible_btn, 1, 1)
         
-        self.reverse_btn = QPushButton(_("ui.btn.reverse"))
+        self.reverse_btn = QPushButton(t("ui.btn.reverse"))
         self.reverse_btn.clicked.connect(self.on_reverse)
-        self.reverse_btn.setToolTip(_("tooltip.reverse"))
+        self.reverse_btn.setToolTip(t("tooltip.reverse"))
         data_process_layout.addWidget(self.reverse_btn, 2, 0)
         
-        self.corner_btn = QPushButton(_("ui.btn.corner"))
+        self.corner_btn = QPushButton(t("ui.btn.corner"))
         self.corner_btn.clicked.connect(self.on_corner)
-        self.corner_btn.setToolTip(_("tooltip.corner"))
+        self.corner_btn.setToolTip(t("tooltip.corner"))
         data_process_layout.addWidget(self.corner_btn, 2, 1)
         
-        self.claw_btn = QPushButton(_("ui.btn.claw"))
+        self.claw_btn = QPushButton(t("ui.btn.claw"))
         self.claw_btn.clicked.connect(self.on_claw)
-        self.claw_btn.setToolTip(_("tooltip.claw"))
+        self.claw_btn.setToolTip(t("tooltip.claw"))
         data_process_layout.addWidget(self.claw_btn, 2, 2)
         
-        self.mirror_btn = QPushButton(_("ui.btn.mirror"))
+        self.mirror_btn = QPushButton(t("ui.btn.mirror"))
         self.mirror_btn.clicked.connect(self.on_mirror)
-        self.mirror_btn.setToolTip(_("tooltip.mirror"))
+        self.mirror_btn.setToolTip(t("tooltip.mirror"))
         data_process_layout.addWidget(self.mirror_btn, 3, 0)
         
-        self.cornerize_btn = QPushButton(_("ui.btn.cornerize"))
+        self.cornerize_btn = QPushButton(t("ui.btn.cornerize"))
         self.cornerize_btn.clicked.connect(self.on_cornerize)
-        self.cornerize_btn.setToolTip(_("tooltip.cornerize"))
+        self.cornerize_btn.setToolTip(t("tooltip.cornerize"))
         data_process_layout.addWidget(self.cornerize_btn, 3, 1)
         
-        self.hybrid_btn = QPushButton(_("ui.btn.hybrid"))
+        self.hybrid_btn = QPushButton(t("ui.btn.hybrid"))
         self.hybrid_btn.clicked.connect(self.on_hybrid)
-        self.hybrid_btn.setToolTip(_("tooltip.hybrid"))
+        self.hybrid_btn.setToolTip(t("tooltip.hybrid"))
         data_process_layout.addWidget(self.hybrid_btn, 3, 2)
         
         left_panel.addWidget(data_process_group)
@@ -2301,7 +2301,7 @@ class ShapezGUI(QMainWindow):
 
         
         # 출력 (분석도구 탭 하단)
-        output_group = QGroupBox(_("ui.output.group"))
+        output_group = QGroupBox(t("ui.output.group"))
         output_vbox = QVBoxLayout(output_group)
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -2312,7 +2312,7 @@ class ShapezGUI(QMainWindow):
         output_vbox.addWidget(self.scroll_area)
         right_panel.addWidget(output_group)
         
-        idx = right_tabs.addTab(analysis_tab_widget, _("ui.tabs.analysis_tools"))
+        idx = right_tabs.addTab(analysis_tab_widget, t("ui.tabs.analysis_tools"))
         right_tabs.tabBar().setTabData(idx, ("key", "ui.tabs.analysis_tools", None))
         
         # 대량처리 탭 추가
@@ -2320,17 +2320,17 @@ class ShapezGUI(QMainWindow):
         batch_layout = QVBoxLayout(batch_tab_widget)
         
         # 파일 선택 그룹
-        file_group = QGroupBox(_("ui.groups.file_select"))
+        file_group = QGroupBox(t("ui.groups.file_select"))
         file_layout = QVBoxLayout(file_group)
         
         # 파일 선택 행
         file_select_layout = QHBoxLayout()
-        self.file_path_label = QLabel(_("ui.file.selected_none"))
+        self.file_path_label = QLabel(t("ui.file.selected_none"))
         self.file_path_label.setStyleSheet("color: #666; font-style: italic;")
-        file_select_layout.addWidget(QLabel(_("ui.file.file")))
+        file_select_layout.addWidget(QLabel(t("ui.file.file")))
         file_select_layout.addWidget(self.file_path_label, 1)
         
-        self.browse_button = QPushButton(_("ui.file.browse"))
+        self.browse_button = QPushButton(t("ui.file.browse"))
         self.browse_button.clicked.connect(self.on_browse_file)
         file_select_layout.addWidget(self.browse_button)
         
@@ -2338,7 +2338,7 @@ class ShapezGUI(QMainWindow):
         batch_layout.addWidget(file_group)
         
         # 데이터 탭 위젯
-        data_group = QGroupBox(_("ui.groups.data"))
+        data_group = QGroupBox(t("ui.groups.data"))
         data_layout = QVBoxLayout(data_group)
         
         # 커스텀 탭 위젯 생성
@@ -2354,7 +2354,7 @@ class ShapezGUI(QMainWindow):
         self.selected_file_path = None
         self.file_load_success = False  # 파일 로드 성공 여부 추적
         
-        idx = right_tabs.addTab(batch_tab_widget, _("ui.tabs.batch"))
+        idx = right_tabs.addTab(batch_tab_widget, t("ui.tabs.batch"))
         right_tabs.tabBar().setTabData(idx, ("key", "ui.tabs.batch", None))
         
         # 공정트리 탭 추가
@@ -2362,18 +2362,18 @@ class ShapezGUI(QMainWindow):
         process_tree_layout = QVBoxLayout(process_tree_tab_widget)
         
         # 입력 그룹
-        tree_input_group = QGroupBox(_("ui.groups.process_tree_analysis"))
+        tree_input_group = QGroupBox(t("ui.groups.process_tree_analysis"))
         tree_input_layout = QVBoxLayout(tree_input_group)
         
         # 분석 버튼
-        analyze_button = QPushButton(_("ui.btn.process_tree_generate"))
+        analyze_button = QPushButton(t("ui.btn.process_tree_generate"))
         analyze_button.clicked.connect(self.on_generate_process_tree)
         tree_input_layout.addWidget(analyze_button)
         
         process_tree_layout.addWidget(tree_input_group)
         
         # 트리 표시 영역
-        tree_display_group = QGroupBox(_("ui.groups.process_tree"))
+        tree_display_group = QGroupBox(t("ui.groups.process_tree"))
         tree_display_layout = QVBoxLayout(tree_display_group)
         
         # 스크롤 영역을 QGraphicsView로 변경
@@ -2389,7 +2389,7 @@ class ShapezGUI(QMainWindow):
         tree_display_layout.addWidget(self.tree_graphics_view)
         process_tree_layout.addWidget(tree_display_group)
         
-        idx = right_tabs.addTab(process_tree_tab_widget, _("ui.tabs.process_tree"))
+        idx = right_tabs.addTab(process_tree_tab_widget, t("ui.tabs.process_tree"))
         right_tabs.tabBar().setTabData(idx, ("key", "ui.tabs.process_tree", None))
         
         # 공정트리 초기화 - 빈 메시지 표시
@@ -2400,11 +2400,11 @@ class ShapezGUI(QMainWindow):
         test_editor_tab_layout = QVBoxLayout(test_editor_tab_widget)
         
         # 자동 테스트 컨테이너 (맨 위)
-        auto_test_group = QGroupBox(_("ui.groups.auto_test"))
+        auto_test_group = QGroupBox(t("ui.groups.auto_test"))
         auto_test_layout = QVBoxLayout(auto_test_group)
         
         # 전체 테스트 실행 버튼
-        run_all_tests_btn = QPushButton(_("ui.btn.run_all_tests"))
+        run_all_tests_btn = QPushButton(t("ui.btn.run_all_tests"))
         run_all_tests_btn.clicked.connect(self.run_forward_tests)
         auto_test_layout.addWidget(run_all_tests_btn)
         
@@ -2413,18 +2413,18 @@ class ShapezGUI(QMainWindow):
         test_editor_tab_layout.addWidget(auto_test_group)
         
         # 테스트 케이스 편집기 그룹
-        test_editor_group = QGroupBox(_("ui.groups.test_editor"))
+        test_editor_group = QGroupBox(t("ui.groups.test_editor"))
         test_editor_layout = QVBoxLayout(test_editor_group)
         
         # 버튼 행
         test_editor_buttons = QHBoxLayout()
         
-        self.save_tests_btn = QPushButton(_("ui.btn.save_tests"))
-        self.save_tests_btn.setToolTip(_("ui.tooltip.save_tests"))
+        self.save_tests_btn = QPushButton(t("ui.btn.save_tests"))
+        self.save_tests_btn.setToolTip(t("ui.tooltip.save_tests"))
         test_editor_buttons.addWidget(self.save_tests_btn)
         
-        self.reset_tests_btn = QPushButton(_("ui.btn.reset_tests"))
-        self.reset_tests_btn.setToolTip(_("ui.tooltip.reset_tests"))
+        self.reset_tests_btn = QPushButton(t("ui.btn.reset_tests"))
+        self.reset_tests_btn.setToolTip(t("ui.tooltip.reset_tests"))
         test_editor_buttons.addWidget(self.reset_tests_btn)
         
         test_editor_layout.addLayout(test_editor_buttons)
@@ -2433,11 +2433,11 @@ class ShapezGUI(QMainWindow):
         self.test_cases_table = DragDropTableWidget()
         self.test_cases_table.setColumnCount(5)
         self.test_cases_table.setHorizontalHeaderLabels([
-            _("ui.table.header.category"), 
-            _("ui.table.header.name"), 
-            _("ui.table.header.operation"),
-            _("ui.table.header.input"), 
-            _("ui.table.header.output")
+            t("ui.table.header.category"), 
+            t("ui.table.header.name"), 
+            t("ui.table.header.operation"),
+            t("ui.table.header.input"), 
+            t("ui.table.header.output")
         ])
         # 컬럼 너비 설정 (가로 간격 줄임)
         self.test_cases_table.setColumnWidth(0, 80)   # 카테고리 (줄임)
@@ -2452,7 +2452,7 @@ class ShapezGUI(QMainWindow):
         test_editor_layout.addWidget(self.test_cases_table)
         
         # 테스트 케이스 편집 영역
-        test_edit_group = QGroupBox(_("ui.test_editor.edit_title"))
+        test_edit_group = QGroupBox(t("ui.test_editor.edit_title"))
         test_edit_layout = QVBoxLayout(test_edit_group)
         
 
@@ -2461,20 +2461,20 @@ class ShapezGUI(QMainWindow):
         edit_controls = QGridLayout()
         
         # 카테고리 선택
-        edit_controls.addWidget(QLabel(_("ui.label.category")), 0, 0)
+        edit_controls.addWidget(QLabel(t("ui.label.category")), 0, 0)
         self.category_combo = QComboBox()
         self.category_combo.setEditable(True)
-        self.category_combo.setPlaceholderText(_("ui.placeholder.category"))
+        self.category_combo.setPlaceholderText(t("ui.placeholder.category"))
         edit_controls.addWidget(self.category_combo, 0, 1)
         
         # 테스트명
-        edit_controls.addWidget(QLabel(_("ui.label.test_name")), 1, 0)
+        edit_controls.addWidget(QLabel(t("ui.label.test_name")), 1, 0)
         self.test_name_edit = QLineEdit()
-        self.test_name_edit.setPlaceholderText(_("ui.placeholder.test_name"))
+        self.test_name_edit.setPlaceholderText(t("ui.placeholder.test_name"))
         edit_controls.addWidget(self.test_name_edit, 1, 1)
         
         # 연산
-        edit_controls.addWidget(QLabel(_("ui.label.operation")), 2, 0)
+        edit_controls.addWidget(QLabel(t("ui.label.operation")), 2, 0)
         self.operation_combo = QComboBox()
         self.operation_combo.addItems([
             "apply_physics", "destroy_half", "stack", "paint", "crystal_generator",
@@ -2486,35 +2486,35 @@ class ShapezGUI(QMainWindow):
 
         
         # 입력 A (항상 표시)
-        edit_controls.addWidget(QLabel(_("ui.label.input_a")), 3, 0)
+        edit_controls.addWidget(QLabel(t("ui.label.input_a")), 3, 0)
         self.input_a_edit = QLineEdit()
-        self.input_a_edit.setPlaceholderText(_("ui.placeholder.input_shape"))
+        self.input_a_edit.setPlaceholderText(t("ui.placeholder.input_shape"))
         edit_controls.addWidget(self.input_a_edit, 3, 1)
         
         # 입력 B (일부 연산에만 필요)
-        self.input_b_label = QLabel(_("ui.label.input_b"))
+        self.input_b_label = QLabel(t("ui.label.input_b"))
         self.input_b_edit = QLineEdit()
-        self.input_b_edit.setPlaceholderText(_("ui.placeholder.input_shape"))
+        self.input_b_edit.setPlaceholderText(t("ui.placeholder.input_shape"))
         edit_controls.addWidget(self.input_b_label, 4, 0)
         edit_controls.addWidget(self.input_b_edit, 4, 1)
         
         # 예상결과 A, B (이중 출력 연산용)
-        self.expected_a_label = QLabel(_("ui.label.expected_a"))
+        self.expected_a_label = QLabel(t("ui.label.expected_a"))
         self.expected_a_edit = QLineEdit()
-        self.expected_a_edit.setPlaceholderText(_("ui.placeholder.input_shape"))
+        self.expected_a_edit.setPlaceholderText(t("ui.placeholder.input_shape"))
         edit_controls.addWidget(self.expected_a_label, 5, 0)
         edit_controls.addWidget(self.expected_a_edit, 5, 1)
         
-        self.expected_b_label = QLabel(_("ui.label.expected_b"))
+        self.expected_b_label = QLabel(t("ui.label.expected_b"))
         self.expected_b_edit = QLineEdit()
-        self.expected_b_edit.setPlaceholderText(_("ui.placeholder.input_shape"))
+        self.expected_b_edit.setPlaceholderText(t("ui.placeholder.input_shape"))
         edit_controls.addWidget(self.expected_b_label, 6, 0)
         edit_controls.addWidget(self.expected_b_edit, 6, 1)
         
         # 매개변수
-        edit_controls.addWidget(QLabel(_("ui.label.params")), 2, 2)
+        edit_controls.addWidget(QLabel(t("ui.label.params")), 2, 2)
         self.params_edit = QLineEdit()
-        self.params_edit.setPlaceholderText(_("ui.placeholder.params"))
+        self.params_edit.setPlaceholderText(t("ui.placeholder.params"))
         edit_controls.addWidget(self.params_edit, 2, 2)
         
         test_edit_layout.addLayout(edit_controls)
@@ -2525,7 +2525,7 @@ class ShapezGUI(QMainWindow):
         test_editor_tab_layout.addWidget(test_editor_group)
         
         # 테스트 편집기 탭 추가
-        idx = right_tabs.addTab(test_editor_tab_widget, _("ui.tabs.test_editor"))
+        idx = right_tabs.addTab(test_editor_tab_widget, t("ui.tabs.test_editor"))
         right_tabs.tabBar().setTabData(idx, ("key", "ui.tabs.test_editor", None))
         
         # 연산 변경 시 필드 표시/숨김 처리는 connect_test_editor_signals에서 연결
@@ -2546,15 +2546,15 @@ class ShapezGUI(QMainWindow):
         self._log_header_bar = QWidget()
         log_header_layout = QHBoxLayout(self._log_header_bar)
         log_header_layout.setContentsMargins(0, 0, 0, 0)
-        log_header_layout.addWidget(QLabel(_("ui.log.header.html")))
+        log_header_layout.addWidget(QLabel(t("ui.log.header.html")))
         log_header_layout.addStretch()
 
-        self.log_checkbox = QCheckBox(_("ui.log.show_verbose"))
+        self.log_checkbox = QCheckBox(t("ui.log.show_verbose"))
         self.log_checkbox.setChecked(False)
         self.log_checkbox.stateChanged.connect(self.on_log_level_changed)
         log_header_layout.addWidget(self.log_checkbox)
 
-        self.log_clear_button = QPushButton(_("ui.log.clear"))
+        self.log_clear_button = QPushButton(t("ui.log.clear"))
         self.log_clear_button.setMaximumWidth(60)
         self.log_clear_button.clicked.connect(self.on_clear_log)
         log_header_layout.addWidget(self.log_clear_button)
@@ -2606,7 +2606,7 @@ class ShapezGUI(QMainWindow):
 
         main_layout.addLayout(main_content_hbox, 1)
 
-        self.log_verbose(_("log.simulator.ready"))
+        self.log_verbose(t("log.simulator.ready"))
         
         # 자동 적용 체크박스 상태 복원 (UI 초기화 완료 후)
         auto_apply_enabled = self.settings.value("auto_apply_enabled", False, type=bool)
@@ -2620,7 +2620,7 @@ class ShapezGUI(QMainWindow):
 
     def closeEvent(self, event):
         """애플리케이션 종료 시 설정을 저장합니다."""
-        self.log(_("log.app.shutdown"))
+        self.log(t("log.app.shutdown"))
         
         # 현재 입력 필드의 값 저장
         self.settings.setValue("input_a", self.input_a.text())
@@ -2694,7 +2694,7 @@ class ShapezGUI(QMainWindow):
             if text:
                 return Shape.from_string(text)
         except Exception as e:
-            self.log(_("log.input.error", widget=input_widget.objectName(), error=str(e)))
+            self.log(t("log.input.error", widget=input_widget.objectName(), error=str(e)))
         return None
 
     def update_input_display(self):
@@ -2711,7 +2711,7 @@ class ShapezGUI(QMainWindow):
             v_layout = QVBoxLayout(container)
             v_layout.setContentsMargins(0, 0, 0, 0)
             v_layout.addStretch(1)
-            v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title=_("ui.label.input_a"), handler=self, input_name="A"))
+            v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title=t("ui.label.input_a"), handler=self, input_name="A"))
             self.output_layout.addWidget(container)
         
         # 입력 B 표시 (비어있지 않은 경우만)
@@ -2722,7 +2722,7 @@ class ShapezGUI(QMainWindow):
                 v_layout = QVBoxLayout(container)
                 v_layout.setContentsMargins(0, 0, 0, 0)
                 v_layout.addStretch(1)
-                v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title=_("ui.label.input_b"), handler=self, input_name="B"))
+                v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title=t("ui.label.input_b"), handler=self, input_name="B"))
                 self.output_layout.addWidget(container)
         
         # 입력만 표시할 때는 출력 결과 초기화 및 적용 버튼 비활성화
@@ -2734,13 +2734,13 @@ class ShapezGUI(QMainWindow):
             if (child := self.output_layout.takeAt(0)) and child.widget():
                 child.widget().deleteLater()
         
-        log_msg = result_text if result_text else _("log.result.prefix")
+        log_msg = result_text if result_text else t("log.result.prefix")
 
         # "연산 불가능" 특별 처리
-        if result_text and _("log.operation.impossible") in result_text:
+        if result_text and t("log.operation.impossible") in result_text:
             container = QFrame()
             layout = QVBoxLayout(container)
-            layout.addWidget(QLabel(f"<b>{_('ui.result.title')}</b>"))
+            layout.addWidget(QLabel(f"<b>{t('ui.result.title')}</b>"))
             layout.addWidget(QLabel(result_text))
             self.output_layout.addWidget(container)
             if not getattr(self, '_in_undo_redo', False):
@@ -2758,7 +2758,7 @@ class ShapezGUI(QMainWindow):
             v_layout = QVBoxLayout(container)
             v_layout.setContentsMargins(0, 0, 0, 0)
             v_layout.addStretch(1)
-            v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title=_("ui.label.input_a"), handler=self, input_name="A"))
+            v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title=t("ui.label.input_a"), handler=self, input_name="A"))
             self.output_layout.addWidget(container)
         
         # 입력 B 표시 (비어있지 않은 경우만)
@@ -2769,7 +2769,7 @@ class ShapezGUI(QMainWindow):
                 v_layout = QVBoxLayout(container)
                 v_layout.setContentsMargins(0, 0, 0, 0)
                 v_layout.addStretch(1)
-                v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title=_("ui.label.input_b"), handler=self, input_name="B"))
+                v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title=t("ui.label.input_b"), handler=self, input_name="B"))
                 self.output_layout.addWidget(container)
 
         # 출력 리스트가 비어있으면 기존 출력만 깔끔히 청소하고 종료
@@ -2800,7 +2800,7 @@ class ShapezGUI(QMainWindow):
                 shape_widget = ShapeWidget(shape, compact=True, title=title)
                 
                 # 출력 컨테이너인 경우에만 클릭 기능 추가 (입력 컨테이너는 드래그앤드롭 유지)
-                if not title.startswith(_("ui.label.input_a")[:-1]) and not title.startswith(_("ui.label.input_b")[:-1]):
+                if not title.startswith(t("ui.label.input_a")[:-1]) and not title.startswith(t("ui.label.input_b")[:-1]):
                     shape_widget.setCursor(Qt.CursorShape.PointingHandCursor)
                     _orig_mouse_press = shape_widget.mousePressEvent
                     def _on_output_mouse_press(event, _shape=shape):
@@ -2829,7 +2829,7 @@ class ShapezGUI(QMainWindow):
                 v_layout.addWidget(shape_widget)
                 self.output_layout.addWidget(container)
                 # 출력 결과 추적 (입력이 아닌 결과만)
-                if not title.startswith(_("ui.label.input_a")[:-1]) and not title.startswith(_("ui.label.input_b")[:-1]):
+                if not title.startswith(t("ui.label.input_a")[:-1]) and not title.startswith(t("ui.label.input_b")[:-1]):
                     self.current_outputs.append((title, shape))
             else:
                 container = QFrame()
@@ -2861,24 +2861,24 @@ class ShapezGUI(QMainWindow):
 
     def on_destroy_half(self):
         if s := self.get_input_shape(self.input_a): 
-            self.display_outputs([(_("ui.output.a"), s.destroy_half())])
+            self.display_outputs([(t("ui.output.a"), s.destroy_half())])
             self.auto_apply_if_enabled()
     
     def on_crystal_gen(self):
         if s := self.get_input_shape(self.input_a): 
-            self.display_outputs([(_("ui.output.a"), s.crystal_generator(self.crystal_color.currentText()))])
+            self.display_outputs([(t("ui.output.a"), s.crystal_generator(self.crystal_color.currentText()))])
             self.auto_apply_if_enabled()
     
     def on_apply_physics(self):
         if s := self.get_input_shape(self.input_a): 
-            self.display_outputs([(_("ui.output.a"), s.apply_physics())])
+            self.display_outputs([(t("ui.output.a"), s.apply_physics())])
             self.auto_apply_if_enabled()
     
     def on_stack(self):
         s_a = self.get_input_shape(self.input_a)
         s_b = self.get_input_shape(self.input_b)
         if s_a is not None and s_b is not None:
-            self.display_outputs([(_("ui.output.a"), Shape.stack(s_a, s_b))])
+            self.display_outputs([(t("ui.output.a"), Shape.stack(s_a, s_b))])
             self.auto_apply_if_enabled()
     
     def on_swap(self):
@@ -2886,48 +2886,48 @@ class ShapezGUI(QMainWindow):
         s_b = self.get_input_shape(self.input_b)
         if s_a is not None and s_b is not None:
             res_a, res_b = Shape.swap(s_a, s_b)
-            self.display_outputs([(_("ui.output.a"), res_a), (_("ui.output.b"), res_b)])
+            self.display_outputs([(t("ui.output.a"), res_a), (t("ui.output.b"), res_b)])
             self.auto_apply_if_enabled()
     
     def on_paint(self):
         if s := self.get_input_shape(self.input_a): 
-            self.display_outputs([(_("ui.output.a"), s.paint(self.paint_color.currentText()))])
+            self.display_outputs([(t("ui.output.a"), s.paint(self.paint_color.currentText()))])
             self.auto_apply_if_enabled()
     
     def on_push_pin(self):
         if s := self.get_input_shape(self.input_a): 
-            self.display_outputs([(_("ui.output.a"), s.push_pin())])
+            self.display_outputs([(t("ui.output.a"), s.push_pin())])
             self.auto_apply_if_enabled()
     
     def on_rotate(self, clockwise: bool):
         if s := self.get_input_shape(self.input_a): 
-            self.display_outputs([(_("ui.output.a"), s.rotate(clockwise))])
+            self.display_outputs([(t("ui.output.a"), s.rotate(clockwise))])
             self.auto_apply_if_enabled()
     
     def on_rotate_180_building(self):
         """180도 회전 후 호출 (건물 작동용)"""
         if s := self.get_input_shape(self.input_a): 
-            self.display_outputs([(_("ui.output.a"), s.rotate_180())])
+            self.display_outputs([(t("ui.output.a"), s.rotate_180())])
             self.auto_apply_if_enabled()
     
     def on_simple_cutter(self):
         if s := self.get_input_shape(self.input_a):
             res_a, res_b = s.simple_cutter()
-            self.display_outputs([(_("ui.output.a"), res_a), (_("ui.output.b"), res_b)])
+            self.display_outputs([(t("ui.output.a"), res_a), (t("ui.output.b"), res_b)])
             self.auto_apply_if_enabled()
     
     def on_quad_cutter(self):
         """쿼드 커터 버튼 클릭 시 호출"""
         if s := self.get_input_shape(self.input_a):
             res_a, res_b, res_c, res_d = s.quad_cutter()
-            self.display_outputs([(_("ui.output.a"), res_a), (_("ui.output.b"), res_b), (_("ui.output.c"), res_c), (_("ui.output.d"), res_d)])
+            self.display_outputs([(t("ui.output.a"), res_a), (t("ui.output.b"), res_b), (t("ui.output.c"), res_c), (t("ui.output.d"), res_d)])
             self.auto_apply_if_enabled()
     
     def on_cutter(self):
         """커터 버튼 클릭 시 호출"""
         if s := self.get_input_shape(self.input_a):
             res_a, res_b = s.half_cutter()
-            self.display_outputs([(_("ui.output.a"), res_a), (_("ui.output.b"), res_b)])
+            self.display_outputs([(t("ui.output.a"), res_a), (t("ui.output.b"), res_b)])
             self.auto_apply_if_enabled()
     
     def on_classifier(self):
@@ -2936,26 +2936,26 @@ class ShapezGUI(QMainWindow):
                 classification_result, classification_reason = s.classifier()
                 
                 # 분류 결과와 사유를 함께 표시
-                result_text = _("ui.classification.result", cls=_(classification_result), reason=classification_reason)
+                result_text = t("ui.classification.result", cls=t(classification_result), reason=classification_reason)
                 
                 # 분류 결과를 출력 영역에 텍스트로 표시 (로그는 display_outputs 내부에서 처리)
                 self.display_outputs([], result_text)
                 # 분류기는 텍스트 출력만 하므로 자동 적용하지 않음
                 
             except Exception as e:
-                self.log(_("log.classification.error", error=str(e)))
+                self.log(t("log.classification.error", error=str(e)))
     
     def on_apply_outputs(self):
         """출력 결과를 입력 필드에 적용합니다."""
         if not self.current_outputs:
-            self.log(_("log.no_outputs"))
+            self.log(t("log.no_outputs"))
             return
         
         # 출력 결과에서 Shape 객체들을 추출
         output_shapes = [shape for title, shape in self.current_outputs if shape is not None]
         
         if len(output_shapes) == 0:
-            self.log(_("log.invalid_outputs"))
+            self.log(t("log.invalid_outputs"))
             return
         elif len(output_shapes) == 1:
             # 단일 출력: 입력 A에 적용하고 입력 B는 비움
@@ -2963,14 +2963,14 @@ class ShapezGUI(QMainWindow):
             self.input_a.setText(repr(output_shapes[0]))
             self.history_update_in_progress = False
             self.input_b.clear()
-            self.log_verbose(_("log.apply.single", shape=repr(output_shapes[0])))
+            self.log_verbose(t("log.apply.single", shape=repr(output_shapes[0])))
         elif len(output_shapes) == 2:
             # 이중 출력: 첫 번째는 입력 A, 두 번째는 입력 B에 적용
             self.history_update_in_progress = True
             self.input_a.setText(repr(output_shapes[0]))
             self.input_b.setText(repr(output_shapes[1]))
             self.history_update_in_progress = False
-            self.log_verbose(_("log.apply.double.a", shape_a=repr(output_shapes[0])) + f", {_('log.apply.double.b', shape_b=repr(output_shapes[1]))}")
+            self.log_verbose(t("log.apply.double.a", shape_a=repr(output_shapes[0])) + f", {t('log.apply.double.b', shape_b=repr(output_shapes[1]))}")
         else:
             # 3개 이상의 출력: 처음 두 개만 사용
             self.history_update_in_progress = True
@@ -3155,7 +3155,7 @@ class ShapezGUI(QMainWindow):
                 self.max_depth_input.setText(str(new_depth))
             
             ReverseTracer.MAX_SEARCH_DEPTH = new_depth
-            self.log_verbose(_("log.max_depth.set", n=new_depth))
+            self.log_verbose(t("log.max_depth.set", n=new_depth))
         except ValueError:
             self.log("🔥 오류: 최대 탐색 깊이는 숫자로 입력해야 합니다. 1로 설정합니다.")
             ReverseTracer.MAX_SEARCH_DEPTH = 1
@@ -3168,15 +3168,15 @@ class ShapezGUI(QMainWindow):
         except (TypeError, ValueError):
             return
         Shape.MAX_LAYERS = new_max
-        self.log_verbose(_("log.max_layers.set", n=new_max)) 
+        self.log_verbose(t("log.max_layers.set", n=new_max)) 
 
     
     def run_forward_tests(self):
         # 이미 로드된 테스트 데이터를 우선적으로 사용
         if hasattr(self, 'test_data') and self.test_data:
             test_suites = self.test_data
-            test_file_name = _("ui.test.loaded_data")
-            self.clear_log(); self.log(_("ui.test.start.forward", file=test_file_name))
+            test_file_name = t("ui.test.loaded_data")
+            self.clear_log(); self.log(t("ui.test.start.forward", file=test_file_name))
         else:
             # 로드된 데이터가 없으면 파일에서 로드
             user_test_path = get_resource_path("user_tests.json")
@@ -3189,10 +3189,10 @@ class ShapezGUI(QMainWindow):
                 test_file = default_test_path
                 test_file_name = "tests.json"
                 
-            self.clear_log(); self.log(_("ui.test.start.forward", file=test_file_name))
+            self.clear_log(); self.log(t("ui.test.start.forward", file=test_file_name))
             try:
                 with open(test_file, 'r', encoding='utf-8') as f: test_suites = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError) as e: self.log(_("ui.test.file_error", error=e)); return
+            except (FileNotFoundError, json.JSONDecodeError) as e: self.log(t("ui.test.file_error", error=e)); return
         
         passed_count, total_count = 0, 0
         for category, test_cases in test_suites.items(): 
@@ -3202,7 +3202,7 @@ class ShapezGUI(QMainWindow):
                 self.log(f"경고: '{category}' 카테고리에 유효한 테스트 케이스가 없습니다.")
                 continue
 
-            self.log(_("ui.test.category", category=category))
+            self.log(t("ui.test.category", category=category))
             for test in test_cases:
                 # 테스트 케이스가 딕셔너리가 아닌 경우 건너뛰기
                 if not isinstance(test, dict):
@@ -3232,8 +3232,8 @@ class ShapezGUI(QMainWindow):
                         expected_a_code, expected_b_code = repr(expected_a_shape), repr(expected_b_shape)
 
                         if actual_a_code == expected_a_code and actual_b_code == expected_b_code:
-                            passed_count += 1; self.log(_("ui.test.passed", name=name))
-                        else: self.log(_("ui.test.failed", name=name) + f"\n  - {_('ui.test.input_a')}: {input_a_str}\n  - {_('ui.test.input_b')}: {input_b_str}\n  - {_('ui.test.expected')}A: {expected_a_code}\n  - {_('ui.test.actual')}A: {actual_a_code}\n  - {_('ui.test.expected')}B: {expected_b_code}\n  - {_('ui.test.actual')}B: {actual_b_code}")
+                            passed_count += 1; self.log(t("ui.test.passed", name=name))
+                        else: self.log(t("ui.test.failed", name=name) + f"\n  - {t('ui.test.input_a')}: {input_a_str}\n  - {t('ui.test.input_b')}: {input_b_str}\n  - {t('ui.test.expected')}A: {expected_a_code}\n  - {t('ui.test.actual')}A: {actual_a_code}\n  - {t('ui.test.expected')}B: {expected_b_code}\n  - {t('ui.test.actual')}B: {actual_b_code}")
                         continue
                     
                     actual_shape = None
@@ -3318,9 +3318,9 @@ class ShapezGUI(QMainWindow):
                             
                             if is_passed:
                                 passed_count += 1
-                                self.log(_("ui.test.passed", name=name))
+                                self.log(t("ui.test.passed", name=name))
                             else:
-                                self.log(_("ui.test.failed", name=name) + f"\n  - {_('ui.test.input_a')}: {input_a_str}\n  - {_('ui.test.expected')}: {expected}\n  - {_('ui.test.actual')}: {result_string} ({_('ui.test.reason')}: {reason})")
+                                self.log(t("ui.test.failed", name=name) + f"\n  - {t('ui.test.input_a')}: {input_a_str}\n  - {t('ui.test.expected')}: {expected}\n  - {t('ui.test.actual')}: {result_string} ({t('ui.test.reason')}: {reason})")
                             continue
                         else: raise ValueError(f"연산 '{operation}'은 입력 A만으로는 수행할 수 없습니다.")
                     
@@ -3329,12 +3329,12 @@ class ShapezGUI(QMainWindow):
                     expected_code = repr(expected_shape)
 
                     if actual_code == expected_code:
-                        passed_count += 1; self.log(_("ui.test.passed", name=name))
-                    else: self.log(_("ui.test.failed", name=name) + f"\n  - {_('ui.test.input_a')}: {input_a_str}\n  - {_('ui.test.expected')}: {expected_code}\n  - {_('ui.test.actual')}: {actual_code}")
+                        passed_count += 1; self.log(t("ui.test.passed", name=name))
+                    else: self.log(t("ui.test.failed", name=name) + f"\n  - {t('ui.test.input_a')}: {input_a_str}\n  - {t('ui.test.expected')}: {expected_code}\n  - {t('ui.test.actual')}: {actual_code}")
                 except Exception as e:
-                    self.log(_("ui.test.error", name=name, error_type=e.__class__.__name__, error=e))
+                    self.log(t("ui.test.error", name=name, error_type=e.__class__.__name__, error=e))
                     import traceback; self.log(traceback.format_exc())
-        summary = _("ui.test.summary.forward", file=test_file_name, total=total_count, passed=passed_count, percent=passed_count/total_count if total_count > 0 else 0)
+        summary = t("ui.test.summary.forward", file=test_file_name, total=total_count, passed=passed_count, percent=passed_count/total_count if total_count > 0 else 0)
         self.log(f"\n=== {summary} ===")
 
 
@@ -3372,25 +3372,25 @@ class ShapezGUI(QMainWindow):
 
     def _retranslate_ui(self):
         # 윈도우 타이틀
-        self.setWindowTitle(_("app.title"))
+        self.setWindowTitle(t("app.title"))
 
         # 위젯 전체 일괄 재번역 (별칭 기반)
         for gb in self.findChildren(QGroupBox):
             title = gb.title()
             if title:
-                gb.setTitle(_(title))
+                gb.setTitle(t(title))
         for lbl in self.findChildren(QLabel):
             text = lbl.text()
             if text:
-                lbl.setText(_(text))
+                lbl.setText(t(text))
         for btn in self.findChildren(QPushButton):
             text = btn.text()
             if text:
-                btn.setText(_(text))
+                btn.setText(t(text))
         for chk in self.findChildren(QCheckBox):
             text = chk.text()
             if text:
-                chk.setText(_(text))
+                chk.setText(t(text))
         for tabs in self.findChildren(QTabWidget):
             for i in range(tabs.count()):
                 data = tabs.tabBar().tabData(i)
@@ -3398,18 +3398,18 @@ class ShapezGUI(QMainWindow):
                     if len(data) >= 2 and data[0] == "key":
                         key = data[1]
                         kwargs = data[2] if len(data) > 2 and isinstance(data[2], dict) else {}
-                        tabs.setTabText(i, _(key, **kwargs))
+                        tabs.setTabText(i, t(key, **kwargs))
                     elif len(data) == 2 and data[0] == "raw":
                         raw = data[1]
-                        tabs.setTabText(i, _(raw))
+                        tabs.setTabText(i, t(raw))
 
         # 특정 위젯들은 옵션 리스트 재구성 필요
         # 재번역 시 시그널 차단 후 텍스트/데이터 재설정
         self.max_layers_combo.blockSignals(True)
         current_data = self.max_layers_combo.currentData()
         self.max_layers_combo.clear()
-        self.max_layers_combo.addItem(_("ui.max_layers.option.5"), 5)
-        self.max_layers_combo.addItem(_("ui.max_layers.option.4"), 4)
+        self.max_layers_combo.addItem(t("ui.max_layers.option.5"), 5)
+        self.max_layers_combo.addItem(t("ui.max_layers.option.4"), 4)
         # 기존 선택 복원
         idx = 0 if current_data == 5 else 1
         self.max_layers_combo.setCurrentIndex(idx)
@@ -3419,43 +3419,43 @@ class ShapezGUI(QMainWindow):
         if hasattr(self, 'lang_combo'):
             current_index = self.lang_combo.currentIndex()
             # 텍스트만 교체, userData 유지
-            self.lang_combo.setItemText(0, _("ui.lang.ko"))
-            self.lang_combo.setItemText(1, _("ui.lang.en"))
-            self.lang_label.setText(_("ui.lang.label"))
+            self.lang_combo.setItemText(0, t("ui.lang.ko"))
+            self.lang_combo.setItemText(1, t("ui.lang.en"))
+            self.lang_label.setText(t("ui.lang.label"))
             self.lang_combo.setCurrentIndex(current_index)
 
         # 버튼/툴팁 등 세부 항목
-        self.stack_btn.setText(_("ui.btn.stack"))
-        self.swap_btn.setText(_("ui.btn.swap"))
-        self.apply_button.setText(_("ui.apply_outputs"))
-        self.apply_button.setToolTip(_("tooltip.apply_outputs") if _("tooltip.apply_outputs") != "tooltip.apply_outputs" else self.apply_button.toolTip())
+        self.stack_btn.setText(t("ui.btn.stack"))
+        self.swap_btn.setText(t("ui.btn.swap"))
+        self.apply_button.setText(t("ui.apply_outputs"))
+        self.apply_button.setToolTip(t("tooltip.apply_outputs") if t("tooltip.apply_outputs") != "tooltip.apply_outputs" else self.apply_button.toolTip())
         
         # 입력 라벨들 업데이트
         if hasattr(self, 'input_a_label'):
-            self.input_a_label.setText(_("ui.label.input_a"))
+            self.input_a_label.setText(t("ui.label.input_a"))
         if hasattr(self, 'input_b_label'):
-            self.input_b_label.setText(_("ui.label.input_b"))
+            self.input_b_label.setText(t("ui.label.input_b"))
         
         # 로그 관련 위젯들 업데이트
         if hasattr(self, 'log_checkbox'):
-            self.log_checkbox.setText(_("ui.log.show_verbose"))
+            self.log_checkbox.setText(t("ui.log.show_verbose"))
         if hasattr(self, 'log_clear_button'):
-            self.log_clear_button.setText(_("ui.log.clear"))
+            self.log_clear_button.setText(t("ui.log.clear"))
         # 토글 버튼은 아이콘 전용이라 텍스트 없음
         
         # 데이터 처리 버튼들
-        self.simplify_btn.setText(_("ui.btn.simplify"))
-        self.simplify_btn.setToolTip(_("tooltip.simplify"))
-        self.detail_btn.setText(_("ui.btn.detail"))
-        self.detail_btn.setToolTip(_("tooltip.detail"))
-        self.corner_3q_btn.setText(_("ui.btn.corner1"))
-        self.corner_3q_btn.setToolTip(_("tooltip.corner1"))
-        self.reverse_btn.setText(_("ui.btn.reverse"))
-        self.reverse_btn.setToolTip(_("tooltip.reverse"))
-        self.mirror_btn.setText(_("ui.btn.mirror"))
-        self.mirror_btn.setToolTip(_("tooltip.mirror"))
-        self.cornerize_btn.setText(_("ui.btn.cornerize"))
-        self.cornerize_btn.setToolTip(_("tooltip.cornerize"))
+        self.simplify_btn.setText(t("ui.btn.simplify"))
+        self.simplify_btn.setToolTip(t("tooltip.simplify"))
+        self.detail_btn.setText(t("ui.btn.detail"))
+        self.detail_btn.setToolTip(t("tooltip.detail"))
+        self.corner_3q_btn.setText(t("ui.btn.corner1"))
+        self.corner_3q_btn.setToolTip(t("tooltip.corner1"))
+        self.reverse_btn.setText(t("ui.btn.reverse"))
+        self.reverse_btn.setToolTip(t("tooltip.reverse"))
+        self.mirror_btn.setText(t("ui.btn.mirror"))
+        self.mirror_btn.setToolTip(t("tooltip.mirror"))
+        self.cornerize_btn.setText(t("ui.btn.cornerize"))
+        self.cornerize_btn.setToolTip(t("tooltip.cornerize"))
         
         # 데이터 탭들의 UI 재번역
         for i in range(self.data_tabs.count()):
@@ -3715,7 +3715,7 @@ class ShapezGUI(QMainWindow):
         """새로운 데이터 탭 추가"""
         tab_widget = DataTabWidget(tab_name, data)
         # 탭에 키/별칭을 데이터로 보관하여 재번역 시 정확히 복원
-        self.data_tabs.addTab(tab_widget, _(tab_name))
+        self.data_tabs.addTab(tab_widget, t(tab_name))
         try:
             # tab_name이 키인지 별칭인지 알 수 없으므로 원문도 함께 저장
             idx = self.data_tabs.indexOf(tab_widget)
@@ -3732,7 +3732,7 @@ class ShapezGUI(QMainWindow):
     def on_data_tab_close(self, index):
         """데이터 탭 닫기"""
         if self.data_tabs.count() <= 1:
-            QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.last_tab"))
+            QMessageBox.warning(self, t("ui.msg.title.warning"), t("ui.msg.last_tab"))
             return
         
         tab_name = self.data_tabs.tabText(index)
@@ -3741,7 +3741,7 @@ class ShapezGUI(QMainWindow):
     
     def on_add_new_data_tab(self):
         """새로운 데이터 탭 추가"""
-        new_tab_name = _("ui.data.new_tab_name", n=self.data_tabs.count() + 1)
+        new_tab_name = t("ui.data.new_tab_name", n=self.data_tabs.count() + 1)
         self.add_data_tab(new_tab_name, [])
         self.log(f"새 데이터 탭 '{new_tab_name}' 추가")
     
@@ -3749,7 +3749,7 @@ class ShapezGUI(QMainWindow):
         """현재 탭의 모든 데이터에 대해 건물 작동 연산 수행"""
         current_tab = self.get_current_data_tab()
         if not current_tab or not current_tab.data:
-            QMessageBox.information(self, _("ui.msg.title.info"), _("ui.msg.no_data"))
+            QMessageBox.information(self, t("ui.msg.title.info"), t("ui.msg.no_data"))
             return
         
         # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 현재 필터(검색)로 보이는 행만
@@ -3771,9 +3771,9 @@ class ShapezGUI(QMainWindow):
         if total_count > 5000:
             # 진행 대화상자
             progress = QProgressDialog(self)
-            progress.setWindowTitle(_("ui.msg.title.info"))
-            progress.setLabelText(_("ui.progress.batch_running"))
-            progress.setCancelButtonText(_("ui.progress.cancel"))
+            progress.setWindowTitle(t("ui.msg.title.info"))
+            progress.setLabelText(t("ui.progress.batch_running"))
+            progress.setCancelButtonText(t("ui.progress.cancel"))
             progress.setRange(0, total_count)
             progress.setAutoClose(False)
             progress.setAutoReset(False)
@@ -3801,8 +3801,8 @@ class ShapezGUI(QMainWindow):
                     # 취소 시 되돌리기
                     current_tab.data = original_data_snapshot
                     current_tab.update_table()
-                    current_tab.add_to_data_history(_("ui.history.revert_due_to_cancel"))
-                    self.log(_("ui.progress.canceled"))
+                    current_tab.add_to_data_history(t("ui.history.revert_due_to_cancel"))
+                    self.log(t("ui.progress.canceled"))
                 else:
                     # 결과 적용
                     for i, new_value in result_map.items():
@@ -3811,9 +3811,9 @@ class ShapezGUI(QMainWindow):
                         current_tab.data.append(extra)
                     current_tab.update_table()
                     current_tab.add_to_data_history(f"{operation_name} 완료")
-                    self.log(_("ui.progress.summary", n=len(result_map), e=error_count))
+                    self.log(t("ui.progress.summary", n=len(result_map), e=error_count))
                     if error_count > 0:
-                        QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
+                        QMessageBox.warning(self, t("ui.msg.title.warning"), t("ui.msg.batch_errors", n=error_count))
                 self._batch_worker = None
             worker.finished_with_results.connect(on_finished)
             progress.canceled.connect(lambda: worker.cancel())
@@ -3860,7 +3860,7 @@ class ShapezGUI(QMainWindow):
         current_tab.add_to_data_history(f"{operation_name} 완료")
         self.log(f"대량처리 완료: {len(result_data_map)}개 항목 처리, {error_count}개 오류")
         if error_count > 0:
-            QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
+            QMessageBox.warning(self, t("ui.msg.title.warning"), t("ui.msg.batch_errors", n=error_count))
     
     def process_data_operation(self, operation_name: str, process_func):
         """데이터 처리 작업의 공통 로직"""
@@ -3875,7 +3875,7 @@ class ShapezGUI(QMainWindow):
         if is_batch:
             current_tab = self.get_current_data_tab()
             if not current_tab or not current_tab.data:
-                QMessageBox.information(self, _("ui.msg.title.info"), _("ui.msg.no_data"))
+                QMessageBox.information(self, t("ui.msg.title.info"), t("ui.msg.no_data"))
                 return
 
             # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 현재 필터(검색)로 보이는 행만
@@ -3896,9 +3896,9 @@ class ShapezGUI(QMainWindow):
             if total_count > 5000:
                 # 비동기 처리 + 프로그레스/취소
                 progress = QProgressDialog(self)
-                progress.setWindowTitle(_("ui.msg.title.info"))
-                progress.setLabelText(_("ui.progress.batch_running"))
-                progress.setCancelButtonText(_("ui.progress.cancel"))
+                progress.setWindowTitle(t("ui.msg.title.info"))
+                progress.setLabelText(t("ui.progress.batch_running"))
+                progress.setCancelButtonText(t("ui.progress.cancel"))
                 progress.setRange(0, total_count)
                 progress.setAutoClose(False)
                 progress.setAutoReset(False)
@@ -3925,8 +3925,8 @@ class ShapezGUI(QMainWindow):
                         # 되돌리기
                         current_tab.data = original_data_snapshot
                         current_tab.update_table()
-                        current_tab.add_to_data_history(_("ui.history.revert_due_to_cancel"))
-                        self.log(_("ui.progress.canceled"))
+                        current_tab.add_to_data_history(t("ui.history.revert_due_to_cancel"))
+                        self.log(t("ui.progress.canceled"))
                     else:
                         for i, new_value in result_map.items():
                             current_tab.data[i] = new_value
@@ -3936,9 +3936,9 @@ class ShapezGUI(QMainWindow):
                         if current_tab.visualization_checkbox.isChecked():
                             QTimer.singleShot(100, current_tab._update_visible_shapes)
                         current_tab.add_to_data_history(f"{operation_name} 완료")
-                        self.log(_("ui.progress.summary", n=len(result_map), e=error_count))
+                        self.log(t("ui.progress.summary", n=len(result_map), e=error_count))
                         if error_count > 0:
-                            QMessageBox.warning(self, _("ui.msg.title.warning"), _("ui.msg.batch_errors", n=error_count))
+                            QMessageBox.warning(self, t("ui.msg.title.warning"), t("ui.msg.batch_errors", n=error_count))
                     self._batch_worker = None
 
                 worker.finished_with_results.connect(on_finished)
@@ -4050,7 +4050,7 @@ class ShapezGUI(QMainWindow):
                 if input_a_str or input_b_str:
                     self.log("불가능 제거 완료 (입력만 처리)")
                 else:
-                    QMessageBox.information(self, _("ui.msg.title.info"), _("ui.msg.no_data"))
+                    QMessageBox.information(self, t("ui.msg.title.info"), t("ui.msg.no_data"))
                 return
             
             # 작업 전 현재 상태를 히스토리에 저장
@@ -4172,7 +4172,7 @@ class ShapezGUI(QMainWindow):
             tab_name = os.path.splitext(os.path.basename(file_path))[0]
             self.add_data_tab(tab_name, shape_codes)
             
-            self.log(_("log.file.loaded", count=len(shape_codes), tab_name=tab_name))
+            self.log(t("log.file.loaded", count=len(shape_codes), tab_name=tab_name))
             
             # 마지막으로 열었던 파일 경로 저장
             self.last_opened_data_path = file_path
@@ -4182,7 +4182,7 @@ class ShapezGUI(QMainWindow):
             self.file_load_success = True
             
         except Exception as e:
-            QMessageBox.critical(self, _("ui.msg.title.error"), _("ui.msg.file_load_error", error=str(e)))
+            QMessageBox.critical(self, t("ui.msg.title.error"), t("ui.msg.file_load_error", error=str(e)))
             self.log(f"파일 로드 오류: {str(e)}")
     
     def on_load_file(self):
@@ -4272,7 +4272,7 @@ class ShapezGUI(QMainWindow):
             # 입력 A에서 도형 코드 가져오기
             input_shape_code = self.input_a.text().strip()
             if not input_shape_code:
-                self.log(_("prompt.input.a.enter"))
+                self.log(t("prompt.input.a.enter"))
                 return
             
             self.log(f"공정 트리 생성: {input_shape_code}")
@@ -4308,9 +4308,9 @@ class ShapezGUI(QMainWindow):
             elif root_node.operation == "문법 오류/생성 오류":
                 self.log(f"'{input_shape_code}'은(는) 문법 오류가 있거나 트리 생성 중 오류가 발생했습니다.")
             elif root_node.operation == "클로추적실패":
-                self.log(_("gui.claw.trace_failed", shape_code=input_shape_code))
+                self.log(t("gui.claw.trace_failed", shape_code=input_shape_code))
             else:
-                self.log(_("ui.msg.done"))
+                self.log(t("ui.msg.done"))
             
         except Exception as e:
             self.log(f"트리 생성 중 예상치 못한 오류: {str(e)[:50]}...")  # 오류 메시지 축약
@@ -4658,7 +4658,7 @@ class ShapezGUI(QMainWindow):
         if hasattr(node, 'classification') and node.classification:
             # 분류 키를 번역된 텍스트로 변환
             try:
-                translated_classification = _(node.classification)
+                translated_classification = t(node.classification)
             except:
                 # 번역 키가 없는 경우 원본 키 사용
                 translated_classification = node.classification
@@ -4713,46 +4713,46 @@ class ShapezGUI(QMainWindow):
         
         # 툴팁 텍스트 구성
         if node.operation == process_tree_solver.IMPOSSIBLE_OPERATION:
-            tooltip = _("ui.tooltip.process.impossible", code=node.shape_code)
+            tooltip = t("ui.tooltip.process.impossible", code=node.shape_code)
             # IMPOSSIBLE 노드에도 분류와 사유가 있으면 표시
             if hasattr(node, 'classification') and node.classification:
                 try:
-                    translated_classification = _(node.classification)
+                    translated_classification = t(node.classification)
                 except:
                     translated_classification = node.classification
-                tooltip += "\n" + _("ui.tooltip.classification", classification=translated_classification)
+                tooltip += "\n" + t("ui.tooltip.classification", classification=translated_classification)
             
             if hasattr(node, 'classification_reason') and node.classification_reason:
                 try:
-                    translated_reason = _(node.classification_reason)
+                    translated_reason = t(node.classification_reason)
                 except:
                     translated_reason = node.classification_reason
-                tooltip += "\n" + _("ui.tooltip.reason", reason=translated_reason)
+                tooltip += "\n" + t("ui.tooltip.reason", reason=translated_reason)
         elif node.operation == "생략":
             # 생략 노드의 경우 로컬라이징된 텍스트 사용
-            tooltip = _("ui.tooltip.process.skipped", code=node.shape_code)
+            tooltip = t("ui.tooltip.process.skipped", code=node.shape_code)
         elif node.shape_code == "?":
             # 물음표 노드의 경우 (이제는 거의 사용되지 않음)
-            tooltip = _("ui.tooltip.process.impossible", code=node.shape_code)
+            tooltip = t("ui.tooltip.process.impossible", code=node.shape_code)
         else:
-            tooltip = _("ui.tooltip.process", operation=str(node.operation), code=node.shape_code)
+            tooltip = t("ui.tooltip.process", operation=str(node.operation), code=node.shape_code)
             if hasattr(node, 'classification') and node.classification:
                 # 분류 키를 번역된 텍스트로 변환
                 try:
-                    translated_classification = _(node.classification)
+                    translated_classification = t(node.classification)
                 except:
                     # 번역 키가 없는 경우 원본 키 사용
                     translated_classification = node.classification
-                tooltip += "\n" + _("ui.tooltip.classification", classification=translated_classification)
+                tooltip += "\n" + t("ui.tooltip.classification", classification=translated_classification)
             
             if hasattr(node, 'classification_reason') and node.classification_reason:
                 # 사유 키를 번역된 텍스트로 변환
                 try:
-                    translated_reason = _(node.classification_reason)
+                    translated_reason = t(node.classification_reason)
                 except:
                     # 번역 키가 없는 경우 원본 키 사용
                     translated_reason = node.classification_reason
-                tooltip += "\n" + _("ui.tooltip.reason", reason=translated_reason)
+                tooltip += "\n" + t("ui.tooltip.reason", reason=translated_reason)
         container.setToolTip(tooltip)
         
         return container
@@ -5109,7 +5109,7 @@ class DragDropTableWidget(QTableWidget):
             self.shape_tooltip.move(pos)
             self.shape_tooltip.show()
         except Exception as e:
-            self.setToolTip(_("ui.tooltip.shape_code", code=shape_code) + "\n" + _("ui.tooltip.parse_error", error=str(e)))
+            self.setToolTip(t("ui.tooltip.shape_code", code=shape_code) + "\n" + t("ui.tooltip.parse_error", error=str(e)))
 
     def hide_shape_tooltip(self):
         if self.shape_tooltip:
@@ -5302,7 +5302,7 @@ class BatchWorkerThread(QThread):
             
         except Exception as e:
             # 도형 파싱 실패 시 기본 툴팁 사용
-            self.setToolTip(_("ui.tooltip.shape_code", code=shape_code) + "\n" + _("ui.tooltip.parse_error", error=str(e)))
+            self.setToolTip(t("ui.tooltip.shape_code", code=shape_code) + "\n" + t("ui.tooltip.parse_error", error=str(e)))
 
 
 
@@ -5347,7 +5347,7 @@ class ShapeTooltipWidget(QFrame):
         layout.addWidget(shape_widget, 0, Qt.AlignmentFlag.AlignCenter)
         
         # 도형 코드 표시 (반투명 배경)
-        code_label = QLabel(_("ui.tooltip.shape_code", code=repr(shape)))
+        code_label = QLabel(t("ui.tooltip.shape_code", code=repr(shape)))
         code_label.setStyleSheet(
             """
             font-size: 11px;
@@ -5494,11 +5494,11 @@ class DataTabWidget(QWidget):
         # 상단 컨트롤 영역
         control_layout = QHBoxLayout()
         # 검색 라벨 + 입력
-        self.search_label = QLabel(_("ui.datatab.search"))
-        self.search_label.setToolTip(_("ui.datatab.search.tooltip"))
+        self.search_label = QLabel(t("ui.datatab.search"))
+        self.search_label.setToolTip(t("ui.datatab.search.tooltip"))
         control_layout.addWidget(self.search_label)
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText(_("ui.datatab.search.placeholder"))
+        self.search_input.setPlaceholderText(t("ui.datatab.search.placeholder"))
         try:
             self.search_input.setClearButtonEnabled(True)
         except Exception:
@@ -5509,19 +5509,19 @@ class DataTabWidget(QWidget):
         # 검색 모드 드롭다운 (심플/디테일/코너)
         self.search_mode_combo = QComboBox()
         # userData는 내부 키로 고정, 표시 텍스트는 i18n으로 재번역
-        self.search_mode_combo.addItem(_("ui.datatab.search_mode.simple"), userData="simple")
-        self.search_mode_combo.addItem(_("ui.datatab.search_mode.detail"), userData="detail")
-        self.search_mode_combo.addItem(_("ui.datatab.search_mode.corner"), userData="corner")
+        self.search_mode_combo.addItem(t("ui.datatab.search_mode.simple"), userData="simple")
+        self.search_mode_combo.addItem(t("ui.datatab.search_mode.detail"), userData="detail")
+        self.search_mode_combo.addItem(t("ui.datatab.search_mode.corner"), userData="corner")
         # 위젯 툴팁(한 번에 설명 표시)
-        self.search_mode_combo.setToolTip(_("ui.datatab.search_mode.tooltip"))
+        self.search_mode_combo.setToolTip(t("ui.datatab.search_mode.tooltip"))
         self.search_mode_combo.setCurrentIndex(0)
         # 모드 변경 시 즉시 검색 적용
         self.search_mode_combo.currentIndexChanged.connect(lambda _i: self.on_search_text_changed(self.search_input.text()))
         control_layout.addWidget(self.search_mode_combo)
         
         # 시각화 체크박스
-        self.visualization_checkbox = QCheckBox(_("ui.datatab.visualize"))
-        self.visualization_checkbox.setToolTip(_("ui.datatab.visualize"))
+        self.visualization_checkbox = QCheckBox(t("ui.datatab.visualize"))
+        self.visualization_checkbox.setToolTip(t("ui.datatab.visualize"))
         self.visualization_checkbox.stateChanged.connect(self.on_visualization_toggled)
         control_layout.addWidget(self.visualization_checkbox)
 
@@ -5532,10 +5532,10 @@ class DataTabWidget(QWidget):
         # 데이터 테이블
         self.data_table = DragDropTableWidget()
         self.data_table.setColumnCount(2)
-        self.data_table.setHorizontalHeaderLabels([_("ui.table.classification"), _("ui.table.shape_code")])
+        self.data_table.setHorizontalHeaderLabels([t("ui.table.classification"), t("ui.table.shape_code")])
         
         # 헤더에 정렬 가능함을 나타내는 툴팁 설정
-        self.data_table.horizontalHeader().setToolTip(_("ui.table.sort.ascending"))
+        self.data_table.horizontalHeader().setToolTip(t("ui.table.sort.ascending"))
         # 창 크기 확장 시 유효성과 도형 코드 컬럼이 늘어나도록 설정
         self.data_table.horizontalHeader().setStretchLastSection(False)
         self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
@@ -5580,34 +5580,34 @@ class DataTabWidget(QWidget):
         button_layout = QHBoxLayout()
 
         # 버튼 인스턴스 생성만 먼저 수행
-        self.save_button = QPushButton(_("ui.btn.save"))
-        self.save_button.setToolTip(_("ui.tooltip.save_auto"))
+        self.save_button = QPushButton(t("ui.btn.save"))
+        self.save_button.setToolTip(t("ui.tooltip.save_auto"))
         self.save_button.clicked.connect(self.on_save_data_auto)
 
-        self.save_as_button = QPushButton(_("ui.btn.save_as"))
-        self.save_as_button.setToolTip(_("ui.tooltip.save_as"))
+        self.save_as_button = QPushButton(t("ui.btn.save_as"))
+        self.save_as_button.setToolTip(t("ui.tooltip.save_as"))
         self.save_as_button.clicked.connect(self.on_save_data_as)
 
-        self.clone_button = QPushButton(_("ui.btn.clone"))
+        self.clone_button = QPushButton(t("ui.btn.clone"))
         self.clone_button.clicked.connect(self.on_clone_tab)
 
         self.data_undo_button = QPushButton("↶")
         self.data_undo_button.setMaximumWidth(30)
-        self.data_undo_button.setToolTip(_("ui.tooltip.data_undo"))
+        self.data_undo_button.setToolTip(t("ui.tooltip.data_undo"))
         self.data_undo_button.clicked.connect(self.on_data_undo)
         self.data_undo_button.setEnabled(False)
 
         self.data_redo_button = QPushButton("↷")
         self.data_redo_button.setMaximumWidth(30)
-        self.data_redo_button.setToolTip(_("ui.tooltip.data_redo"))
+        self.data_redo_button.setToolTip(t("ui.tooltip.data_redo"))
         self.data_redo_button.clicked.connect(self.on_data_redo)
         self.data_redo_button.setEnabled(False)
 
-        self.clear_button = QPushButton(_("ui.btn.clear_data"))
+        self.clear_button = QPushButton(t("ui.btn.clear_data"))
         self.clear_button.clicked.connect(self.on_clear_data)
 
         # (신규 위치) 새 탭 버튼을 동일 행에 배치
-        self.new_tab_button = QPushButton(_("ui.btn.add_tab"))
+        self.new_tab_button = QPushButton(t("ui.btn.add_tab"))
         # 메인 윈도우의 on_add_new_data_tab 호출
         self.new_tab_button.clicked.connect(lambda: self.get_main_window().on_add_new_data_tab() if self.get_main_window() else None)
 
@@ -5727,9 +5727,9 @@ class DataTabWidget(QWidget):
             if total_count > 5000:
                 # 진행 대화상자
                 progress = QProgressDialog(self)
-                progress.setWindowTitle(_("ui.msg.title.info"))
-                progress.setLabelText(_("ui.progress.sorting_classification"))
-                progress.setCancelButtonText(_("ui.progress.cancel"))
+                progress.setWindowTitle(t("ui.msg.title.info"))
+                progress.setLabelText(t("ui.progress.sorting_classification"))
+                progress.setCancelButtonText(t("ui.progress.cancel"))
                 progress.setRange(0, total_count)
                 progress.setAutoClose(False)
                 progress.setAutoReset(False)
@@ -5753,14 +5753,14 @@ class DataTabWidget(QWidget):
                             # 취소 시 되돌리기
                             self.data = original_data_snapshot
                             self.update_table()
-                            self.add_to_data_history(_("ui.history.revert_due_to_cancel"))
+                            self.add_to_data_history(t("ui.history.revert_due_to_cancel"))
                             main_window = self.get_main_window()
                             if main_window:
-                                main_window.log(_("ui.progress.canceled"))
+                                main_window.log(t("ui.progress.canceled"))
                             return
                         
                         # 분류 결과를 기준으로 정렬된 인덱스 순서를 얻음
-                        progress.setLabelText(_("ui.progress.sorting_data"))
+                        progress.setLabelText(t("ui.progress.sorting_data"))
                         progress.setValue(0)
                         
                         sorted_indices = sorted(range(len(self.data)), key=lambda i: self._classification_cache.get(i, ""))
@@ -5773,18 +5773,18 @@ class DataTabWidget(QWidget):
                         progress.close()
                         
                         # 히스토리에 추가
-                        self.add_to_data_history(_("ui.table.sort.by_classification"))
+                        self.add_to_data_history(t("ui.table.sort.by_classification"))
                         
                         main_window = self.get_main_window()
                         if main_window:
-                            main_window.log_verbose(_("ui.table.sort.by_classification"))
+                            main_window.log_verbose(t("ui.table.sort.by_classification"))
                             
                     except Exception as e:
                         progress.close()
                         # 오류 시 되돌리기
                         self.data = original_data_snapshot
                         self.update_table()
-                        QMessageBox.warning(self, _("ui.msg.title.error"), f"정렬 중 오류 발생: {str(e)}")
+                        QMessageBox.warning(self, t("ui.msg.title.error"), f"정렬 중 오류 발생: {str(e)}")
                         return
 
                 # 취소 시그널 연결
@@ -5811,22 +5811,22 @@ class DataTabWidget(QWidget):
                 self.data[:] = sorted_data
                 
                 # 히스토리에 추가
-                self.add_to_data_history(_("ui.table.sort.by_classification"))
+                self.add_to_data_history(t("ui.table.sort.by_classification"))
                 
                 main_window = self.get_main_window()
                 if main_window:
-                    main_window.log_verbose(_("ui.table.sort.by_classification"))
+                    main_window.log_verbose(t("ui.table.sort.by_classification"))
                 
         elif logical_index == 1:  # 도형 코드 컬럼
             # 도형 코드 기준으로 정렬
             self.data.sort(key=lambda x: x)
             
             # 히스토리에 추가
-            self.add_to_data_history(_("ui.table.sort.by_shape_code"))
+            self.add_to_data_history(t("ui.table.sort.by_shape_code"))
             
             main_window = self.get_main_window()
             if main_window:
-                main_window.log_verbose(_("ui.table.sort.by_shape_code"))
+                main_window.log_verbose(t("ui.table.sort.by_shape_code"))
         
         # 테이블 UI 새로고침
         self.update_table()
@@ -5845,14 +5845,14 @@ class DataTabWidget(QWidget):
                     shape = parse_shape_or_none(shape_code.strip())
                     if shape:
                         res, reason = shape.classifier()
-                        classification_text = f"{_(res)} ({_(reason)})"
+                        classification_text = f"{t(res)} ({t(reason)})"
                         self._classification_cache[i] = classification_text
                     else:
-                        self._classification_cache[i] = _("ui.table.error", error="파싱 실패")
+                        self._classification_cache[i] = t("ui.table.error", error="파싱 실패")
                 except Exception as e:
-                    self._classification_cache[i] = _("ui.table.error", error=str(e))
+                    self._classification_cache[i] = t("ui.table.error", error=str(e))
             else:
-                self._classification_cache[i] = _("enum.shape_type.empty") + " (" + _("analyzer.empty") + ")"
+                self._classification_cache[i] = t("enum.shape_type.empty") + " (" + t("analyzer.empty") + ")"
     
     def _calculate_all_classifications_with_progress(self, progress_dialog):
         """진행률을 표시하며 모든 데이터의 분류를 미리 계산합니다."""
@@ -5879,14 +5879,14 @@ class DataTabWidget(QWidget):
                     shape = parse_shape_or_none(shape_code.strip())
                     if shape:
                         res, reason = shape.classifier()
-                        classification_text = f"{_(res)} ({_(reason)})"
+                        classification_text = f"{t(res)} ({t(reason)})"
                         self._classification_cache[i] = classification_text
                     else:
-                        self._classification_cache[i] = _("ui.table.error", error="파싱 실패")
+                        self._classification_cache[i] = t("ui.table.error", error="파싱 실패")
                 except Exception as e:
-                    self._classification_cache[i] = _("ui.table.error", error=str(e))
+                    self._classification_cache[i] = t("ui.table.error", error=str(e))
             else:
-                self._classification_cache[i] = _("enum.shape_type.empty") + " (" + _("analyzer.empty") + ")"
+                self._classification_cache[i] = t("enum.shape_type.empty") + " (" + t("analyzer.empty") + ")"
         
         # 완료
         progress_dialog.setValue(len(self.data))
@@ -6262,23 +6262,23 @@ class DataTabWidget(QWidget):
         menu = QMenu(self.data_table)
         
         # 클립보드 관련 기능들
-        paste_action = menu.addAction(_("ui.ctx.paste"))
+        paste_action = menu.addAction(t("ui.ctx.paste"))
         paste_action.triggered.connect(self.on_paste_from_clipboard)
         
         if self.data_table.selectedItems():
             menu.addSeparator()
             
             # 복사 관련 기능들
-            clipboard_action = menu.addAction(_("ui.ctx.copy"))
+            clipboard_action = menu.addAction(t("ui.ctx.copy"))
             clipboard_action.triggered.connect(self.on_copy_to_clipboard)
             
-            copy_action = menu.addAction(_("ui.ctx.copy_to_input_a"))
+            copy_action = menu.addAction(t("ui.ctx.copy_to_input_a"))
             copy_action.triggered.connect(self.on_copy_to_input_a)
             
             menu.addSeparator()
             
             # 삭제 기능
-            delete_action = menu.addAction(_("ui.ctx.delete"))
+            delete_action = menu.addAction(t("ui.ctx.delete"))
             delete_action.triggered.connect(self.on_delete_selected)
         
         menu.exec(self.data_table.mapToGlobal(position))
@@ -6391,10 +6391,10 @@ class DataTabWidget(QWidget):
                 main_window.log(f"데이터 저장 완료: {file_path}")
                 
             # 간단한 알림 (선택사항)
-            QMessageBox.information(self, _("ui.msg.title.done"), _("ui.msg.saved", path=file_path))
+            QMessageBox.information(self, t("ui.msg.title.done"), t("ui.msg.saved", path=file_path))
             
         except Exception as e:
-            QMessageBox.critical(self, _("ui.msg.title.error"), _("ui.msg.save_error", error=str(e)))
+            QMessageBox.critical(self, t("ui.msg.title.error"), t("ui.msg.save_error", error=str(e)))
     
     def on_save_data_as(self):
         """데이터를 다른 이름으로 저장"""
@@ -6417,12 +6417,12 @@ class DataTabWidget(QWidget):
                 with open(file_path, 'w', encoding='utf-8') as f:
                     for shape_code in self.data:
                         f.write(f"{shape_code}\n")
-                QMessageBox.information(self, _("ui.msg.title.done"), _("ui.msg.saved", path=file_path))
+                QMessageBox.information(self, t("ui.msg.title.done"), t("ui.msg.saved", path=file_path))
                 main_window = self.get_main_window()
                 if main_window:
                     main_window.log_verbose(f"다른 이름으로 저장 완료: {file_path}")
             except Exception as e:
-                QMessageBox.critical(self, _("ui.msg.title.error"), _("ui.msg.save_error", error=str(e)))
+                QMessageBox.critical(self, t("ui.msg.title.error"), t("ui.msg.save_error", error=str(e)))
     
     def on_clear_data(self):
         """데이터 지우기"""
@@ -6502,28 +6502,28 @@ class DataTabWidget(QWidget):
             comparison_results.append(f"{current_item}\t{next_item}\t{comparison_value}")
         
         # 로그 출력
-        main_window.log(_("log.data.compare.complete", same=same_count, diff=diff_count))
-        main_window.log_verbose(_("log.data.compare.result", tab1=self.tab_name, tab2=next_tab.tab_name))
+        main_window.log(t("log.data.compare.complete", same=same_count, diff=diff_count))
+        main_window.log_verbose(t("log.data.compare.result", tab1=self.tab_name, tab2=next_tab.tab_name))
         
         # 상세 비교 결과 로그 (상세 로그로만 출력)
         for i, result in enumerate(comparison_results[:10]):  # 처음 10개만 로그로 출력
             parts = result.split('\t')
             current_item, next_item, comparison = parts[0], parts[1], parts[2]
             if comparison == "0":  # 다른 경우만 상세 로그로 출력
-                main_window.log_verbose(_("log.data.compare.difference", index=i, item1=current_item, item2=next_item))
+                main_window.log_verbose(t("log.data.compare.difference", index=i, item1=current_item, item2=next_item))
         
         if len(comparison_results) > 10:
-            main_window.log_verbose(_("log.data.compare.more", count=len(comparison_results) - 10))
+            main_window.log_verbose(t("log.data.compare.more", count=len(comparison_results) - 10))
         
         # 새 데이터 탭 생성
-        new_tab_name = _("ui.data.compare_result_tab", tab1=self.tab_name, tab2=next_tab.tab_name)
+        new_tab_name = t("ui.data.compare_result_tab", tab1=self.tab_name, tab2=next_tab.tab_name)
         new_tab = main_window.add_data_tab(new_tab_name, comparison_results)
         
         # 비교 결과 탭을 3열 구조로 설정
         if new_tab:
             new_tab.setup_comparison_table()
         
-        main_window.log(_("log.data.compare.saved", tab_name=new_tab_name))
+        main_window.log(t("log.data.compare.saved", tab_name=new_tab_name))
     
     def on_process_selected(self):
         """(제거됨) 선택된 항목 처리 버튼 제거에 따라 사용되지 않음"""
@@ -6536,20 +6536,20 @@ class DataTabWidget(QWidget):
             cloned_data = self.data.copy()
             
             # 새 탭 이름 생성
-            clone_tab_name = _("ui.data.clone_tab", tab_name=self.tab_name)
+            clone_tab_name = t("ui.data.clone_tab", tab_name=self.tab_name)
             
             # 새 탭 추가
             main_window.add_data_tab(clone_tab_name, cloned_data)
             
-            main_window.log_verbose(_("log.data.clone.complete", tab1=self.tab_name, tab2=clone_tab_name, count=len(cloned_data)))
+            main_window.log_verbose(t("log.data.clone.complete", tab1=self.tab_name, tab2=clone_tab_name, count=len(cloned_data)))
         else:
-            QMessageBox.warning(self, _("ui.msg.title.error"), _("ui.msg.main_window_not_found"))
+            QMessageBox.warning(self, t("ui.msg.title.error"), t("ui.msg.main_window_not_found"))
 
     def on_data_undo(self):
         """데이터 Undo"""
         main_window = self.get_main_window()
         if main_window:
-            main_window.log_verbose(_("log.data.undo.shortcut"))
+            main_window.log_verbose(t("log.data.undo.shortcut"))
         
         entry = self.data_history.undo()
         if entry is not None:
@@ -6560,16 +6560,16 @@ class DataTabWidget(QWidget):
             self.history_update_in_progress = False
             
             if main_window:
-                main_window.log_verbose(_("log.data.undo.complete", operation=operation_name))
+                main_window.log_verbose(t("log.data.undo.complete", operation=operation_name))
         else:
             if main_window:
-                main_window.log_verbose(_("log.data.undo.nothing"))
+                main_window.log_verbose(t("log.data.undo.nothing"))
     
     def on_data_redo(self):
         """데이터 Redo"""
         main_window = self.get_main_window()
         if main_window:
-            main_window.log_verbose(_("log.data.redo.shortcut"))
+            main_window.log_verbose(t("log.data.redo.shortcut"))
         
         entry = self.data_history.redo()
         if entry is not None:
@@ -6580,10 +6580,10 @@ class DataTabWidget(QWidget):
             self.history_update_in_progress = False
             
             if main_window:
-                main_window.log_verbose(_("log.data.redo.complete", operation=operation_name))
+                main_window.log_verbose(t("log.data.redo.complete", operation=operation_name))
         else:
             if main_window:
-                main_window.log_verbose(_("log.data.redo.nothing"))
+                main_window.log_verbose(t("log.data.redo.nothing"))
     
     def add_to_data_history(self, operation_name=""):
         """현재 데이터 상태를 히스토리에 추가"""
@@ -6616,7 +6616,7 @@ class DataTabWidget(QWidget):
             self._clear_all_shape_widgets() # 모든 시각화 위젯 제거
             if self.data_table.columnCount() == 3:
                 self.data_table.setColumnCount(2)
-                self.data_table.setHorizontalHeaderLabels([_("ui.table.classification"), _("ui.table.shape_code")])
+                self.data_table.setHorizontalHeaderLabels([t("ui.table.classification"), t("ui.table.shape_code")])
                 # 창 크기 확장 시 유효성과 도형 코드 컬럼이 늘어나도록 설정
                 self.data_table.horizontalHeader().setStretchLastSection(False)
                 self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
@@ -6660,7 +6660,7 @@ class DataTabWidget(QWidget):
                         if shape:
                             # 분류 결과 및 사유 표시
                             res, reason = shape.classifier()
-                            validity_item.setText(f"{_(res)} ({_(reason)})")
+                            validity_item.setText(f"{t(res)} ({t(reason)})")
                             # 언어와 무관하게 동작하도록 Enum 값과 비교
                             try:
                                 from shape_classifier import ShapeType
@@ -6669,12 +6669,12 @@ class DataTabWidget(QWidget):
                                 # 폴백: 기존 한글 리터럴 비교도 유지
                                 is_impossible = res in ("불가능형",)
                         else:
-                            validity_item.setText(_("ui.table.error", error="파싱 실패"))
+                            validity_item.setText(t("ui.table.error", error="파싱 실패"))
                             is_impossible = True
                     else:
-                        validity_item.setText(_("enum.shape_type.empty") + " (" + _("analyzer.empty") + ")")
+                        validity_item.setText(t("enum.shape_type.empty") + " (" + t("analyzer.empty") + ")")
                 except Exception as e:
-                    validity_item.setText(_("ui.table.error", error=str(e)))
+                    validity_item.setText(t("ui.table.error", error=str(e)))
 
                 # 배경색 설정
                 bg_color = QColor(240, 240, 240) if is_impossible else QColor(255, 255, 255)
@@ -6849,7 +6849,7 @@ class DataTabWidget(QWidget):
             self._update_visible_validity()
             self._update_visible_shapes()
             # 히스토리
-            self.add_to_data_history(_("ui.history.edit_visual"))
+            self.add_to_data_history(t("ui.history.edit_visual"))
 
     def handle_quadrant_drop(self, src_input_name, src_layer, src_quad, tgt_input_name, tgt_layer, tgt_quad):
         src_row = self._input_name_to_row(src_input_name)
@@ -6935,8 +6935,8 @@ class DataTabWidget(QWidget):
             try:
                 test["params"] = json.loads(params_text)
             except json.JSONDecodeError as e:
-                QMessageBox.warning(self, _("ui.msg.title.warning"), 
-                                  _("ui.msg.invalid_json", error=str(e)))
+                QMessageBox.warning(self, t("ui.msg.title.warning"), 
+                                  t("ui.msg.invalid_json", error=str(e)))
                 return
         else:
             test["params"] = {}
@@ -6986,8 +6986,8 @@ class DataTabWidget(QWidget):
         if not test:
             return
             
-        reply = QMessageBox.question(self, _("ui.msg.title.warning"), 
-                                   _("ui.msg.confirm_delete"),
+        reply = QMessageBox.question(self, t("ui.msg.title.warning"), 
+                                   t("ui.msg.confirm_delete"),
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
         if reply == QMessageBox.StandardButton.Yes:
@@ -7074,18 +7074,18 @@ class DataTabWidget(QWidget):
 
     def _retranslate_ui(self):
         """UI 텍스트를 현재 언어로 재번역"""
-        self.search_label.setText(_("ui.datatab.search"))
-        self.search_label.setToolTip(_("ui.datatab.search.tooltip"))
-        self.search_input.setPlaceholderText(_("ui.datatab.search.placeholder"))
-        self.visualization_checkbox.setText(_("ui.datatab.visualize"))
-        self.visualization_checkbox.setToolTip(_("ui.datatab.visualize"))
+        self.search_label.setText(t("ui.datatab.search"))
+        self.search_label.setToolTip(t("ui.datatab.search.tooltip"))
+        self.search_input.setPlaceholderText(t("ui.datatab.search.placeholder"))
+        self.visualization_checkbox.setText(t("ui.datatab.visualize"))
+        self.visualization_checkbox.setToolTip(t("ui.datatab.visualize"))
         if hasattr(self, 'search_mode_combo'):
             # 표시 텍스트만 갱신, userData는 유지
             current_mode = self.search_mode_combo.currentData()
             self.search_mode_combo.clear()
-            self.search_mode_combo.addItem(_("ui.datatab.search_mode.simple"), userData="simple")
-            self.search_mode_combo.addItem(_("ui.datatab.search_mode.detail"), userData="detail")
-            self.search_mode_combo.addItem(_("ui.datatab.search_mode.corner"), userData="corner")
+            self.search_mode_combo.addItem(t("ui.datatab.search_mode.simple"), userData="simple")
+            self.search_mode_combo.addItem(t("ui.datatab.search_mode.detail"), userData="detail")
+            self.search_mode_combo.addItem(t("ui.datatab.search_mode.corner"), userData="corner")
             # 기존 선택 복원
             index = {"simple":0, "detail":1, "corner":2}.get(current_mode, 0)
             self.search_mode_combo.setCurrentIndex(index)

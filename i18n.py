@@ -153,4 +153,4 @@ def translate(key: str, **vars: Any) -> str:
 
 
 # Convenience alias
-_ = translate
+t = translate

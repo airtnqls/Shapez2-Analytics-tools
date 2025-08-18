@@ -2,27 +2,27 @@ from __future__ import annotations
 from enum import Enum
 import re
 
-from i18n import _
+from i18n import t
 
 # 분류 사유를 위한 상수들 (로컬라이징과 무관하게 사용)
 class ClassificationReason:
     """분류 사유를 위한 상수 클래스"""
-    REASON_EMPTY = _("analyzer.empty")
-    REASON_PIN = _("analyzer.pin")
-    REASON_NO_CRYSTAL = _("analyzer.no_crystal")
-    REASON_CLAW = _("analyzer.claw")
-    REASON_HYBRID = _("analyzer.hybrid")
-    REASON_REMAINING_LAYERS = _("analyzer.remaining_layers")
-    REASON_CLAW_POSSIBLE = _("analyzer.claw.possible")
-    REASON_CLAW_IMPOSSIBLE = _("analyzer.claw.impossible")
-    REASON_CLAW_SWAP_IMPOSSIBLE = _("analyzer.claw.swap_impossible")
-    REASON_CLAW_RULE1 = _("analyzer.claw.rule1")
-    REASON_CLAW_RULE2 = _("analyzer.claw.rule2")
-    REASON_SWAP_12_34_IMPOSSIBLE = _("analyzer.swap_status.swap_12_34_impossible")
-    REASON_SWAP_14_23_IMPOSSIBLE = _("analyzer.swap_status.swap_14_23_impossible")
-    REASON_LIMITATIONS_PIN_PUSH_X = _("analyzer.limitations.pin_push_x")
-    REASON_LIMITATIONS_SWAP_X = _("analyzer.limitations.swap_x")
-    REASON_LIMITATIONS_STACK_X = _("analyzer.limitations.stack_x")
+    REASON_EMPTY = t("analyzer.empty")
+    REASON_PIN = t("analyzer.pin")
+    REASON_NO_CRYSTAL = t("analyzer.no_crystal")
+    REASON_CLAW = t("analyzer.claw")
+    REASON_HYBRID = t("analyzer.hybrid")
+    REASON_REMAINING_LAYERS = t("analyzer.remaining_layers")
+    REASON_CLAW_POSSIBLE = t("analyzer.claw.possible")
+    REASON_CLAW_IMPOSSIBLE = t("analyzer.claw.impossible")
+    REASON_CLAW_SWAP_IMPOSSIBLE = t("analyzer.claw.swap_impossible")
+    REASON_CLAW_RULE1 = t("analyzer.claw.rule1")
+    REASON_CLAW_RULE2 = t("analyzer.claw.rule2")
+    REASON_SWAP_12_34_IMPOSSIBLE = t("analyzer.swap_status.swap_12_34_impossible")
+    REASON_SWAP_14_23_IMPOSSIBLE = t("analyzer.swap_status.swap_14_23_impossible")
+    REASON_LIMITATIONS_PIN_PUSH_X = t("analyzer.limitations.pin_push_x")
+    REASON_LIMITATIONS_SWAP_X = t("analyzer.limitations.swap_x")
+    REASON_LIMITATIONS_STACK_X = t("analyzer.limitations.stack_x")
 
 
 
@@ -44,20 +44,20 @@ class ShapeType(Enum):
         CLAW_COMPLEX_HYBRID -> 하이브리드 트레이서
         IMPOSSIBLE -> 물음표
     """
-    EMPTY = _("analyzer.shape_types.empty")
-    SIMPLE_CORNER = _("analyzer.shape_types.simple_corner")
-    STACK_CORNER = _("analyzer.shape_types.stack_corner")
-    SWAP_CORNER = _("analyzer.shape_types.swap_corner")
-    CLAW_CORNER = _("analyzer.shape_types.claw_corner")
-    BASIC = _("analyzer.shape_types.basic")
-    SIMPLE_GEOMETRIC = _("analyzer.shape_types.simple_geometric")
-    SWAPABLE = _("analyzer.shape_types.swapable")
-    HYBRID = _("analyzer.shape_types.hybrid")
-    COMPLEX_HYBRID = _("analyzer.shape_types.complex_hybrid")
-    CLAW = _("analyzer.shape_types.claw")
-    CLAW_HYBRID = _("analyzer.shape_types.claw_hybrid")
-    CLAW_COMPLEX_HYBRID = _("analyzer.shape_types.claw_complex_hybrid")
-    IMPOSSIBLE = _("analyzer.shape_types.impossible")
+    EMPTY = t("analyzer.shape_types.empty")
+    SIMPLE_CORNER = t("analyzer.shape_types.simple_corner")
+    STACK_CORNER = t("analyzer.shape_types.stack_corner")
+    SWAP_CORNER = t("analyzer.shape_types.swap_corner")
+    CLAW_CORNER = t("analyzer.shape_types.claw_corner")
+    BASIC = t("analyzer.shape_types.basic")
+    SIMPLE_GEOMETRIC = t("analyzer.shape_types.simple_geometric")
+    SWAPABLE = t("analyzer.shape_types.swapable")
+    HYBRID = t("analyzer.shape_types.hybrid")
+    COMPLEX_HYBRID = t("analyzer.shape_types.complex_hybrid")
+    CLAW = t("analyzer.shape_types.claw")
+    CLAW_HYBRID = t("analyzer.shape_types.claw_hybrid")
+    CLAW_COMPLEX_HYBRID = t("analyzer.shape_types.claw_complex_hybrid")
+    IMPOSSIBLE = t("analyzer.shape_types.impossible")
 
 
 def get_piece(shape: str, layer: int, quadrant: int) -> str:
@@ -162,18 +162,18 @@ def _check_impossible_patterns(pillars: list[str]) -> tuple[str | None, str | No
         tuple[str | None, str | None]: (분류_결과, 분류_사유)
     """
     impossible_patterns_for_type = [
-        (r'-P', _("analyzer.corner_rules.rule1")),
-        (r'^P*-+c', _("analyzer.corner_rules.rule2")),
-        (r'[^P]P.*c', _("analyzer.corner_rules.rule3")),
-        (r'c-.*c', _("analyzer.corner_rules.rule4")),
-        (r'c.-+c', _("analyzer.corner_rules.rule5")),
-        (r'^S*-?S*c.*-S-+c', _("analyzer.corner_rules.rule6"))
+        (r'-P', t("analyzer.corner_rules.rule1")),
+        (r'^P*-+c', t("analyzer.corner_rules.rule2")),
+        (r'[^P]P.*c', t("analyzer.corner_rules.rule3")),
+        (r'c-.*c', t("analyzer.corner_rules.rule4")),
+        (r'c.-+c', t("analyzer.corner_rules.rule5")),
+        (r'^S*-?S*c.*-S-+c', t("analyzer.corner_rules.rule6"))
     ]
     
     for pillar_idx, pillar in enumerate(pillars):
         for pattern, description in impossible_patterns_for_type:
             if re.search(pattern, pillar):
-                return ShapeType.IMPOSSIBLE.value, _("analyzer.impossible.violation", quadrant=pillar_idx+1, rule=description)
+                return ShapeType.IMPOSSIBLE.value, t("analyzer.impossible.violation", quadrant=pillar_idx+1, rule=description)
     
     return None, None
 
@@ -328,7 +328,7 @@ def _handle_crystal_free_classification(initial_swap_diagnosis: str | None, foun
         tuple[str, list[str]]: (분류_타입, 사유_리스트)
     """
     classification_type = ShapeType.SIMPLE_GEOMETRIC.value
-    reasons = [_("analyzer.no_crystal")]
+    reasons = [t("analyzer.no_crystal")]
     
     # 크리스탈이 없는 경우 최우선 단순기하형
     if initial_swap_diagnosis is not None:
@@ -440,7 +440,7 @@ def _classify_layer_removal_case(base_reason: str, removed_hybrid_layers_content
     
     # 남은 층 수 추가
     remaining_layers_count = len(current_working_shape_obj.layers) if current_working_shape_obj else 0
-    reasons.append(_("analyzer.remaining_layers", n=remaining_layers_count))
+    reasons.append(t("analyzer.remaining_layers", n=remaining_layers_count))
     
     # 최종 스왑 상태 추가
     if final_swap_status_after_loop is not None:
@@ -469,7 +469,7 @@ def _finalize_reasons(reasons: list[str]) -> str:
     translated_reasons = []
     for reason in deduplicated_reasons:
         try:
-            translated_reasons.append(_(reason))
+            translated_reasons.append(t(reason))
         except:
             translated_reasons.append(reason)
     return " | ".join(filter(None, translated_reasons))
@@ -540,7 +540,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
                 else:
                     break
             
-            pin_reason = _(ClassificationReason.REASON_PIN) + f" x {pin_count}"
+            pin_reason = t(ClassificationReason.REASON_PIN) + f" x {pin_count}"
             final_reasons.append(pin_reason)
             
         final_reason_string = _finalize_reasons(final_reasons)
@@ -559,7 +559,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     # ========== 2단계: 기존 분류 로직 (모서리가 아닌 경우) ==========
     # 물리 안정성 검사
     if shape_obj and not check_physics_stability(shape_obj):
-        return ShapeType.IMPOSSIBLE.value, _("analyzer.rule1.unstable")
+        return ShapeType.IMPOSSIBLE.value, t("analyzer.rule1.unstable")
     
     # 불가능 패턴 검사
     impossible_type, impossible_reason = _check_impossible_patterns(pillars)
@@ -616,14 +616,14 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     if final_classification_type == ShapeType.CLAW.value:
         # claw_process 검증 수행
         claw_verified = False
-        claw_reason = _("analyzer.claw.impossible")
+        claw_reason = t("analyzer.claw.impossible")
         if shape_obj:
             try:
                 claw_verified, claw_reason = verify_claw_process(repr(shape_obj))
             except Exception as e:
-                final_reasons.append(_("analyzer.claw.verification_error", error=str(e)))
+                final_reasons.append(t("analyzer.claw.verification_error", error=str(e)))
                 claw_verified = False
-                claw_reason = _("analyzer.claw.impossible")
+                claw_reason = t("analyzer.claw.impossible")
 
         if claw_verified:
             final_reasons.clear()
@@ -645,6 +645,33 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
             final_reasons.clear()
             final_reasons.append(ClassificationReason.REASON_CLAW_RULE2)
 
+    # ========== 8단계: 하이브리드 기반 구제 로직 ==========
+    # 최종 결과가 불가능형인 경우, 하이브리드 분해를 통해 추가 분류를 시도한다.
+    if final_classification_type == ShapeType.IMPOSSIBLE.value:
+        try:
+            from shape import Shape
+            # shape_obj가 없으면 생성
+            target_shape_obj = shape_obj if shape_obj else Shape.from_string(shape)
+            # 하이브리드 분해 (기본 모드): 출력 A(마스크0: c 포함), B(마스크1: 나머지)
+            output_a, output_b = target_shape_obj.hybrid(claw=False)
+
+            # 8-2) A/B를 스택으로 합쳐 원본과 일치하는지 검사 -> '복합 하이브리드'
+            a_repr = repr(output_a)
+            b_repr = repr(output_b)
+            # B는 비어있지 않아야 하며, A는 불가능형이 아니어야 함
+            if b_repr:
+                a_type, a_reason = analyze_shape(a_repr, output_a)
+                if a_type != ShapeType.IMPOSSIBLE.value:
+                    # 두 가지 스택 조합 모두 확인 (bottom, top)
+                    stacked_1 = Shape.stack(output_a, output_b)
+                    stacked_2 = Shape.stack(output_b, output_a)
+                    if repr(stacked_1) == repr(target_shape_obj) or repr(stacked_2) == repr(target_shape_obj):
+                        final_reasons.clear()
+                        final_classification_type = ShapeType.COMPLEX_HYBRID.value
+        except Exception:
+            # 하이브리드 구제 실패 시, 기존 불가능형 결과 유지
+            pass
+
     final_reason_string = _finalize_reasons(final_reasons)
     return final_classification_type, final_reason_string
 
@@ -665,7 +692,7 @@ def verify_claw_process(original_shape_str: str) -> tuple[bool, str]:
 
     # 4. push_pinned_result와 original_shape가 동일한지 비교
     if repr(push_pinned_result) != original_shape_str:
-        return False, _("analyzer.claw.impossible")
+        return False, t("analyzer.claw.impossible")
     
     # 5. 클로 프로세스 이후 도형 분류 검사
     try:
@@ -693,6 +720,7 @@ def analyze_shape_simple(shape: str, shape_obj=None) -> str:
     Returns:
         str: 분류 결과
     """
-    result, _ = analyze_shape(shape, shape_obj)
+    result, reason_text = analyze_shape(shape, shape_obj)
     return result
+
 

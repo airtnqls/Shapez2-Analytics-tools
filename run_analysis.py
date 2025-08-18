@@ -7,7 +7,7 @@ Claw 분석을 실행하는 스크립트
 from claw_tracer import _log
 from shape_classifier import analyze_shape
 from shape import Shape
-from i18n import _
+from i18n import t
 import sys
 import os
 
@@ -16,7 +16,7 @@ def analyze_claws_from_file(input_filepath: str, output_filepath: str):
     주어진 입력 파일에서 도형 코드를 읽어 클로 가능/불가능을 판별하고,
     클로 불가능한 도형 코드만 새 파일에 저장합니다.
     """
-    _log(f"DEBUG: {_('run_analysis.start', input_filepath=input_filepath)}")
+    _log(f"DEBUG: {t('run_analysis.start', input_filepath=input_filepath)}")
     
     impossible_shapes = []
     total_shapes = 0
@@ -37,30 +37,30 @@ def analyze_claws_from_file(input_filepath: str, output_filepath: str):
                     # "클로불가능" 또는 "클로 룰1" 또는 "클로 룰2"가 사유에 포함된 경우 불가능으로 간주
                     if "불가능" in reason or "클로 룰" in reason or "불가능" in result:
                         impossible_shapes.append(shape_code)
-                        _log(f"DEBUG: {_('run_analysis.claw_impossible', shape_code=shape_code, reason=reason)}")
+                        _log(f"DEBUG: {t('run_analysis.claw_impossible', shape_code=shape_code, reason=reason)}")
                     else:
-                        _log(f"DEBUG: {_('run_analysis.claw_possible', shape_code=shape_code, reason=reason)}")
+                        _log(f"DEBUG: {t('run_analysis.claw_possible', shape_code=shape_code, reason=reason)}")
                         
                 except Exception as e:
-                    _log(f"ERROR: {_('run_analysis.error.processing', shape_code=shape_code, line_num=line_num, error=str(e))}")
+                    _log(f"ERROR: {t('run_analysis.error.processing', shape_code=shape_code, line_num=line_num, error=str(e))}")
                     impossible_shapes.append(f"{shape_code} # 오류 발생: {e}")
                     
     except FileNotFoundError:
-        _log(f"ERROR: {_('run_analysis.error.file_not_found', input_filepath=input_filepath)}")
+        _log(f"ERROR: {t('run_analysis.error.file_not_found', input_filepath=input_filepath)}")
         return
     except Exception as e:
-        _log(f"ERROR: {_('run_analysis.error.file_read', error=str(e))}")
+        _log(f"ERROR: {t('run_analysis.error.file_read', error=str(e))}")
         return
         
-    _log(f"DEBUG: {_('run_analysis.summary', total_shapes=total_shapes, impossible_count=len(impossible_shapes))}")
+    _log(f"DEBUG: {t('run_analysis.summary', total_shapes=total_shapes, impossible_count=len(impossible_shapes))}")
     
     try:
         with open(output_filepath, 'a', encoding='utf-8') as outfile:
             for shape_code in impossible_shapes:
                 outfile.write(shape_code + '\n')
-        _log(f"DEBUG: {_('run_analysis.success.write', output_filepath=output_filepath)}")
+        _log(f"DEBUG: {t('run_analysis.success.write', output_filepath=output_filepath)}")
     except Exception as e:
-        _log(f"ERROR: {_('run_analysis.error.write', output_filepath=output_filepath, error=str(e))}")
+        _log(f"ERROR: {t('run_analysis.error.write', output_filepath=output_filepath, error=str(e))}")
 
 def main():
     # 기본 파일 경로 설정

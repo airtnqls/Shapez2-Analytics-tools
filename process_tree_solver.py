@@ -6,7 +6,7 @@ from typing import List, Dict, Optional, Tuple
 from shape import Shape
 from shape_classifier import analyze_shape, ShapeType
 from corner_tracer import corner_process
-from i18n import _
+from i18n import t
 # claw_tracer와 같은 다른 트레이서 모듈도 필요에 따라 임포트해야 합니다.
 # from claw_tracer import claw_process
 # from hybrid_tracer import hybrid_process 
@@ -380,21 +380,21 @@ class ProcessTreeSolver:
             
             if result and result != shape_code:
                 # 결과가 있는 경우 자식 노드 생성
-                child_node = ProcessNode(result, _("process_tree.operation.corner_result"), self._generate_node_id())
+                child_node = ProcessNode(result, t("process_tree.operation.corner_result"), self._generate_node_id())
                 self._add_node_to_map(child_node)
                 current_node.input_ids = [child_node.node_id]
-                current_node.operation = _("process_tree.operation.corner_tracer")
+                current_node.operation = t("process_tree.operation.corner_tracer")
                 # 재귀적으로 하위 트리 생성
                 self._create_simple_tree(child_node, depth + 1)
             else:
-                current_node.operation = _("process_tree.operation.corner_tracer_no_result")
+                current_node.operation = t("process_tree.operation.corner_tracer_no_result")
         except Exception as e:
             # 코너 트레이서 처리 중 오류 발생
             print(f"DEBUG: corner_tracer 오류: {str(e)}")
             impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
             self._add_node_to_map(impossible_node)
             current_node.input_ids = [impossible_node.node_id]
-            current_node.operation = _("process_tree.operation.corner_tracer_error")
+            current_node.operation = t("process_tree.operation.corner_tracer_error")
     
 
     def _apply_quad_operation(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
@@ -404,29 +404,29 @@ class ProcessTreeSolver:
             if shape_obj:
                 quad_results = shape_obj.quad_cutter()
                 if quad_results and len(quad_results) == 4:
-                    current_node.operation = _("process_tree.operation.quad")
+                    current_node.operation = t("process_tree.operation.quad")
                     # 4개의 사분면 결과에 대해 자식 노드 생성
                     for i, quad_shape in enumerate(quad_results):
                         if quad_shape and quad_shape.layers:
                             quad_code = repr(quad_shape)
-                            child_node = ProcessNode(quad_code, _("process_tree.operation.quad_result"), self._generate_node_id())
+                            child_node = ProcessNode(quad_code, t("process_tree.operation.quad_result"), self._generate_node_id())
                             self._add_node_to_map(child_node)
                             current_node.input_ids.append(child_node.node_id)
                             # 재귀적으로 하위 트리 생성
                             self._create_simple_tree(child_node, depth + 1)
                     
                     if not current_node.input_ids:
-                        current_node.operation = _("process_tree.operation.quad_no_result")
+                        current_node.operation = t("process_tree.operation.quad_no_result")
                 else:
-                    current_node.operation = _("process_tree.operation.quad_no_result")
+                    current_node.operation = t("process_tree.operation.quad_no_result")
             else:
-                current_node.operation = _("process_tree.operation.quad_no_result")
+                current_node.operation = t("process_tree.operation.quad_no_result")
         except Exception as e:
             # 쿼드 연산 처리 중 오류 발생
             impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
             self._add_node_to_map(impossible_node)
             current_node.input_ids = [impossible_node.node_id]
-            current_node.operation = _("process_tree.operation.quad_error")
+            current_node.operation = t("process_tree.operation.quad_error")
     
     def _apply_hybrid_tracer(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
         """하이브리드 트레이서를 적용하여 하위 노드를 생성합니다."""
@@ -434,26 +434,26 @@ class ProcessTreeSolver:
             from data_operations import hybrid_shape
             results = hybrid_shape(shape_code)
             if results and len(results) == 2:
-                current_node.operation = _("process_tree.operation.hybrid_tracer")
+                current_node.operation = t("process_tree.operation.hybrid_tracer")
                 # 두 개의 결과에 대해 자식 노드 생성
                 for i, result in enumerate(results):
                     if result and result != shape_code:
-                        child_node = ProcessNode(result, _("process_tree.operation.hybrid_result"), self._generate_node_id())
+                        child_node = ProcessNode(result, t("process_tree.operation.hybrid_result"), self._generate_node_id())
                         self._add_node_to_map(child_node)
                         current_node.input_ids.append(child_node.node_id)
                         # 재귀적으로 하위 트리 생성
                         self._create_simple_tree(child_node, depth + 1)
                 
                 if not current_node.input_ids:
-                    current_node.operation = _("process_tree.operation.hybrid_no_result")
+                    current_node.operation = t("process_tree.operation.hybrid_no_result")
             else:
-                current_node.operation = _("process_tree.operation.hybrid_no_result")
+                current_node.operation = t("process_tree.operation.hybrid_no_result")
         except Exception as e:
             # 하이브리드 트레이서 처리 중 오류 발생
             impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
             self._add_node_to_map(impossible_node)
             current_node.input_ids = [impossible_node.node_id]
-            current_node.operation = _("process_tree.operation.hybrid_error")
+            current_node.operation = t("process_tree.operation.hybrid_error")
     
     def _apply_claw_tracer(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
         """클로 트레이서를 적용하여 하위 노드를 생성합니다."""
@@ -466,21 +466,21 @@ class ProcessTreeSolver:
             
             if result and result != shape_code:
                 # 결과가 있는 경우 자식 노드 생성
-                child_node = ProcessNode(result, _("process_tree.operation.claw_result"), self._generate_node_id())
+                child_node = ProcessNode(result, t("process_tree.operation.claw_result"), self._generate_node_id())
                 self._add_node_to_map(child_node)
                 current_node.input_ids = [child_node.node_id]
-                current_node.operation = _("process_tree.operation.claw_tracer")
+                current_node.operation = t("process_tree.operation.claw_tracer")
                 # 재귀적으로 하위 트리 생성
                 self._create_simple_tree(child_node, depth + 1)
             else:
-                current_node.operation = _("process_tree.operation.claw_no_result")
+                current_node.operation = t("process_tree.operation.claw_no_result")
         except Exception as e:
             # 클로 트레이서 처리 중 오류 발생
             print(f"DEBUG: claw_tracer 오류: {str(e)}")
             impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
             self._add_node_to_map(impossible_node)
             current_node.input_ids = [impossible_node.node_id]
-            current_node.operation = _("process_tree.operation.claw_error")
+            current_node.operation = t("process_tree.operation.claw_error")
     
     def _decompose_to_base_shapes(self, shape_code: str, shape_obj: Shape) -> List[str]:
         """도형을 기본 도형들로 분해합니다. 임시 구현입니다."""

@@ -6,7 +6,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 import itertools
 from shape_classifier import analyze_shape
 
-from i18n import _
+from i18n import t
 
 # ==============================================================================
 #  1. Shapez 2 시뮬레이터 백엔드
@@ -14,16 +14,16 @@ from i18n import _
 class Quadrant:
     VALID_SHAPES = ['C', 'S', 'R', 'W', 'c', 'P']; VALID_COLORS = ['r', 'g', 'b', 'm', 'c', 'y', 'u', 'w']
     def __init__(self, shape: str, color: str):
-        if shape not in self.VALID_SHAPES: raise ValueError(_("error.shape.invalid", shape=shape))
-        if color not in self.VALID_COLORS: raise ValueError(_("error.color.invalid", color=color))
-        if shape == 'P' and color != 'u': raise ValueError(_("error.pin.color"))
+        if shape not in self.VALID_SHAPES: raise ValueError(t("error.shape.invalid", shape=shape))
+        if color not in self.VALID_COLORS: raise ValueError(t("error.color.invalid", color=color))
+        if shape == 'P' and color != 'u': raise ValueError(t("error.pin.color"))
         self.shape = shape; self.color = color
     def __repr__(self) -> str: return f"{self.shape}{self.color if self.shape != 'P' else '-'}"
     def copy(self): return Quadrant(self.shape, self.color)
 
 class Layer:
     def __init__(self, quadrants: List[Optional[Quadrant]]):
-        if len(quadrants) != 4: raise ValueError(_("error.layer.quadrants"))
+        if len(quadrants) != 4: raise ValueError(t("error.layer.quadrants"))
         self.quadrants = quadrants
     def __repr__(self) -> str:
         q = self.quadrants; output_order = [q[0], q[1], q[2], q[3]] # TR, BR, BL, TL
@@ -45,7 +45,7 @@ class Shape:
             # 개별 도형의 최대 층 수 설정 (기본값 또는 레이어 수 중 큰 값)
             self.max_layers = max(Shape.MAX_LAYERS, len(layers_or_code))
         else:
-            raise ValueError(_("error.shape.init"))
+            raise ValueError(t("error.shape.init"))
 
     def classifier(self) -> tuple[str, str]:
         # 각 레이어를 4개의 도형 문자로 변환 (색상 생략)
@@ -641,8 +641,8 @@ class Shape:
 
     def hybrid(self, claw: bool = False) -> tuple[Shape, Shape]:
         """하이브리드 함수: 입력을 마스크 기반으로 두 부분으로 분리합니다."""
-        from hybrid_tracer import HybridTracer
-        return HybridTracer.hybrid(self, claw)
+        from hybrid_tracer import hybrid
+        return hybrid(self, claw)
 
 
 
