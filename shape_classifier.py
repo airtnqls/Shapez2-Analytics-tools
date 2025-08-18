@@ -671,6 +671,34 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         except Exception:
             # 하이브리드 구제 실패 시, 기존 불가능형 결과 유지
             pass
+        
+    # ========== 9단계: 클로 하이브리드 기반 구제 로직 ==========
+    # 최종 결과가 여전히 불가능형인 경우, 클로 하이브리드 분해를 통해 추가 분류를 시도한다.
+    if final_classification_type == ShapeType.IMPOSSIBLE.value:
+        try:
+            from shape import Shape
+            from claw_hybrid_tracer import claw_hybrid
+            # shape_obj가 없으면 생성
+            target_shape_obj = shape_obj if shape_obj else Shape.from_string(shape)
+            # 클로 하이브리드 분해: 출력 A(마스크0: P,S,c 주변 포함), B(마스크1: 나머지)
+            output_a, output_b = claw_hybrid(target_shape_obj)
+
+            # 9-2) A/B를 스택으로 합쳐 원본과 일치하는지 검사 -> '클로 복합 하이브리드'
+            a_repr = repr(output_a)
+            b_repr = repr(output_b)
+            # B는 비어있지 않아야 하며, A는 불가능형이 아니어야 함
+            if b_repr:
+                a_type, a_reason = analyze_shape(a_repr, output_a)
+                if a_type != ShapeType.IMPOSSIBLE.value:
+                    # 두 가지 스택 조합 모두 확인 (bottom, top)
+                    stacked_1 = Shape.stack(output_a, output_b)
+                    stacked_2 = Shape.stack(output_b, output_a)
+                    if repr(stacked_1) == repr(target_shape_obj) or repr(stacked_2) == repr(target_shape_obj):
+                        final_reasons.clear()
+                        final_classification_type = ShapeType.CLAW_COMPLEX_HYBRID.value
+        except Exception:
+            # 클로 하이브리드 구제 실패 시, 기존 불가능형 결과 유지
+            pass
 
     final_reason_string = _finalize_reasons(final_reasons)
     return final_classification_type, final_reason_string

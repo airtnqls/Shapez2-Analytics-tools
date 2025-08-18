@@ -9,12 +9,13 @@ from typing import Set, Tuple
 from shape import Shape, Layer
 
 
-def hybrid(shape: Shape) -> Tuple[Shape, Shape]:
+def claw_hybrid(shape: Shape) -> Tuple[Shape, Shape]:
     """
     하이브리드 함수: 입력을 마스크 기반으로 두 부분으로 분리합니다.
     
     Args:
         shape: 분석할 도형
+        claw: 클로 모드 여부 (True일 때 P와 S를 마스크 0으로 설정)
         
     Returns:
         (output_a, output_b): 마스크 0 부분과 마스크 1 부분으로 분리된 두 도형
@@ -25,8 +26,42 @@ def hybrid(shape: Shape) -> Tuple[Shape, Shape]:
     for l in range(len(shape.layers)):
         for q in range(4):
             mask[(l, q)] = 1
+            
+    # 2. 0층의 P는 마스크 0으로 설정
+    for q in range(4):
+        piece = shape._get_piece(0, q)
+        if piece and (piece.shape == 'P' or piece.shape == 'S'):
+            mask[(0, q)] = 0
+        
+# 3. 클로시 크리스탈 주변 마스크 0으로 설정
+    # 모든 크리스탈을 찾습니다
+    for l in range(len(shape.layers)):
+        for q in range(4):
+            piece = shape._get_piece(l, q)
+            if piece and piece.shape == 'c':
+                # 크리스탈의 상, 좌, 우 (양쪽 사분면, 위 레이어)를 마스크 0으로 만들고 그 아래 모든 영역도 0으로 만듭니다
+                
+                # 상 (위 레이어의 같은 사분면)
+                upper_piece = shape._get_piece(l, q)
+                if upper_piece:  # 빈칸이 아닌 경우에만
+                    for upper_l in range(l, len(shape.layers)):
+                        mask[(upper_l, q)] = 0
+                
+                # 좌 사분면 (현재 층과 그 아래)
+                left_q = (q - 1) % 4
+                left_piece = shape._get_piece(l, left_q)
+                if left_piece:  # 빈칸이 아닌 경우에만
+                    for lower_l in range(l + 1):
+                        mask[(lower_l, left_q)] = 0
+                
+                # 우 사분면 (현재 층과 그 아래)
+                right_q = (q + 1) % 4
+                right_piece = shape._get_piece(l, right_q)
+                if right_piece:  # 빈칸이 아닌 경우에만
+                    for lower_l in range(l + 1):
+                        mask[(lower_l, right_q)] = 0
     
-    # 2. 각 사분면의 가장 높은 크리스탈을 찾습니다
+    # 4. 각 사분면의 가장 높은 크리스탈을 찾습니다
     for q in range(4):
         highest_crystal_layer = -1
         for l in range(len(shape.layers) - 1, -1, -1):  # 위에서부터 탐색
@@ -40,7 +75,7 @@ def hybrid(shape: Shape) -> Tuple[Shape, Shape]:
             for l in range(highest_crystal_layer + 1):  # 해당 층과 그 아래 모든 층
                 mask[(l, q)] = 0
     
-    # 3. 마스크 영역 0인 부분만으로 임시 도형을 만들어 불안정한 도형 검사
+    # 5. 마스크 영역 0인 부분만으로 임시 도형을 만들어 불안정한 도형 검사
     current_layer = 0
     while current_layer < len(shape.layers):
         # 현재까지의 마스크 0 부분만으로 임시 도형 생성
@@ -94,7 +129,7 @@ def hybrid(shape: Shape) -> Tuple[Shape, Shape]:
         # 불안정한 도형이 없거나 마스크 변경이 없으면 다음 층으로
         current_layer += 1
     
-    # 4. 특별 조건 검사: S 도형이 아래가 비어있고 옆 사분면이 마스크 0이면서 S 또는 c인 경우
+    # 6. 특별 조건 검사: S 도형이 아래가 비어있고 옆 사분면이 마스크 0이면서 S 또는 c인 경우
     # 아래 레이어부터 위로 검사
     for current_layer in range(len(shape.layers)):
         for q in range(4):
@@ -143,7 +178,7 @@ def hybrid(shape: Shape) -> Tuple[Shape, Shape]:
                     for below_l in range(current_layer + 1):
                         mask[(below_l, q)] = 0
     
-    # 5. 수정된 물리 적용으로 불안정한 도형 검사 (층별 순차 처리)
+    # 7. 수정된 물리 적용으로 불안정한 도형 검사 (층별 순차 처리)
     # 맨 위 층부터 순서대로 아래로 진행
     for current_layer in range(len(shape.layers) - 1, -1, -1):  # 맨 위부터 아래로
         # 현재 층에서 마스크 1인 부분만 추출하여 임시 도형 생성
@@ -167,7 +202,7 @@ def hybrid(shape: Shape) -> Tuple[Shape, Shape]:
             for below_l in range(l + 1):  # 해당 층과 그 아래 모든 층
                 mask[(below_l, q)] = 0
     
-    # 6. 출력 A (마스크 0 부분만), 출력 B (마스크 1 부분만)
+    # 8. 출력 A (마스크 0 부분만), 출력 B (마스크 1 부분만)
     output_a_layers = []
     output_b_layers = []
     

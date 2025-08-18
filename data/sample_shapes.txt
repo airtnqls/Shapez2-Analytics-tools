@@ -35,3 +35,4 @@ PPPP:S---:cS-S
 PP-P:-SSP:---P:-ScS
 {PPPP:S---:cS-S:SSSS} 클로 심플 하이브리드
 {PPPP:S-S-:cS-S} 클로 복합 하이브리드
+{PPPP:S-S-:cS-S} 클로 복합 하이브리드 (P제거)

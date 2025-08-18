@@ -26,7 +26,7 @@ from i18n import load_locales, t, set_language
 from data_operations import (
     get_data_directory, simplify_shape, detail_shape, corner_1q_shape,
     reverse_shape, corner_shape_for_gui, claw_shape_for_gui, mirror_shape_for_gui,
-    cornerize_shape, hybrid_shape, remove_impossible_shapes, process_batch_operation,
+    cornerize_shape, hybrid_shape, claw_hybrid_shape, remove_impossible_shapes, process_batch_operation,
     calculate_complexity, parse_shape_or_none
 )
  
@@ -238,7 +238,7 @@ class SearchFilterThread(QThread):
             }
         
         # '_'를 '.'로 변환 (와일드카드)
-        regex_pattern = keyword.replace('_', '.')
+        regex_pattern = keyword.replace('_', '.').replace('[^', '[^:')
         
         return {
             'regex_pattern': regex_pattern,
@@ -303,17 +303,19 @@ class SearchFilterThread(QThread):
                     # 디테일: 단순화 생략, 원 문자열에서 정규식
                     return self._matches_simplified_string(str(target_shape), self.keyword)
                 elif self.search_mode == "corner":
-                    # 코너: 단순화된 각 사분면 기둥들 중 하나라도 매칭되면 OK
+                    # 코너: 네 사분면 기둥을 모두 ':'를 기둥단위로 끼워 하나의 문자열로 합친 뒤 정규식 검색
                     # 코너도 단순화 전제
                     try:
                         from shape_classifier import get_edge_pillars
                         pillars = get_edge_pillars(str(target_shape))
                     except Exception:
                         pillars = []
-                    for pillar in pillars:
-                        if self._matches_simplified_string(pillar, self.keyword):
-                            return True
-                    return False
+                    if not pillars:
+                        return False
+                    # 각 기둥의 기존 ':'를 제거한 뒤, 기둥들 사이를 ':'로 연결
+                    cleaned_pillars = [pillar.replace(':', '') for pillar in pillars]
+                    combined_pillars = ':'.join(cleaned_pillars)
+                    return self._matches_simplified_string(combined_pillars, self.keyword)
                 else:
                     # 심플(기본): 단순화 문자열에서 정규식
                     from data_operations import simplify_shape
@@ -1932,22 +1934,22 @@ class ShapezGUI(QMainWindow):
         mode_layout = QGridLayout(mode_group)
         
         self.max_layers_combo = QComboBox()
-        # 텍스트는 번역 키, 값은 숫자 userData로 보관
-        self.max_layers_combo.addItem(t("ui.max_layers.option.5"), 5)
-        self.max_layers_combo.addItem(t("ui.max_layers.option.4"), 4)
-        self.max_layers_combo.currentIndexChanged.connect(self.on_max_layers_changed)
+        self.max_layers_combo.addItem("5", 5)
+        self.max_layers_combo.addItem("4", 4)
+        self.max_layers_combo.setEditable(True)
+        validator = QIntValidator(1, 999, self)
+        self.max_layers_combo.lineEdit().setValidator(validator)
+        self.max_layers_combo.activated.connect(self.on_max_layers_changed)
+        self.max_layers_combo.lineEdit().editingFinished.connect(self.on_max_layers_changed)
         self._label_max_layers = QLabel(t("ui.max_layers"))
         mode_layout.addWidget(self._label_max_layers, 0, 0)
         mode_layout.addWidget(self.max_layers_combo, 0, 1)
         
-        self.max_depth_input = QLineEdit("4")
-        self.max_depth_input.editingFinished.connect(self.on_max_depth_changed)
-        mode_layout.addWidget(QLabel(t("ui.max_depth")), 1, 0)
-        mode_layout.addWidget(self.max_depth_input, 1, 1)
-
-        self.max_physics_height_input = QLineEdit("2")
-        mode_layout.addWidget(QLabel(t("ui.max_physics_height")), 2, 0)
-        mode_layout.addWidget(self.max_physics_height_input, 2, 1)
+        # 최대 사분면 (읽기 전용, 기본값 4)
+        self.max_quadrant_input = QLineEdit("4")
+        self.max_quadrant_input.setDisabled(True)
+        mode_layout.addWidget(QLabel(t("ui.max_quadrant")), 1, 0)
+        mode_layout.addWidget(self.max_quadrant_input, 1, 1)
 
 
 
@@ -1968,7 +1970,6 @@ class ShapezGUI(QMainWindow):
 
 
         self.on_max_layers_changed()
-        self.on_max_depth_changed()
 
         input_group = QGroupBox(t("ui.input.group")); input_layout = QGridLayout(input_group)
         self.input_a = QLineEdit(); self.input_a.setObjectName(t("ui.input.a")) # 초기값은 load_settings에서 설정
@@ -2238,15 +2239,19 @@ class ShapezGUI(QMainWindow):
         self.reverse_btn.setToolTip(t("tooltip.reverse"))
         data_process_layout.addWidget(self.reverse_btn, 2, 0)
         
+        # 역연산 컨테이너 (Corner, Claw, Hybrid, Claw Hybrid)
+        reverse_ops_group = QGroupBox(t("ui.groups.reverse_operations"))
+        reverse_ops_layout = QGridLayout(reverse_ops_group)
+
         self.corner_btn = QPushButton(t("ui.btn.corner"))
         self.corner_btn.clicked.connect(self.on_corner)
         self.corner_btn.setToolTip(t("tooltip.corner"))
-        data_process_layout.addWidget(self.corner_btn, 2, 1)
+        reverse_ops_layout.addWidget(self.corner_btn, 0, 0)
         
         self.claw_btn = QPushButton(t("ui.btn.claw"))
         self.claw_btn.clicked.connect(self.on_claw)
         self.claw_btn.setToolTip(t("tooltip.claw"))
-        data_process_layout.addWidget(self.claw_btn, 2, 2)
+        reverse_ops_layout.addWidget(self.claw_btn, 0, 1)
         
         self.mirror_btn = QPushButton(t("ui.btn.mirror"))
         self.mirror_btn.clicked.connect(self.on_mirror)
@@ -2261,9 +2266,17 @@ class ShapezGUI(QMainWindow):
         self.hybrid_btn = QPushButton(t("ui.btn.hybrid"))
         self.hybrid_btn.clicked.connect(self.on_hybrid)
         self.hybrid_btn.setToolTip(t("tooltip.hybrid"))
-        data_process_layout.addWidget(self.hybrid_btn, 3, 2)
+        reverse_ops_layout.addWidget(self.hybrid_btn, 0, 2)
+
+        # 클로 하이브리드 버튼 추가
+        self.claw_hybrid_btn = QPushButton(t("ui.btn.claw_hybrid"))
+        self.claw_hybrid_btn.clicked.connect(self.on_claw_hybrid)
+        # 클로 하이브리드 툴팁
+        self.claw_hybrid_btn.setToolTip(t("tooltip.claw_hybrid"))
+        reverse_ops_layout.addWidget(self.claw_hybrid_btn, 1, 0)
         
         left_panel.addWidget(data_process_group)
+        left_panel.addWidget(reverse_ops_group)
         
         left_panel.addStretch(1); 
         main_content_hbox.addLayout(left_panel)
@@ -3013,12 +3026,8 @@ class ShapezGUI(QMainWindow):
         self.progress_dialog.setWindowTitle("탐색 진행률")
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         
-        try:
-            max_physics_height = int(self.max_physics_height_input.text())
-            if max_physics_height < 0: max_physics_height = 0
-        except ValueError:
-            max_physics_height = 2
-            self.max_physics_height_input.setText("2")
+        # 최대 역 물리 높이 입력 제거됨: 고정 기본값 사용
+        max_physics_height = 2
 
         log_enabled = self.log_checkbox.isChecked()
         
@@ -3146,29 +3155,22 @@ class ShapezGUI(QMainWindow):
             self.display_outputs([("선택된 후보", origin_shape)])
         
     def on_max_depth_changed(self):
-        try:
-            text = self.max_depth_input.text()
-            new_depth = int(text)
-            if new_depth < 1:
-                self.log("🔥 오류: 최대 탐색 깊이는 1 이상이어야 합니다. 1로 설정합니다.")
-                new_depth = 1
-                self.max_depth_input.setText(str(new_depth))
-            
-            ReverseTracer.MAX_SEARCH_DEPTH = new_depth
-            self.log_verbose(t("log.max_depth.set", n=new_depth))
-        except ValueError:
-            self.log("🔥 오류: 최대 탐색 깊이는 숫자로 입력해야 합니다. 1로 설정합니다.")
-            ReverseTracer.MAX_SEARCH_DEPTH = 1
-            self.max_depth_input.setText("1")
+        # 최대 탐색 깊이 입력 제거됨: 설정 UI에서 변경 불가. 유지보수 목적의 빈 메서드
+        pass
 
     def on_max_layers_changed(self):
-        data = self.max_layers_combo.currentData()
+        # 콤보박스 텍스트에서 숫자 파싱
         try:
-            new_max = int(data)
-        except (TypeError, ValueError):
+            new_max = int(self.max_layers_combo.currentText())
+        except ValueError:
             return
+        if new_max < 1:
+            new_max = 1
+            self.max_layers_combo.setCurrentText(str(new_max))
+        previous = getattr(Shape, 'MAX_LAYERS', None)
         Shape.MAX_LAYERS = new_max
-        self.log_verbose(t("log.max_layers.set", n=new_max)) 
+        if previous != new_max:
+            self.log(t("log.max_layers.set", n=new_max))
 
     
     def run_forward_tests(self):
@@ -4130,6 +4132,10 @@ class ShapezGUI(QMainWindow):
         """하이브리드 버튼 클릭 시 호출 - 도형을 두 부분으로 분리"""
         self.process_data_operation("hybrid", hybrid_shape)
 
+    def on_claw_hybrid(self):
+        """클로 하이브리드 버튼 클릭 시 호출 - claw_hybrid_tracer.py 기능 수행"""
+        self.process_data_operation("claw_hybrid", claw_hybrid_shape)
+
     def on_browse_file(self):
         """파일 찾아보기 대화상자 열기 및 자동 로드"""
         # 기본 경로 설정
@@ -4982,11 +4988,11 @@ class DragDropTableWidget(QTableWidget):
                     )
 
     def visualRangeForRow(self, row: int):
-        # 헬퍼: 한 행 전체의 선택 범위
-        from PyQt6.QtCore import QItemSelection
-        left = self.model().index(row, 0)
-        right = self.model().index(row, max(0, self.columnCount()-1))
-        return QItemSelection(left, right)
+        # 헬퍼: 한 행 전체의 선택 범위 (QTableWidgetSelectionRange 사용)
+        from PyQt6.QtWidgets import QTableWidgetSelectionRange
+        left_col = 0
+        right_col = max(0, self.columnCount() - 1)
+        return QTableWidgetSelectionRange(row, left_col, row, right_col)
 
     def keyPressEvent(self, event):
         # Ctrl+A 처리: 필터된(보이는) 행만 선택

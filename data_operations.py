@@ -197,6 +197,24 @@ def hybrid_shape(shape_code: str) -> List[str]:
         return [f"오류: {str(e)}", ""]
 
 
+def claw_hybrid_shape(shape_code: str) -> List[str]:
+    """도형을 클로 하이브리드 로직으로 분리합니다 - 도형을 두 부분으로 분리"""
+    try:
+        if not shape_code.strip():
+            return ["", ""]
+
+        from claw_hybrid_tracer import claw_hybrid
+        shape = Shape.from_string(shape_code)
+        output_a, output_b = claw_hybrid(shape)
+
+        result_a = repr(output_a) if output_a.layers else ""
+        result_b = repr(output_b) if output_b.layers else ""
+
+        return [result_a, result_b]
+    except Exception as e:
+        return [f"오류: {str(e)}", ""]
+
+
 def remove_impossible_shapes(data: List[str], logger=None) -> Tuple[List[str], int]:
     """불가능한 도형들을 제거합니다"""
     valid_data = []
