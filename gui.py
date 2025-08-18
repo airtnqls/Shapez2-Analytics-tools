@@ -925,6 +925,9 @@ class ShapezGUI(QMainWindow):
 
         # 히스토리 관리 객체 생성 (A, B 통합)
         self.input_history = InputHistory(100)
+        
+        # 통합 프로그레스 매니저
+        self.progress_manager = ProgressManager(self)
         self.history_update_in_progress = False  # 히스토리 업데이트 중 플래그
         
         # 출력 결과 추적 변수
@@ -3768,19 +3771,18 @@ class ShapezGUI(QMainWindow):
                 indices_to_process = range(len(current_tab.data))
                 self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
         
-        # 5천 개 초과 시 비동기 처리 + 진행 상황 표시/취소 지원
+        # 500개 이상 시 비동기 처리 + 진행 상황 표시/취소 지원
         total_count = len(indices_to_process)
-        if total_count > 5000:
-            # 진행 대화상자
-            progress = QProgressDialog(self)
-            progress.setWindowTitle(t("ui.msg.title.info"))
-            progress.setLabelText(t("ui.progress.batch_running"))
-            progress.setCancelButtonText(t("ui.progress.cancel"))
-            progress.setRange(0, total_count)
-            progress.setAutoClose(False)
-            progress.setAutoReset(False)
-            progress.show()
-
+        progress = self.progress_manager.create_progress_dialog(
+            t("ui.msg.title.info"), 
+            t("ui.progress.batch_running"), 
+            total_count
+        )
+        
+        if progress:
+            # 작업 상태 플래그 설정
+            current_tab._is_processing = True
+            
             # 롤백을 위한 스냅샷 저장
             original_data_snapshot = list(current_tab.data)
 
@@ -3796,9 +3798,10 @@ class ShapezGUI(QMainWindow):
             # 스레드 시작
             worker = BatchWorkerThread(indices_to_process, current_tab.data, process_adapter)
             self._batch_worker = worker
-            worker.progress.connect(lambda cur, tot: progress.setValue(cur))
+            worker.progress.connect(lambda cur, tot: self.progress_manager.update_progress(cur))
+            
             def on_finished(result_map, append_list, error_count, canceled):
-                progress.close()
+                self.progress_manager.close()
                 if canceled:
                     # 취소 시 되돌리기
                     current_tab.data = original_data_snapshot
@@ -3817,12 +3820,14 @@ class ShapezGUI(QMainWindow):
                     if error_count > 0:
                         QMessageBox.warning(self, t("ui.msg.title.warning"), t("ui.msg.batch_errors", n=error_count))
                 self._batch_worker = None
+                current_tab._is_processing = False  # 작업 완료 플래그 해제
+                
             worker.finished_with_results.connect(on_finished)
-            progress.canceled.connect(lambda: worker.cancel())
+            self.progress_manager.connect_worker(worker)
             worker.start()
             return
 
-        # 동기 처리 (5천개 이하)
+        # 동기 처리 (500개 미만)
         # 작업 전 현재 상태를 히스토리에 저장
         current_tab.add_to_data_history(f"작업 전 ({operation_name})")
 
@@ -3895,17 +3900,16 @@ class ShapezGUI(QMainWindow):
                     self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
             
             total_count = len(indices_to_process)
-            if total_count > 5000:
-                # 비동기 처리 + 프로그레스/취소
-                progress = QProgressDialog(self)
-                progress.setWindowTitle(t("ui.msg.title.info"))
-                progress.setLabelText(t("ui.progress.batch_running"))
-                progress.setCancelButtonText(t("ui.progress.cancel"))
-                progress.setRange(0, total_count)
-                progress.setAutoClose(False)
-                progress.setAutoReset(False)
-                progress.show()
-
+            progress = self.progress_manager.create_progress_dialog(
+                t("ui.msg.title.info"), 
+                t("ui.progress.batch_running"), 
+                total_count
+            )
+            
+            if progress:
+                # 작업 상태 플래그 설정
+                current_tab._is_processing = True
+                
                 # 롤백 스냅샷
                 original_data_snapshot = list(current_tab.data)
 
@@ -3919,10 +3923,10 @@ class ShapezGUI(QMainWindow):
 
                 worker = BatchWorkerThread(indices_to_process, current_tab.data, process_adapter)
                 self._batch_worker = worker
-                worker.progress.connect(lambda cur, tot: progress.setValue(cur))
+                worker.progress.connect(lambda cur, tot: self.progress_manager.update_progress(cur))
 
                 def on_finished(result_map, append_list, error_count, canceled):
-                    progress.close()
+                    self.progress_manager.close()
                     if canceled:
                         # 되돌리기
                         current_tab.data = original_data_snapshot
@@ -3942,13 +3946,14 @@ class ShapezGUI(QMainWindow):
                         if error_count > 0:
                             QMessageBox.warning(self, t("ui.msg.title.warning"), t("ui.msg.batch_errors", n=error_count))
                     self._batch_worker = None
+                    current_tab._is_processing = False  # 작업 완료 플래그 해제
 
                 worker.finished_with_results.connect(on_finished)
-                progress.canceled.connect(lambda: worker.cancel())
+                self.progress_manager.connect_worker(worker)
                 worker.start()
                 return
             else:
-                # 동기 처리 (5천 이하)
+                # 동기 처리 (500개 미만)
                 current_tab.add_to_data_history(f"작업 전 ({operation_name})")
                 result_data_map = {}
                 error_count = 0
@@ -4972,20 +4977,73 @@ class DragDropTableWidget(QTableWidget):
         self.hover_position = QPoint()
 
         # 선택 변경 시, 숨겨진(필터된) 행은 선택 해제하여 검색결과 내 선택만 유지
-        self.itemSelectionChanged.connect(self._prune_hidden_from_selection)
+        # 성능 최적화를 위해 디바운스 타이머 사용
+        self._selection_prune_timer = QTimer()
+        self._selection_prune_timer.setSingleShot(True)
+        self._selection_prune_timer.timeout.connect(self._prune_hidden_from_selection)
+        # 대량 선택 시 성능 문제를 방지하기 위해 선택 정리를 선택적으로만 실행
+        # self.itemSelectionChanged.connect(self._schedule_prune_selection)
+
+    def _schedule_prune_selection(self):
+        """선택 정리를 디바운스로 스케줄링"""
+        self._selection_prune_timer.start(50)  # 50ms 지연
 
     def _prune_hidden_from_selection(self):
         sm = self.selectionModel()
         if not sm:
             return
-        # 숨긴 행의 선택을 제거
-        for row in range(self.rowCount()):
-            if self.isRowHidden(row):
-                if sm.isRowSelected(row, self.rootIndex()):
+        
+        # 성능 최적화: 선택된 행만 확인하여 숨겨진 것들만 해제
+        selected_rows = set()
+        selected_items = self.selectedItems()
+        
+        # 대량 선택 시 성능 최적화: 배치 처리로 효율성 향상
+        if len(selected_items) > 2000:
+            # 대량 선택의 경우 샘플링으로 성능 최적화
+            self.blockSignals(True)
+            try:
+                # 선택된 행들을 샘플링하여 확인 (모든 행을 확인하지 않음)
+                sample_size = min(200, len(selected_items) // 10)
+                sample_items = selected_items[::max(1, len(selected_items) // sample_size)]
+                
+                hidden_rows_to_deselect = []
+                for item in sample_items:
+                    row = item.row()
+                    if self.isRowHidden(row):
+                        hidden_rows_to_deselect.append(row)
+                
+                # 발견된 숨겨진 행들만 선택 해제
+                for row in hidden_rows_to_deselect:
                     self.setRangeSelected(
                         self.visualRangeForRow(row),
                         False
                     )
+            finally:
+                self.blockSignals(False)
+            return
+        
+        for item in selected_items:
+            selected_rows.add(item.row())
+        
+        if not selected_rows:
+            return
+            
+        # 숨긴 행의 선택을 제거 (선택 변경 시그널 재진입 방지)
+        self.blockSignals(True)
+        try:
+            rows_to_deselect = []
+            for row in selected_rows:
+                if self.isRowHidden(row):
+                    rows_to_deselect.append(row)
+            
+            # 한 번에 모든 숨겨진 행의 선택 해제
+            for row in rows_to_deselect:
+                self.setRangeSelected(
+                    self.visualRangeForRow(row),
+                    False
+                )
+        finally:
+            self.blockSignals(False)
 
     def visualRangeForRow(self, row: int):
         # 헬퍼: 한 행 전체의 선택 범위 (QTableWidgetSelectionRange 사용)
@@ -5003,10 +5061,70 @@ class DragDropTableWidget(QTableWidget):
         super().keyPressEvent(event)
 
     def select_all_visible_rows(self):
-        self.clearSelection()
-        for row in range(self.rowCount()):
-            if not self.isRowHidden(row):
-                self.selectRow(row)
+        """보이는 모든 행을 선택 (성능 최적화)"""
+        try:
+            # 보이는 행 개수 확인
+            visible_count = 0
+            for row in range(self.rowCount()):
+                if not self.isRowHidden(row):
+                    visible_count += 1
+                    if visible_count > 10000:  # 너무 많으면 중단
+                        break
+            
+            if visible_count == 0:
+                return
+            
+            self.blockSignals(True)
+            try:
+                self.clearSelection()
+                
+                if visible_count <= 5000:
+                    # 적당한 양이면 범위 선택으로 최적화
+                    visible_rows = []
+                    for row in range(self.rowCount()):
+                        if not self.isRowHidden(row):
+                            visible_rows.append(row)
+                    
+                    # 연속된 범위들로 그룹화
+                    from PyQt6.QtWidgets import QTableWidgetSelectionRange
+                    if visible_rows:
+                        ranges = []
+                        start_row = visible_rows[0]
+                        end_row = start_row
+                        
+                        for row in visible_rows[1:]:
+                            if row == end_row + 1:
+                                end_row = row
+                            else:
+                                # 범위 추가
+                                ranges.append(QTableWidgetSelectionRange(
+                                    start_row, 0, end_row, self.columnCount() - 1
+                                ))
+                                start_row = row
+                                end_row = row
+                        
+                        # 마지막 범위 추가
+                        ranges.append(QTableWidgetSelectionRange(
+                            start_row, 0, end_row, self.columnCount() - 1
+                        ))
+                        
+                        # 모든 범위를 한 번에 선택
+                        for selection_range in ranges:
+                            self.setRangeSelected(selection_range, True)
+                else:
+                    # 매우 대량이면 전체 선택 (QTableWidget의 기본 기능 사용)
+                    self.selectAll()
+                    
+            finally:
+                self.blockSignals(False)
+                
+        except Exception as e:
+            print(f"전체 선택 중 오류: {e}")
+            # 안전장치: 기본 방식으로 대체
+            try:
+                self.selectAll()
+            except Exception:
+                pass
 
     # ===== 마우스/드래그/툴팁 핸들러 (데이터 테이블용) =====
     def mousePressEvent(self, event):
@@ -5124,6 +5242,118 @@ class DragDropTableWidget(QTableWidget):
         self.setToolTip("")
 
 
+class ProgressManager:
+    """통합된 프로그레스 다이얼로그 관리 클래스"""
+    
+    def __init__(self, parent=None):
+        self.parent = parent
+        self.dialog = None
+        self.worker_thread = None
+    
+    def create_progress_dialog(self, title: str, label: str, maximum: int, minimum_threshold: int = 500):
+        """프로그레스 다이얼로그를 생성합니다.
+        
+        Args:
+            title: 다이얼로그 제목
+            label: 진행 상황 라벨 텍스트
+            maximum: 최대값
+            minimum_threshold: 프로그레스를 표시할 최소 항목 수 (기본값: 500)
+        
+        Returns:
+            프로그레스 다이얼로그 또는 None (임계값 미만인 경우)
+        """
+        if maximum < minimum_threshold:
+            return None
+            
+        from i18n import t
+        self.dialog = QProgressDialog(self.parent)
+        self.dialog.setWindowTitle(title)
+        self.dialog.setLabelText(label)
+        self.dialog.setCancelButtonText(t("ui.progress.cancel"))
+        self.dialog.setRange(0, maximum)
+        self.dialog.setAutoClose(False)
+        self.dialog.setAutoReset(False)
+        self.dialog.setMinimumDuration(0)  # 즉시 표시
+        self.dialog.show()
+        return self.dialog
+    
+    def update_progress(self, current: int, label: str = None):
+        """프로그레스 업데이트"""
+        if self.dialog:
+            self.dialog.setValue(current)
+            if label:
+                self.dialog.setLabelText(label)
+    
+    def is_canceled(self):
+        """취소 여부 확인"""
+        return self.dialog and self.dialog.wasCanceled()
+    
+    def close(self):
+        """프로그레스 다이얼로그 닫기"""
+        if self.dialog:
+            self.dialog.close()
+            self.dialog = None
+    
+    def connect_worker(self, worker_thread):
+        """워커 스레드와 연결"""
+        self.worker_thread = worker_thread
+        if self.dialog:
+            self.dialog.canceled.connect(lambda: worker_thread.cancel())
+
+
+class TableUpdateWorkerThread(QThread):
+    """테이블 업데이트를 백그라운드에서 수행하는 스레드"""
+    progress = pyqtSignal(int, int, str)  # current, total, message
+    finished = pyqtSignal(bool)  # canceled
+    
+    def __init__(self, data_tab, data_snapshot):
+        super().__init__()
+        self.data_tab = data_tab
+        self.data = list(data_snapshot)
+        self._cancel_requested = False
+    
+    def cancel(self):
+        self._cancel_requested = True
+    
+    def run(self):
+        from i18n import t
+        total = len(self.data)
+        
+        # 분류 계산이 필요한 경우
+        if not self.data_tab.is_comparison_table:
+            self.progress.emit(0, total, t("ui.progress.calculating_classifications"))
+            self.data_tab._classification_cache = {}
+            
+            for i, shape_code in enumerate(self.data):
+                if self._cancel_requested:
+                    break
+                    
+                # 진행률 업데이트 (100개마다)
+                if i % 100 == 0 or i == total - 1:
+                    self.progress.emit(i, total, t("ui.progress.calculating_classifications"))
+                
+                if shape_code.strip():
+                    try:
+                        from shape import parse_shape_or_none
+                        shape = parse_shape_or_none(shape_code.strip())
+                        if shape:
+                            res, reason = shape.classifier()
+                            classification_text = f"{t(res)} ({t(reason)})"
+                            self.data_tab._classification_cache[i] = classification_text
+                        else:
+                            self.data_tab._classification_cache[i] = t("ui.table.error", error="파싱 실패")
+                    except Exception as e:
+                        self.data_tab._classification_cache[i] = t("ui.table.error", error=str(e))
+                else:
+                    self.data_tab._classification_cache[i] = t("enum.shape_type.empty") + " (" + t("analyzer.empty") + ")"
+        
+        # 테이블 업데이트
+        if not self._cancel_requested:
+            self.progress.emit(total, total, t("ui.progress.updating_table"))
+        
+        self.finished.emit(self._cancel_requested)
+
+
 class BatchWorkerThread(QThread):
     progress = pyqtSignal(int, int)  # current, total
     finished_with_results = pyqtSignal(dict, list, int, bool)  # result_map, append_list, error_count, canceled
@@ -5159,166 +5389,6 @@ class BatchWorkerThread(QThread):
             if pos % 50 == 0 or pos == total:
                 self.progress.emit(pos, total)
         self.finished_with_results.emit(result_map, append_list, error_count, self._cancel_requested)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            item = self.itemAt(event.pos())
-            if item:
-                self.drag_start_row = item.row()
-                self.drag_start_point = event.pos() # 드래그 시작 위치 저장
-            # 마우스 클릭 시 툴팁 숨기기
-            self.hide_shape_tooltip()
-            self.tooltip_timer.stop()
-        super().mousePressEvent(event)
-    
-    def mouseMoveEvent(self, event):
-        if event.buttons() & Qt.MouseButton.LeftButton and self.drag_start_row != -1:
-            # 드래그 임계값 이상 이동했을 때만 드래그 시작
-            if (event.pos() - self.drag_start_point).manhattanLength() > QApplication.startDragDistance():
-                self.startDrag(Qt.DropAction.MoveAction)
-        else:
-            # 드래그 중이 아닐 때만 툴팁 처리
-            if self.drag_start_row == -1:
-                # 현재 마우스 위치의 아이템 찾기
-                item = self.itemAt(event.pos())
-                
-                # 이전 호버 아이템과 다르면 툴팁 숨기기
-                if self.hovered_item != item:
-                    self.hide_shape_tooltip()
-                    self.hovered_item = item
-                    self.tooltip_timer.stop()
-                    
-                    if item and item.text().strip():
-                        # 호버 위치 저장
-                        self.hover_position = event.globalPosition().toPoint()
-                        # 짧은 지연 후 툴팁 표시
-                        self.tooltip_timer.start(300)  # 300ms 지연
-            else:
-                # 드래그 중이면 툴팁 숨기기
-                self.hide_shape_tooltip()
-                self.tooltip_timer.stop()
-        
-        super().mouseMoveEvent(event)
-    
-    def mouseReleaseEvent(self, event):
-        """마우스를 놓았을 때 드래그 상태 초기화"""
-        super().mouseReleaseEvent(event)
-        # 드래그 상태 초기화
-        self.drag_start_row = -1
-        self.drag_start_point = QPoint()
-
-    def startDrag(self, supportedActions):
-        """드래그 시작 시 호출"""
-        selected_items = self.selectedItems()
-        if selected_items:
-            # 드래그할 항목의 MIME 데이터 생성 (여기서는 실제 데이터를 담지 않음, 그냥 신호용)
-            mimeData = QMimeData()
-            mimeData.setText(str(self.drag_start_row)) # 시작 행 정보를 MIME 데이터에 저장
-            
-            drag = QDrag(self)
-            drag.setMimeData(mimeData)
-            # 드래그 아이콘 설정 (옵션)
-            # pixmap = QPixmap(self.grab(self.visualItemRect(self.item(self.drag_start_row, 0))))
-            # drag.setPixmap(pixmap)
-            
-            drag.exec(Qt.DropAction.MoveAction)
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasText(): # 텍스트 MIME 데이터 확인 (startDrag에서 설정한 것)
-            event.acceptProposedAction()
-        else:
-            event.ignore()
-
-    def dragMoveEvent(self, event):
-        if event.mimeData().hasText():
-            event.acceptProposedAction()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event):
-        if event.source() == self and event.mimeData().hasText():
-            from_row = int(event.mimeData().text()) # MIME 데이터에서 시작 행 가져오기
-            drop_pos_y = event.position().toPoint().y()
-            to_row = self.rowAt(drop_pos_y)
-            
-            if to_row == -1: # 테이블의 빈 공간에 드롭한 경우 맨 마지막으로 간주
-                to_row = self.rowCount() # 삽입될 위치는 현재 행 수와 같음
-
-            # from_row와 to_row가 다르고 유효한 범위 내에 있을 때만 처리
-            if from_row != to_row:
-                # 실제 데이터 리스트의 insert 위치는 pop 후의 인덱스를 고려해야 함
-                # 예를 들어, 5번 항목을 2번 위치로 옮기면, 5번은 pop 되고 2번에 insert됨
-                # 2번 항목을 5번 위치로 옮기면, 2번은 pop 되고 5번에 insert됨. 이때 5번 인덱스는 이미 한 칸 당겨진 상태.
-                # 간단하게는 from_row가 to_row보다 크면 to_row는 그대로, 작으면 to_row-1
-                adjusted_to_row = to_row
-                if from_row < to_row: # 아래로 이동하는 경우
-                    adjusted_to_row = to_row - 1
-
-                self.rows_reordered.emit(from_row, adjusted_to_row)
-                event.acceptProposedAction()
-            else:
-                event.ignore()
-        else:
-            super().dropEvent(event)
-        
-        # 드래그 정보 초기화
-        self.drag_start_row = -1
-        self.drag_start_point = QPoint()
-    
-
-    
-    def leaveEvent(self, event):
-        """마우스가 테이블을 벗어날 때 툴팁 숨기기"""
-        super().leaveEvent(event)
-        self.hide_shape_tooltip()
-        self.tooltip_timer.stop()
-        self.hovered_item = None
-    
-    def show_shape_tooltip(self):
-        """도형 툴팁 표시"""
-        if not self.hovered_item or not self.hovered_item.text().strip():
-            return
-            
-        shape_code = self.hovered_item.text().strip()
-        
-        try:
-            from shape import Shape
-            shape = Shape.from_string(shape_code)
-            
-            # 툴팁 위젯 생성
-            self.shape_tooltip = ShapeTooltipWidget(shape)
-            
-            # 화면 크기 고려하여 툴팁 위치 조정
-            screen_rect = QApplication.primaryScreen().geometry()
-            tooltip_size = self.shape_tooltip.sizeHint()
-            
-            # 기본 위치 (마우스 오른쪽 아래)
-            pos = self.hover_position + QPoint(10, 10)
-            
-            # 화면 오른쪽 경계를 벗어나면 왼쪽으로 이동
-            if pos.x() + tooltip_size.width() > screen_rect.right():
-                pos.setX(self.hover_position.x() - tooltip_size.width() - 10)
-            
-            # 화면 아래쪽 경계를 벗어나면 위쪽으로 이동
-            if pos.y() + tooltip_size.height() > screen_rect.bottom():
-                pos.setY(self.hover_position.y() - tooltip_size.height() - 10)
-            
-            self.shape_tooltip.move(pos)
-            self.shape_tooltip.show()
-            
-        except Exception as e:
-            # 도형 파싱 실패 시 기본 툴팁 사용
-            self.setToolTip(t("ui.tooltip.shape_code", code=shape_code) + "\n" + t("ui.tooltip.parse_error", error=str(e)))
-
-
-
-    
-    def hide_shape_tooltip(self):
-        """도형 툴팁 숨기기"""
-        if self.shape_tooltip:
-            self.shape_tooltip.close()
-            self.shape_tooltip = None
-        self.setToolTip("")
 
 class ShapeTooltipWidget(QFrame):
     """도형 시각화를 위한 툴팁 위젯"""
@@ -5489,6 +5559,12 @@ class DataTabWidget(QWidget):
         
         # 검색 필터 스레드
         self._search_filter_thread = None
+        
+        # 테이블 업데이트 워커 스레드
+        self._table_update_worker = None
+        
+        # 작업 상태 플래그 (상호 배제용)
+        self._is_processing = False
         
         # 초기 데이터를 히스토리에 추가
         if self.data:
@@ -5728,19 +5804,19 @@ class DataTabWidget(QWidget):
             return
             
         if logical_index == 0:  # 분류 컬럼
-            # 5천 개 초과 시 비동기 처리 + 진행 상황 표시/취소 지원
+            # 500개 이상 시 비동기 처리 + 진행 상황 표시/취소 지원
             total_count = len(self.data)
-            if total_count > 5000:
-                # 진행 대화상자
-                progress = QProgressDialog(self)
-                progress.setWindowTitle(t("ui.msg.title.info"))
-                progress.setLabelText(t("ui.progress.sorting_classification"))
-                progress.setCancelButtonText(t("ui.progress.cancel"))
-                progress.setRange(0, total_count)
-                progress.setAutoClose(False)
-                progress.setAutoReset(False)
-                progress.setMinimumDuration(0)  # 즉시 표시
-                progress.show()
+            main_window = self.get_main_window()
+            if not main_window:
+                return
+                
+            progress = main_window.progress_manager.create_progress_dialog(
+                t("ui.msg.title.info"),
+                t("ui.progress.sorting_classification"),
+                total_count
+            )
+            
+            if progress:
 
                 # 롤백을 위한 스냅샷 저장
                 original_data_snapshot = list(self.data)
@@ -5753,21 +5829,18 @@ class DataTabWidget(QWidget):
                     nonlocal canceled
                     try:
                         # 분류 기준 정렬을 위해 모든 데이터의 분류를 먼저 계산
-                        self._calculate_all_classifications_with_progress(progress)
+                        self._calculate_all_classifications_with_progress(main_window.progress_manager)
                         
-                        if canceled or progress.wasCanceled():
+                        if canceled or main_window.progress_manager.is_canceled():
                             # 취소 시 되돌리기
                             self.data = original_data_snapshot
                             self.update_table()
                             self.add_to_data_history(t("ui.history.revert_due_to_cancel"))
-                            main_window = self.get_main_window()
-                            if main_window:
-                                main_window.log(t("ui.progress.canceled"))
+                            main_window.log(t("ui.progress.canceled"))
                             return
                         
                         # 분류 결과를 기준으로 정렬된 인덱스 순서를 얻음
-                        progress.setLabelText(t("ui.progress.sorting_data"))
-                        progress.setValue(0)
+                        main_window.progress_manager.update_progress(0, t("ui.progress.sorting_data"))
                         
                         sorted_indices = sorted(range(len(self.data)), key=lambda i: self._classification_cache.get(i, ""))
                         
@@ -5775,18 +5848,18 @@ class DataTabWidget(QWidget):
                         sorted_data = [self.data[i] for i in sorted_indices]
                         self.data[:] = sorted_data
                         
-                        progress.setValue(total_count)
-                        progress.close()
+                        main_window.progress_manager.update_progress(total_count)
+                        main_window.progress_manager.close()
                         
                         # 히스토리에 추가
                         self.add_to_data_history(t("ui.table.sort.by_classification"))
+                        main_window.log_verbose(t("ui.table.sort.by_classification"))
                         
-                        main_window = self.get_main_window()
-                        if main_window:
-                            main_window.log_verbose(t("ui.table.sort.by_classification"))
+                        # 테이블 업데이트
+                        self.update_table()
                             
                     except Exception as e:
-                        progress.close()
+                        main_window.progress_manager.close()
                         # 오류 시 되돌리기
                         self.data = original_data_snapshot
                         self.update_table()
@@ -5797,15 +5870,16 @@ class DataTabWidget(QWidget):
                 def on_cancel():
                     nonlocal canceled
                     canceled = True
-                    progress.close()
+                    main_window.progress_manager.close()
 
-                progress.canceled.connect(on_cancel)
+                if progress:
+                    progress.canceled.connect(on_cancel)
 
                 # 비동기로 실행
                 QTimer.singleShot(0, perform_sorting)
                 return
             else:
-                # 데이터가 적으면 일반 방식으로 처리
+                # 데이터가 500개 미만이면 일반 방식으로 처리
                 # 분류 기준 정렬을 위해 모든 데이터의 분류를 먼저 계산
                 self._calculate_all_classifications()
                 
@@ -5860,7 +5934,7 @@ class DataTabWidget(QWidget):
             else:
                 self._classification_cache[i] = t("enum.shape_type.empty") + " (" + t("analyzer.empty") + ")"
     
-    def _calculate_all_classifications_with_progress(self, progress_dialog):
+    def _calculate_all_classifications_with_progress(self, progress_manager):
         """진행률을 표시하며 모든 데이터의 분류를 미리 계산합니다."""
         if self.is_comparison_table:
             return
@@ -5871,10 +5945,10 @@ class DataTabWidget(QWidget):
         for i, shape_code in enumerate(self.data):
             # 진행률 업데이트 (100개마다만 업데이트하여 성능 향상)
             if i % 100 == 0 or i == len(self.data) - 1:
-                progress_dialog.setValue(i)
+                progress_manager.update_progress(i)
                 
                 # 취소 확인 (진행률 업데이트 시에만)
-                if progress_dialog.wasCanceled():
+                if progress_manager.is_canceled():
                     return
                 
                 # UI 이벤트 처리 (진행률 업데이트 시에만)
@@ -5895,7 +5969,7 @@ class DataTabWidget(QWidget):
                 self._classification_cache[i] = t("enum.shape_type.empty") + " (" + t("analyzer.empty") + ")"
         
         # 완료
-        progress_dialog.setValue(len(self.data))
+        progress_manager.update_progress(len(self.data))
     
 
     def on_data_moved(self, from_row, to_row):
@@ -6055,6 +6129,24 @@ class DataTabWidget(QWidget):
     
     def update_table(self):
         """테이블 업데이트 (최적화: 구조만 만들고 계산은 동적으로 처리)"""
+        # 작업 상태 플래그 설정
+        self._is_processing = True
+        
+        try:
+            # 500개 이상인 경우 비동기 처리
+            if len(self.data) >= 500:
+                self._update_table_with_progress()
+                return
+                
+            # 동기 처리 (500개 미만)
+            self._update_table_sync()
+        finally:
+            # 동기 처리의 경우 즉시 플래그 해제
+            if len(self.data) < 500:
+                self._is_processing = False
+    
+    def _update_table_sync(self):
+        """동기적으로 테이블 업데이트"""
         # 기존 선택 상태 저장
         selected_cells = set()
         for item in self.data_table.selectedItems():
@@ -6113,6 +6205,60 @@ class DataTabWidget(QWidget):
                 if not self.visualization_checkbox.isChecked():
                     self.data_table.setRowHeight(i, 30)
 
+        self._finalize_table_update(selected_cells)
+    
+    def _update_table_with_progress(self):
+        """프로그레스와 함께 테이블 업데이트"""
+        from i18n import t
+        
+        # 메인 윈도우 가져오기
+        main_window = self.get_main_window()
+        if not main_window:
+            self._update_table_sync()
+            return
+            
+        # 프로그레스 다이얼로그 생성
+        progress = main_window.progress_manager.create_progress_dialog(
+            t("ui.msg.title.info"),
+            t("ui.progress.updating_table"),
+            len(self.data)
+        )
+        
+        if not progress:
+            self._update_table_sync()
+            return
+        
+        # 기존 선택 상태 저장
+        selected_cells = set()
+        for item in self.data_table.selectedItems():
+            selected_cells.add((item.row(), item.column()))
+        
+        # 기존 워커가 실행 중이면 취소
+        if self._table_update_worker and self._table_update_worker.isRunning():
+            self._table_update_worker.cancel()
+            self._table_update_worker.wait()
+        
+        # 백그라운드에서 테이블 업데이트 처리
+        self._table_update_worker = TableUpdateWorkerThread(self, self.data)
+        
+        def on_progress_update(current, total, message):
+            main_window.progress_manager.update_progress(current, message)
+        
+        def on_finished(canceled):
+            main_window.progress_manager.close()
+            if not canceled:
+                # UI 스레드에서 실제 테이블 업데이트 수행
+                self._update_table_sync()
+            self._table_update_worker = None
+            self._is_processing = False  # 작업 완료 플래그 해제
+        
+        self._table_update_worker.progress.connect(on_progress_update)
+        self._table_update_worker.finished.connect(on_finished)
+        main_window.progress_manager.connect_worker(self._table_update_worker)
+        self._table_update_worker.start()
+    
+    def _finalize_table_update(self, selected_cells):
+        """테이블 업데이트 마무리 작업"""
         # 컬럼 너비 기본값: 사용자가 조절한 경우에는 유지
         header = self.data_table.horizontalHeader()
         if not hasattr(self, '_user_resized_columns') or 0 not in self._user_resized_columns:
@@ -6126,14 +6272,48 @@ class DataTabWidget(QWidget):
             except Exception:
                 self.data_table.setColumnWidth(1, 300)
 
-        # 선택 상태 복원
-        for row, col in selected_cells:
-            if row < self.data_table.rowCount() and col < self.data_table.columnCount():
-                item = self.data_table.item(row, col)
-                if item:
-                    item.setSelected(True)
-
-        self.data_table.blockSignals(False) # 시그널 차단 해제
+        # 선택 상태 복원 (성능 최적화: 대량 선택 시 배치 처리)
+        if selected_cells:
+            self.data_table.blockSignals(True)
+            try:
+                # 선택 상태를 배치로 복원
+                selection_ranges = []
+                selected_rows = set()
+                
+                for row, col in selected_cells:
+                    if row < self.data_table.rowCount() and col < self.data_table.columnCount():
+                        selected_rows.add(row)
+                
+                # 연속된 행들을 범위로 그룹화하여 성능 최적화
+                if selected_rows:
+                    sorted_rows = sorted(selected_rows)
+                    start_row = sorted_rows[0]
+                    end_row = start_row
+                    
+                    for row in sorted_rows[1:]:
+                        if row == end_row + 1:
+                            end_row = row
+                        else:
+                            # 범위 추가
+                            from PyQt6.QtWidgets import QTableWidgetSelectionRange
+                            selection_ranges.append(QTableWidgetSelectionRange(
+                                start_row, 0, end_row, self.data_table.columnCount() - 1
+                            ))
+                            start_row = row
+                            end_row = row
+                    
+                    # 마지막 범위 추가
+                    from PyQt6.QtWidgets import QTableWidgetSelectionRange
+                    selection_ranges.append(QTableWidgetSelectionRange(
+                        start_row, 0, end_row, self.data_table.columnCount() - 1
+                    ))
+                    
+                    # 모든 범위를 한 번에 선택
+                    for selection_range in selection_ranges:
+                        self.data_table.setRangeSelected(selection_range, True)
+                        
+            finally:
+                self.data_table.blockSignals(False)
 
         # 버튼 상태 업데이트
         has_data = len(self.data) > 0
@@ -6147,7 +6327,13 @@ class DataTabWidget(QWidget):
         
         # 초기 화면 업데이트는 쓰로틀 함수로 병합 실행
         QTimer.singleShot(0, self._do_scroll_updates)
-        QTimer.singleShot(0, self._apply_search_filter)
+        
+        # 검색어가 있는 경우에만 필터 재적용 (간단한 해결책)
+        try:
+            if hasattr(self, 'search_input') and self.search_input.text().strip():
+                QTimer.singleShot(50, self._start_search_filter)
+        except Exception:
+            pass
 
     def on_search_text_changed(self, _text: str):
         """검색어 변경 시 디바운스로 필터 적용"""
@@ -6170,20 +6356,47 @@ class DataTabWidget(QWidget):
         except Exception:
             keyword = ""
         
+        # 다른 작업이 진행 중이면 대기
+        if self._is_processing:
+            QTimer.singleShot(200, self._start_search_filter)
+            return
+        
         # 기존 스레드가 실행 중이면 취소
         if self._search_filter_thread and self._search_filter_thread.isRunning():
             self._search_filter_thread.cancel()
             self._search_filter_thread.wait()
         
+        # 테이블 업데이트 워커가 실행 중이면 대기
+        if self._table_update_worker and self._table_update_worker.isRunning():
+            # 테이블 업데이트가 완료된 후 검색 재시도
+            QTimer.singleShot(200, self._start_search_filter)
+            return
+        
         # 데이터 스냅샷 생성 (테이블에서 현재 데이터 추출)
         data_snapshot = []
         row_count = self.data_table.rowCount()
-        for row in range(row_count):
-            row_data = []
-            for col in range(self.data_table.columnCount()):
-                item = self.data_table.item(row, col)
-                row_data.append(item.text() if item else "")
-            data_snapshot.append(row_data)
+        
+        # 대량 데이터 시 스냅샷 생성도 최적화
+        if row_count > 1000:
+            # 대량 데이터의 경우 직접 self.data 사용
+            if self.is_comparison_table:
+                for data_line in self.data:
+                    parts = data_line.split('\t')
+                    data_a = parts[0] if len(parts) > 0 else ""
+                    data_b = parts[1] if len(parts) > 1 else ""
+                    comparison = parts[2] if len(parts) > 2 else ""
+                    data_snapshot.append([data_a, data_b, comparison])
+            else:
+                for shape_code in self.data:
+                    data_snapshot.append(["", shape_code])  # [분류, 도형코드]
+        else:
+            # 소량 데이터의 경우 기존 방식
+            for row in range(row_count):
+                row_data = []
+                for col in range(self.data_table.columnCount()):
+                    item = self.data_table.item(row, col)
+                    row_data.append(item.text() if item else "")
+                data_snapshot.append(row_data)
         
         # 검색 모드 추출 (기본: simple)
         try:
@@ -6194,25 +6407,65 @@ class DataTabWidget(QWidget):
         # 검색 스레드 시작
         self._search_filter_thread = SearchFilterThread(keyword, data_snapshot, self.is_comparison_table, search_mode)
         self._search_filter_thread.filter_results.connect(self._apply_filter_results)
+        
+        # 검색 시작 시 작업 상태 설정
+        self._is_processing = True
+        
+        # 검색 완료 시 작업 상태 해제
+        def on_search_finished():
+            self._is_processing = False
+        
+        self._search_filter_thread.finished.connect(on_search_finished)
         self._search_filter_thread.start()
 
     def _apply_filter_results(self, results: dict):
         """검색 결과를 UI에 적용"""
         try:
+            # 시그널 차단하여 성능 최적화
+            self.data_table.blockSignals(True)
+            
+            # 필터 적용
             for row, should_show in results.items():
                 if row < self.data_table.rowCount():
                     self.data_table.setRowHidden(row, not should_show)
             
-            # 필터 변경 시 선택 영역 정리: 숨겨진 행은 선택 해제
-            try:
-                self.data_table._prune_hidden_from_selection()
-            except Exception:
-                pass
+            # 시그널 차단 해제
+            self.data_table.blockSignals(False)
+            
+            # 필터 변경 시 선택 영역 정리: 숨겨진 행은 선택 해제 (필요한 경우만)
+            self._prune_selection_after_filter()
             
             # 필터 적용 후, 보이는 영역 업데이트를 쓰로틀로 호출
-            self._on_scroll_value_changed(0)
+            QTimer.singleShot(10, lambda: self._on_scroll_value_changed(0))
         except Exception as e:
             print(f"필터 결과 적용 중 오류: {e}")
+            # 시그널 차단 해제 보장
+            self.data_table.blockSignals(False)
+    
+    def _safe_prune_selection(self):
+        """안전하게 숨겨진 행의 선택을 해제"""
+        try:
+            # 작업 중이면 스킵
+            if hasattr(self, '_is_processing') and self._is_processing:
+                return
+                
+            self.data_table._prune_hidden_from_selection()
+        except Exception as e:
+            print(f"선택 정리 중 오류: {e}")
+    
+    def _prune_selection_after_filter(self):
+        """필터 적용 후 선택 정리 (스마트 처리)"""
+        try:
+            selected_items = self.data_table.selectedItems()
+            if not selected_items:
+                return
+            
+            # 선택된 항목이 적고 검색어가 있는 경우에만 정리 수행
+            if len(selected_items) <= 500 and hasattr(self, 'search_input') and self.search_input.text().strip():
+                QTimer.singleShot(100, self._safe_prune_selection)
+            # 대량 선택이거나 검색어가 없으면 선택 정리를 하지 않음 (사용자 의도 존중)
+        except Exception as e:
+            print(f"필터 후 선택 정리 중 오류: {e}")
 
     def _apply_search_filter(self):
         """검색어가 포함되는 행만 표시 (대소문자 구분)"""
@@ -6340,25 +6593,56 @@ class DataTabWidget(QWidget):
             return
         
         reply = QMessageBox.question(
-            self, "확인", 
-            f"선택된 {len(selected_rows)}개 항목을 삭제하시겠습니까?",
+            self, t("ui.msg.title.confirm"), 
+            t("ui.msg.delete_confirm", n=len(selected_rows)),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            # 역순으로 정렬하여 인덱스 변경 문제 방지
-            for row in sorted(selected_rows, reverse=True):
-                if row < len(self.data):
-                    del self.data[row]
+            main_window = self.get_main_window()
+            total_count = len(selected_rows)
+            
+            # 500개 이상인 경우 프로그레스 표시
+            if main_window and total_count >= 500:
+                progress = main_window.progress_manager.create_progress_dialog(
+                    t("ui.msg.title.info"),
+                    t("ui.progress.deleting_items"),
+                    total_count
+                )
+                
+                if progress:
+                    # 역순으로 정렬하여 인덱스 변경 문제 방지
+                    sorted_rows = sorted(selected_rows, reverse=True)
+                    for i, row in enumerate(sorted_rows):
+                        if main_window.progress_manager.is_canceled():
+                            break
+                        if row < len(self.data):
+                            del self.data[row]
+                        
+                        # 진행률 업데이트 (100개마다)
+                        if i % 100 == 0 or i == total_count - 1:
+                            main_window.progress_manager.update_progress(i + 1)
+                            QApplication.processEvents()
+                    
+                    main_window.progress_manager.close()
+                else:
+                    # 동기 처리
+                    for row in sorted(selected_rows, reverse=True):
+                        if row < len(self.data):
+                            del self.data[row]
+            else:
+                # 동기 처리 (500개 미만)
+                for row in sorted(selected_rows, reverse=True):
+                    if row < len(self.data):
+                        del self.data[row]
             
             self.update_table()
             
             # 히스토리에 추가
-            self.add_to_data_history(f"삭제 ({len(selected_rows)}개)")
+            self.add_to_data_history(t("ui.history.delete", n=len(selected_rows)))
             
-            main_window = self.get_main_window()
             if main_window:
-                main_window.log_verbose(f"{len(selected_rows)}개 항목이 삭제되었습니다.")
+                main_window.log_verbose(t("ui.log.items_deleted", n=len(selected_rows)))
     
     def get_main_window(self):
         """메인 윈도우 참조 가져오기"""

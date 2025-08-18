@@ -33,7 +33,7 @@ def claw_hybrid(shape: Shape) -> Tuple[Shape, Shape]:
         if piece and (piece.shape == 'P' or piece.shape == 'S'):
             mask[(0, q)] = 0
         
-# 3. 클로시 크리스탈 주변 마스크 0으로 설정
+    # 3. 클로시 크리스탈 주변 마스크 0으로 설정
     # 모든 크리스탈을 찾습니다
     for l in range(len(shape.layers)):
         for q in range(4):
