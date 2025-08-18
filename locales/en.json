@@ -154,7 +154,7 @@
     "ui.label.category": "Category:",
     "ui.placeholder.test_name": "Enter test case name",
     "ui.placeholder.input_shape": "Enter shape code (e.g., CuCuCuCu)",
-    "ui.placeholder.params": "Enter parameters in JSON format (e.g., {\"color\": \"b\"})",
+    "ui.placeholder.params": "Extra parameters (e.g., {\"color\": \"b\"})",
     "ui.placeholder.category": "Enter category name",
     "ui.tooltip.add_test": "Add a new test case",
     "ui.tooltip.delete_test": "Delete the selected test case",

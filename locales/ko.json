@@ -154,7 +154,7 @@
     "ui.label.category": "카테고리:",
     "ui.placeholder.test_name": "테스트 케이스 이름을 입력하세요",
     "ui.placeholder.input_shape": "도형 코드를 입력하세요 (예: CuCuCuCu)",
-    "ui.placeholder.params": "JSON 형식으로 매개변수를 입력하세요 (예: {\"color\": \"b\"})",
+    "ui.placeholder.params": "추가 매개변수 (예: {\"color\": \"b\"})",
     "ui.placeholder.category": "카테고리명을 입력하세요",
     "ui.tooltip.add_test": "새 테스트 케이스를 추가합니다",
     "ui.tooltip.delete_test": "선택된 테스트 케이스를 삭제합니다",

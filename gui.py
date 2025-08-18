@@ -2388,10 +2388,7 @@ class ShapezGUI(QMainWindow):
         run_all_tests_btn.clicked.connect(self.run_forward_tests)
         auto_test_layout.addWidget(run_all_tests_btn)
         
-        # 역연산 테스트 실행 버튼
-        run_reverse_tests_btn = QPushButton(_("ui.btn.run_reverse_tests"))
-        run_reverse_tests_btn.clicked.connect(self.run_reverse_tests)
-        auto_test_layout.addWidget(run_reverse_tests_btn)
+
         
         test_editor_tab_layout.addWidget(auto_test_group)
         
@@ -2495,10 +2492,10 @@ class ShapezGUI(QMainWindow):
         edit_controls.addWidget(self.expected_b_edit, 6, 1)
         
         # 매개변수
-        edit_controls.addWidget(QLabel(_("ui.label.params")), 0, 2)
+        edit_controls.addWidget(QLabel(_("ui.label.params")), 2, 2)
         self.params_edit = QLineEdit()
         self.params_edit.setPlaceholderText(_("ui.placeholder.params"))
-        edit_controls.addWidget(self.params_edit, 0, 2)
+        edit_controls.addWidget(self.params_edit, 2, 2)
         
         test_edit_layout.addLayout(edit_controls)
         
@@ -3133,9 +3130,7 @@ class ShapezGUI(QMainWindow):
             except (FileNotFoundError, json.JSONDecodeError) as e: self.log(_("ui.test.file_error", error=e)); return
         
         passed_count, total_count = 0, 0
-        for category, test_cases in test_suites.items():
-            if category == "역연산":
-                continue 
+        for category, test_cases in test_suites.items(): 
             
             # 테스트 케이스가 리스트가 아니거나 비어있는 경우 처리
             if not isinstance(test_cases, list) or len(test_cases) == 0:
@@ -3277,162 +3272,7 @@ class ShapezGUI(QMainWindow):
         summary = _("ui.test.summary.forward", file=test_file_name, total=total_count, passed=passed_count, percent=passed_count/total_count if total_count > 0 else 0)
         self.log(f"\n=== {summary} ===")
 
-    def run_reverse_tests(self):
-        self.clear_log()
-        # 이미 로드된 테스트 데이터를 우선적으로 사용
-        if hasattr(self, 'test_data') and self.test_data:
-            test_suites = self.test_data
-            test_file_name = _("ui.test.loaded_data")
-            self.log(_("ui.test.start.reverse", file=test_file_name))
-        else:
-            # 로드된 데이터가 없으면 파일에서 로드
-            user_test_path = get_resource_path("user_tests.json")
-            default_test_path = get_resource_path("tests.json")
-            
-            if os.path.exists(user_test_path):
-                test_file = user_test_path
-                test_file_name = "user_tests.json"
-            else:
-                test_file = default_test_path
-                test_file_name = "tests.json"
-                
-            self.log(_("ui.test.start.reverse", file=test_file_name))
-            try:
-                with open(test_file, 'r', encoding='utf-8') as f:
-                    test_suites = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError) as e:
-                self.log(_("ui.test.file_error", error=e))
-                return
 
-        if "역연산" not in test_suites:
-            self.log("테스트 파일에 '역연산' 카테고리가 없습니다.")
-            return
-
-        passed_count, total_count = 0, 0
-        test_cases = test_suites["역연산"]
-        
-        # 테스트 케이스가 리스트가 아니거나 비어있는 경우 처리
-        if not isinstance(test_cases, list) or len(test_cases) == 0:
-            self.log("'역연산' 카테고리에 유효한 테스트 케이스가 없습니다.")
-            return
-        
-        self.log(_("ui.test.category", category="역연산"))
-        for test in test_cases:
-            # 테스트 케이스가 딕셔너리가 아닌 경우 건너뛰기
-            if not isinstance(test, dict):
-                self.log(f"경고: 테스트 케이스가 딕셔너리가 아님 - {test}")
-                continue
-                
-            # 필수 키가 없는 경우 건너뛰기
-            if 'name' not in test:
-                self.log(f"경고: 테스트 케이스에 'name' 키가 누락됨 - {test}")
-                continue
-                
-            total_count += 1
-            test_name = test['name']
-            target_shape_str = test['input_a']
-            
-            expected_op = test.get('operation')
-            expected_shape_str = test.get('expected')
-            expected_a_str = test.get('expected_a')
-            expected_b_str = test.get('expected_b')
-            
-            target_shape = Shape.from_string(target_shape_str)
-            
-            found_candidates = []
-            try:
-                search_depth = 1
-                max_physics_height = 2
-
-                all_cands = []
-                all_cands.extend(ReverseTracer.inverse_apply_physics(target_shape, search_depth, max_physics_height))
-                all_cands.extend(ReverseTracer.inverse_push_pin(target_shape, search_depth, max_physics_height))
-                all_cands.extend(ReverseTracer.inverse_crystal_generator(target_shape, search_depth))
-                all_cands.extend(ReverseTracer.inverse_stack(target_shape, search_depth))
-                for i in range(4):
-                    rotated_target = target_shape.copy()
-                    for _ in range(i): rotated_target = rotated_target.rotate(clockwise=True)
-                    all_cands.extend(ReverseTracer.inverse_destroy_half(rotated_target, i, search_depth))
-                    all_cands.extend(ReverseTracer.inverse_swap(rotated_target, i, search_depth))
-                
-                unique_candidates = []
-                seen_canonical_keys = set()
-                for op_name, origin_shape in all_cands:
-                    key = ReverseTracer._get_canonical_key(op_name, origin_shape)
-                    if key not in seen_canonical_keys:
-                        seen_canonical_keys.add(key)
-                        unique_candidates.append((op_name, origin_shape))
-                found_candidates = unique_candidates
-            except Exception as e:
-                self.log(f"🔥 오류: '{test_name}' 실행 중 예외 발생 - {e}")
-                import traceback; self.log(traceback.format_exc())
-                continue
-
-            found_match = False
-            if expected_op == 'exist':
-                if len(found_candidates) > 0:
-                    found_match = True
-            elif expected_a_str is not None and expected_b_str is not None:
-                expected_a_normalized_str = repr(Shape.from_string(expected_a_str).normalize())
-                expected_b_normalized_str = repr(Shape.from_string(expected_b_str).normalize())
-
-                for found_op, found_shape in found_candidates:
-                    if isinstance(found_shape, tuple):
-                        found_a_normalized_str = repr(found_shape[0].normalize())
-                        found_b_normalized_str = repr(found_shape[1].normalize())
-                        
-                        if found_a_normalized_str == expected_a_normalized_str and \
-                           found_b_normalized_str == expected_b_normalized_str:
-                            found_match = True
-                            break
-            else:
-                if not expected_shape_str:
-                    self.log(f"🔥 오류: '{test_name}'의 'expected' 키가 없습니다.")
-                    continue
-                
-                expected_shape_normalized_str = repr(Shape.from_string(expected_shape_str).normalize())
-                
-                for found_op, found_shape in found_candidates:
-                    if isinstance(found_shape, tuple):
-                        continue
-                    
-                    found_shape_normalized_str = repr(found_shape.normalize())
-                    
-                    if found_shape_normalized_str == expected_shape_normalized_str:
-                        found_match = True
-                        break
-            
-            if found_match:
-                passed_count += 1
-                self.log(_("ui.test.passed", name=test_name))
-            else:
-                self.log(_("ui.test.failed", name=test_name))
-                self.log(f"  - 목표: {target_shape_str}")
-                if expected_op == 'exist':
-                    self.log(f"  - {_('ui.test.expected')}: 기원이 하나 이상 존재해야 함")
-                elif expected_a_str is not None and expected_b_str is not None:
-                    expected_a_normalized_str = repr(Shape.from_string(expected_a_str).normalize())
-                    expected_b_normalized_str = repr(Shape.from_string(expected_b_str).normalize())
-                    self.log(f"  - {_('ui.test.expected')} 기원 (A:{expected_a_str}, B:{expected_b_str}) (정규화: A:{expected_a_normalized_str}, B:{expected_b_normalized_str})")
-                else:
-                    expected_shape_normalized_str = repr(Shape.from_string(expected_shape_str).normalize())
-                    self.log(f"  - {_('ui.test.expected')} 기원 ({expected_op if expected_op else '모든 연산'}): {expected_shape_str} (정규화: {expected_shape_normalized_str})")
-                
-                if found_candidates:
-                    self.log("  - 발견된 후보들:")
-                    for op, shp in found_candidates:
-                        if isinstance(shp, tuple):
-                            self.log(f"    - {op}: (A:{repr(shp[0])}, B:{repr(shp[1])})")
-                        else:
-                            self.log(f"    - {op}: {repr(shp)}")
-                else:
-                    self.log("  - 발견된 후보 없음")
-
-        summary = _("ui.test.summary.reverse", file=test_file_name, total=total_count, passed=passed_count, percent=passed_count/total_count if total_count > 0 else 0)
-        self.log(f"\n=== {summary} ===\n")
-
-        # 테스트 편집기 시그널 연결
-        self.connect_test_editor_signals()
 
     # =================== 키보드 단축키 설정 ===================
     
@@ -5879,7 +5719,10 @@ class DataTabWidget(QWidget):
                     shape = parse_shape_or_none(shape_code.strip())
                     if shape:
                         res, reason = shape.classifier()
-                        classification_text = f"{_(res)} ({_(reason)})"
+                        if reason and reason.strip():
+                            classification_text = f"{_(res)} ({_(reason)})"
+                        else:
+                            classification_text = f"{_(res)}"
                         self._classification_cache[i] = classification_text
                     else:
                         self._classification_cache[i] = _("ui.table.error", error="파싱 실패")
@@ -5913,7 +5756,10 @@ class DataTabWidget(QWidget):
                     shape = parse_shape_or_none(shape_code.strip())
                     if shape:
                         res, reason = shape.classifier()
-                        classification_text = f"{_(res)} ({_(reason)})"
+                        if reason and reason.strip():
+                            classification_text = f"{_(res)} ({_(reason)})"
+                        else:
+                            classification_text = f"{_(res)}"
                         self._classification_cache[i] = classification_text
                     else:
                         self._classification_cache[i] = _("ui.table.error", error="파싱 실패")

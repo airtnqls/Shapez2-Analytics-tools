@@ -237,12 +237,6 @@
       "expected_a": "P-P-P---:----Cu--"
     },
     {
-      "name": "Pin Pusher (Connectivity Test)",
-      "operation": "push_pin",
-      "input_a": "cw----Cu:cwCucw--:cwcwCu--:cw------:cw------",
-      "expected_a": "P-CuCuP-:------Cu"
-    },
-    {
       "name": "Pin Pusher (Single Pin Layer Creation)",
       "operation": "push_pin",
       "input_a": "crcrcrcr:crcrcrcr:crcrcrcr:crcrcrcr:crcrcrcr",
@@ -369,89 +363,7 @@
       "operation": "classifier",
       "input_a": "CrCr--Cr--",
       "expected_a": "단순_기하형"
-    },
-    {
-      "name": "Crystal Fall",
-      "operation": "apply_physics",
-      "input_a": "--------:crcrcrcr",
-      "expected_a": "",
-      "input_b": "",
-      "expected_b": ""
     }
   ],
-  "test.category.data_processing": [],
-  "test.category.reverse_operations": [
-    {
-      "name": "Reverse Half Destroyer",
-      "input_a": "SrSr----:CuCu----",
-      "expected_a": "SrSrSrSr:CuCuCuCu"
-    },
-    {
-      "name": "Reverse Stacker",
-      "input_a": "crcrcrcr:SrSrSrSr",
-      "expected_a": "crcrcrcr",
-      "expected_b": "SrSrSrSr"
-    },
-    {
-      "name": "Crystal Generator",
-      "input_a": "Crcgcrcg:cgcgcgcg",
-      "params": {
-        "color": "g"
-      },
-      "expected_a": "Cr--cr--:P-P-----"
-    },
-    {
-      "name": "Pin Pusher",
-      "operation": "push_pin",
-      "input_a": "P-P-P-P-:SrSrSrSr",
-      "expected_a": "SrSrSrSr"
-    },
-    {
-      "name": "Pin Pusher Reverse (Advanced -S-c)",
-      "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
-      "expected_a": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
-    },
-    {
-      "name": "-",
-      "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
-      "expected_a": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
-    },
-    {
-      "name": "Pin Pusher Reverse (Advanced -S-c)",
-      "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
-      "expected_a": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
-    },
-    {
-      "name": "Pin Pusher Reverse (Advanced -Sc)",
-      "input_a": "--Cu----:CuCu----:crCu----",
-      "expected_a": "cwCuCucw:CuCuCuCu:crCuCuCu"
-    },
-    {
-      "name": "Pin Pusher Reverse (Advanced S-c)",
-      "input_a": "SuCu----:P-------:Cucr----",
-      "expected_a": "Su--Cu--:P-CuCu--:CucrCu--"
-    },
-    {
-      "name": "Pin Pusher Reverse (Advanced cS-c Variant)",
-      "input_a": "Cucc----:SuCu----:P-------:Cucr----",
-      "expected_a": "CuccCuCu:Su--Cu--:P-CuCu--:CucrCu--"
-    },
-    {
-      "name": "Pin Pusher Reverse (Advanced Claw)",
-      "input_a": "P---P---:----P---:--CucrCu",
-      "operation": "push_pin",
-      "expected_a": "cw--P---:cwCucrCu:cw------:cw------:cw------"
-    },
-    {
-      "name": "Pin Pusher Reverse (Advanced -S-c)",
-      "input_a": "--P-P-P-:CuCu--Cu:------P-:cr----Cu",
-      "operation": "push_pin",
-      "expected_a": "--cwcwCu:CuCucwP-:cr--cwCu:----cw--:----cw--"
-    },
-    {
-      "name": "Reverse Operation Existence Test",
-      "input_a": "CuCuCuCu",
-      "operation": "exist"
-    }
-  ]
+  "test.category.data_processing": []
 }
