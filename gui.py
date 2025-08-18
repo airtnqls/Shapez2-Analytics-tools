@@ -218,12 +218,13 @@ class SearchFilterThread(QThread):
     """검색 필터링을 백그라운드에서 수행하는 스레드"""
     filter_results = pyqtSignal(dict)  # {row_index: should_show}
     
-    def __init__(self, keyword, data_snapshot, is_comparison_table=False):
+    def __init__(self, keyword, data_snapshot, is_comparison_table=False, search_mode="simple"):
         super().__init__()
         self.keyword = keyword.strip()
         self.data_snapshot = list(data_snapshot)  # 데이터 스냅샷 복사
         self.is_comparison_table = is_comparison_table
         self._cancel_requested = False
+        self.search_mode = search_mode  # simple | detail | corner
     
     def cancel(self):
         self._cancel_requested = True
@@ -292,17 +293,32 @@ class SearchFilterThread(QThread):
             self.filter_results.emit(results)
             return
         
-        # 모든 검색을 단순화된 문자열 기반으로 처리
+        # 검색 모드에 따라 매칭 로직 분기
         def row_matches_shape_code(code: str) -> bool:
             try:
                 # 데이터를 Shape → 문자열 → 단순화된 문자열로 변환
                 from shape import Shape
-                from data_operations import simplify_shape
                 target_shape = Shape.from_string(code)
-                simplified_str = simplify_shape(str(target_shape))
-                
-                # 검색어 패턴 매칭 (정규표현식 지원)
-                return self._matches_simplified_string(simplified_str, self.keyword)
+                if self.search_mode == "detail":
+                    # 디테일: 단순화 생략, 원 문자열에서 정규식
+                    return self._matches_simplified_string(str(target_shape), self.keyword)
+                elif self.search_mode == "corner":
+                    # 코너: 단순화된 각 사분면 기둥들 중 하나라도 매칭되면 OK
+                    # 코너도 단순화 전제
+                    try:
+                        from shape_classifier import get_edge_pillars
+                        pillars = get_edge_pillars(str(target_shape))
+                    except Exception:
+                        pillars = []
+                    for pillar in pillars:
+                        if self._matches_simplified_string(pillar, self.keyword):
+                            return True
+                    return False
+                else:
+                    # 심플(기본): 단순화 문자열에서 정규식
+                    from data_operations import simplify_shape
+                    simplified_str = simplify_shape(str(target_shape))
+                    return self._matches_simplified_string(simplified_str, self.keyword)
             except Exception:
                 # Shape 변환 실패 시 원본 문자열로 검색
                 return self._matches_simplified_string(code, self.keyword)
@@ -5477,13 +5493,6 @@ class DataTabWidget(QWidget):
         
         # 상단 컨트롤 영역
         control_layout = QHBoxLayout()
-        
-        # 시각화 체크박스
-        self.visualization_checkbox = QCheckBox(_("ui.datatab.visualize"))
-        self.visualization_checkbox.setToolTip(_("ui.datatab.visualize"))
-        self.visualization_checkbox.stateChanged.connect(self.on_visualization_toggled)
-        control_layout.addWidget(self.visualization_checkbox)
-
         # 검색 라벨 + 입력
         self.search_label = QLabel(_("ui.datatab.search"))
         self.search_label.setToolTip(_("ui.datatab.search.tooltip"))
@@ -5496,6 +5505,26 @@ class DataTabWidget(QWidget):
             pass
         self.search_input.textChanged.connect(self.on_search_text_changed)
         control_layout.addWidget(self.search_input, 1)
+
+        # 검색 모드 드롭다운 (심플/디테일/코너)
+        self.search_mode_combo = QComboBox()
+        # userData는 내부 키로 고정, 표시 텍스트는 i18n으로 재번역
+        self.search_mode_combo.addItem(_("ui.datatab.search_mode.simple"), userData="simple")
+        self.search_mode_combo.addItem(_("ui.datatab.search_mode.detail"), userData="detail")
+        self.search_mode_combo.addItem(_("ui.datatab.search_mode.corner"), userData="corner")
+        # 위젯 툴팁(한 번에 설명 표시)
+        self.search_mode_combo.setToolTip(_("ui.datatab.search_mode.tooltip"))
+        self.search_mode_combo.setCurrentIndex(0)
+        # 모드 변경 시 즉시 검색 적용
+        self.search_mode_combo.currentIndexChanged.connect(lambda _i: self.on_search_text_changed(self.search_input.text()))
+        control_layout.addWidget(self.search_mode_combo)
+        
+        # 시각화 체크박스
+        self.visualization_checkbox = QCheckBox(_("ui.datatab.visualize"))
+        self.visualization_checkbox.setToolTip(_("ui.datatab.visualize"))
+        self.visualization_checkbox.stateChanged.connect(self.on_visualization_toggled)
+        control_layout.addWidget(self.visualization_checkbox)
+
         
         control_layout.addStretch()  # 오른쪽으로 밀어내기
         layout.addLayout(control_layout)
@@ -5516,6 +5545,10 @@ class DataTabWidget(QWidget):
         self.data_table.rows_reordered.connect(self.on_data_moved)
         self.data_table.itemChanged.connect(self.on_table_item_changed)
         
+        # 사용자 컬럼 리사이즈 추적
+        self._user_resized_columns = set()
+        self.data_table.horizontalHeader().sectionResized.connect(self._on_header_section_resized)
+
         # 헤더 클릭 시 정렬 기능 추가
         self.data_table.horizontalHeader().sectionClicked.connect(self.on_header_clicked)
         
@@ -5636,36 +5669,52 @@ class DataTabWidget(QWidget):
         main_window = self.get_main_window()
         if main_window:
             main_window.log_verbose("대량처리 탭 단축키 설정 중...")
-        
         # Ctrl+C: 클립보드로 복사
-        self.copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
-        self.copy_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self.copy_shortcut.activated.connect(self.on_copy_to_clipboard)
-        
+        try:
+            self.copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
+            self.copy_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            self.copy_shortcut.activated.connect(self.on_copy_to_clipboard)
+        except Exception:
+            pass
+
         # Ctrl+V: 클립보드에서 붙여넣기
-        self.paste_shortcut = QShortcut(QKeySequence.StandardKey.Paste, self)
-        self.paste_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self.paste_shortcut.activated.connect(self.on_paste_from_clipboard)
-        
+        try:
+            self.paste_shortcut = QShortcut(QKeySequence.StandardKey.Paste, self)
+            self.paste_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            self.paste_shortcut.activated.connect(self.on_paste_from_clipboard)
+        except Exception:
+            pass
+
         # Delete: 선택된 항목 삭제
-        self.delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
-        self.delete_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self.delete_shortcut.activated.connect(self.on_delete_selected)
-        
-        # 데이터 히스토리 단축키는 메인 윈도우에서 처리하므로 제거
-        # (메인 윈도우의 on_undo/on_redo에서 현재 탭 상태에 따라 적절한 기능 호출)
-        
+        try:
+            self.delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
+            self.delete_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            self.delete_shortcut.activated.connect(self.on_delete_selected)
+        except Exception:
+            pass
+
         # 저장 단축키
-        self.save_shortcut = QShortcut(QKeySequence.StandardKey.Save, self)  # Ctrl+S
-        self.save_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self.save_shortcut.activated.connect(self.on_save_data_auto)
-        
-        self.save_as_shortcut = QShortcut(QKeySequence.StandardKey.SaveAs, self)  # Ctrl+Shift+S
-        self.save_as_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self.save_as_shortcut.activated.connect(self.on_save_data_as)
-        
-        if main_window:
-            main_window.log_verbose("대량처리 탭 단축키 설정 완료 (Ctrl+C, Ctrl+V, Delete, Ctrl+S, Ctrl+Shift+S)")
+        try:
+            self.save_shortcut = QShortcut(QKeySequence.StandardKey.Save, self)  # Ctrl+S
+            self.save_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            self.save_shortcut.activated.connect(self.on_save_data_auto)
+        except Exception:
+            pass
+
+        # 다른 이름으로 저장 단축키
+        try:
+            self.save_as_shortcut = QShortcut(QKeySequence.StandardKey.SaveAs, self)
+            self.save_as_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            self.save_as_shortcut.activated.connect(self.on_save_data_as)
+        except Exception:
+            pass
+    
+    def _on_header_section_resized(self, logicalIndex, oldSize, newSize):
+        """사용자 리사이즈한 컬럼을 추적"""
+        try:
+            self._user_resized_columns.add(int(logicalIndex))
+        except Exception:
+            pass
     
     def on_header_clicked(self, logical_index):
         """테이블 헤더 클릭 시 정렬 처리"""
@@ -6058,9 +6107,18 @@ class DataTabWidget(QWidget):
                 if not self.visualization_checkbox.isChecked():
                     self.data_table.setRowHeight(i, 30)
 
-        # 컬럼 너비 조정 (유효성 컬럼을 두 배로 늘림)
-        self.data_table.setColumnWidth(0, 200)  # 유효성 컬럼을 두 배로 늘림
-        self.data_table.setColumnWidth(1, 300)  # 도형 코드 컬럼
+        # 컬럼 너비 기본값: 사용자가 조절한 경우에는 유지
+        header = self.data_table.horizontalHeader()
+        if not hasattr(self, '_user_resized_columns') or 0 not in self._user_resized_columns:
+            try:
+                self.data_table.setColumnWidth(0, max(150, header.sectionSize(0)))
+            except Exception:
+                self.data_table.setColumnWidth(0, 200)
+        if not hasattr(self, '_user_resized_columns') or 1 not in self._user_resized_columns:
+            try:
+                self.data_table.setColumnWidth(1, max(250, header.sectionSize(1)))
+            except Exception:
+                self.data_table.setColumnWidth(1, 300)
 
         # 선택 상태 복원
         for row, col in selected_cells:
@@ -6121,8 +6179,14 @@ class DataTabWidget(QWidget):
                 row_data.append(item.text() if item else "")
             data_snapshot.append(row_data)
         
+        # 검색 모드 추출 (기본: simple)
+        try:
+            search_mode = self.search_mode_combo.currentData()
+        except Exception:
+            search_mode = "simple"
+
         # 검색 스레드 시작
-        self._search_filter_thread = SearchFilterThread(keyword, data_snapshot, self.is_comparison_table)
+        self._search_filter_thread = SearchFilterThread(keyword, data_snapshot, self.is_comparison_table, search_mode)
         self._search_filter_thread.filter_results.connect(self._apply_filter_results)
         self._search_filter_thread.start()
 
@@ -7015,6 +7079,16 @@ class DataTabWidget(QWidget):
         self.search_input.setPlaceholderText(_("ui.datatab.search.placeholder"))
         self.visualization_checkbox.setText(_("ui.datatab.visualize"))
         self.visualization_checkbox.setToolTip(_("ui.datatab.visualize"))
+        if hasattr(self, 'search_mode_combo'):
+            # 표시 텍스트만 갱신, userData는 유지
+            current_mode = self.search_mode_combo.currentData()
+            self.search_mode_combo.clear()
+            self.search_mode_combo.addItem(_("ui.datatab.search_mode.simple"), userData="simple")
+            self.search_mode_combo.addItem(_("ui.datatab.search_mode.detail"), userData="detail")
+            self.search_mode_combo.addItem(_("ui.datatab.search_mode.corner"), userData="corner")
+            # 기존 선택 복원
+            index = {"simple":0, "detail":1, "corner":2}.get(current_mode, 0)
+            self.search_mode_combo.setCurrentIndex(index)
 
     def closeEvent(self, event):
         """탭이 닫힐 때 스레드 정리"""

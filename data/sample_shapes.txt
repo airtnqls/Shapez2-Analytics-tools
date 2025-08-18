@@ -11,12 +11,15 @@ c-c-:SSSS
 P:c
 PPPSc
 {S-S-S} Corners are imaginary shapes, so they can float.
+{-S:--:-S:--:-S} But, if you don't have a corner in the Quadrant 1, virtualisation X
 -:S:c
 S:-:c
 -:S:-:c
+-SS-c
 S-S-c
 ----:SSSS
 -:P
+SS-S:S--S:cSPS
 -:c
 S:P:c
 c:-:c
@@ -29,3 +32,5 @@ c:cS:c:SSSS
 {c:cS:cSSS} 복합 하이브리드
 PPPP:S---:cS-S
 PP-P:-SSP:---P:-ScS
+{PPPP:S---:cS-S:SSSS} 클로 심플 하이브리드
+{PPPP:S-S-:cS-S} 클로 복합 하이브리드
