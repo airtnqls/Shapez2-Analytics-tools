@@ -6594,9 +6594,16 @@ class DataTabWidget(QWidget):
                     if shape_code.strip():
                         shape = parse_shape_or_none(shape_code.strip())
                         if shape:
+                            # 분류 결과 및 사유 표시
                             res, reason = shape.classifier()
                             validity_item.setText(f"{_(res)} ({_(reason)})")
-                            is_impossible = res == "불가능형"
+                            # 언어와 무관하게 동작하도록 Enum 값과 비교
+                            try:
+                                from shape_classifier import ShapeType
+                                is_impossible = res == ShapeType.IMPOSSIBLE.value
+                            except Exception:
+                                # 폴백: 기존 한글 리터럴 비교도 유지
+                                is_impossible = res in ("불가능형",)
                         else:
                             validity_item.setText(_("ui.table.error", error="파싱 실패"))
                             is_impossible = True

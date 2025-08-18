@@ -1,15 +1,31 @@
-CuCuCuCu
-RrRrRrRr
-CuCuCuCu:RrRrRrRr
+----
+{CuCuCuCu} Characters outside these brackets are ignored.
+SSSS
+S:S:S:S
+{SSSSS} longer than 5 char is automatically read as a corner.
 P-P-P-P-:CuCuCuCu
+S---:SSSS
 crcrcrcr
-SwSwSwSw
-CuCuCuCu:RrRrRrRr:WgWgWgWg
-CbCbCbCb:RgRgRgRg
---Cr--Cr:----CuCu
-CuRuCuRu
-SrSrSrSr:CgCgCgCg:RbRbRbRb
-SSSSS
-CCCCC
-PPPPP
-SSSSSS
+ScSc:SSSS
+c-c-:SSSS
+P:c
+PPPSc
+{S-S-S} Corners are imaginary shapes, so they can float.
+-:S:c
+S:-:c
+-:S:-:c
+S-S-c
+----:SSSS
+-:P
+-:c
+S:P:c
+c:-:c
+c:S:-:c
+S-ScS-S-c
+S-ScSS--c
+S--cS-S-c
+c---:SSSS
+c:cS:c:SSSS
+{c:cS:cSSS} 복합 하이브리드
+PPPP:S---:cS-S
+PP-P:-SSP:---P:-ScS

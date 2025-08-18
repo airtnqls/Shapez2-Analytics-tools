@@ -162,11 +162,12 @@ def _check_impossible_patterns(pillars: list[str]) -> tuple[str | None, str | No
         tuple[str | None, str | None]: (분류_결과, 분류_사유)
     """
     impossible_patterns_for_type = [
-        (r'^P*-+c', _("analyzer.corner_rules.rule1")),
-        (r'[^P]P.*c', _("analyzer.corner_rules.rule2")),
-        (r'c-.*c', _("analyzer.corner_rules.rule3")),
-        (r'c.-+c', _("analyzer.corner_rules.rule4")),
-        (r'^S*-?S*c.*-S-+c', _("analyzer.corner_rules.rule5"))
+        (r'-P', _("analyzer.corner_rules.rule1")),
+        (r'^P*-+c', _("analyzer.corner_rules.rule2")),
+        (r'[^P]P.*c', _("analyzer.corner_rules.rule3")),
+        (r'c-.*c', _("analyzer.corner_rules.rule4")),
+        (r'c.-+c', _("analyzer.corner_rules.rule5")),
+        (r'^S*-?S*c.*-S-+c', _("analyzer.corner_rules.rule6"))
     ]
     
     for pillar_idx, pillar in enumerate(pillars):
@@ -558,7 +559,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
     # ========== 2단계: 기존 분류 로직 (모서리가 아닌 경우) ==========
     # 물리 안정성 검사
     if shape_obj and not check_physics_stability(shape_obj):
-        return ShapeType.IMPOSSIBLE.value, _("analyzer.rule0.unstable_or_pin")
+        return ShapeType.IMPOSSIBLE.value, _("analyzer.rule1.unstable")
     
     # 불가능 패턴 검사
     impossible_type, impossible_reason = _check_impossible_patterns(pillars)

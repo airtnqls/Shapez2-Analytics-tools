@@ -25,6 +25,12 @@
       "expected_a": "----P-P-:--crcr--"
     },
     {
+      "name": "Crystal Fall",
+      "operation": "apply_physics",
+      "input_a": "--------:crcrcrcr",
+      "expected_a": ""
+    },
+    {
       "name": "Simple Fall",
       "operation": "apply_physics",
       "input_a": "--------:cr------",
