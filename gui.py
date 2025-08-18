@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QMessageBox, QMenu, QTabBar, QGraphicsDropShadowEffect,
     QGraphicsScene, QGraphicsView, QGraphicsWidget, QGraphicsProxyWidget
 )
+from PyQt6.QtWidgets import QToolButton
 from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF, QPainter, QPixmap, QIcon, QBrush
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF, QSettings, QProcess
 
@@ -122,6 +123,8 @@ class OriginFinderThread(QThread):
             self.log_buffer.clear()
 
     def run(self):
+        # i18n 함수를 명시적으로 참조
+        from i18n import _
         total_steps = 4 + (4 * 2) + 1
         step = 0
 
@@ -166,7 +169,7 @@ class OriginFinderThread(QThread):
 
             for i in range(4):
                 rotated_target = self.target_shape.copy()
-                for _ in range(i): rotated_target = rotated_target.rotate(clockwise=True)
+                for _j in range(i): rotated_target = rotated_target.rotate(clockwise=True)
                 
                 update_progress(_("log.reverse_tracing.half_destroyer.rotation", rotation=i+1))
                 self.log(_("log.reverse_tracing.half_destroyer.search", rotation=i+1))
@@ -2254,27 +2257,28 @@ class ShapezGUI(QMainWindow):
         analysis_tab_widget = QWidget()
         right_panel = QVBoxLayout(analysis_tab_widget)
         
-        reverse_group = QGroupBox(_("ui.groups.reverse_tracing"))
-        reverse_group.setMinimumHeight(150)
-        reverse_group.setMaximumHeight(250)
-        reverse_layout = QVBoxLayout(reverse_group)
-        self.reverse_input = QLineEdit("P-P-P-P-:CuCuCuCu")
-        self.reverse_input.setObjectName(_("ui.reverse.input"))
-        reverse_layout.addWidget(QLabel(_("ui.reverse.target_shape")))
-        reverse_layout.addWidget(self.reverse_input)
+        # 리버스 트레이싱 컨테이너 UI 주석처리
+        # reverse_group = QGroupBox(_("ui.groups.reverse_tracing"))
+        # reverse_group.setMinimumHeight(150)
+        # reverse_group.setMaximumHeight(250)
+        # reverse_layout = QVBoxLayout(reverse_group)
+        # self.reverse_input = QLineEdit("P-P-P-P-:CuCuCuCu")
+        # self.reverse_input.setObjectName(_("ui.reverse.input"))
+        # reverse_layout.addWidget(QLabel(_("ui.reverse.target_shape")))
+        # reverse_layout.addWidget(self.reverse_input)
 
-        find_origin_hbox = QHBoxLayout()
-        find_origin_hbox.addWidget(QPushButton(_("ui.btn.find_origin_rules"), clicked=self.on_find_origin))
-        copy_button = QPushButton(_("ui.btn.copy_all"))
-        copy_button.clicked.connect(self.on_copy_origins)
-        find_origin_hbox.addWidget(copy_button)
-        reverse_layout.addLayout(find_origin_hbox)
+        # find_origin_hbox = QHBoxLayout()
+        # find_origin_hbox.addWidget(QPushButton(_("ui.btn.find_origin_rules"), clicked=self.on_find_origin))
+        # copy_button = QPushButton(_("ui.btn.copy_all"))
+        # copy_button.clicked.connect(self.on_copy_origins)
+        # find_origin_hbox.addWidget(copy_button)
+        # reverse_layout.addLayout(find_origin_hbox)
         
-        self.origin_list = QListWidget()
-        self.origin_list.itemClicked.connect(self.on_origin_selected)
-        reverse_layout.addWidget(QLabel(_("ui.reverse.found_candidates")))
-        reverse_layout.addWidget(self.origin_list)
-        right_panel.addWidget(reverse_group)
+        # self.origin_list = QListWidget()
+        # self.origin_list.itemClicked.connect(self.on_origin_selected)
+        # reverse_layout.addWidget(QLabel(_("ui.reverse.found_candidates")))
+        # reverse_layout.addWidget(self.origin_list)
+        # right_panel.addWidget(reverse_group)
         
 
         
@@ -2516,28 +2520,73 @@ class ShapezGUI(QMainWindow):
         
         main_content_hbox.addWidget(right_tabs, 2) # 중앙 컨텐츠 영역
 
-        # 로그 창 (맨 오른쪽, 세로로 길게)
-        log_vbox = QVBoxLayout()
-        
-        # 로그 헤더와 클리어 버튼
-        log_header_layout = QHBoxLayout()
+        # 로그 패널 컨테이너 (완전 접힘 지원)
+        self.log_panel_container = QWidget()
+        log_panel_layout = QVBoxLayout(self.log_panel_container)
+        log_panel_layout.setContentsMargins(0, 0, 0, 0)
+        log_panel_layout.setSpacing(6)
+
+        # 상단 컨트롤 바 (헤더, 체크박스, 지우기)
+        self._log_header_bar = QWidget()
+        log_header_layout = QHBoxLayout(self._log_header_bar)
+        log_header_layout.setContentsMargins(0, 0, 0, 0)
         log_header_layout.addWidget(QLabel(_("ui.log.header.html")))
         log_header_layout.addStretch()
-        
-        # 상세 로그 보기 체크박스
+
         self.log_checkbox = QCheckBox(_("ui.log.show_verbose"))
-        self.log_checkbox.setChecked(False)  # 기본값을 비활성화로 변경
+        self.log_checkbox.setChecked(False)
         self.log_checkbox.stateChanged.connect(self.on_log_level_changed)
         log_header_layout.addWidget(self.log_checkbox)
-        
+
         self.log_clear_button = QPushButton(_("ui.log.clear"))
         self.log_clear_button.setMaximumWidth(60)
         self.log_clear_button.clicked.connect(self.on_clear_log)
         log_header_layout.addWidget(self.log_clear_button)
-        
-        log_vbox.addLayout(log_header_layout)
-        log_vbox.addWidget(self.log_output, 1)
-        main_content_hbox.addLayout(log_vbox, 1) # 로그 영역
+
+        log_panel_layout.addWidget(self._log_header_bar)
+
+        # 실제 로그 표시 영역
+        self.log_container = QWidget()
+        log_container_layout = QVBoxLayout(self.log_container)
+        log_container_layout.setContentsMargins(0, 0, 0, 0)
+        log_container_layout.addWidget(self.log_output, 1)
+        log_panel_layout.addWidget(self.log_container, 1)
+
+        # 우측에 텍스트 없는 초소형 토글 버튼만 별도 배치 (눈에 덜 띄게)
+        self.log_toggle_button = QToolButton()
+        self.log_toggle_button.setCheckable(True)
+        self.log_toggle_button.setChecked(True)  # 초기 상태는 펼쳐진 상태
+        self.log_toggle_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self.log_toggle_button.setArrowType(Qt.ArrowType.RightArrow)  # 초기 상태는 펼쳐진 상태이므로 왼쪽 화살표
+        self.log_toggle_button.setFixedSize(16, 16)  # 더 작게
+        self.log_toggle_button.setStyleSheet("""
+            QToolButton {
+                border: none;
+                background: transparent;
+                color: #888888;
+            }
+            QToolButton:hover {
+                background: #f0f0f0;
+                border-radius: 2px;
+            }
+            QToolButton:pressed {
+                background: #e0e0e0;
+            }
+        """)
+        self.log_toggle_button.clicked.connect(self.on_toggle_log_container)
+
+        # 로그 패널과 토글 버튼을 수평 배치
+        log_right_side = QHBoxLayout()
+        log_right_side.setContentsMargins(0, 0, 0, 0)
+        log_right_side.setSpacing(4)
+        log_right_side.addWidget(self.log_panel_container, 1)
+        log_right_side.addWidget(self.log_toggle_button, 0)
+
+        # 메인 레이아웃에 추가
+        main_content_hbox.addLayout(log_right_side, 1)
+        self.log_layout_index = main_content_hbox.count() - 1
+        self.main_content_hbox = main_content_hbox
+        self.log_collapsed = False
 
         main_layout.addLayout(main_content_hbox, 1)
 
@@ -3376,6 +3425,7 @@ class ShapezGUI(QMainWindow):
             self.log_checkbox.setText(_("ui.log.show_verbose"))
         if hasattr(self, 'log_clear_button'):
             self.log_clear_button.setText(_("ui.log.clear"))
+        # 토글 버튼은 아이콘 전용이라 텍스트 없음
         
         # 데이터 처리 버튼들
         self.simplify_btn.setText(_("ui.btn.simplify"))
@@ -4152,6 +4202,33 @@ class ShapezGUI(QMainWindow):
         """로그 창 클리어"""
         self.clear_log()
         self.log_verbose("로그가 지워졌습니다.")
+    
+    def on_toggle_log_container(self):
+        """로그 컨테이너를 접거나 펼칩니다 (가로 공간 완전 축소)."""
+        # 토글 버튼 상태에 따라 전환
+        is_expanded = self.log_toggle_button.isChecked() if hasattr(self, 'log_toggle_button') else not self.log_collapsed
+        if is_expanded:
+            # 펼치기: 헤더/로그 보이기, 화살표는 왼쪽(접을 수 있음)
+            if hasattr(self, '_log_header_bar'):
+                self._log_header_bar.show()
+            if hasattr(self, 'log_container'):
+                self.log_container.show()
+            if hasattr(self, 'log_toggle_button'):
+                self.log_toggle_button.setArrowType(Qt.ArrowType.RightArrow)  # < (접을 수 있음)
+            if hasattr(self, 'log_layout_index') and hasattr(self, 'main_content_hbox'):
+                self.main_content_hbox.setStretchFactor(self.main_content_hbox.itemAt(self.log_layout_index), 1)
+            self.log_collapsed = False
+        else:
+            # 접기: 헤더/로그 숨기기, 화살표는 오른쪽(펼칠 수 있음)
+            if hasattr(self, '_log_header_bar'):
+                self._log_header_bar.hide()
+            if hasattr(self, 'log_container'):
+                self.log_container.hide()
+            if hasattr(self, 'log_toggle_button'):
+                self.log_toggle_button.setArrowType(Qt.ArrowType.LeftArrow)  # > (펼칠 수 있음)
+            if hasattr(self, 'log_layout_index') and hasattr(self, 'main_content_hbox'):
+                self.main_content_hbox.setStretchFactor(self.main_content_hbox.itemAt(self.log_layout_index), 0)
+            self.log_collapsed = True
 
     def on_main_tab_changed(self, index):
         """메인 탭 변경 시 호출"""
@@ -5719,10 +5796,7 @@ class DataTabWidget(QWidget):
                     shape = parse_shape_or_none(shape_code.strip())
                     if shape:
                         res, reason = shape.classifier()
-                        if reason and reason.strip():
-                            classification_text = f"{_(res)} ({_(reason)})"
-                        else:
-                            classification_text = f"{_(res)}"
+                        classification_text = f"{_(res)} ({_(reason)})"
                         self._classification_cache[i] = classification_text
                     else:
                         self._classification_cache[i] = _("ui.table.error", error="파싱 실패")
@@ -5756,10 +5830,7 @@ class DataTabWidget(QWidget):
                     shape = parse_shape_or_none(shape_code.strip())
                     if shape:
                         res, reason = shape.classifier()
-                        if reason and reason.strip():
-                            classification_text = f"{_(res)} ({_(reason)})"
-                        else:
-                            classification_text = f"{_(res)}"
+                        classification_text = f"{_(res)} ({_(reason)})"
                         self._classification_cache[i] = classification_text
                     else:
                         self._classification_cache[i] = _("ui.table.error", error="파싱 실패")
