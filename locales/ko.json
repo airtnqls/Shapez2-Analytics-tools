@@ -95,6 +95,7 @@
     "process_tree.operation.corner_result": "코너 결과",
     "process_tree.operation.corner_tracer_no_result": "코너 트레이서 (결과 없음)",
     "process_tree.operation.corner_tracer_error": "코너 트레이서 오류",
+    "process_tree.operation.corner_tracer_no_shape": "코너 트레이서 (도형 없음)",
     "process_tree.operation.quad": "쿼드 커터",
     "process_tree.operation.quad_result": "사분면 결과",
     "process_tree.operation.quad_no_result": "쿼드 커터 (결과 없음)",

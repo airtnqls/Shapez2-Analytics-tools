@@ -32,8 +32,8 @@ class ShapeType(Enum):
         EMPTY -> 자식없음
         SIMPLE_CORNER -> 생략
         STACK_CORNER -> 생략
-        SWAP_CORNER -> 생략
-        CLAW_CORNER -> 코너 트레이서
+        SWAP_CORNER -> 코너 트레이서 (스왑)
+        CLAW_CORNER -> 코너 트레이서 (핀푸쉬)
         BASIC -> 자식없음
         SIMPLE_GEOMETRIC -> 생략
         SWAPABLE -> 쿼드 
@@ -188,7 +188,7 @@ def _get_initial_shape_classification(shape: str) -> tuple[str, str]:
         tuple[str, str]: (분류_결과, 분류_사유)
     """
     if shape.strip() == "" or shape.replace("-", "").replace(":", "") == "":
-        return ShapeType.EMPTY.value, ClassificationReason.REASON_EMPTY
+        return ShapeType.EMPTY.value, ""
     elif 'c' not in shape:  # 크리스탈이 없는 경우
         return ShapeType.SIMPLE_GEOMETRIC.value, ClassificationReason.REASON_NO_CRYSTAL
     else:  # 크리스탈이 포함된 경우
@@ -335,7 +335,9 @@ def _handle_crystal_free_classification(initial_swap_diagnosis: str | None, foun
     
     # 기타 제한사항 추가
     if found_limitations:
-        reasons.append(_("analyzer.limitations", list=", ".join(sorted(list(found_limitations)))))
+        # 제한사항을 하나씩 추가 (기존 방식과 동일)
+        for limitation in sorted(found_limitations):
+            reasons.append(limitation)
     
     return classification_type, reasons
 
@@ -565,6 +567,9 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
 
     # 초기 분류 및 제한사항 분석
     current_type, base_reason = _get_initial_shape_classification(shape)
+    # 빈 도형인 경우 즉시 반환
+    if current_type == ShapeType.EMPTY.value:
+        return current_type, base_reason
     found_limitations = _check_limitations(pillars)
     initial_swap_diagnosis = _check_swap_impossibility(shape_obj)
 
@@ -601,7 +606,9 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
 
         # ========== 6단계: 기타 제한사항 추가 ==========
         if found_limitations:
-            final_reasons.append(_("analyzer.limitations", list=_("analyzer.limitations.separator").join(sorted(list(found_limitations)))))
+            # 제한사항을 하나씩 추가 (기존 방식과 동일)
+            for limitation in sorted(found_limitations):
+                final_reasons.append(limitation)
 
     # ========== 7단계: 최종 결과 반환 ==========
     # 클로 추가 검사

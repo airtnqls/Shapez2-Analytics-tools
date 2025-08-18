@@ -95,6 +95,7 @@
     "process_tree.operation.corner_result": "Corner Result",
     "process_tree.operation.corner_tracer_no_result": "Corner Tracer (No Result)",
     "process_tree.operation.corner_tracer_error": "Corner Tracer Error",
+    "process_tree.operation.corner_tracer_no_shape": "Corner Tracer (No Shape)",
     "process_tree.operation.quad": "Quad Cutter",
     "process_tree.operation.quad_result": "Quadrant Result",
     "process_tree.operation.quad_no_result": "Quad Cutter (No Result)",

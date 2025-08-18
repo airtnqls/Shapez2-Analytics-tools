@@ -3136,9 +3136,24 @@ class ShapezGUI(QMainWindow):
         for category, test_cases in test_suites.items():
             if category == "역연산":
                 continue 
+            
+            # 테스트 케이스가 리스트가 아니거나 비어있는 경우 처리
+            if not isinstance(test_cases, list) or len(test_cases) == 0:
+                self.log(f"경고: '{category}' 카테고리에 유효한 테스트 케이스가 없습니다.")
+                continue
 
             self.log(_("ui.test.category", category=category))
             for test in test_cases:
+                # 테스트 케이스가 딕셔너리가 아닌 경우 건너뛰기
+                if not isinstance(test, dict):
+                    self.log(f"경고: 테스트 케이스가 딕셔너리가 아님 - {test}")
+                    continue
+                    
+                # 필수 키가 없는 경우 건너뛰기
+                if 'name' not in test or 'operation' not in test:
+                    self.log(f"경고: 테스트 케이스에 필수 키가 누락됨 - {test}")
+                    continue
+                
                 total_count += 1
                 name, operation = test['name'], test['operation']
                 input_a_str, input_b_str = test.get('input_a', ""), test.get('input_b')
@@ -3296,8 +3311,23 @@ class ShapezGUI(QMainWindow):
         passed_count, total_count = 0, 0
         test_cases = test_suites["역연산"]
         
+        # 테스트 케이스가 리스트가 아니거나 비어있는 경우 처리
+        if not isinstance(test_cases, list) or len(test_cases) == 0:
+            self.log("'역연산' 카테고리에 유효한 테스트 케이스가 없습니다.")
+            return
+        
         self.log(_("ui.test.category", category="역연산"))
         for test in test_cases:
+            # 테스트 케이스가 딕셔너리가 아닌 경우 건너뛰기
+            if not isinstance(test, dict):
+                self.log(f"경고: 테스트 케이스가 딕셔너리가 아님 - {test}")
+                continue
+                
+            # 필수 키가 없는 경우 건너뛰기
+            if 'name' not in test:
+                self.log(f"경고: 테스트 케이스에 'name' 키가 누락됨 - {test}")
+                continue
+                
             total_count += 1
             test_name = test['name']
             target_shape_str = test['input_a']

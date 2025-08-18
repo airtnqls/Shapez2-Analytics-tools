@@ -5,7 +5,7 @@
 from typing import List, Dict, Optional, Tuple
 from shape import Shape
 from shape_classifier import analyze_shape, ShapeType
-from corner_tracer import build_cutable_shape, build_pinable_shape
+from corner_tracer import corner_process
 from i18n import _
 # claw_tracer와 같은 다른 트레이서 모듈도 필요에 따라 임포트해야 합니다.
 # from claw_tracer import claw_process
@@ -96,7 +96,7 @@ class ProcessTreeSolver:
     IMPOSSIBLE_OPERATION = "불가능한 도형"
 
     def __init__(self):
-        self.max_depth = 5  # 최대 탐색 깊이
+        self.max_depth = 100  # 최대 탐색 깊이
         self.nodes_map = {}  # ID별 노드 매핑
         self.next_node_id = 0  # 다음 노드 ID
     
@@ -241,6 +241,25 @@ class ProcessTreeSolver:
         except Exception:
             return corner_result
     
+    def _compare_first_quadrant(self, shape1: str, shape2: str) -> bool:
+        """두 도형의 첫 번째 층에서 1사분면(TR 사분면)만 비교"""
+        try:
+            # 첫 번째 층만 추출
+            layer1 = shape1.split(":")[0] if ":" in shape1 else shape1
+            layer2 = shape2.split(":")[0] if ":" in shape2 else shape2
+            
+            # 4개씩 그룹으로 나누어 1사분면(첫 번째 그룹)만 비교
+            if len(layer1) >= 4 and len(layer2) >= 4:
+                q1_1 = layer1[:4]  # 첫 번째 도형의 1사분면
+                q1_2 = layer2[:4]  # 두 번째 도형의 1사분면
+                return q1_1 == q1_2
+            
+            # 길이가 4 미만인 경우 전체 비교
+            return layer1 == layer2
+            
+        except Exception:
+            return False
+    
     def _create_simple_tree(self, current_node: ProcessNode, depth: int = 0):
         """
         주어진 노드의 도형을 분석하여 실제 공정 트리를 재귀적으로 생성합니다.
@@ -306,7 +325,6 @@ class ProcessTreeSolver:
         elif shape_type in [
             ShapeType.SIMPLE_CORNER.value,
             ShapeType.STACK_CORNER.value,
-            ShapeType.SWAP_CORNER.value,
             ShapeType.SIMPLE_GEOMETRIC.value
         ]:
             current_node.operation = "생략"
@@ -317,8 +335,11 @@ class ProcessTreeSolver:
             return
         
         # 코너 트레이서가 필요한 경우
-        elif shape_type == ShapeType.CLAW_CORNER.value:
-            self._apply_corner_tracer(current_node, shape_code, shape_obj, depth)
+        elif shape_type in [
+            ShapeType.CLAW_CORNER.value, 
+            ShapeType.SWAP_CORNER.value
+        ]:
+            self._apply_corner_tracer(current_node, shape_code, shape_obj, shape_type, depth)
         
         # 쿼드 연산이 필요한 경우 (깊이가 깊으면 기본 도형으로 처리)
         elif shape_type == ShapeType.SWAPABLE.value and depth < 100:
@@ -348,62 +369,33 @@ class ProcessTreeSolver:
             # 알 수 없는 타입인 경우
             current_node.operation = f"알 수 없는 타입: {shape_type}"
     
-    def _apply_corner_tracer(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
+    def _apply_corner_tracer(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, shape_type: str, depth: int = 0):
         """코너 트레이서를 적용하여 하위 노드를 생성합니다."""
-        current_node.operation = _("process_tree.operation.corner_tracer")
         try:
-            # corner_tracer를 사용하여 이전 단계 도형 찾기
-            if shape_code and shape_code[0] == 'P':
-                corner_result = build_pinable_shape(shape_code)
-            else:
-                corner_result = build_cutable_shape(shape_code)
+            from data_operations import corner_shape_for_gui
+            result = corner_shape_for_gui(shape_code)
             
-            if corner_result and corner_result != shape_code:
-                previous_shape_code = self._extract_first_layer(corner_result)
-                
-                # 이전 단계 도형으로 자식 노드 생성
-                previous_node = ProcessNode(previous_shape_code, _("process_tree.operation.corner_result"), self._generate_node_id())
-                self._add_node_to_map(previous_node)
-                current_node.input_ids = [previous_node.node_id]
-
+            # 디버깅을 위한 로그 출력
+            print(f"DEBUG: corner_shape_for_gui 결과 - 입력: {shape_code}, 출력: {result}")
+            
+            if result and result != shape_code:
+                # 결과가 있는 경우 자식 노드 생성
+                child_node = ProcessNode(result, _("process_tree.operation.corner_result"), self._generate_node_id())
+                self._add_node_to_map(child_node)
+                current_node.input_ids = [child_node.node_id]
+                current_node.operation = _("process_tree.operation.corner_tracer")
                 # 재귀적으로 하위 트리 생성
-                self._create_simple_tree(previous_node, depth + 1)
+                self._create_simple_tree(child_node, depth + 1)
             else:
-                # 코너 트레이서 결과가 없는 경우, 여기서 종료
                 current_node.operation = _("process_tree.operation.corner_tracer_no_result")
-                
         except Exception as e:
             # 코너 트레이서 처리 중 오류 발생
+            print(f"DEBUG: corner_tracer 오류: {str(e)}")
             impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
             self._add_node_to_map(impossible_node)
             current_node.input_ids = [impossible_node.node_id]
             current_node.operation = _("process_tree.operation.corner_tracer_error")
     
-    def _apply_operation_and_recurse(self, current_node: ProcessNode, operation_name: str, decomposer_func, depth: int, *args):
-        """특정 연산을 적용하고 결과에 대해 재귀적으로 트리를 생성하는 헬퍼 함수"""
-        current_node.operation = operation_name
-        try:
-            # 실제 분해 함수 호출
-            child_shape_codes = decomposer_func(*args)
-            
-            if not child_shape_codes:
-                current_node.operation += _("process_tree.operation.no_result_suffix")
-                return
-
-            for child_code in child_shape_codes:
-                child_node = ProcessNode(child_code, _("process_tree.operation.decompose_result"), self._generate_node_id())
-                self._add_node_to_map(child_node)
-                current_node.input_ids.append(child_node.node_id)
-                
-                # 각 자식에 대해 재귀적으로 트리 생성
-                self._create_simple_tree(child_node, depth + 1)
-                    
-        except Exception as e:
-            # 연산 처리 중 오류 발생
-            impossible_node = ProcessNode(current_node.shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
-            self._add_node_to_map(impossible_node)
-            current_node.input_ids = [impossible_node.node_id]
-            current_node.operation = _("process_tree.operation.error", operation=operation_name)
 
     def _apply_quad_operation(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
         """쿼드 연산을 적용하여 하위 노드를 생성합니다."""
