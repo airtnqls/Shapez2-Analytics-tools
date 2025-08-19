@@ -7,200 +7,155 @@
 
 from typing import Set, Tuple
 from shape import Shape, Layer
+from data_operations import simplify_shape
+import re
 
+# 하이브리드 패턴 매칭을 위한 정규식 패턴과 마스크 데이터
+HYBRID_PATTERNS = {
+    "P-PP:PSS[^c]:P-[^c][^c]:SS[^c][^c]:c[^c][^c][^c]": "0000:0001:0011:0011:0111",
+    "--PP:--[PS]c:SS[^c]S:c[^c][^c][^c]:[^c][^c][^c][^c]": "0000:0000:0010:0111:1111", # Symmetry?
+    "[P-]-[P-]P:[c-]-[c-][PS]:SSS[^c]:S[^c][^c][^c]:c[^c][^c][^c]": "0000:0000:0001:0111:0111",
+    "--PP:PP[PS]c:SS[^c]S:[Sc][^c][^c][^c]:c[^c][^c][^c]": "0000:0000:0010:0111:0111", # Symmetry?
+    "-PPP:SP[^c]S:[S-][PS][^c][^c]:[c-]P[^c][^c]:cS[^c][^c]": "0000:0010:0011:0011:0011",
+    "P-PP:PSS[^c]:P.[^c][^c]:[PS]-[^c][^c]:cS[^c][^c]": "0000:0001:0011:0011:0011",
+    "P[P-]P[P-]:[^-]-[^c]-:cS[^c]S:[^c][^c][^c][^c]:[^c][^c][^c][^c]": "0000:0010:0010:1111:1111", # Symmetry
+    ".-PP:.-c[SP]:-SS[^c]:SS[^c][^c]:c[^c][^c][^c]": "0000:0000:0001:0011:0111",
+    "P-PP:P-[PS]S:PSc[^c]:[^-]-S[^c]:cS[^c][^c]": "0000:0000:0001:0001:0011",
+    "P-P[^c]:P-[^-][^c]:PSc[^c]:[^-]-S[^c]:cS[^c][^c]": "0001:0001:0001:0001:0011",
+    "..P.:..[^c].:[Sc]S[^c]S:c[^c][^c][^c]:[^c][^c][^c][^c]": "0000:0010:0010:0111:1111", # Symmetry
+    "..P.:..[PS].:[Sc]-[^c]S:cS[^c][^c]:[^c][^c][^c][^c]": "0000:0000:0010:0011:1111",
+    "...P:...[^c]:S[Sc]S[^c]:S[^c][^c][^c]:c[^c][^c][^c]": "0000:0001:0001:0111:0111",
+    "P.P.:..[^c].:[Sc]S[^c]S:[Sc][^c][^c][^c]:c[^c][^c][^c]": "0000:0010:0010:0111:0111", # Symmetry
+    "...P:...[^c]:-[Sc]S[^c]:SS[^c][^c]:c[^c][^c][^c]": "0000:0001:0001:0011:0111",
+    "..P.:..[^c].:[Sc]-[^c]S:cS[^c][^c]:[^c][^c][^c][^c]": "0000:0010:0010:0011:1111",
+    "..P.:..[PS].:[Sc]-[^c]S:[Sc]S[^c][^c]:c[^c][^c][^c]": "0000:0000:0010:0011:0111",
+    "-.PP:-.[^-][^-]:[Sc]-[PS][^-]:cS[^c][^c]:[^c][^c][^c][^c]": "0000:0000:0000:0011:1111",
+    "..P.:..[^c].:..[^c].:cS[^c]S:[^c][^c][^c][^c]": "0000:0010:0010:0010:1111", # Symmetry
+    "P..[^c]:[^-]..[^c]:[^-][Sc]S[^c]:[^-]-[^c][^c]:cS[^c][^c]": "0001:0001:0001:0011:0011",
+    "..P.:..[^c].:[Sc]-[^c]S:[Sc]S[^c][^c]:c[^c][^c][^c]": "0000:0010:0010:0011:0111",
+    "P.P.:..[PS].:..[^c].:cS[^c]S:[^c][^c][^c][^c]": "0000:0000:0010:0010:1111", # Symmetry
+    "[P-][P-]PP:[P-].[^-][^-]:[S-][S-][PS][Sc]:[Sc]S[^c][^c]:c[^c][^c][^c]": "0000:0000:0000:0011:0111",
+    ".[-]PP:[P-]-[^-][^-]:.SS[^c]:.[P-][^c][^c]:cS[^c][^c]": "0000:0000:0001:0011:0011",
+    "P.P.:[^-].[^-].:..[^-].:cS[^c]S:[^c][^c][^c][^c]": "0000:0000:0000:0010:1111", # Symmetry
+    "..P.:..[PS].:..[^c]S:..[^c][^c]:cS[^c][^c]": "0000:0000:0010:0011:0011",
+    "...P:...[^c]:.[Sc]S[^c]:..[^c][^c]:cS[^c][^c]": "0000:0001:0001:0011:0011",
+    "..P.:..[^c].:..[^c].:[Sc]S[^c]S:c[^c][^c][^c]": "0000:0010:0010:0010:0111", # Symmetry
+    "..P.:..[PS].:..[^c].:[Sc]S[^c]S:c[^c][^c][^c]": "0000:0000:0010:0010:0111", # Symmetry
+    "[P-]-PP:[P-]-[^-][^-]:[PS][S-]c[Sc]:[^-]-S[^c]:cS[^c][^c]": "0000:0000:0000:0001:0011",
+    "..P.:..[^c].:[Sc].[^c]S:..[^c][^c]:cS[^c][^c]": "0000:0010:0010:0011:0011",
+    "..P.:..[^-].:..[PS].:[Sc]S[^c]S:c[^c][^c][^c]": "0000:0000:0000:0010:0111", # Symmetry
+    "....:....:..[PS][Sc]:[^P][P-][^c][^c]:cS[^c][^c]": "0000:0000:0000:0011:0011",
+    "..P.:..[^c].:..[^c].:[Sc][P-][^c]S:cS[^c][^c]": "0000:0010:0010:0010:0011",
+    "..P.:..[PS].:..[^c].:[Sc][P-][^c]S:cS[^c][^c]": "0000:0000:0010:0010:0011",
+    "..P.:..[^c].:..[^c].:..[^c].:cS[^c]S": "0000:0010:0010:0010:0010", # Symmetry
+    "..P.:..[PS].:..[^c].:..[^c].:cS[^c]S": "0000:0000:0010:0010:0010", # Symmetry
+    "....:....:..[PS].:[Sc][P-][^c]S:cS[^c][^c]": "0000:0000:0000:0010:0011",
+    "....:....:..[^-].:[Sc]-[PS][^-]:cS[^c][^c]": "0000:0000:0000:0000:0011",
+    "....:....:..[PS].:..[^c].:cS[^c]S": "0000:0000:0000:0010:0010", # Symmetry
+    "....:....:....:..[PS].:cS[^c]S": "0000:0000:0000:0000:0010" # Symmetry
+}
+
+def swap_2nd_and_4th(segment: str) -> str:
+    """4글자 문자열의 2번째와 4번째 문자를 교체합니다."""
+    # 문자열은 불변(immutable)하므로 리스트로 변환하여 처리
+    if len(segment) == 4:
+        chars = list(segment)
+        # 인덱스는 0부터 시작하므로 2번째는 인덱스 1, 4번째는 인덱스 3
+        chars[1], chars[3] = chars[3], chars[1]
+        return "".join(chars)
+    # 만약 4글자가 아니면 원본 그대로 반환
+    return segment
+
+def swap_2nd_and_4th(segment: str) -> str:
+    """
+    정규식 패턴 또는 일반 문자열에서 2번째와 4번째 '토큰'을 교체합니다.
+    정규식의 문자 클래스 '[...]'는 하나의 토큰으로 취급합니다.
+    """
+    # 정규식을 사용해 패턴을 토큰 단위로 분리 (가장 중요한 변경점)
+    # '[...]' 형태의 문자 클래스를 한 덩어리로 찾거나, 아니면 단일 문자를 찾음
+    tokens = re.findall(r'\[.*?\]|.', segment)
+    
+    # 토큰이 정확히 4개일 때만 2번째(인덱스 1)와 4번째(인덱스 3) 교체
+    if len(tokens) == 4:
+        tokens[1], tokens[3] = tokens[3], tokens[1]
+    else:
+        # 디버깅을 위해 경고 메시지는 유지할 수 있습니다.
+        # 이젠 이 메시지가 거의 나타나지 않을 것입니다.
+        print(f"Warning: Segment '{segment}' does not consist of 4 tokens. Tokens found: {tokens}")
+
+    return "".join(tokens)
+
+# 원본과 복제본을 모두 담을 새로운 딕셔너리
+extended_patterns = {}
+
+# 원본 딕셔너리를 순회하며 작업 수행
+for key, value in HYBRID_PATTERNS.items():
+    # 1. 원본 키-값 쌍을 새로운 딕셔너리에 추가
+    extended_patterns[key] = value
+
+    # 2. 키와 값을 ':' 기준으로 분리
+    key_segments = key.split(':')
+    value_segments = value.split(':')
+
+    # 3. 각 조각(segment)에 대해 변환 함수 적용
+    # 리스트 컴프리헨션을 사용하여 코드를 간결하게 만듦
+    swapped_key_segments = [swap_2nd_and_4th(seg) for seg in key_segments]
+    swapped_value_segments = [swap_2nd_and_4th(seg) for seg in value_segments]
+
+    # 4. 변환된 조각들을 다시 ':'로 합쳐서 새로운 키와 값을 생성
+    new_key = ":".join(swapped_key_segments)
+    new_value = ":".join(swapped_value_segments)
+    
+    # 5. 생성된 새로운 키-값 쌍을 원본 바로 다음에 추가
+    if new_key in extended_patterns:
+        continue
+    extended_patterns[new_key] = new_value
+
+# --- 결과 확인 ---
+
+print(f"원본 딕셔너리 항목 수: {len(HYBRID_PATTERNS)}")
+print(f"확장된 딕셔너리 항목 수: {len(extended_patterns)}")
+
+# HYBRID_PATTERNS를 확장된 딕셔너리로 교체
+HYBRID_PATTERNS = extended_patterns
 
 def claw_hybrid(shape: Shape) -> Tuple[Shape, Shape]:
     """
-    하이브리드 함수: 입력을 마스크 기반으로 두 부분으로 분리합니다.
+    하이브리드 함수: 입력을 마스크 기반으로 두 부분으로 분리합니다. 패턴매칭 방식으로.
     
     Args:
         shape: 분석할 도형
-        claw: 클로 모드 여부 (True일 때 P와 S를 마스크 0으로 설정)
         
     Returns:
         (output_a, output_b): 마스크 0 부분과 마스크 1 부분으로 분리된 두 도형
     """
     mask = {}
+    shape_str = repr(shape)
+    simplified_str = simplify_shape(shape_str)
     
-    # 1. 각 셀에 대응되는 (사분면x층) 크기의 임시 마스크를 만듭니다 (1로 초기화)
-    for l in range(len(shape.layers)):
-        for q in range(4):
-            mask[(l, q)] = 1
-            
-    # 2. 0층의 P는 마스크 0으로 설정
-    for q in range(4):
-        piece = shape._get_piece(0, q)
-        if piece and (piece.shape == 'P' or piece.shape == 'S'):
-            mask[(0, q)] = 0
-        
-    # 3. 클로시 크리스탈 주변 마스크 0으로 설정
-    # 모든 크리스탈을 찾습니다
-    for l in range(len(shape.layers)):
-        for q in range(4):
-            piece = shape._get_piece(l, q)
-            if piece and piece.shape == 'c':
-                # 크리스탈의 상, 좌, 우 (양쪽 사분면, 위 레이어)를 마스크 0으로 만들고 그 아래 모든 영역도 0으로 만듭니다
-                
-                # 상 (위 레이어의 같은 사분면)
-                upper_piece = shape._get_piece(l, q)
-                if upper_piece:  # 빈칸이 아닌 경우에만
-                    for upper_l in range(l, len(shape.layers)):
-                        mask[(upper_l, q)] = 0
-                
-                # 좌 사분면 (현재 층과 그 아래)
-                left_q = (q - 1) % 4
-                left_piece = shape._get_piece(l, left_q)
-                if left_piece:  # 빈칸이 아닌 경우에만
-                    for lower_l in range(l + 1):
-                        mask[(lower_l, left_q)] = 0
-                
-                # 우 사분면 (현재 층과 그 아래)
-                right_q = (q + 1) % 4
-                right_piece = shape._get_piece(l, right_q)
-                if right_piece:  # 빈칸이 아닌 경우에만
-                    for lower_l in range(l + 1):
-                        mask[(lower_l, right_q)] = 0
+    # 2. HYBRID_PATTERNS의 각 키에 대해 순차적으로 정규식 패턴 검사
+    import re
+    matched_mask_str = None
     
-    # 4. 각 사분면의 가장 높은 크리스탈을 찾습니다
-    for q in range(4):
-        highest_crystal_layer = -1
-        for l in range(len(shape.layers) - 1, -1, -1):  # 위에서부터 탐색
-            piece = shape._get_piece(l, q)
-            if piece and piece.shape == 'c':
-                highest_crystal_layer = l
-                break
-        
-        # 각 크리스탈과 그 아래는 모두 마스크 영역을 0로 만듭니다
-        if highest_crystal_layer >= 0:
-            for l in range(highest_crystal_layer + 1):  # 해당 층과 그 아래 모든 층
+    for pattern_key in HYBRID_PATTERNS:
+        if re.fullmatch(pattern_key, simplified_str):
+            matched_mask_str = HYBRID_PATTERNS[pattern_key]
+            break
+    
+    # 3. 일치하는 패턴이 없으면 기본 마스크 사용 (모든 위치를 0으로)
+    if matched_mask_str is None:
+        # 기본적으로 모든 위치를 output_a(마스크 0)에 할당
+        for l in range(len(shape.layers)):
+            for q in range(4):
                 mask[(l, q)] = 0
-    
-    # 5. 마스크 영역 0인 부분만으로 임시 도형을 만들어 불안정한 도형 검사
-    current_layer = 0
-    while current_layer < len(shape.layers):
-        # 현재까지의 마스크 0 부분만으로 임시 도형 생성
-        temp_layers = []
-        for l in range(len(shape.layers)):
-            temp_quadrants = [None] * 4
-            for q in range(4):
-                if mask.get((l, q), 0) == 0:
-                    piece = shape._get_piece(l, q)
-                    if piece:
-                        temp_quadrants[q] = piece.copy()
-            temp_layers.append(Layer(temp_quadrants))
-        
-        temp_shape = Shape(temp_layers)
-        
-        # 현재 층에서 불안정한 도형 탐색 (마스크 0 영역에서만)
-        # 마스크를 리버스하여 전달 (1과 0을 바꿈)
-        reversed_mask = {}
-        for key, value in mask.items():
-            reversed_mask[key] = 1 - value
-        unstable_coords = _find_unstable_at_layer(temp_shape, current_layer, reversed_mask)
-        
-        # 불안정한 도형이 존재할 때, 원본 도형에서 양쪽 사분면 중 마스크 1이면서 S인 부분 찾기
-        mask_changed = False
-        if unstable_coords:
-            for unstable_l, unstable_q in unstable_coords:
-                # 양쪽 사분면 검사 (불안정한 도형이 있는 사분면과 인접한 사분면들)
-                adjacent_quads = []
-                if unstable_q == 0:
-                    adjacent_quads = [1, 3]
-                elif unstable_q == 1:
-                    adjacent_quads = [0, 2]
-                elif unstable_q == 2:
-                    adjacent_quads = [1, 3]
-                elif unstable_q == 3:
-                    adjacent_quads = [0, 2]
-                
-                for check_q in adjacent_quads:
-                    if (mask.get((unstable_l, check_q), 0) == 1 and 
-                        shape._get_piece(unstable_l, check_q) and 
-                        shape._get_piece(unstable_l, check_q).shape == 'S'):
-                        # 해당 부분과 그 아래를 마스크 0으로 변경
-                        for below_l in range(unstable_l + 1):
-                            mask[(below_l, check_q)] = 0
-                        mask_changed = True
-            
-            # 마스크가 변경되었으면 현재 층부터 다시 검사
-            if mask_changed:
-                continue
-        
-        # 불안정한 도형이 없거나 마스크 변경이 없으면 다음 층으로
-        current_layer += 1
-    
-    # 6. 특별 조건 검사: S 도형이 아래가 비어있고 옆 사분면이 마스크 0이면서 S 또는 c인 경우
-    # 아래 레이어부터 위로 검사
-    for current_layer in range(len(shape.layers)):
-        for q in range(4):
-            coord = (current_layer, q)
-            if mask.get(coord, 0) != 1:
-                continue
-            
-            piece = shape._get_piece(current_layer, q)
-            if not piece or piece.shape != 'S':
-                continue
-            
-            # 아래가 비어있는지 확인
-            below_empty = current_layer == 0 or not shape._get_piece(current_layer-1, q)
-            if not below_empty:
-                continue
-            
-            # 현재 상태에서 지지되는지 확인
-            temp_layers = []
-            for l in range(len(shape.layers)):
-                temp_quadrants = [None] * 4
-                for tq in range(4):
-                    if mask.get((l, tq), 0) == 1:
-                        temp_piece = shape._get_piece(l, tq)
-                        if temp_piece:
-                            temp_quadrants[tq] = temp_piece.copy()
-                temp_layers.append(Layer(temp_quadrants))
-            
-            temp_shape = Shape(temp_layers)
-            unstable_coords = _find_unstable_at_layer(temp_shape, current_layer, mask)
-            
-            # 현재 좌표가 불안정한 경우에만 특별 조건 적용
-            if coord in unstable_coords:
-                # 옆 사분면 검사
-                special_support_found = False
-                for nq in range(4):
-                    if _is_adjacent(q, nq):
-                        neighbor_coord = (current_layer, nq)
-                        if mask.get(neighbor_coord, 0) == 0:
-                            neighbor_piece = shape._get_piece(*neighbor_coord)
-                            if neighbor_piece and neighbor_piece.shape in ['S', 'c']:
-                                special_support_found = True
-                                break
-                
-                # 특별 조건이 만족되면 해당 좌표와 그 아래 모든 층을 마스크 0으로 변경
-                if special_support_found:
-                    for below_l in range(current_layer + 1):
-                        mask[(below_l, q)] = 0
-    
-    # 7. 수정된 물리 적용으로 불안정한 도형 검사 (층별 순차 처리)
-    # 맨 위 층부터 순서대로 아래로 진행
-    for current_layer in range(len(shape.layers) - 1, -1, -1):  # 맨 위부터 아래로
-        # 현재 층에서 마스크 1인 부분만 추출하여 임시 도형 생성
-        temp_layers = []
-        for l in range(len(shape.layers)):
-            temp_quadrants = [None] * 4
-            for q in range(4):
-                if mask.get((l, q), 0) == 1:
-                    piece = shape._get_piece(l, q)
-                    if piece:
-                        temp_quadrants[q] = piece.copy()
-            temp_layers.append(Layer(temp_quadrants))
-        
-        temp_shape = Shape(temp_layers)
-        
-        # 현재 층에서 불안정한 도형 탐색
-        unstable_coords = _find_unstable_at_layer(temp_shape, current_layer, mask)
-        
-        # 불안정한 도형과 그 아래의 마스크를 0으로 만듭니다
-        for l, q in unstable_coords:
-            for below_l in range(l + 1):  # 해당 층과 그 아래 모든 층
-                mask[(below_l, q)] = 0
+    else:
+        # 4. 마스크 문자열을 딕셔너리로 변환
+        mask_layers = matched_mask_str.split(':')
+        for l, layer_mask in enumerate(mask_layers):
+            if l < len(shape.layers):
+                for q, bit in enumerate(layer_mask):
+                    if q < 4:
+                        mask[(l, q)] = int(bit)
     
     # 8. 출력 A (마스크 0 부분만), 출력 B (마스크 1 부분만)
     output_a_layers = []
@@ -249,87 +204,3 @@ def claw_hybrid(shape: Shape) -> Tuple[Shape, Shape]:
         i -= 1
     
     return output_a, output_b
-
-
-def _find_unstable_at_layer(temp_shape: Shape, target_layer: int, mask: dict) -> Set[Tuple[int, int]]:
-    """특정 층에서 불안정한 좌표를 찾습니다."""
-    # 지지 계산 (마스크 1 부분에서만)
-    supported = set()
-    
-    # 0층은 무조건 지지됨
-    for q in range(4):
-        if mask.get((0, q), 0) == 1 and temp_shape._get_piece(0, q):
-            supported.add((0, q))
-    
-    # 마스크 0인 부분 아래의 도형들도 지지됨 (절대 지지성)
-    for l in range(len(temp_shape.layers)):
-        for q in range(4):
-            if mask.get((l, q), 0) == 1 and temp_shape._get_piece(l, q):
-                # 바로 아래가 마스크 0이면 지지됨
-                if l > 0 and mask.get((l-1, q), 0) == 0:
-                    supported.add((l, q))
-    
-    # 연결성 기반 지지 전파
-    while True:
-        num_supported_before = len(supported)
-        visited_groups = set()
-        
-        for l_start in range(len(temp_shape.layers)):
-            for q_start in range(4):
-                coord = (l_start, q_start)
-                if (coord not in visited_groups and 
-                    mask.get(coord, 0) == 1 and 
-                    temp_shape._get_piece(*coord)):
-                    
-                    group = temp_shape._find_connected_group(l_start, q_start)
-                    # 마스크 1인 부분만 필터링
-                    mask_filtered_group = {c for c in group if mask.get(c, 0) == 1}
-                    
-                    if any(c in supported for c in mask_filtered_group):
-                        supported.update(mask_filtered_group)
-                    visited_groups.update(mask_filtered_group)
-        
-        # 수직 지지 확인
-        for l in range(len(temp_shape.layers)):
-            for q in range(4):
-                coord = (l, q)
-                if (coord in supported or 
-                    mask.get(coord, 0) != 1 or 
-                    not temp_shape._get_piece(*coord)):
-                    continue
-                
-                piece = temp_shape._get_piece(l, q)
-                if l > 0 and (l - 1, q) in supported:
-                    supported.add(coord)
-                elif piece and piece.shape != 'P':
-                    # 수평 연결 지지
-                    for nq in range(4):
-                        if _is_adjacent(q, nq):
-                            neighbor_coord = (l, nq)
-                            if neighbor_coord in supported:
-                                supporter = temp_shape._get_piece(*neighbor_coord)
-                                if supporter and supporter.shape != 'P':
-                                    supported.add(coord)
-                                    break
-        
-        if len(supported) == num_supported_before:
-            break
-    
-    # 불안정한 좌표 찾기 (마스크 1인 부분 중 지지되지 않은 부분)
-    all_mask1_coords = {(l, q) for l in range(len(temp_shape.layers)) 
-                        for q in range(4) 
-                        if mask.get((l, q), 0) == 1 and temp_shape._get_piece(l, q)}
-    unstable_coords = all_mask1_coords - supported
-    
-    return unstable_coords
-
-
-def _is_adjacent(q1: int, q2: int) -> bool:
-    """두 사분면이 인접하는지 확인합니다."""
-    if q1 == q2: 
-        return False
-    # 새로운 인덱스 매핑: 0=TR(0,1), 1=BR(1,1), 2=BL(1,0), 3=TL(0,0)
-    positions = {0: (0, 1), 1: (1, 1), 2: (1, 0), 3: (0, 0)}
-    r1, c1 = positions[q1]
-    r2, c2 = positions[q2]
-    return abs(r1 - r2) + abs(c1 - c2) == 1
