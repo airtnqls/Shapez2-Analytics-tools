@@ -2278,8 +2278,8 @@ class ShapezGUI(QMainWindow):
         self.claw_hybrid_btn.setToolTip(t("tooltip.claw_hybrid"))
         reverse_ops_layout.addWidget(self.claw_hybrid_btn, 1, 0)
         
-        left_panel.addWidget(data_process_group)
         left_panel.addWidget(reverse_ops_group)
+        left_panel.addWidget(data_process_group)
         
         left_panel.addStretch(1); 
         main_content_hbox.addLayout(left_panel)
@@ -2713,6 +2713,56 @@ class ShapezGUI(QMainWindow):
             self.log(t("log.input.error", widget=input_widget.objectName(), error=str(e)))
         return None
 
+    def _add_classification_widgets(self, layout, shape: Shape):
+        """분석 탭 시각화에서 공통으로 사용하는 분류/사유 라벨을 layout 상단에 추가"""
+        try:
+            classification_result, reason = shape.classifier()
+            try:
+                translated_classification = t(classification_result)
+            except Exception:
+                translated_classification = classification_result
+            classification_label = QLabel(translated_classification)
+            classification_label.setStyleSheet(
+                """
+                QLabel {
+                    color: #333;
+                    font-weight: bold;
+                    padding: 2px 6px;
+                    border: 1px solid #CCC;
+                    border-radius: 4px;
+                    background-color: #F3F3F3;
+                }
+                QLabel:hover {
+                    border-color: #BBB;
+                    background-color: #ECECEC;
+                }
+                """
+            )
+            classification_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(classification_label)
+
+            if reason:
+                reason_text = str(reason).replace('|', '\n')
+                reason_label = QLabel(reason_text)
+                reason_label.setStyleSheet(
+                    """
+                    QLabel {
+                        color: #666;
+                        font-size: 10px;
+                        background-color: rgba(250, 250, 250, 200);
+                        border: 1px solid #ddd;
+                        border-radius: 2px;
+                        padding: 2px 4px;
+                        margin: 2px;
+                    }
+                    """
+                )
+                reason_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                reason_label.setWordWrap(True)
+                layout.addWidget(reason_label)
+        except Exception:
+            pass
+
     def update_input_display(self):
         """입력 필드의 텍스트가 변경될 때마다 출력 영역을 업데이트합니다."""
         # 기존 출력 영역 클리어
@@ -2727,6 +2777,7 @@ class ShapezGUI(QMainWindow):
             v_layout = QVBoxLayout(container)
             v_layout.setContentsMargins(0, 0, 0, 0)
             v_layout.addStretch(1)
+            self._add_classification_widgets(v_layout, input_a_shape)
             v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title=t("ui.label.input_a"), handler=self, input_name="A"))
             self.output_layout.addWidget(container)
         
@@ -2738,6 +2789,7 @@ class ShapezGUI(QMainWindow):
                 v_layout = QVBoxLayout(container)
                 v_layout.setContentsMargins(0, 0, 0, 0)
                 v_layout.addStretch(1)
+                self._add_classification_widgets(v_layout, input_b_shape)
                 v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title=t("ui.label.input_b"), handler=self, input_name="B"))
                 self.output_layout.addWidget(container)
         
@@ -2774,6 +2826,7 @@ class ShapezGUI(QMainWindow):
             v_layout = QVBoxLayout(container)
             v_layout.setContentsMargins(0, 0, 0, 0)
             v_layout.addStretch(1)
+            self._add_classification_widgets(v_layout, input_a_shape)
             v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title=t("ui.label.input_a"), handler=self, input_name="A"))
             self.output_layout.addWidget(container)
         
@@ -2785,6 +2838,7 @@ class ShapezGUI(QMainWindow):
                 v_layout = QVBoxLayout(container)
                 v_layout.setContentsMargins(0, 0, 0, 0)
                 v_layout.addStretch(1)
+                self._add_classification_widgets(v_layout, input_b_shape)
                 v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title=t("ui.label.input_b"), handler=self, input_name="B"))
                 self.output_layout.addWidget(container)
 
@@ -2813,6 +2867,7 @@ class ShapezGUI(QMainWindow):
                 v_layout = QVBoxLayout(container)
                 v_layout.setContentsMargins(0, 0, 0, 0)
                 v_layout.addStretch(1)
+                self._add_classification_widgets(v_layout, shape)
                 shape_widget = ShapeWidget(shape, compact=True, title=title)
                 
                 # 출력 컨테이너인 경우에만 클릭 기능 추가 (입력 컨테이너는 드래그앤드롭 유지)
@@ -3757,10 +3812,21 @@ class ShapezGUI(QMainWindow):
             QMessageBox.information(self, t("ui.msg.title.info"), t("ui.msg.no_data"))
             return
         
-        # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 현재 필터(검색)로 보이는 행만
+        # 처리할 데이터 결정: 선택 우선, 없으면 필터(검색)로 보이는 행만. 필터 활성 시 비가시 항목/무매칭은 처리하지 않음
         selected_rows = current_tab.data_table.selectionModel().selectedRows()
+        is_filter_active = False
+        try:
+            is_filter_active = bool(getattr(current_tab, 'search_input', None) and current_tab.search_input.text().strip())
+        except Exception:
+            is_filter_active = False
+
         if selected_rows:
-            indices_to_process = [idx.row() for idx in sorted(selected_rows, key=lambda x: x.row())]
+            # 숨겨진 행이 선택되어 있으면 제외
+            raw_indices = [idx.row() for idx in sorted(selected_rows, key=lambda x: x.row())]
+            indices_to_process = [r for r in raw_indices if not current_tab.data_table.isRowHidden(r)]
+            if not indices_to_process and is_filter_active:
+                QMessageBox.information(self, t("ui.msg.title.info"), t("ui.msg.no_data"))
+                return
             self.log_verbose(f"선택된 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
         else:
             visible_indices = [row for row in range(current_tab.data_table.rowCount()) if not current_tab.data_table.isRowHidden(row)]
@@ -3768,6 +3834,10 @@ class ShapezGUI(QMainWindow):
                 indices_to_process = visible_indices
                 self.log_verbose(f"검색 결과의 보이는 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
             else:
+                if is_filter_active:
+                    # 필터가 활성화되어 있고 보이는 항목이 없으면 아무 것도 처리하지 않음
+                    QMessageBox.information(self, t("ui.msg.title.info"), t("ui.msg.no_data"))
+                    return
                 indices_to_process = range(len(current_tab.data))
                 self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
         
@@ -3885,10 +3955,20 @@ class ShapezGUI(QMainWindow):
                 QMessageBox.information(self, t("ui.msg.title.info"), t("ui.msg.no_data"))
                 return
 
-            # 처리할 데이터 결정: 선택된 항목이 있으면 그것만, 없으면 현재 필터(검색)로 보이는 행만
+            # 처리할 데이터 결정: 선택 우선, 없으면 필터(검색)로 보이는 행만. 필터 활성 시 비가시 항목/무매칭은 처리하지 않음
             selected_rows = current_tab.data_table.selectionModel().selectedRows()
+            is_filter_active = False
+            try:
+                is_filter_active = bool(getattr(current_tab, 'search_input', None) and current_tab.search_input.text().strip())
+            except Exception:
+                is_filter_active = False
+
             if selected_rows:
-                indices_to_process = [idx.row() for idx in selected_rows]
+                raw_indices = [idx.row() for idx in selected_rows]
+                indices_to_process = [r for r in raw_indices if not current_tab.data_table.isRowHidden(r)]
+                if not indices_to_process and is_filter_active:
+                    QMessageBox.information(self, t("ui.msg.title.info"), t("ui.msg.no_data"))
+                    return
                 self.log_verbose(f"선택된 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
             else:
                 visible_indices = [row for row in range(current_tab.data_table.rowCount()) if not current_tab.data_table.isRowHidden(row)]
@@ -3896,6 +3976,9 @@ class ShapezGUI(QMainWindow):
                     indices_to_process = visible_indices
                     self.log_verbose(f"검색 결과의 보이는 {len(indices_to_process)}개 항목에 대해 {operation_name} 연산 수행")
                 else:
+                    if is_filter_active:
+                        QMessageBox.information(self, t("ui.msg.title.info"), t("ui.msg.no_data"))
+                        return
                     indices_to_process = range(len(current_tab.data))
                     self.log_verbose(f"'{current_tab.tab_name}' 탭의 모든 {len(current_tab.data)}개 항목에 대해 {operation_name} 연산 수행")
             
@@ -3989,8 +4072,59 @@ class ShapezGUI(QMainWindow):
             input_a_str = self.input_a.text().strip()
             input_b_str = self.input_b.text().strip()
             
+            # 리버스 오퍼레이션일 경우(분석 탭): 입력 A만 처리
+            func_name = getattr(process_func, "__name__", "")
+            reverse_func_names = {
+                "reverse_shape",
+                "corner_shape_for_gui",
+                "claw_shape_for_gui",
+                "mirror_shape_for_gui",
+                "cornerize_shape",
+                "hybrid_shape",
+                "claw_hybrid_shape",
+            }
+            reverse_op_names = {
+                "corner", "claw", "mirror", "cornerize", "hybrid", "claw_hybrid"
+            }
+            only_a_in_analysis = (func_name in reverse_func_names) or (operation_name.lower() in reverse_op_names)
+            
             if not input_a_str and not input_b_str:
                 self.log("처리할 입력이 없습니다.")
+                return
+
+            # 리버스/트레이서 계열: 결과를 출력 영역에 먼저 표시하고, 오토 어플라이가 켜진 경우에만 입력에 적용
+            if only_a_in_analysis:
+                if not input_a_str:
+                    self.log("처리할 입력이 없습니다.")
+                    return
+                try:
+                    result_a = process_func(input_a_str)
+                    # 결과를 출력으로 렌더링
+                    try:
+                        from shape import Shape
+                    except Exception:
+                        Shape = None
+                    outputs = []
+                    if isinstance(result_a, list):
+                        if len(result_a) >= 1:
+                            try:
+                                outputs.append((t("ui.output.a"), Shape.from_string(result_a[0]) if Shape else None))
+                            except Exception:
+                                outputs.append((t("ui.output.a"), None))
+                        if len(result_a) >= 2:
+                            try:
+                                outputs.append((t("ui.output.b"), Shape.from_string(result_a[1]) if Shape else None))
+                            except Exception:
+                                outputs.append((t("ui.output.b"), None))
+                    else:
+                        try:
+                            outputs.append((t("ui.output.a"), Shape.from_string(result_a) if Shape else None))
+                        except Exception:
+                            outputs.append((t("ui.output.a"), None))
+                    self.display_outputs(outputs)
+                    self.auto_apply_if_enabled()
+                except Exception as e:
+                    self.log(f"입력 A {operation_name} 오류: {str(e)}")
                 return
 
             if input_a_str:
@@ -4000,16 +4134,19 @@ class ShapezGUI(QMainWindow):
                     if isinstance(result_a, list):
                         if len(result_a) >= 1:
                             self.input_a.setText(result_a[0])
-                            if len(result_a) >= 2:
+                            if not only_a_in_analysis and len(result_a) >= 2:
                                 self.input_b.setText(result_a[1])
-                        self.log_verbose(f"입력 A에 {operation_name} 적용: A={result_a[0] if result_a else ''}, B={result_a[1] if len(result_a) > 1 else ''}")
+                        if only_a_in_analysis:
+                            self.log_verbose(f"입력 A에 {operation_name} 적용: A={result_a[0] if result_a else ''}")
+                        else:
+                            self.log_verbose(f"입력 A에 {operation_name} 적용: A={result_a[0] if result_a else ''}, B={result_a[1] if len(result_a) > 1 else ''}")
                     else:
                         self.input_a.setText(result_a)
                         self.log_verbose(f"입력 A에 {operation_name} 적용: {result_a}")
                 except Exception as e:
                     self.log(f"입력 A {operation_name} 오류: {str(e)}")
             
-            if input_b_str:
+            if not only_a_in_analysis and input_b_str:
                 try:
                     result_b = process_func(input_b_str)
                     # 리스트 결과인 경우 (하이브리드 등)
@@ -5112,8 +5249,12 @@ class DragDropTableWidget(QTableWidget):
                         for selection_range in ranges:
                             self.setRangeSelected(selection_range, True)
                 else:
-                    # 매우 대량이면 전체 선택 (QTableWidget의 기본 기능 사용)
-                    self.selectAll()
+                    # 매우 대량이면 우선 전체 선택 후 숨겨진 행은 제거
+                    super().selectAll()
+                    try:
+                        self._prune_hidden_from_selection()
+                    except Exception:
+                        pass
                     
             finally:
                 self.blockSignals(False)
@@ -5122,9 +5263,18 @@ class DragDropTableWidget(QTableWidget):
             print(f"전체 선택 중 오류: {e}")
             # 안전장치: 기본 방식으로 대체
             try:
-                self.selectAll()
+                super().selectAll()
+                try:
+                    self._prune_hidden_from_selection()
+                except Exception:
+                    pass
             except Exception:
                 pass
+
+    def selectAll(self):
+        # 좌측 상단 셀 클릭 또는 메뉴의 전체 선택 시,
+        # 필터된(보이는) 행만 선택되도록 처리
+        self.select_all_visible_rows()
 
     # ===== 마우스/드래그/툴팁 핸들러 (데이터 테이블용) =====
     def mousePressEvent(self, event):
@@ -6311,6 +6461,17 @@ class DataTabWidget(QWidget):
                     # 모든 범위를 한 번에 선택
                     for selection_range in selection_ranges:
                         self.data_table.setRangeSelected(selection_range, True)
+
+                    # 필터가 활성화되어 있으면, 숨겨진(필터 미적용) 행은 선택 해제
+                    try:
+                        is_filter_active = bool(getattr(self, 'search_input', None) and self.search_input.text().strip())
+                    except Exception:
+                        is_filter_active = False
+                    if is_filter_active:
+                        try:
+                            self.data_table._prune_hidden_from_selection()
+                        except Exception:
+                            pass
                         
             finally:
                 self.data_table.blockSignals(False)
@@ -6432,8 +6593,8 @@ class DataTabWidget(QWidget):
             # 시그널 차단 해제
             self.data_table.blockSignals(False)
             
-            # 필터 변경 시 선택 영역 정리: 숨겨진 행은 선택 해제 (필요한 경우만)
-            self._prune_selection_after_filter()
+            # 필터 변경 시 선택 영역 정리: 숨겨진 행은 항상 선택 해제
+            self._safe_prune_selection()
             
             # 필터 적용 후, 보이는 영역 업데이트를 쓰로틀로 호출
             QTimer.singleShot(10, lambda: self._on_scroll_value_changed(0))

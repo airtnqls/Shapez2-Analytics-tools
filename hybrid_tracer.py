@@ -26,6 +26,7 @@ def hybrid(shape: Shape) -> Tuple[Shape, Shape]:
         for q in range(4):
             mask[(l, q)] = 1
     
+    
     # 2. 각 사분면의 가장 높은 크리스탈을 찾습니다
     for q in range(4):
         highest_crystal_layer = -1

@@ -639,10 +639,10 @@ class Shape:
     def is_stable(self) -> bool:
         return repr(self.apply_physics()) == repr(self)
 
-    def hybrid(self, claw: bool = False) -> tuple[Shape, Shape]:
+    def hybrid(self) -> tuple[Shape, Shape]:
         """하이브리드 함수: 입력을 마스크 기반으로 두 부분으로 분리합니다."""
         from hybrid_tracer import hybrid
-        return hybrid(self, claw)
+        return hybrid(self)
 
 
 

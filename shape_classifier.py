@@ -18,6 +18,7 @@ class ClassificationReason:
     REASON_CLAW_SWAP_IMPOSSIBLE = t("analyzer.claw.swap_impossible")
     REASON_CLAW_RULE1 = t("analyzer.claw.rule1")
     REASON_CLAW_RULE2 = t("analyzer.claw.rule2")
+    REASON_CLAW_RULE3 = t("analyzer.claw.rule3")
     REASON_SWAP_12_34_IMPOSSIBLE = t("analyzer.swap_status.swap_12_34_impossible")
     REASON_SWAP_14_23_IMPOSSIBLE = t("analyzer.swap_status.swap_14_23_impossible")
     REASON_LIMITATIONS_PIN_PUSH_X = t("analyzer.limitations.pin_push_x")
@@ -542,7 +543,10 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
             
             pin_reason = t(ClassificationReason.REASON_PIN) + f" x {pin_count}"
             final_reasons.append(pin_reason)
-            
+
+        if physically_unstable:
+            final_reasons.append("analyzer.virtual")
+
         final_reason_string = _finalize_reasons(final_reasons)
         # 클로모서리: -S-+c 패턴으로 인해 스왑X로 판정받은 경우
         if is_claw_corner_pattern:
@@ -554,7 +558,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         if physically_unstable or has_crystal:
             return ShapeType.STACK_CORNER.value, final_reason_string
         # 단순모서리: 1사분면을 제외한 모든 사분면이 비워져 있는 모든 경우
-        return ShapeType.SIMPLE_CORNER.value, ''
+        return ShapeType.SIMPLE_CORNER.value, final_reason_string
 
     # ========== 2단계: 기존 분류 로직 (모서리가 아닌 경우) ==========
     # 물리 안정성 검사
@@ -635,6 +639,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         first_layer = shape.split(':')[0] if shape else ''
         pin_count = first_layer.count('P')
         crystal_in_first_layer = 'c' in first_layer
+        s_count = first_layer.count('S')
 
         if pin_count <= 1:
             final_classification_type = ShapeType.IMPOSSIBLE.value
@@ -644,6 +649,10 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
             final_classification_type = ShapeType.IMPOSSIBLE.value
             final_reasons.clear()
             final_reasons.append(ClassificationReason.REASON_CLAW_RULE2)
+        elif s_count >= 2:
+            final_classification_type = ShapeType.IMPOSSIBLE.value
+            final_reasons.clear()
+            final_reasons.append(ClassificationReason.REASON_CLAW_RULE3)
 
     # ========== 8단계: 하이브리드 기반 구제 로직 ==========
     # 최종 결과가 불가능형인 경우, 하이브리드 분해를 통해 추가 분류를 시도한다.
@@ -653,7 +662,7 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
             # shape_obj가 없으면 생성
             target_shape_obj = shape_obj if shape_obj else Shape.from_string(shape)
             # 하이브리드 분해 (기본 모드): 출력 A(마스크0: c 포함), B(마스크1: 나머지)
-            output_a, output_b = target_shape_obj.hybrid(claw=False)
+            output_a, output_b = target_shape_obj.hybrid()
 
             # 8-2) A/B를 스택으로 합쳐 원본과 일치하는지 검사 -> '복합 하이브리드'
             a_repr = repr(output_a)

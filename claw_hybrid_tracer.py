@@ -113,8 +113,8 @@ for key, value in HYBRID_PATTERNS.items():
 
 # --- 결과 확인 ---
 
-print(f"원본 딕셔너리 항목 수: {len(HYBRID_PATTERNS)}")
-print(f"확장된 딕셔너리 항목 수: {len(extended_patterns)}")
+# print(f"원본 딕셔너리 항목 수: {len(HYBRID_PATTERNS)}")
+# print(f"확장된 딕셔너리 항목 수: {len(extended_patterns)}")
 
 # HYBRID_PATTERNS를 확장된 딕셔너리로 교체
 HYBRID_PATTERNS = extended_patterns

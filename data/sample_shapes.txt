@@ -30,6 +30,7 @@ S--cS-S-c
 c---:SSSS
 c:cS:c:SSSS
 {c:cS:cSSS} 복합 하이브리드
+{SPSP:-S-S:cPcS:cS-c:cSS-} 복합 하이브리드
 c:cS:cSS:c-SS
 PPPP:S---:cS-S
 PP-P:-SSP:---P:-ScS
