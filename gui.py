@@ -14,8 +14,8 @@ from PyQt6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsWidget, QGraphicsProxyWidget
 )
 from PyQt6.QtWidgets import QToolButton
-from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF, QPainter, QPixmap, QIcon, QBrush
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF, QSettings, QProcess
+from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF, QPainter, QPixmap, QIcon, QBrush, QDesktopServices
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF, QSettings, QProcess, QUrl
 
 
 
@@ -627,6 +627,13 @@ class ShapeWidget(QFrame):
 
             
     def dragEnterEvent(self, event):
+        mime_text = event.mimeData().text()
+        if mime_text.startswith("shape-quadrant/") or mime_text.startswith("shape-row/") or mime_text.startswith("shape-col/"):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
         mime_text = event.mimeData().text()
         if mime_text.startswith("shape-quadrant/") or mime_text.startswith("shape-row/") or mime_text.startswith("shape-col/"):
             event.acceptProposedAction()
@@ -2375,16 +2382,7 @@ class ShapezGUI(QMainWindow):
         process_tree_tab_widget = QWidget()
         process_tree_layout = QVBoxLayout(process_tree_tab_widget)
         
-        # 입력 그룹
-        tree_input_group = QGroupBox(t("ui.groups.process_tree_analysis"))
-        tree_input_layout = QVBoxLayout(tree_input_group)
-        
-        # 분석 버튼
-        analyze_button = QPushButton(t("ui.btn.process_tree_generate"))
-        analyze_button.clicked.connect(self.on_generate_process_tree)
-        tree_input_layout.addWidget(analyze_button)
-        
-        process_tree_layout.addWidget(tree_input_group)
+        # (변경) 공정트리 탭에서는 별도의 생성 버튼을 사용하지 않음
         
         # 트리 표시 영역
         tree_display_group = QGroupBox(t("ui.groups.process_tree"))
@@ -2399,6 +2397,12 @@ class ShapezGUI(QMainWindow):
         # QGraphicsScene for tree visualization  
         self.tree_scene = QGraphicsScene()
         self.tree_graphics_view.setScene(self.tree_scene)
+        
+        # 공정트리 자동 생성 디바운서
+        self._process_tree_timer = QTimer(self)
+        self._process_tree_timer.setSingleShot(True)
+        self._process_tree_timer.setInterval(300)
+        self._process_tree_timer.timeout.connect(self._maybe_generate_process_tree)
         
         tree_display_layout.addWidget(self.tree_graphics_view)
         process_tree_layout.addWidget(tree_display_group)
@@ -2543,6 +2547,81 @@ class ShapezGUI(QMainWindow):
         right_tabs.tabBar().setTabData(idx, ("key", "ui.tabs.test_editor", None))
         
         # 연산 변경 시 필드 표시/숨김 처리는 connect_test_editor_signals에서 연결
+
+        # 헬프 탭 추가
+        help_tab_widget = QWidget()
+        help_layout = QVBoxLayout(help_tab_widget)
+
+        # 링크 섹션 (웹디자인 스타일 카드)
+        help_links_group = QGroupBox(t("ui.help.links.title"))
+        help_links_layout = QVBoxLayout(help_links_group)
+        help_links_layout.setSpacing(8)
+        help_links_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        icon_path = get_resource_path("icons/globe.png")
+        link_icon = QIcon(QPixmap(icon_path))
+
+        # GitHub
+        self.help_btn_github = QPushButton("GitHub")
+        self.help_btn_github.setIcon(link_icon)
+        self.help_btn_github.setFlat(True)
+        self.help_btn_github.setCursor(Qt.CursorShape.PointingHandCursor)
+        # 링크처럼 보이도록 스타일 적용
+        self.help_btn_github.setStyleSheet("QPushButton { color: #1a73e8; border: none; background: transparent; text-align: left; } QPushButton:hover { color: #0b5bd3; }")
+        _f = self.help_btn_github.font(); _f.setUnderline(True); self.help_btn_github.setFont(_f)
+        self.help_btn_github.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/airtnqls/Shapez2-Analytics-tools")))
+        help_links_layout.addWidget(self.help_btn_github)
+
+        # YouTube (임시)
+        self.help_btn_youtube = QPushButton("YouTube (temp)")
+        self.help_btn_youtube.setIcon(link_icon)
+        self.help_btn_youtube.setFlat(True)
+        self.help_btn_youtube.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.help_btn_youtube.setStyleSheet("QPushButton { color: #1a73e8; border: none; background: transparent; text-align: left; } QPushButton:hover { color: #0b5bd3; }")
+        _f = self.help_btn_youtube.font(); _f.setUnderline(True); self.help_btn_youtube.setFont(_f)
+        self.help_btn_youtube.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://www.youtube.com")))
+        help_links_layout.addWidget(self.help_btn_youtube)
+
+        # Discord
+        self.help_btn_discord = QPushButton("Discord")
+        self.help_btn_discord.setIcon(link_icon)
+        self.help_btn_discord.setFlat(True)
+        self.help_btn_discord.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.help_btn_discord.setStyleSheet("QPushButton { color: #1a73e8; border: none; background: transparent; text-align: left; } QPushButton:hover { color: #0b5bd3; }")
+        _f = self.help_btn_discord.font(); _f.setUnderline(True); self.help_btn_discord.setFont(_f)
+        self.help_btn_discord.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://discord.com")))
+        help_links_layout.addWidget(self.help_btn_discord)
+
+        help_layout.addWidget(help_links_group)
+
+        # 분류 소개 섹션
+        help_intro_group = QGroupBox(t("ui.help.classification.title"))
+        help_intro_layout = QVBoxLayout(help_intro_group)
+        self.help_classification_label = QLabel()
+        self.help_classification_label.setWordWrap(True)
+        self.help_classification_label.setTextFormat(Qt.TextFormat.RichText)
+        self.help_classification_label.setOpenExternalLinks(True)
+        try:
+            from shape_classifier import ShapeType
+            items = []
+            for st in ShapeType:
+                type_key = f"analyzer.shape_type.{st.name.lower()}"
+                desc_key = f"ui.help.classification.desc.{st.name.lower()}"
+                name = t(type_key)
+                desc = t(desc_key)
+                items.append(f"<li><span style='font-weight:600'>{name}</span><span style='color:#666'> — {desc}</span></li>")
+            types_html = "".join(items)
+        except Exception:
+            types_html = ""
+        self.help_classification_label.setText(f"<div style='line-height:1.7'><ul style='padding-left:18px; margin:0'>{types_html}</ul></div>")
+        help_intro_layout.addWidget(self.help_classification_label)
+        help_layout.addWidget(help_intro_group)
+
+        # 여백 채우기
+        help_layout.addStretch(1)
+
+        idx = right_tabs.addTab(help_tab_widget, t("ui.tabs.help"))
+        right_tabs.tabBar().setTabData(idx, ("key", "ui.tabs.help", None))
         
         # 탭 변경 이벤트 연결
         right_tabs.currentChanged.connect(self.on_main_tab_changed)
@@ -3519,6 +3598,23 @@ class ShapezGUI(QMainWindow):
             if hasattr(tab_widget, '_retranslate_ui'):
                 tab_widget._retranslate_ui()
         
+        # 헬프 탭 전용 재번역 (HTML/링크)
+        # 외부 링크는 로컬라이즈하지 않음 (GitHub/YouTube/Discord)
+        if hasattr(self, 'help_classification_label'):
+            try:
+                from shape_classifier import ShapeType
+                items = []
+                for st in ShapeType:
+                    type_key = f"analyzer.shape_types.{st.name.lower()}"
+                    desc_key = f"ui.help.classification.desc.{st.name.lower()}"
+                    name = t(type_key)
+                    desc = t(desc_key)
+                    items.append(f"<li><span style='font-weight:600'>{name}</span><span style='color:#666'> — {desc}</span></li>")
+                types_html = "".join(items)
+            except Exception:
+                types_html = ""
+            self.help_classification_label.setText(f"<div style='line-height:1.7'><ul style='padding-left:18px; margin:0'>{types_html}</ul></div>")
+        
 
 
     def setup_enter_key_for_apply(self):
@@ -3667,6 +3763,12 @@ class ShapezGUI(QMainWindow):
         if not self.history_update_in_progress:
             self.add_to_history()
         self.update_input_display()
+        # 공정트리 탭이 활성화되어 있으면 자동 생성
+        try:
+            if hasattr(self, '_process_tree_timer'):
+                self._process_tree_timer.start()
+        except Exception:
+            pass
     
     def on_input_b_changed(self):
         """입력 B 입력 완료 시 호출"""
@@ -4408,6 +4510,22 @@ class ShapezGUI(QMainWindow):
             # 대량처리가 아닌 모든 탭(분석 도구, 공정트리 등)에서는 단일 모드로 복원
             self.switch_to_single_mode()
         
+        # 공정트리 탭으로 전환된 경우 자동 생성 트리거
+        try:
+            is_process_tree = False
+            if isinstance(data, tuple) and len(data) >= 2 and data[0] == "key":
+                is_process_tree = (data[1] == "ui.tabs.process_tree")
+            else:
+                name = self.main_tabs.tabText(index)
+                is_process_tree = name in (t("ui.tabs.process_tree"), "공정트리", "Process Tree")
+            if is_process_tree:
+                # 디바운스로 살짝 지연 실행
+                if hasattr(self, '_process_tree_timer'):
+                    self._process_tree_timer.start()
+                else:
+                    self._maybe_generate_process_tree()
+        except Exception:
+            pass
         # self.log(f"메인 탭이 {self.main_tabs.tabText(index)}로 변경되었습니다.")
     
     def on_generate_process_tree(self):
@@ -4463,6 +4581,28 @@ class ShapezGUI(QMainWindow):
             text_item = self.tree_scene.addText("트리 생성 중 예상치 못한 오류가 발생했습니다.")
             text_item.setPos(-150, 50)
             text_item.setDefaultTextColor(QColor(200, 50, 50))
+    
+    def _maybe_generate_process_tree(self):
+        """공정트리 탭 활성 시 자동 생성 트리거"""
+        try:
+            # 현재 탭이 공정트리인지 확인
+            bar = self.main_tabs.tabBar()
+            idx = self.main_tabs.currentIndex()
+            data = bar.tabData(idx)
+            is_process_tree = False
+            if isinstance(data, tuple) and len(data) >= 2 and data[0] == "key":
+                is_process_tree = (data[1] == "ui.tabs.process_tree")
+            else:
+                name = self.main_tabs.tabText(idx)
+                is_process_tree = name in (t("ui.tabs.process_tree"), "공정트리", "Process Tree")
+            if not is_process_tree:
+                return
+            # 입력 A가 비어있지 않으면 생성
+            input_shape_code = self.input_a.text().strip()
+            if input_shape_code:
+                self.on_generate_process_tree()
+        except Exception:
+            pass
             
     def _display_process_tree(self, root_node: ProcessNode):
         """유동적 크기 기반 트리 시각화"""
@@ -4487,7 +4627,7 @@ class ShapezGUI(QMainWindow):
                     continue
                     
                 processed_nodes.add(node.node_id)
-                widget = self._create_process_node_widget(node)
+                widget = self._create_process_node_widget(node, is_root=(node.node_id == root_node.node_id))
                 proxy = self.tree_scene.addWidget(widget)
                 proxy.setPos(0, 0)  # 임시 위치
                 
@@ -4690,8 +4830,10 @@ class ShapezGUI(QMainWindow):
         """기존 호환성을 위한 래퍼 함수"""
         self._draw_tree_connections_with_arrows(root_node, positions)
     
-    def _create_process_node_widget(self, node: ProcessNode) -> QWidget:
-        """개별 공정 노드 위젯 생성 (자동 크기 조정으로 도형이 잘 보이게, border 1줄, 툴팁 지원)"""
+    def _create_process_node_widget(self, node: ProcessNode, is_root: bool = False) -> QWidget:
+        """개별 공정 노드 위젯 생성 (자동 크기 조정으로 도형이 잘 보이게, border 1줄, 툴팁 지원)
+        is_root=True 인 경우, 분석도구처럼 드래그/우클릭 편집 가능하도록 입력 A 핸들러 연결
+        """
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -4721,7 +4863,11 @@ class ShapezGUI(QMainWindow):
                     from shape import Shape
                     shape_obj = Shape.from_string(node.shape_code)
                     if shape_obj:
-                        shape_widget = ShapeWidget(shape_obj, compact=True)
+                        # 루트 노드는 편집 가능하도록 입력 A로 연결
+                        if is_root:
+                            shape_widget = ShapeWidget(shape_obj, compact=True, handler=self, input_name="A")
+                        else:
+                            shape_widget = ShapeWidget(shape_obj, compact=True)
                         shape_widget.setStyleSheet("""
                             background-color: white; 
                             border: 2px solid red; 
@@ -4730,6 +4876,34 @@ class ShapezGUI(QMainWindow):
                         """)
                         shape_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
                         layout.addWidget(shape_widget, 0, Qt.AlignmentFlag.AlignCenter)
+                        # 비루트 노드 클릭 시 입력 A로 복사
+                        if not is_root:
+                            try:
+                                shape_widget.setCursor(Qt.CursorShape.PointingHandCursor)
+                                _orig_mouse_press = shape_widget.mousePressEvent
+                                def _on_node_mouse_press(event, _code=node.shape_code):
+                                    if event.button() == Qt.MouseButton.LeftButton:
+                                        try:
+                                            self.input_a.setText(_code)
+                                            self.update_input_display()
+                                        except Exception:
+                                            pass
+                                    _orig_mouse_press(event)
+                                shape_widget.mousePressEvent = _on_node_mouse_press
+                                for _child in shape_widget.findChildren(QWidget):
+                                    _child.setCursor(Qt.CursorShape.PointingHandCursor)
+                                    _child_orig_mouse_press = _child.mousePressEvent
+                                    def _on_child_mouse_press(event, _code=node.shape_code, _orig=_child_orig_mouse_press):
+                                        if event.button() == Qt.MouseButton.LeftButton:
+                                            try:
+                                                self.input_a.setText(_code)
+                                                self.update_input_display()
+                                            except Exception:
+                                                pass
+                                        _orig(event)
+                                    _child.mousePressEvent = _on_child_mouse_press
+                            except Exception:
+                                pass
                     else:
                         # 도형 객체 생성 실패 시 코드 텍스트로 표시
                         impossible_widget = QLabel(node.shape_code)
@@ -4744,6 +4918,22 @@ class ShapezGUI(QMainWindow):
                         """)
                         impossible_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
                         layout.addWidget(impossible_widget, 0, Qt.AlignmentFlag.AlignCenter)
+                        # 비루트 노드 클릭 시 입력 A로 복사 (텍스트 표시인 경우)
+                        if not is_root and node.shape_code and node.shape_code not in ("?", "..."):
+                            try:
+                                impossible_widget.setCursor(Qt.CursorShape.PointingHandCursor)
+                                _orig_mouse_press_lbl = impossible_widget.mousePressEvent
+                                def _on_lbl_mouse_press(event, _code=node.shape_code):
+                                    if event.button() == Qt.MouseButton.LeftButton:
+                                        try:
+                                            self.input_a.setText(_code)
+                                            self.update_input_display()
+                                        except Exception:
+                                            pass
+                                    _orig_mouse_press_lbl(event)
+                                impossible_widget.mousePressEvent = _on_lbl_mouse_press
+                            except Exception:
+                                pass
                 except Exception:
                     # 예외 발생 시 코드 텍스트로 표시
                     impossible_widget = QLabel(node.shape_code)
@@ -4787,10 +4977,42 @@ class ShapezGUI(QMainWindow):
             impossible_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(impossible_widget, 0, Qt.AlignmentFlag.AlignCenter)
         elif node.shape_obj and node.operation != process_tree_solver.IMPOSSIBLE_OPERATION:
-            shape_widget = ShapeWidget(node.shape_obj, compact=True)
+            # 루트 노드는 편집 가능하도록 입력 A로 연결
+            if is_root:
+                shape_widget = ShapeWidget(node.shape_obj, compact=True, handler=self, input_name="A")
+            else:
+                shape_widget = ShapeWidget(node.shape_obj, compact=True)
             shape_widget.setStyleSheet("background-color: white; border: 1px solid #999; border-radius: 4px; padding: 4px;")
             shape_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
             layout.addWidget(shape_widget, 0, Qt.AlignmentFlag.AlignCenter)
+            # 비루트 노드 클릭 시 입력 A로 복사
+            if not is_root:
+                try:
+                    shape_widget.setCursor(Qt.CursorShape.PointingHandCursor)
+                    _orig_mouse_press2 = shape_widget.mousePressEvent
+                    def _on_node_mouse_press2(event, _code=node.shape_code):
+                        if event.button() == Qt.MouseButton.LeftButton:
+                            try:
+                                self.input_a.setText(_code)
+                                self.update_input_display()
+                            except Exception:
+                                pass
+                        _orig_mouse_press2(event)
+                    shape_widget.mousePressEvent = _on_node_mouse_press2
+                    for _child in shape_widget.findChildren(QWidget):
+                        _child.setCursor(Qt.CursorShape.PointingHandCursor)
+                        _child_orig_mouse_press2 = _child.mousePressEvent
+                        def _on_child_mouse_press2(event, _code=node.shape_code, _orig=_child_orig_mouse_press2):
+                            if event.button() == Qt.MouseButton.LeftButton:
+                                try:
+                                    self.input_a.setText(_code)
+                                    self.update_input_display()
+                                except Exception:
+                                    pass
+                            _orig(event)
+                        _child.mousePressEvent = _on_child_mouse_press2
+                except Exception:
+                    pass
         else:
             # 유효하지 않거나 불가능한 도형인 경우
             error_widget = QLabel("?")
@@ -4899,6 +5121,23 @@ class ShapezGUI(QMainWindow):
                 tooltip += "\n" + t("ui.tooltip.reason", reason=translated_reason)
         container.setToolTip(tooltip)
         
+        # 컨테이너 전체 클릭으로도 입력 A에 복사 (루트 제외, 유효 코드만)
+        if not is_root and node.shape_code and node.shape_code not in ("?", "..."):
+            try:
+                container.setCursor(Qt.CursorShape.PointingHandCursor)
+                _orig_container_mouse_press = container.mousePressEvent
+                def _on_container_mouse_press(event, _code=node.shape_code):
+                    if event.button() == Qt.MouseButton.LeftButton:
+                        try:
+                            self.input_a.setText(_code)
+                            self.update_input_display()
+                        except Exception:
+                            pass
+                    _orig_container_mouse_press(event)
+                container.mousePressEvent = _on_container_mouse_press
+            except Exception:
+                pass
+
         return container
     
     def _clear_process_tree(self):
@@ -5769,8 +6008,14 @@ class DataTabWidget(QWidget):
         self.data_table.horizontalHeader().setStretchLastSection(False)
         self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.data_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.data_table.customContextMenuRequested.connect(self.on_table_context_menu)
+        # QAbstractItemView 계열은 viewport가 마우스 이벤트를 받으므로 viewport에 컨텍스트 메뉴 정책을 설정
+        try:
+            self.data_table.viewport().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            self.data_table.viewport().customContextMenuRequested.connect(self.on_table_context_menu)
+        except Exception:
+            # 호환성 폴백
+            self.data_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            self.data_table.customContextMenuRequested.connect(self.on_table_context_menu)
         self.data_table.rows_reordered.connect(self.on_data_moved)
         self.data_table.itemChanged.connect(self.on_table_item_changed)
         
@@ -6676,6 +6921,25 @@ class DataTabWidget(QWidget):
     
     def on_table_context_menu(self, position):
         """테이블 우클릭 메뉴"""
+        # viewport 좌표를 글로벌 좌표로 변환
+        try:
+            global_pos = self.data_table.viewport().mapToGlobal(position)
+            index = self.data_table.indexAt(position)
+        except Exception:
+            global_pos = self.data_table.mapToGlobal(position)
+            index = self.data_table.indexAt(position)
+
+        # 우클릭한 행 선택 보정: 선택 외부에서 우클릭하면 해당 행만 선택
+        try:
+            if index and index.isValid():
+                clicked_row = index.row()
+                selected_rows = set(item.row() for item in self.data_table.selectedItems())
+                if clicked_row not in selected_rows:
+                    self.data_table.clearSelection()
+                    self.data_table.selectRow(clicked_row)
+        except Exception:
+            pass
+
         menu = QMenu(self.data_table)
         
         # 클립보드 관련 기능들
@@ -6698,7 +6962,7 @@ class DataTabWidget(QWidget):
             delete_action = menu.addAction(t("ui.ctx.delete"))
             delete_action.triggered.connect(self.on_delete_selected)
         
-        menu.exec(self.data_table.mapToGlobal(position))
+        menu.exec(global_pos)
     
     def on_copy_to_input_a(self):
         """선택된 항목을 입력 A로 복사"""
