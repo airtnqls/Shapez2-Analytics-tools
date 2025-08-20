@@ -372,26 +372,50 @@ class Shape:
         
         return s_after.apply_physics()
     
-    def simple_cutter(self) -> tuple[Shape, Shape]:
-        """도형을 서쪽 절반(2,3사분면)과 동쪽 절반(0,1사분면)으로 나눕니다. 물리를 적용하지 않습니다."""
-        # 서쪽 절반 (2=BL, 3=TL 사분면)
-        west_layers = []
-        for layer in self.layers:
-            west_quadrants = [None, None, layer.quadrants[2], layer.quadrants[3]]
-            west_layers.append(Layer(west_quadrants))
-        west_shape = Shape(west_layers)
-        west_shape.max_layers = self.max_layers
+    def simple_cutter(self, horizontal: bool = False) -> tuple[Shape, Shape]:
+        """도형을 절반으로 나눕니다. 물리를 적용하지 않습니다.
         
-        # 동쪽 절반 (0=BR, 1=TR 사분면)
-        east_layers = []
-        for layer in self.layers:
-            east_quadrants = [layer.quadrants[0], layer.quadrants[1], None, None]
-            east_layers.append(Layer(east_quadrants))
-        east_shape = Shape(east_layers)
-        east_shape.max_layers = self.max_layers
+        Args:
+            horizontal (bool): True면 북쪽절반(0,3사분면)과 남쪽절반(1,2사분면)으로 나눔,
+                              False면 서쪽절반(2,3사분면)과 동쪽절반(0,1사분면)으로 나눔
+        """
+        if not horizontal:
+            # 서쪽 절반 (2=BL, 3=TL 사분면)
+            west_layers = []
+            for layer in self.layers:
+                west_quadrants = [None, None, layer.quadrants[2], layer.quadrants[3]]
+                west_layers.append(Layer(west_quadrants))
+            west_shape = Shape(west_layers)
+            west_shape.max_layers = self.max_layers
+            
+            # 동쪽 절반 (0=TR, 1=BR 사분면)
+            east_layers = []
+            for layer in self.layers:
+                east_quadrants = [layer.quadrants[0], layer.quadrants[1], None, None]
+                east_layers.append(Layer(east_quadrants))
+            east_shape = Shape(east_layers)
+            east_shape.max_layers = self.max_layers
+            
+            return west_shape, east_shape
+        else:
+            # 북쪽 절반 (0=TR, 3=TL 사분면)
+            north_layers = []
+            for layer in self.layers:
+                north_quadrants = [layer.quadrants[0], None, None, layer.quadrants[3]]
+                north_layers.append(Layer(north_quadrants))
+            north_shape = Shape(north_layers)
+            north_shape.max_layers = self.max_layers
+            
+            # 남쪽 절반 (1=BR, 2=BL 사분면)
+            south_layers = []
+            for layer in self.layers:
+                south_quadrants = [None, layer.quadrants[1], layer.quadrants[2], None]
+                south_layers.append(Layer(south_quadrants))
+            south_shape = Shape(south_layers)
+            south_shape.max_layers = self.max_layers
+            
+            return north_shape, south_shape
         
-        return west_shape, east_shape
-    
     def quad_cutter(self) -> tuple[Shape, Shape, Shape, Shape]:
         """도형을 4개의 사분면으로 나누고 각각을 기둥 형태로 출력합니다. 물리를 적용하지 않습니다."""
         # 1사분면 (TR) - 회전 없음
@@ -430,28 +454,55 @@ class Shape:
         
         return quad1_shape, quad2_shape, quad3_shape, quad4_shape
     
-    def half_cutter(self) -> tuple[Shape, Shape]:
-        """도형을 서쪽 절반(2,3사분면)과 동쪽 절반(0,1사분면)으로 나누고 물리를 적용합니다."""
+    def half_cutter(self, horizontal: bool = False) -> tuple[Shape, Shape]:
+        """도형을 절반으로 나누고 물리를 적용합니다.
+        
+        Args:
+            horizontal (bool): False면 서쪽/동쪽으로, True면 북쪽/남쪽으로 나눔
+        
+        Returns:
+            tuple[Shape, Shape]: horizontal=False면 (서쪽, 동쪽), horizontal=True면 (북쪽, 남쪽)
+        """
         s_initial = self.apply_physics()
         
-        # 서쪽 절반 (2=BL, 3=TL 사분면)
-        west_layers = []
-        for layer in s_initial.layers:
-            west_quadrants = [None, None, layer.quadrants[2], layer.quadrants[3]]
-            west_layers.append(Layer(west_quadrants))
-        west_shape = Shape(west_layers)
-        west_shape.max_layers = self.max_layers
-        
-        # 동쪽 절반 (0=TR, 1=BR 사분면)
-        east_layers = []
-        for layer in s_initial.layers:
-            east_quadrants = [layer.quadrants[0], layer.quadrants[1], None, None]
-            east_layers.append(Layer(east_quadrants))
-        east_shape = Shape(east_layers)
-        east_shape.max_layers = self.max_layers
-        
-        # 각각 물리 적용
-        return west_shape.apply_physics(), east_shape.apply_physics()
+        if not horizontal:
+            # 서쪽 절반 (2=BL, 3=TL 사분면)
+            west_layers = []
+            for layer in s_initial.layers:
+                west_quadrants = [None, None, layer.quadrants[2], layer.quadrants[3]]
+                west_layers.append(Layer(west_quadrants))
+            west_shape = Shape(west_layers)
+            west_shape.max_layers = self.max_layers
+            
+            # 동쪽 절반 (0=TR, 1=BR 사분면)
+            east_layers = []
+            for layer in s_initial.layers:
+                east_quadrants = [layer.quadrants[0], layer.quadrants[1], None, None]
+                east_layers.append(Layer(east_quadrants))
+            east_shape = Shape(east_layers)
+            east_shape.max_layers = self.max_layers
+            
+            # 각각 물리 적용
+            return west_shape.apply_physics(), east_shape.apply_physics()
+        else:
+            # 북쪽 절반 (0=TR, 3=TL 사분면)
+            north_layers = []
+            for layer in s_initial.layers:
+                north_quadrants = [layer.quadrants[0], None, None, layer.quadrants[3]]
+                north_layers.append(Layer(north_quadrants))
+            north_shape = Shape(north_layers)
+            north_shape.max_layers = self.max_layers
+            
+            # 남쪽 절반 (1=BR, 2=BL 사분면)
+            south_layers = []
+            for layer in s_initial.layers:
+                south_quadrants = [None, layer.quadrants[1], layer.quadrants[2], None]
+                south_layers.append(Layer(south_quadrants))
+            south_shape = Shape(south_layers)
+            south_shape.max_layers = self.max_layers
+            
+            # 각각 물리 적용
+            return north_shape.apply_physics(), south_shape.apply_physics()
 
     def push_pin(self) -> Shape:
         s_initial = self.copy()

@@ -1,5 +1,5 @@
 {
-    "app.title": "Shapez2Analyzer - Shape Simulator and Analysis Tool",
+    "app.title": "Shapez2Analyzer",
     "ui.mode": "Mode",
     "ui.max_layers": "Max Layers:",
     "ui.max_layers.option.5": "5",
@@ -119,6 +119,10 @@
     "process_tree.operation.claw_result": "Claw Result",
     "process_tree.operation.claw_no_result": "Claw Tracer (No Result)",
     "process_tree.operation.claw_error": "Claw Tracer Error",
+    "process_tree.operation.claw_hybrid_tracer": "Claw Hybrid Tracer",
+    "process_tree.operation.claw_hybrid_result": "Claw Hybrid Result",
+    "process_tree.operation.claw_hybrid_no_result": "Claw Hybrid Tracer (No Result)",
+    "process_tree.operation.claw_hybrid_error": "Claw Hybrid Tracer Error",
     "process_tree.operation.decompose_result": "Decompose Result",
     "process_tree.operation.no_result_suffix": " (No Result)",
     "process_tree.operation.error": "Error: {operation}",

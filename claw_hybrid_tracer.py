@@ -10,6 +10,8 @@ from shape import Shape, Layer, Quadrant
 from data_operations import simplify_shape
 import re
 
+DEBUG_HYBRID = False
+
 # 하이브리드 패턴 매칭을 위한 정규식 패턴과 마스크 데이터
 HYBRID_PATTERNS = {
     "P-PP:P-[^-][Sc]:PSc[^c]:[^-]-S[^c]:cS[^c][^c]": "0000:0000:0001:0001:0011",
@@ -56,8 +58,6 @@ HYBRID_PATTERNS = {
     "....:....:..[PS].:..[^c].:cS[^c]S": "0000:0000:0000:0010:0010",
     "....:....:....:..[PS].:cS[^c]S": "0000:0000:0000:0000:0010"
 }
-
-DEBUG_HYBRID = False
 
 def swap_2nd_and_4th(segment: str) -> str:
     """
@@ -313,7 +313,7 @@ def claw_hybrid(shape: Shape) -> Tuple[Shape, Shape]:
                         output_a_type, output_a_reason = analyze_shape(repr(current_output_a), current_output_a, True)
                         
                         
-                        if output_a_type != "analyzer.shape_types.impossible":  # 불가능한 도형이 아니라면
+                        if output_a_type not in ["analyzer.shape_types.impossible", "analyzer.shape_types.unknown"]:  # 불가능한 도형이나 언노운이 아니라면
                             # 성공! 원본과 동일하고 output_a도 유효
                             best_output_a = current_output_a
                             best_output_b = current_output_b

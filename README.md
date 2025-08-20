@@ -40,17 +40,27 @@ build.bat
 - Fixing bugs
 - Optimisation and refactoring
 
+## Issues
+
+- Claw Hybrid / Complex Hybrid / Claw Complex Hybrid are not distinguished well.
+- Classification of shapes is being called recursively.
+- Unused py files are left.
+
 ## Project Structure
 
 ```
-Shapez2Analyzer/
+Shapez2/
 ├── gui.py                 # Main GUI application
 ├── shape.py               # Core shape classes and operations
 ├── shape_classifier.py    # Shape classification system
 ├── process_tree_solver.py # Process tree generation
 ├── corner_tracer.py       # Corner tracing algorithm
+├── hybrid_tracer.py       # Hybrid shape tracing algorithm
 ├── claw_tracer.py         # Claw tracing algorithm
-├── combination_generator.py # Valid combination generator
-├── data/                  # Data files
-└── README.md             # This file
+├── claw_hybrid_tracer.py  # Claw hybrid tracing algorithm
+├── data_operations.py     # Data processing utilities
+├── data/                  # Data files directory
+├── icons/                 # Application icons
+├── locales/               # Internationalization files
+├── docs/                  # Documentation
 ```

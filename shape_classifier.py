@@ -4,27 +4,6 @@ import re
 
 from i18n import t
 
-# 분류 사유를 위한 상수들 (로컬라이징과 무관하게 사용)
-class ClassificationReason:
-    """분류 사유를 위한 상수 클래스"""
-    REASON_EMPTY = t("analyzer.empty")
-    REASON_PIN = t("analyzer.pin")
-    REASON_NO_CRYSTAL = t("analyzer.no_crystal")
-    REASON_CLAW = t("analyzer.claw")
-    REASON_HYBRID = t("analyzer.hybrid")
-    REASON_REMAINING_LAYERS = t("analyzer.remaining_layers")
-    REASON_CLAW_POSSIBLE = t("analyzer.claw.possible")
-    REASON_CLAW_IMPOSSIBLE = t("analyzer.claw.impossible")
-    REASON_CLAW_SWAP_IMPOSSIBLE = t("analyzer.claw.swap_impossible")
-    REASON_CLAW_RULE1 = t("analyzer.claw.rule1")
-    REASON_CLAW_RULE2 = t("analyzer.claw.rule2")
-    REASON_CLAW_RULE3 = t("analyzer.claw.rule3")
-    REASON_SWAP_12_34_IMPOSSIBLE = t("analyzer.swap_status.swap_12_34_impossible")
-    REASON_SWAP_14_23_IMPOSSIBLE = t("analyzer.swap_status.swap_14_23_impossible")
-    REASON_LIMITATIONS_PIN_PUSH_X = t("analyzer.limitations.pin_push_x")
-    REASON_LIMITATIONS_SWAP_X = t("analyzer.limitations.swap_x")
-    REASON_LIMITATIONS_STACK_X = t("analyzer.limitations.stack_x")
-
 class ShapeType(Enum):
     """
         도형 분류 타입
@@ -59,6 +38,27 @@ class ShapeType(Enum):
     UNKNOWN = t("analyzer.shape_types.unknown")
     IMPOSSIBLE = t("analyzer.shape_types.impossible")
     
+
+# 분류 사유를 위한 상수들 (로컬라이징과 무관하게 사용)
+class ClassificationReason:
+    """분류 사유를 위한 상수 클래스"""
+    REASON_EMPTY = t("analyzer.empty")
+    REASON_PIN = t("analyzer.pin")
+    REASON_NO_CRYSTAL = t("analyzer.no_crystal")
+    REASON_CLAW = t("analyzer.claw")
+    REASON_HYBRID = t("analyzer.hybrid")
+    REASON_REMAINING_LAYERS = t("analyzer.remaining_layers")
+    REASON_CLAW_POSSIBLE = t("analyzer.claw.possible")
+    REASON_CLAW_IMPOSSIBLE = t("analyzer.claw.impossible")
+    REASON_CLAW_SWAP_IMPOSSIBLE = t("analyzer.claw.swap_impossible")
+    REASON_CLAW_RULE1 = t("analyzer.claw.rule1")
+    REASON_CLAW_RULE2 = t("analyzer.claw.rule2")
+    REASON_CLAW_RULE3 = t("analyzer.claw.rule3")
+    REASON_SWAP_12_34_IMPOSSIBLE = t("analyzer.swap_status.swap_12_34_impossible")
+    REASON_SWAP_14_23_IMPOSSIBLE = t("analyzer.swap_status.swap_14_23_impossible")
+    REASON_LIMITATIONS_PIN_PUSH_X = t("analyzer.limitations.pin_push_x")
+    REASON_LIMITATIONS_SWAP_X = t("analyzer.limitations.swap_x")
+    REASON_LIMITATIONS_STACK_X = t("analyzer.limitations.stack_x")
 
 
 def get_piece(shape: str, layer: int, quadrant: int) -> str:

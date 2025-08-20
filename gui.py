@@ -963,8 +963,7 @@ class ShapezGUI(QMainWindow):
             # 연산에 따라 필드와 라벨 표시/숨김 처리
             if operation == "stack":
                 # 스태커: 입력 A, B, 출력 1개 (결합된 결과)
-                self.expected_a_label.setVisible(False)
-                self.expected_a_edit.setVisible(False)
+                # 예상 출력 A는 표시, 예상 출력 B만 숨김
                 self.expected_b_label.setVisible(False)
                 self.expected_b_edit.setVisible(False)
             elif operation == "swap":
@@ -4514,7 +4513,7 @@ class ShapezGUI(QMainWindow):
         self._draw_flexible_arrows(root_node, node_positions, node_sizes)
         
         # scene 크기 최적화
-        self.tree_scene.setSceneRect(self.tree_scene.itemsBoundingRect().adjusted(-30, -30, 30, 30))
+        self.tree_scene.setSceneRect(self.tree_scene.itemsBoundingRect().adjusted(-100, -100, 100, 100))
     
     def _draw_flexible_arrows(self, root_node: ProcessNode, positions, node_sizes):
         """실제 노드 크기 기반 화살표 그리기"""
@@ -4543,7 +4542,7 @@ class ShapezGUI(QMainWindow):
                 child_top_y = child_pos[1]
                 
                 # 화살표 여백
-                arrow_margin = 8
+                arrow_margin = 0
                 
                 # 연결선 시작점과 끝점
                 x1, y1 = parent_center_x, parent_bottom_y

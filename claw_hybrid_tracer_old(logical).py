@@ -8,6 +8,7 @@
 from typing import Set, Tuple
 from shape import Shape, Layer
 
+# This logic is not working correctly.
 
 def claw_hybrid(shape: Shape) -> Tuple[Shape, Shape]:
     """

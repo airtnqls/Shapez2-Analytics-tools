@@ -1,5 +1,5 @@
 {
-    "app.title": "Shapez2Analyzer - 도형 시뮬레이터 및 분석 도구",
+    "app.title": "Shapez2Analyzer",
     "ui.mode": "모드 설정",
     "ui.max_layers": "최대 층수:",
     "ui.max_layers.option.5": "5",
@@ -119,6 +119,10 @@
     "process_tree.operation.claw_result": "클로 결과",
     "process_tree.operation.claw_no_result": "클로 트레이서 (결과 없음)",
     "process_tree.operation.claw_error": "클로 트레이서 오류",
+    "process_tree.operation.claw_hybrid_tracer": "클로 하이브리드 트레이서",
+    "process_tree.operation.claw_hybrid_result": "클로 하이브리드 결과",
+    "process_tree.operation.claw_hybrid_no_result": "클로 하이브리드 트레이서 (결과 없음)",
+    "process_tree.operation.claw_hybrid_error": "클로 하이브리드 트레이서 오류",
     "process_tree.operation.decompose_result": "분해 결과",
     "process_tree.operation.no_result_suffix": " (결과 없음)",
     "process_tree.operation.error": "오류: {operation}",

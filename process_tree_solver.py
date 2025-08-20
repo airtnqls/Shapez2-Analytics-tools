@@ -306,7 +306,7 @@ class ProcessTreeSolver:
         ]:
             current_node.operation = shape_type
             return
-        elif shape_type == ShapeType.IMPOSSIBLE.value:
+        elif shape_type in [ShapeType.IMPOSSIBLE.value, ShapeType.UNKNOWN.value]:
             # IMPOSSIBLE 타입은 실제 도형 코드를 유지하되 불가능 표시
             current_node.operation = self.IMPOSSIBLE_OPERATION
             # 분류 정보도 전달
@@ -349,21 +349,29 @@ class ProcessTreeSolver:
         # 하이브리드 트레이서가 필요한 경우들 (깊이가 깊으면 기본 도형으로 처리)
         elif shape_type in [
             ShapeType.HYBRID.value,
-            ShapeType.COMPLEX_HYBRID.value,
-            ShapeType.CLAW_HYBRID.value,
-            ShapeType.CLAW_COMPLEX_HYBRID.value
+            ShapeType.COMPLEX_HYBRID.value
         ]:
             if depth >= 100:  # 깊이가 100 이상이면 기본 도형으로 처리
                 current_node.operation = "기본 도형 (깊이 제한)"
                 return
             self._apply_hybrid_tracer(current_node, shape_code, shape_obj, depth)
-        
+            
         # 클로 트레이서가 필요한 경우 (깊이가 깊으면 기본 도형으로 처리)
         elif shape_type == ShapeType.CLAW.value:
             if depth >= 100:  # 깊이가 100 이상이면 기본 도형으로 처리
                 current_node.operation = "기본 도형 (깊이 제한)"
                 return
             self._apply_claw_tracer(current_node, shape_code, shape_obj, depth)
+
+        # 클로 하이브리드 트레이서가 필요한 경우들 (깊이가 깊으면 기본 도형으로 처리)
+        elif shape_type in [
+            ShapeType.CLAW_HYBRID.value,
+            ShapeType.CLAW_COMPLEX_HYBRID.value
+        ]:
+            if depth >= 100:
+                current_node.operation = "기본 도형 (깊이 제한)"
+                return
+            self._apply_claw_hybrid_tracer(current_node, shape_code, shape_obj, depth)
         
         else:
             # 알 수 없는 타입인 경우
@@ -374,9 +382,6 @@ class ProcessTreeSolver:
         try:
             from data_operations import corner_shape_for_gui
             result = corner_shape_for_gui(shape_code)
-            
-            # 디버깅을 위한 로그 출력
-            print(f"DEBUG: corner_shape_for_gui 결과 - 입력: {shape_code}, 출력: {result}")
             
             if result and result != shape_code:
                 # 결과가 있는 경우 자식 노드 생성
@@ -454,16 +459,35 @@ class ProcessTreeSolver:
             self._add_node_to_map(impossible_node)
             current_node.input_ids = [impossible_node.node_id]
             current_node.operation = t("process_tree.operation.hybrid_error")
+
+    def _apply_claw_hybrid_tracer(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
+        """클로 하이브리드 트레이서를 적용하여 하위 노드를 생성합니다."""
+        try:
+            from data_operations import claw_hybrid_shape
+            results = claw_hybrid_shape(shape_code)
+            if results and len(results) == 2:
+                current_node.operation = t("process_tree.operation.claw_hybrid_tracer")
+                for i, result in enumerate(results):
+                    if result and result != shape_code:
+                        child_node = ProcessNode(result, t("process_tree.operation.claw_hybrid_result"), self._generate_node_id())
+                        self._add_node_to_map(child_node)
+                        current_node.input_ids.append(child_node.node_id)
+                        self._create_simple_tree(child_node, depth + 1)
+                if not current_node.input_ids:
+                    current_node.operation = t("process_tree.operation.claw_hybrid_no_result")
+            else:
+                current_node.operation = t("process_tree.operation.claw_hybrid_no_result")
+        except Exception as e:
+            impossible_node = ProcessNode(shape_code, self.IMPOSSIBLE_OPERATION, self._generate_node_id())
+            self._add_node_to_map(impossible_node)
+            current_node.input_ids = [impossible_node.node_id]
+            current_node.operation = t("process_tree.operation.claw_hybrid_error")
     
     def _apply_claw_tracer(self, current_node: ProcessNode, shape_code: str, shape_obj: Shape, depth: int = 0):
         """클로 트레이서를 적용하여 하위 노드를 생성합니다."""
         try:
             from data_operations import claw_shape_for_gui
             result = claw_shape_for_gui(shape_code)
-            
-            # 디버깅을 위한 로그 출력
-            print(f"DEBUG: claw_shape_for_gui 결과 - 입력: {shape_code}, 출력: {result}")
-            
             if result and result != shape_code:
                 # 결과가 있는 경우 자식 노드 생성
                 child_node = ProcessNode(result, t("process_tree.operation.claw_result"), self._generate_node_id())
@@ -712,7 +736,7 @@ class ProcessTreeSolver:
         parent_map = self._build_parent_map()
         levels = self.get_tree_levels(root_node)
         
-        level_y_positions = self._calculate_dynamic_level_heights(levels, node_sizes, base_gap=80)
+        level_y_positions = self._calculate_dynamic_level_heights(levels, node_sizes, base_gap=40)
 
         for level_idx, level_nodes in enumerate(levels):
             y_pos = level_y_positions.get(level_idx, 0)
@@ -746,7 +770,7 @@ class ProcessTreeSolver:
                 clumps.append(current_clump)
 
             # 3. 덩어리들을 하나의 단위로 간주하여 배치
-            horizontal_gap = 40
+            horizontal_gap = 0
             last_clump_edge = -float('inf')
             clump_positions = {}
             ideal_x_map = dict(nodes_with_ideal_x)
