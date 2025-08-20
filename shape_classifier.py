@@ -25,8 +25,6 @@ class ClassificationReason:
     REASON_LIMITATIONS_SWAP_X = t("analyzer.limitations.swap_x")
     REASON_LIMITATIONS_STACK_X = t("analyzer.limitations.stack_x")
 
-
-
 class ShapeType(Enum):
     """
         도형 분류 타입
@@ -476,13 +474,14 @@ def _finalize_reasons(reasons: list[str]) -> str:
     return " | ".join(filter(None, translated_reasons))
 
 
-def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
+def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, str]:
     """
     도형을 분석하여 분류와 사유를 반환하는 메인 함수
     
     Args:
         shape (str): 콜론으로 구분된 레이어 문자열 (예: "SSSS:----")
         shape_obj: Shape 객체 (물리 안정성 검사용)
+        skip (bool): 하이브리드 로직을 스킵할지 여부 (재귀 호출 시 True)
     
     Returns:
         tuple[str, str]: (분류_결과, 분류_사유)
@@ -656,20 +655,23 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
 
     # ========== 8단계: 하이브리드 기반 구제 로직 ==========
     # 최종 결과가 불가능형인 경우, 하이브리드 분해를 통해 추가 분류를 시도한다.
-    if final_classification_type == ShapeType.IMPOSSIBLE.value:
+    # skip=True인 경우 하이브리드 로직을 스킵
+    if final_classification_type == ShapeType.IMPOSSIBLE.value and not skip:
         try:
             from shape import Shape
             # shape_obj가 없으면 생성
             target_shape_obj = shape_obj if shape_obj else Shape.from_string(shape)
+            # 하이브리드 분해 전에 도형을 복사 (원본 보존)
+            hybrid_input_shape = target_shape_obj.copy()
             # 하이브리드 분해 (기본 모드): 출력 A(마스크0: c 포함), B(마스크1: 나머지)
-            output_a, output_b = target_shape_obj.hybrid()
+            output_a, output_b = hybrid_input_shape.hybrid()
 
             # 8-2) A/B를 스택으로 합쳐 원본과 일치하는지 검사 -> '복합 하이브리드'
             a_repr = repr(output_a)
             b_repr = repr(output_b)
             # B는 비어있지 않아야 하며, A는 불가능형이 아니어야 함
             if b_repr:
-                a_type, a_reason = analyze_shape(a_repr, output_a)
+                a_type, a_reason = analyze_shape(a_repr, output_a, skip=True)
                 if a_type != ShapeType.IMPOSSIBLE.value:
                     # 두 가지 스택 조합 모두 확인 (bottom, top)
                     stacked_1 = Shape.stack(output_a, output_b)
@@ -683,31 +685,41 @@ def analyze_shape(shape: str, shape_obj=None) -> tuple[str, str]:
         
     # ========== 9단계: 클로 하이브리드 기반 구제 로직 ==========
     # 최종 결과가 여전히 불가능형인 경우, 클로 하이브리드 분해를 통해 추가 분류를 시도한다.
-    if final_classification_type == ShapeType.IMPOSSIBLE.value:
-        try:
-            from shape import Shape
-            from claw_hybrid_tracer import claw_hybrid
-            # shape_obj가 없으면 생성
-            target_shape_obj = shape_obj if shape_obj else Shape.from_string(shape)
-            # 클로 하이브리드 분해: 출력 A(마스크0: P,S,c 주변 포함), B(마스크1: 나머지)
-            output_a, output_b = claw_hybrid(target_shape_obj)
+    # skip=True인 경우 하이브리드 로직을 스킵
+    # GUI 자동 분류에서는 클로 하이브리드를 호출하지 않음 (중복 호출 방지)
+    if final_classification_type == ShapeType.IMPOSSIBLE.value and not skip:
+        # 현재 호출이 GUI 자동 분류인지 확인
+        import traceback
+        call_stack = traceback.format_stack()
+        is_gui_auto_classification = any("auto_apply" in line or "on_apply_outputs" in line for line in call_stack)
+        
+        if not is_gui_auto_classification:
+            try:
+                from shape import Shape
+                from claw_hybrid_tracer import claw_hybrid
+                # shape_obj가 없으면 생성
+                target_shape_obj = shape_obj if shape_obj else Shape.from_string(shape)
+                # 클로 하이브리드 분해 전에 도형을 복사 (원본 보존)
+                claw_hybrid_input_shape = target_shape_obj.copy()
+                # 클로 하이브리드 분해: 출력 A(마스크0: P,S,c 주변 포함), B(마스크1: 나머지)
+                output_a, output_b = claw_hybrid(claw_hybrid_input_shape)
 
-            # 9-2) A/B를 스택으로 합쳐 원본과 일치하는지 검사 -> '클로 복합 하이브리드'
-            a_repr = repr(output_a)
-            b_repr = repr(output_b)
-            # B는 비어있지 않아야 하며, A는 불가능형이 아니어야 함
-            if b_repr:
-                a_type, a_reason = analyze_shape(a_repr, output_a)
-                if a_type != ShapeType.IMPOSSIBLE.value:
-                    # 두 가지 스택 조합 모두 확인 (bottom, top)
-                    stacked_1 = Shape.stack(output_a, output_b)
-                    stacked_2 = Shape.stack(output_b, output_a)
-                    if repr(stacked_1) == repr(target_shape_obj) or repr(stacked_2) == repr(target_shape_obj):
-                        final_reasons.clear()
-                        final_classification_type = ShapeType.CLAW_COMPLEX_HYBRID.value
-        except Exception:
-            # 클로 하이브리드 구제 실패 시, 기존 불가능형 결과 유지
-            pass
+                # 9-2) A/B를 스택으로 합쳐 원본과 일치하는지 검사 -> '클로 복합 하이브리드'
+                a_repr = repr(output_a)
+                b_repr = repr(output_b)
+                # B는 비어있지 않아야 하며, A는 불가능형이 아니어야 함
+                if b_repr:
+                    a_type, a_reason = analyze_shape(a_repr, output_a, skip=True)
+                    if a_type != ShapeType.IMPOSSIBLE.value:
+                        # 두 가지 스택 조합 모두 확인 (bottom, top)
+                        stacked_1 = Shape.stack(output_a, output_b)
+                        stacked_2 = Shape.stack(output_b, output_a)
+                        if repr(stacked_1) == repr(target_shape_obj) or repr(stacked_2) == repr(target_shape_obj):
+                            final_reasons.clear()
+                            final_classification_type = ShapeType.CLAW_COMPLEX_HYBRID.value
+            except Exception:
+                # 클로 하이브리드 구제 실패 시, 기존 불가능형 결과 유지
+                pass
 
     final_reason_string = _finalize_reasons(final_reasons)
     return final_classification_type, final_reason_string
@@ -734,7 +746,7 @@ def verify_claw_process(original_shape_str: str) -> tuple[bool, str]:
     # 5. 클로 프로세스 이후 도형 분류 검사
     try:
         processed_shape_str = repr(processed_shape)
-        classification_type, classification_reason = analyze_shape(processed_shape_str, processed_shape)
+        classification_type, classification_reason = analyze_shape(processed_shape_str, processed_shape, True)
         
         # '스왑가능형'이 포함되지 않으면 불가능으로 판정
         if ShapeType.SWAPABLE.value not in classification_type:
@@ -757,7 +769,7 @@ def analyze_shape_simple(shape: str, shape_obj=None) -> str:
     Returns:
         str: 분류 결과
     """
-    result, reason_text = analyze_shape(shape, shape_obj)
+    result, reason_text = analyze_shape(shape, shape_obj, skip=False)
     return result
 
 

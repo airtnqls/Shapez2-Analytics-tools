@@ -6,7 +6,7 @@
 """
 
 from typing import Set, Tuple
-from shape import Shape, Layer
+from shape import Shape, Layer, Quadrant
 
 
 def hybrid(shape: Shape) -> Tuple[Shape, Shape]:
@@ -213,6 +213,26 @@ def hybrid(shape: Shape) -> Tuple[Shape, Shape]:
         if is_empty_layer:
             output_b.layers.pop(i)
         i -= 1
+    
+    # 출력 B의 각 사분면에 대해 0층부터 시작해서 -가 아닌 조각이 나올 때까지 빈 층을 c로 채우기
+    if output_b:
+        for q in range(4):
+            has_piece_above = False
+            first_non_empty_layer = -1
+            
+            for l in range(len(output_b.layers)):
+                piece = output_b._get_piece(l, q)
+                if piece and piece.shape != '-':
+                    has_piece_above = True
+                    first_non_empty_layer = l
+                    break
+            
+            if has_piece_above and first_non_empty_layer > 0:
+                for l in range(first_non_empty_layer):
+                    if output_b._get_piece(l, q) is None:
+                        while len(output_b.layers) <= l:
+                            output_b.layers.append(Layer([None, None, None, None]))
+                        output_b.layers[l].quadrants[q] = Quadrant('c', 'w')
     
     return output_a, output_b
 

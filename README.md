@@ -24,7 +24,7 @@ build.bat
 
 ## Features
 
-- **Shape Simulation**: Real-time shape manipulation and analysis
+- **Shape Simulation**: Shape Code input, Operations, Analysis and Visualisation
 - **Inverse Operations**: Find original shapes from target shapes
 - **Shape Classification**: Automatic shape type detection
 - **Process Tree**: Visualize shape creation process
@@ -32,10 +32,13 @@ build.bat
 
 ## TODO
 
-- **Process Tree**: Implement process tree visualization
-- **Claw Hybrid**: Implement claw and hybrid shape analysis
+- ~~**Process Tree**: Implement process tree visualization~~
+- ~~**Claw Hybrid**: Implement claw and hybrid shape analysis~~
+- Writing program user documentation(Video guide)
 - Scaling beyond 6 floors
 - Expand quadrants like hexmode
+- Fixing bugs
+- Optimisation and refactoring
 
 ## Project Structure
 

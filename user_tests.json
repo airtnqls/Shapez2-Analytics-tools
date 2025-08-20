@@ -77,6 +77,12 @@
       "operation": "apply_physics",
       "input_a": "--------:--Cu----:--------:P-Ru----",
       "expected_a": "P-Cu----:--Ru----"
+    },
+    {
+      "name": "Hybrid physics",
+      "operation": "apply_physics",
+      "input_a": "-P--:-S--:--SS:---S:-SS-",
+      "expected_a": "-PSS:-S-S:-SS-"
     }
   ],
   "test.category.building_functions": [
@@ -163,6 +169,13 @@
       "input_a": "--CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu",
       "input_b": "P-P-P-P-:CuCuCuCu",
       "expected_a": "P-CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu:--CuCuCu"
+    },
+    {
+      "name": "Stacker (Claw Hybrid)",
+      "operation": "stack",
+      "input_a": "--P-P-P-:SuP---Su:--P-----:cwSu----:cw------",
+      "input_b": "--cwSuSu:--cw--Su:--SuSu--",
+      "expected_a": "--P-P-P-:SuP---Su:--P-SuSu:cwSu--Su:cwSuSu--"
     },
     {
       "name": "Painter (Blue)",

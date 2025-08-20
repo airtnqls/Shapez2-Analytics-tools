@@ -297,7 +297,8 @@ class Shape:
             
             falling_groups = []
             visited_fallers = set()
-            for l, q in sorted(list(unsupported_coords), key=lambda x: -x[0]):
+            # 낙하 그룹은 하단 레이어부터 형성/처리되어야 함
+            for l, q in sorted(list(unsupported_coords), key=lambda x: x[0]):
                 if (l, q) not in visited_fallers:
                     full_group = s._find_connected_group(l, q)
                     falling_group = {coord for coord in full_group if coord in unsupported_coords}
@@ -525,20 +526,16 @@ class Shape:
     
     @staticmethod
     def stack(bottom: Shape, top: Shape) -> Shape:
-        stable_bottom = bottom.apply_physics()
-        stable_top = top.apply_physics()
-
         # 두 도형 중 높은 층을 기준으로 설정
         result_max_layers = max(bottom.max_layers, top.max_layers)
 
-        top_processed = stable_top.copy()
+        top_processed = top.copy()
         for layer in top_processed.layers:
             for i, q in enumerate(layer.quadrants):
                 if q and q.shape == 'c':
                     layer.quadrants[i] = None
         
-        combined_layers = stable_bottom.layers + top_processed.layers
-        
+        combined_layers = bottom.layers + top_processed.layers
         oversized_shape = Shape(combined_layers)
         oversized_shape.max_layers = result_max_layers
 
