@@ -8,6 +8,7 @@ S---:SSSS
 crcrcrcr
 ScSc:SSSS
 c-c-:SSSS
+{-}----■ Corner ■----
 P:c
 PPPSc
 {S-S-S} Corners are imaginary shapes, so they can float.
@@ -27,13 +28,24 @@ c:S:-:c
 S-ScS-S-c
 S-ScSS--c
 S--cS-S-c
+{-}----■ Hybrid ■----
 c---:SSSS
 c:cS:c:SSSS
-{c:cS:cSSS} 복합 하이브리드
-{SPSP:-S-S:cPcS:cS-c:cSS-} 복합 하이브리드
+-PSP:Sc-S:-Pcc:cS-S:cSS-
+Sc-S:-S-P:cPSS:cS--:cSS-
+-SS-:SSP-:c-SS:cc-c:cSS-
+-SSS:SSSP:-PPP:cS-S:cSS-
+-SSS:SPPS:c--P:SSSS:cSPP
+S---:SS--:ScSS:----:----
+SPSP:-S-S:cPcS:cS-c:cSS-
+{-}----■ Complex Hybrid ■----
+c:cS:cSSS
+SPSP:-S-S:cPcS:cS-c:cSS-
 c:cS:cSS:c-SS
+{-}----■ Claw ■----
 PPPP:S---:cS-S
 PP-P:-SSP:---P:-ScS
+{-}----■ Claw Hybrid ■----
 {PPPP:S---:cS-S:SSSS} 클로 심플 하이브리드
 {PPPP:S-S-:cS-S} 클로 복합 하이브리드
 {PPPP:S-S-:cS-S} 클로 복합 하이브리드 (P제거)

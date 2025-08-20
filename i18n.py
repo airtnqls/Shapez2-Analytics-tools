@@ -93,6 +93,7 @@ _ALIASES: Dict[str, str] = {
     "클로": "enum.shape_type.claw",
     "클로_하이브리드": "enum.shape_type.claw_hybrid",
     "클로_복합_하이브리드": "enum.shape_type.claw_complex_hybrid",
+    "밝혀지지않음": "enum.shape_type.unknown",
     "불가능형": "enum.shape_type.impossible"
 }
 

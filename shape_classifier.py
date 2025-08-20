@@ -56,7 +56,9 @@ class ShapeType(Enum):
     CLAW = t("analyzer.shape_types.claw")
     CLAW_HYBRID = t("analyzer.shape_types.claw_hybrid")
     CLAW_COMPLEX_HYBRID = t("analyzer.shape_types.claw_complex_hybrid")
+    UNKNOWN = t("analyzer.shape_types.unknown")
     IMPOSSIBLE = t("analyzer.shape_types.impossible")
+    
 
 
 def get_piece(shape: str, layer: int, quadrant: int) -> str:
@@ -720,6 +722,24 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
             except Exception:
                 # 클로 하이브리드 구제 실패 시, 기존 불가능형 결과 유지
                 pass
+
+    # ========== 10단계: 여전히 불가능형인 경우 대형/복잡도 기준 UNKNOWN 처리 ==========
+    if final_classification_type == ShapeType.IMPOSSIBLE.value and not skip:
+        try:
+            from shape import Shape
+            target_shape_obj = shape_obj if shape_obj else Shape.from_string(shape)
+            layer_count = len(getattr(target_shape_obj, 'layers', []))
+            quadrant_count = 0
+            quadrant_count += len(getattr(target_shape_obj.layers[0], 'quadrants', []))
+            if layer_count >= 6 or quadrant_count >= 5:
+                final_classification_type = ShapeType.UNKNOWN.value
+                final_reasons.clear()
+                if layer_count >= 6:
+                    final_reasons.append(t("analyzer.unknown.layers_exceeded", layers=layer_count))
+                if quadrant_count >= 5:
+                    final_reasons.append(t("analyzer.unknown.quadrants_exceeded", quadrants=quadrant_count))
+        except Exception:
+            pass
 
     final_reason_string = _finalize_reasons(final_reasons)
     return final_classification_type, final_reason_string
