@@ -130,6 +130,30 @@ def claw_hybrid(shape: Shape) -> Tuple[Shape, Shape]:
         (output_a, output_b): 마스크 0 부분과 마스크 1 부분으로 분리된 두 도형
     """
     mask = {}
+    
+    # 전체 도형에서 가장 높은 크리스탈의 위치를 찾습니다
+    highest_crystal_layer = -1
+    highest_crystal_quadrant = -1
+    
+    # 모든 크리스탈을 찾으면서 동시에 가장 높은 크리스탈도 찾습니다
+    for l in range(len(shape.layers) - 1, -1, -1):  # 위에서부터 탐색
+        for q in range(4):
+            piece = shape._get_piece(l, q)
+            if piece and piece.shape == 'c':
+                # 가장 높은 크리스탈 정보 저장 (첫 번째로 찾은 것이 가장 높음)
+                if highest_crystal_layer == -1:
+                    highest_crystal_layer = l
+                    highest_crystal_quadrant = q
+    
+    # highest_crystal_quadrant 값에 따라 도형 회전
+    if highest_crystal_quadrant == 1:
+        shape = shape.rotate(clockwise=False)  # 270도 회전 (반시계방향 3번)
+    elif highest_crystal_quadrant == 2:
+        shape = shape.rotate_180()  # 180도 회전
+    elif highest_crystal_quadrant == 3:
+        shape = shape.rotate(clockwise=True)  # 90도 회전 (시계방향 1번)
+    
+    # 회전된 도형으로 다시 문자열 생성
     shape_str = repr(shape)
     simplified_str = simplify_shape(shape_str)
     
@@ -202,5 +226,16 @@ def claw_hybrid(shape: Shape) -> Tuple[Shape, Shape]:
         if is_empty_layer:
             output_b.layers.pop(i)
         i -= 1
+    
+    # 리턴 직전에 원상복구 회전 적용
+    if highest_crystal_quadrant == 1:
+        output_a = output_a.rotate(clockwise=True)  # 90도 회전 (시계방향 1번)
+        output_b = output_b.rotate(clockwise=True)
+    elif highest_crystal_quadrant == 2:
+        output_a = output_a.rotate_180()  # 180도 회전
+        output_b = output_b.rotate_180()
+    elif highest_crystal_quadrant == 3:
+        output_a = output_a.rotate(clockwise=False)  # 270도 회전 (반시계방향 3번)
+        output_b = output_b.rotate(clockwise=False)
     
     return output_a, output_b
