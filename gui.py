@@ -5357,6 +5357,26 @@ class DragDropTableWidget(QTableWidget):
         # 대량 선택 시 성능 문제를 방지하기 위해 선택 정리를 선택적으로만 실행
         # self.itemSelectionChanged.connect(self._schedule_prune_selection)
 
+    def contextMenuEvent(self, event):
+        """우클릭 컨텍스트 메뉴 이벤트를 부모(DataTabWidget) 핸들러로 위임"""
+        try:
+            # 부모 체인에서 on_table_context_menu를 가진 위젯을 찾음
+            parent_widget = self.parent()
+            while parent_widget and not hasattr(parent_widget, 'on_table_context_menu'):
+                parent_widget = parent_widget.parent()
+
+            if parent_widget and hasattr(parent_widget, 'on_table_context_menu'):
+                # viewport 기준 좌표로 변환하여 전달
+                local_pos = self.viewport().mapFromGlobal(event.globalPos())
+                parent_widget.on_table_context_menu(local_pos)
+                event.accept()
+                return
+        except Exception:
+            pass
+
+        # 폴백: 기본 동작
+        super().contextMenuEvent(event)
+
     def _schedule_prune_selection(self):
         """선택 정리를 디바운스로 스케줄링"""
         self._selection_prune_timer.start(50)  # 50ms 지연
