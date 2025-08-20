@@ -13,7 +13,7 @@ class ShapeType(Enum):
         SWAP_CORNER -> 코너 트레이서 (스왑)
         CLAW_CORNER -> 코너 트레이서 (핀푸쉬)
         BASIC -> 자식없음
-        SIMPLE_GEOMETRIC -> 생략
+        SIMPLE -> 생략
         SWAPABLE -> 쿼드 
         HYBRID -> 하이브리드 트레이서
         COMPLEX_HYBRID -> 하이브리드 트레이서
@@ -28,7 +28,7 @@ class ShapeType(Enum):
     SWAP_CORNER = t("analyzer.shape_types.swap_corner")
     CLAW_CORNER = t("analyzer.shape_types.claw_corner")
     BASIC = t("analyzer.shape_types.basic")
-    SIMPLE_GEOMETRIC = t("analyzer.shape_types.simple_geometric")
+    SIMPLE = t("analyzer.shape_types.simple")
     SWAPABLE = t("analyzer.shape_types.swapable")
     HYBRID = t("analyzer.shape_types.hybrid")
     COMPLEX_HYBRID = t("analyzer.shape_types.complex_hybrid")
@@ -45,7 +45,7 @@ class ClassificationReason:
     REASON_EMPTY = t("analyzer.empty")
     REASON_PIN = t("analyzer.pin")
     REASON_NO_CRYSTAL = t("analyzer.no_crystal")
-    REASON_CLAW = t("analyzer.claw")
+    REASON_SWAP_IMPOSSIBLE = t("analyzer.swap_status.swap_impossible")
     REASON_HYBRID = t("analyzer.hybrid")
     REASON_REMAINING_LAYERS = t("analyzer.remaining_layers")
     REASON_CLAW_POSSIBLE = t("analyzer.claw.possible")
@@ -192,9 +192,9 @@ def _get_initial_shape_classification(shape: str) -> tuple[str, str]:
     if shape.strip() == "" or shape.replace("-", "").replace(":", "") == "":
         return ShapeType.EMPTY.value, ""
     elif 'c' not in shape:  # 크리스탈이 없는 경우
-        return ShapeType.SIMPLE_GEOMETRIC.value, ClassificationReason.REASON_NO_CRYSTAL
+        return ShapeType.SIMPLE.value, ClassificationReason.REASON_NO_CRYSTAL
     else:  # 크리스탈이 포함된 경우
-        return ShapeType.SIMPLE_GEOMETRIC.value, ""
+        return ShapeType.SIMPLE.value, ""
 
 
 def _check_limitations(pillars: list[str]) -> set[str]:
@@ -281,7 +281,7 @@ def _check_swap_impossibility(shape_obj) -> str | None:
         swap_notes.append(ClassificationReason.REASON_SWAP_14_23_IMPOSSIBLE)
 
     if is_12_34_swap_impossible and is_14_23_swap_impossible:
-        return ClassificationReason.REASON_CLAW
+        return ClassificationReason.REASON_SWAP_IMPOSSIBLE
     elif swap_notes:
         return ", ".join(swap_notes)
     else:
@@ -328,10 +328,10 @@ def _handle_crystal_free_classification(initial_swap_diagnosis: str | None, foun
     Returns:
         tuple[str, list[str]]: (분류_타입, 사유_리스트)
     """
-    classification_type = ShapeType.SIMPLE_GEOMETRIC.value
+    classification_type = ShapeType.SIMPLE.value
     reasons = [t("analyzer.no_crystal")]
     
-    # 크리스탈이 없는 경우 최우선 단순기하형
+    # 크리스탈이 없는 경우 최우선 단순형
     if initial_swap_diagnosis is not None:
         reasons.append(initial_swap_diagnosis)
     
@@ -361,7 +361,7 @@ def _perform_layer_removal_loop(current_working_shape_obj):
     while current_working_shape_obj:
         loop_swap_check_result = _check_swap_impossibility(current_working_shape_obj)
         
-        if loop_swap_check_result == ClassificationReason.REASON_CLAW:
+        if loop_swap_check_result == ClassificationReason.REASON_SWAP_IMPOSSIBLE:
             # 여전히 Claw인 경우, 레이어 제거 시도
             old_shape_obj_for_removal_check = current_working_shape_obj.copy()
             current_working_shape_obj, removed_layer_part = _remove_top_non_empty_layer(current_working_shape_obj)
@@ -398,7 +398,7 @@ def _classify_no_layer_removal_case(current_type: str, base_reason: str, initial
     """
     reasons = []
     
-    if initial_swap_diagnosis is None or ClassificationReason.REASON_CLAW not in initial_swap_diagnosis:
+    if initial_swap_diagnosis is None or ClassificationReason.REASON_SWAP_IMPOSSIBLE not in initial_swap_diagnosis:
         classification_type = ShapeType.SWAPABLE.value
         if base_reason and base_reason not in [ShapeType.IMPOSSIBLE.value, ShapeType.EMPTY.value]:
             reasons.append(base_reason)
@@ -432,10 +432,10 @@ def _classify_layer_removal_case(base_reason: str, removed_hybrid_layers_content
         classification_type = ShapeType.CLAW.value
         if base_reason and base_reason not in reasons and base_reason != ClassificationReason.REASON_EMPTY:
             reasons.insert(0, base_reason)
-        reasons.append(ClassificationReason.REASON_CLAW)
+        reasons.append(ClassificationReason.REASON_SWAP_IMPOSSIBLE)
     else:
         classification_type = ShapeType.HYBRID.value
-        if base_reason and base_reason not in reasons and base_reason != ShapeType.SIMPLE_GEOMETRIC.value:
+        if base_reason and base_reason not in reasons and base_reason != ShapeType.SIMPLE.value:
             reasons.insert(0, base_reason)
         reasons.append(ClassificationReason.REASON_HYBRID)
     
@@ -562,6 +562,15 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
         return ShapeType.SIMPLE_CORNER.value, final_reason_string
 
     # ========== 2단계: 기존 분류 로직 (모서리가 아닌 경우) ==========
+    # Basic 분류: 1층이고 S로만 이루어져 있고, 네 개의 도형들이 모두 같은 도형인 경우
+    layers = shape.split(':')
+    if len(layers) == 1:  # 1층인 경우
+        first_layer = layers[0]
+        if len(first_layer) == 4 and all(char == 'S' for char in first_layer):  # S로만 이루어진 경우
+            # 네 개의 도형이 모두 같은 도형인지 확인 (색상 정보 제거 후 비교)
+            if len(set(char for char in first_layer)) == 1:  # 모든 문자가 동일한 경우
+                return ShapeType.BASIC.value, ""
+    
     # 물리 안정성 검사
     if shape_obj and not check_physics_stability(shape_obj):
         return ShapeType.IMPOSSIBLE.value, t("analyzer.rule1.unstable")
@@ -581,7 +590,7 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
 
     # ========== 3단계: 분류 로직 분기 ==========
     if base_reason == ClassificationReason.REASON_NO_CRYSTAL:
-        # 크리스탈 없는 단순 기하형 처리
+        # 크리스탈 없는 단순형 처리
         final_classification_type, final_reasons = _handle_crystal_free_classification(
             initial_swap_diagnosis, found_limitations
         )

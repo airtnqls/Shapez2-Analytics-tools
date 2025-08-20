@@ -325,7 +325,7 @@ class ProcessTreeSolver:
         elif shape_type in [
             ShapeType.SIMPLE_CORNER.value,
             ShapeType.STACK_CORNER.value,
-            ShapeType.SIMPLE_GEOMETRIC.value
+            ShapeType.SIMPLE.value
         ]:
             current_node.operation = "생략"
             # "생략" 자식 노드 생성 (shape_code를 "..."으로 설정)
@@ -824,56 +824,20 @@ class ProcessTreeSolver:
         example_tree_data = {
                 "nodes": {
                     "ID0": {
-                        "shape_code": "CuCuCuCu:RrRrRrRr:CcCcCcCc:P-P-P-P-",
-                        "operation": "최종목표",
+                        "shape_code": "c---:cS--:cSSS",
+                        "operation": "A",
                         "input_ids": ["ID1", "ID2"]
                     },
                     "ID1": {
-                        "shape_code": "CuCuCuCu:RrRrRrRr:CcCcCcCc",
-                        "operation": "2차조합",
+                        "shape_code": "c---:cS--:c--",
+                        "operation": "B",
                         "input_ids": ["ID3", "ID4"]
                     },
                     "ID2": {
-                        "shape_code": "P-P-P-P-:Cu------:Rr------",
-                        "operation": "2차조합",
+                        "shape_code": "-SSS",
+                        "operation": "C",
                         "input_ids": ["ID16","ID15","ID5", "ID6"]
-                    },
-                    "ID3": {
-                        "shape_code": "CuCuCuCu:RrRrRrRr",
-                        "operation": "1차가공",
-                        "input_ids": ["ID7", "ID8"]
-                    },
-                    "ID4": {
-                        "shape_code": "CcCcCcCc:SuSuSuSu",
-                        "operation": "1차가공",
-                        "input_ids": ["ID8", "ID10"]
-                    },
-                    "ID5": {
-                        "shape_code": "P-P-P-P-:Cu------",
-                        "operation": "1차가공",
-                        "input_ids": []
-                    },
-                    "ID15": {
-                        "shape_code": "P-P-P-P-:Cu------",
-                        "operation": "1차가공",
-                        "input_ids": []
-                    },
-                    "ID16": {
-                        "shape_code": "P-P-P-P-:Cu------",
-                        "operation": "1차가공",
-                        "input_ids": []
-                    },
-                    "ID6": {
-                        "shape_code": "Rr------:CcCcCcCc",
-                        "operation": "1차가공",
-                        "input_ids": ["ID13", "ID9"]  # ID9 재사용 (자식이 두 부모를 가짐)
-                    },
-                    "ID7": {"shape_code": "CuCuCuCu", "operation": "원료", "input_ids": []},
-                    "ID8": {"shape_code": "RrRrRrRr", "operation": "원료", "input_ids": []},
-                    "ID9": {"shape_code": "CcCcCcCr", "operation": "원료", "input_ids": []},
-                    "ID10": {"shape_code": "SwSwSySy", "operation": "원료", "input_ids": ["ID14"]},
-                    "ID13": {"shape_code": "Rr------", "operation": "원료", "input_ids": []},
-                    "ID14": {"shape_code": "Rr------", "operation": "원료", "input_ids": []}
+                    }
                 },
                 "root_id": "ID0"
             }

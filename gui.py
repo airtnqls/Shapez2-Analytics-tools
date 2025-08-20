@@ -1441,9 +1441,8 @@ class ShapezGUI(QMainWindow):
                         "claw": [t("enum.shape_type.claw")],
                         t("enum.shape_type.hybrid"): ["hybrid"],
                         "hybrid": [t("enum.shape_type.hybrid")],
-                        t("enum.shape_type.simple_geometric"): ["simple_geometric", "simple geometric"],
-                        "simple_geometric": [t("enum.shape_type.simple_geometric"), "simple geometric"],
-                        "simple geometric": [t("enum.shape_type.simple_geometric"), "simple_geometric"],
+                        t("enum.shape_type.simple"): ["simple", "simple"],
+                        "simple": [t("enum.shape_type.simple"), "simple"],
                         t("enum.shape_type.simple_corner"): ["simple_corner", "simple corner"],
                         "simple_corner": [t("enum.shape_type.simple_corner"), "simple corner"],
                         "simple corner": [t("enum.shape_type.simple_corner"), "simple_corner"],
@@ -3258,7 +3257,6 @@ class ShapezGUI(QMainWindow):
             
             # 테스트 케이스가 리스트가 아니거나 비어있는 경우 처리
             if not isinstance(test_cases, list) or len(test_cases) == 0:
-                self.log(f"경고: '{category}' 카테고리에 유효한 테스트 케이스가 없습니다.")
                 continue
 
             self.log(t("ui.test.category", category=category))
@@ -3327,9 +3325,8 @@ class ShapezGUI(QMainWindow):
                                 "claw": ["클로"],
                                 "하이브리드": ["hybrid"],
                                 "hybrid": ["하이브리드"],
-                                "단순_기하형": ["simple_geometric", "simple geometric"],
-                                "simple_geometric": ["단순_기하형", "simple geometric"],
-                                "simple geometric": ["단순_기하형", "simple_geometric"],
+                                "단순_기하형": ["simple", "simple"],
+                                "simple": ["단순_기하형", "simple"],
                                 "단순_모서리": ["simple_corner", "simple corner"],
                                 "simple_corner": ["단순_모서리", "simple corner"],
                                 "simple corner": ["단순_모서리", "simple_corner"],
@@ -4935,7 +4932,8 @@ class ShapezGUI(QMainWindow):
             self._display_process_tree(root_node)
             
             # 설명 텍스트 추가
-            desc_text = self.tree_scene.addText("복잡한 관계를 포함한 예시 트리입니다. '공정트리 생성'으로 실제 트리를 생성하세요.", 
+            from i18n import t
+            desc_text = self.tree_scene.addText(t("ui.process_tree.example_hint"), 
                                               QFont("Arial", 10))
             desc_text.setPos(-150, -50)
             desc_text.setDefaultTextColor(QColor(100, 100, 100))

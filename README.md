@@ -42,7 +42,9 @@ build.bat
 
 ## Issues
 
+- The logic is messy.
 - Claw Hybrid / Complex Hybrid / Claw Complex Hybrid are not distinguished well.
+  (Because the hybrid logic solve some of the claw hybrid logic.)
 - Classification of shapes is being called recursively.
 - Unused py files are left.
 
