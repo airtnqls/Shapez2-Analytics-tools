@@ -3,6 +3,7 @@ from enum import Enum
 import re
 
 from i18n import t
+from corner_tracer import corner_process
 
 class ShapeType(Enum):
     """
@@ -12,6 +13,7 @@ class ShapeType(Enum):
         STACK_CORNER -> 생략
         SWAP_CORNER -> 코너 트레이서 (스왑)
         CLAW_CORNER -> 코너 트레이서 (핀푸쉬)
+        CLAW_HYBRID_CORNER -> 클로 하이브리드 코너
         BASIC -> 자식없음
         SIMPLE -> 생략
         SWAPABLE -> 쿼드 
@@ -27,6 +29,7 @@ class ShapeType(Enum):
     STACK_CORNER = t("analyzer.shape_types.stack_corner")
     SWAP_CORNER = t("analyzer.shape_types.swap_corner")
     CLAW_CORNER = t("analyzer.shape_types.claw_corner")
+    CLAW_HYBRID_CORNER = t("analyzer.shape_types.claw_hybrid_corner")
     BASIC = t("analyzer.shape_types.basic")
     SIMPLE = t("analyzer.shape_types.simple")
     SWAPABLE = t("analyzer.shape_types.swapable")
@@ -490,34 +493,29 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
     """
     
     # ========== 1단계: 불가능 패턴 및 모서리 분류 검사 ==========
+    from shape import Shape
     final_reasons = []
     # shape_obj가 None인 경우 Shape 객체 생성
-    pillars = get_edge_pillars(shape)
+    shape_obj = Shape.from_string(shape)
+    pillars = [shape_obj.get_pillar(0),shape_obj.get_pillar(1),shape_obj.get_pillar(2),shape_obj.get_pillar(3)]
     
     # 불가능 패턴 검사 (최우선)
     impossible_type, impossible_reason = _check_impossible_patterns(pillars)
     if impossible_type:
         return impossible_type, impossible_reason
-
-    # 모서리 분류 검사: 1사분면을 제외한 모든 사분면이 비어있는지 확인
-    # pillars는 [q1, q2, q3, q4] 순서로 구성됨
-    q1_pillar = pillars[0]  # 1사분면 기둥
-    q2_pillar = pillars[1]  # 2사분면 기둥  
-    q3_pillar = pillars[2]  # 3사분면 기둥
-    q4_pillar = pillars[3]  # 4사분면 기둥
     
     # 각 사분면 기둥이 비어있는지 확인 (공백 문자 '-'만 있으면 비어있음)
-    q1_empty = q1_pillar.strip('-') == ''
-    q2_empty = q2_pillar.strip('-') == ''
-    q3_empty = q3_pillar.strip('-') == ''
-    q4_empty = q4_pillar.strip('-') == ''
+    q1_empty = pillars[0].strip('-') == ''
+    q2_empty = pillars[1].strip('-') == ''
+    q3_empty = pillars[2].strip('-') == ''
+    q4_empty = pillars[3].strip('-') == ''
     
     # 2, 3, 4사분면이 모두 비어있으면 모서리 도형
     is_q1_only = not q1_empty and q2_empty and q3_empty and q4_empty
 
     if is_q1_only:
         # q1_pillar만으로 물리 안정성 검사를 위한 임시 Shape 객체 생성
-        temp_shape_str = ':'.join(q1_pillar) if q1_pillar else ClassificationReason.REASON_EMPTY
+        temp_shape_str = ':'.join(pillars[0]) if pillars[0] else ClassificationReason.REASON_EMPTY
         if temp_shape_str != ClassificationReason.REASON_EMPTY:
             try:
                 from shape import Shape
@@ -527,16 +525,18 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
                 physically_unstable = False
         else:
             physically_unstable = False
-        has_crystal = 'c' in q1_pillar
-        has_pin_at_bottom = q1_pillar.startswith('P') and (len(q1_pillar) > 1 and q1_pillar[1] != '-')
-        is_swap_corner_pattern = re.search(r'-.*c', q1_pillar)
-        is_claw_corner_pattern = re.search(r'-S-+c', q1_pillar)
-
+        has_crystal = 'c' in pillars[0]
+        has_pin_at_bottom = pillars[0].startswith('P') and (len(pillars[0]) > 1 and pillars[0][1] != '-')
+        is_cg_corner_pattern = re.search(r'-.*c', pillars[0])
+        is_no_cut_pattern = re.search(r'-S-+c', pillars[0])
+        is_no_pin_pattern = re.search(r'^S*-?S*c', pillars[0])
+        is_claw_hybrid_corner_pattern = re.search(r'-S---------------+c', pillars[0])
+        
         # 핀 사유 공통 처리
         if has_pin_at_bottom:
             # 첫글자부터 연속된 P의 개수 계산
             pin_count = 0
-            for char in q1_pillar:
+            for char in pillars[0]:
                 if char == 'P':
                     pin_count += 1
                 else:
@@ -548,18 +548,43 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
         if physically_unstable:
             final_reasons.append("analyzer.virtual")
 
-        final_reason_string = _finalize_reasons(final_reasons)
+        # q1_pillar를 corner tracer의 입력으로 넣고 결과를 저장
+        corner, _, _, _ = shape_obj.quad_cutter()
+        
+        # 클로 하이브리드 모서리: -S-+c 패턴으로 인해 스왑X로 판정받은 경우
+        if is_claw_hybrid_corner_pattern:
+            corner_classification = ShapeType.CLAW_HYBRID_CORNER.value
         # 클로모서리: -S-+c 패턴으로 인해 스왑X로 판정받은 경우
-        if is_claw_corner_pattern:
-            return ShapeType.CLAW_CORNER.value, final_reason_string
+        elif is_no_cut_pattern:
+            corner_classification = ShapeType.CLAW_CORNER.value
         # 스왑모서리: c 아래 -가 존재하는 경우 (-.*c 패턴)
-        if is_swap_corner_pattern:
-            return ShapeType.SWAP_CORNER.value, final_reason_string
+        elif is_cg_corner_pattern:
+            corner_classification = ShapeType.SWAP_CORNER.value
         # 스택모서리: 단순 모서리 중에서 c가 포함된 경우 또는 물리적으로 불안정한 경우 또는 핀
-        if physically_unstable or has_crystal:
-            return ShapeType.STACK_CORNER.value, final_reason_string
+        elif physically_unstable or has_crystal:
+            corner_classification = ShapeType.STACK_CORNER.value
         # 단순모서리: 1사분면을 제외한 모든 사분면이 비워져 있는 모든 경우
-        return ShapeType.SIMPLE_CORNER.value, final_reason_string
+        else:
+            corner_classification = ShapeType.SIMPLE_CORNER.value
+        
+        corner_result, corner_action = corner_process(corner, corner_classification)
+        corner_result = Shape.from_string(corner_result)
+        # 결과에 따라 Pinpush 또는 halfDestroy 수행
+        if is_no_cut_pattern:
+            # Shape.Pinpush 수행
+            corner_result = corner_result.push_pin()
+        else:
+            # Shape.halfDestroy 수행
+            corner_result = corner_result.destroy_half()
+        
+        q1_pillar_processed = corner_result.get_pillar(0)
+        # q1_pillar와 q1_pillar_processed 비교
+        if repr(q1_pillar_processed) != repr(pillars[0]):
+            return ShapeType.IMPOSSIBLE.value, _finalize_reasons([corner_classification])
+        
+        # 분류 타입을 미리 결정하되 바로 리턴하지 않음
+        final_reason_string = _finalize_reasons(final_reasons)
+        return corner_classification, final_reason_string
 
     # ========== 2단계: 기존 분류 로직 (모서리가 아닌 경우) ==========
     # Basic 분류: 1층이고 S로만 이루어져 있고, 네 개의 도형들이 모두 같은 도형인 경우

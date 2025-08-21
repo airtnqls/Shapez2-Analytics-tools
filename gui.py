@@ -503,6 +503,32 @@ class RowHeaderWidget(QLabel):
         
         drag.exec(Qt.DropAction.MoveAction)
 
+    def contextMenuEvent(self, event):
+        """우클릭 시 행 전체 변경 컨텍스트 메뉴 표시"""
+        if self.input_name is None:
+            return
+        menu = QMenu()
+        menu.setParent(None)
+        empty_action = menu.addAction("-")
+        s_action = menu.addAction("S")
+        c_action = menu.addAction("c")
+        p_action = menu.addAction("P")
+        action = menu.exec(event.globalPos())
+        content = None
+        if action == empty_action:
+            content = "--"
+        elif action == s_action:
+            content = "Su"
+        elif action == c_action:
+            content = "cw"
+        elif action == p_action:
+            content = "P-"
+        if content is None:
+            return
+        main_window = self.window()
+        if hasattr(main_window, 'handle_row_fill'):
+            main_window.handle_row_fill(self.input_name, self.layer_index, content)
+
 class ColumnHeaderWidget(QLabel):
     """열(사분면) 드래그를 위한 헤더 위젯"""
     def __init__(self, quad_index, input_name):
@@ -533,6 +559,32 @@ class ColumnHeaderWidget(QLabel):
         drag.setHotSpot(event.position().toPoint())
         
         drag.exec(Qt.DropAction.MoveAction)
+
+    def contextMenuEvent(self, event):
+        """우클릭 시 열 전체 변경 컨텍스트 메뉴 표시"""
+        if self.input_name is None:
+            return
+        menu = QMenu()
+        menu.setParent(None)
+        empty_action = menu.addAction("-")
+        s_action = menu.addAction("S")
+        c_action = menu.addAction("c")
+        p_action = menu.addAction("P")
+        action = menu.exec(event.globalPos())
+        content = None
+        if action == empty_action:
+            content = "--"
+        elif action == s_action:
+            content = "Su"
+        elif action == c_action:
+            content = "cw"
+        elif action == p_action:
+            content = "P-"
+        if content is None:
+            return
+        main_window = self.window()
+        if hasattr(main_window, 'handle_column_fill'):
+            main_window.handle_column_fill(self.input_name, self.quad_index, content)
 
 
 class ShapeWidget(QFrame):
@@ -3753,6 +3805,64 @@ class ShapezGUI(QMainWindow):
         self.history_update_in_progress = False
         
         # 변경 후 히스토리 추가 및 UI 업데이트
+        self.add_to_history()
+        self.update_input_display()
+
+    def handle_row_fill(self, input_name, layer_index, content):
+        """행(레이어) 전체를 지정한 내용으로 채웁니다."""
+        input_widget = self.input_a if input_name == "A" else self.input_b
+        try:
+            shape = Shape.from_string(input_widget.text())
+        except Exception as e:
+            self.log(f"🔥 셀 변경 오류: 도형 코드를 파싱할 수 없습니다. {e}")
+            return
+        max_layers = max(len(shape.layers), layer_index + 1)
+        shape.pad_layers(max_layers)
+        # content를 Quadrant로 변환 (None 포함)
+        if content == "--":
+            new_quadrant = None
+        elif content == "Su":
+            new_quadrant = Quadrant('S', 'u')
+        elif content == "cw":
+            new_quadrant = Quadrant('c', 'w')
+        elif content == "P-":
+            new_quadrant = Quadrant('P', 'u')
+        else:
+            return
+        for q in range(4):
+            shape.layers[layer_index].quadrants[q] = new_quadrant
+        self.history_update_in_progress = True
+        input_widget.setText(repr(shape))
+        self.history_update_in_progress = False
+        self.add_to_history()
+        self.update_input_display()
+
+    def handle_column_fill(self, input_name, quad_index, content):
+        """모든 레이어에서 지정한 열(사분면)을 동일한 내용으로 채웁니다."""
+        input_widget = self.input_a if input_name == "A" else self.input_b
+        try:
+            shape = Shape.from_string(input_widget.text())
+        except Exception as e:
+            self.log(f"🔥 셀 변경 오류: 도형 코드를 파싱할 수 없습니다. {e}")
+            return
+        # 최소 1층은 보장하여 빈 입력에서도 표시 가능
+        if len(shape.layers) == 0:
+            shape.pad_layers(1)
+        if content == "--":
+            new_quadrant = None
+        elif content == "Su":
+            new_quadrant = Quadrant('S', 'u')
+        elif content == "cw":
+            new_quadrant = Quadrant('c', 'w')
+        elif content == "P-":
+            new_quadrant = Quadrant('P', 'u')
+        else:
+            return
+        for layer in shape.layers:
+            layer.quadrants[quad_index] = new_quadrant
+        self.history_update_in_progress = True
+        input_widget.setText(repr(shape))
+        self.history_update_in_progress = False
         self.add_to_history()
         self.update_input_display()
     

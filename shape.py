@@ -4,7 +4,6 @@ import json
 from typing import List, Tuple, Optional, Set
 from PyQt6.QtCore import QThread, pyqtSignal
 import itertools
-from shape_classifier import analyze_shape
 
 from i18n import t
 
@@ -69,6 +68,7 @@ class Shape:
         
         # 리스트를 콜론으로 구분된 문자열로 변환
         shape_string = ":".join(result)
+        from shape_classifier import analyze_shape
         return analyze_shape(shape_string, self)
 
     @classmethod
@@ -686,6 +686,38 @@ class Shape:
 
     def is_stable(self) -> bool:
         return repr(self.apply_physics()) == repr(self)
+
+    def get_pillar(self, quadrant: int) -> str:
+        """지정된 사분면의 모든 레이어에서 간소화된 문자를 반환합니다.
+        
+        Args:
+            quadrant (int): 사분면 인덱스 (0=TR, 1=BR, 2=BL, 3=TL)
+            
+        Returns:
+            str: 각 레이어의 간소화된 문자를 연결한 문자열 (4글자 이하면 콜론으로 구분)
+        """
+        if not (0 <= quadrant <= 3):
+            raise ValueError(t("error.quadrant.invalid", quadrant=quadrant))
+        
+        result = ""
+        for layer in self.layers:
+            quad = layer.quadrants[quadrant]
+            if quad is None:
+                result += "-"
+            elif quad.shape in ['C', 'S', 'R', 'W']:
+                result += "S"
+            elif quad.shape == 'c':
+                result += "c"
+            elif quad.shape == 'P':
+                result += "P"
+            else:
+                result += "-"
+        
+        # 결과가 4글자 이하면 각 문자 사이에 콜론 추가
+        # if len(result) <= 4:
+        #     result = ":".join(result)
+        
+        return result
 
     def hybrid(self) -> tuple[Shape, Shape]:
         """하이브리드 함수: 입력을 마스크 기반으로 두 부분으로 분리합니다."""

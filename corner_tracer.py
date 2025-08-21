@@ -1,5 +1,6 @@
 from shape import Shape
-from shape_classifier import ShapeType
+from i18n import t
+
 
 def 가장오른쪽_클러스터_위치찾기(s, char):
     """가장 오른쪽 특정 문자 클러스터의 가장 왼쪽 위치를 찾음"""
@@ -193,7 +194,7 @@ def build_cutable_shape(s):
     return format_final_result(A, B, C, D)
 
 def build_pinable_shape(s):
-    L = len(s)
+    L = max(len(s), Shape.MAX_LAYERS)
     
     # 가장 오른쪽 c 클러스터의 가장 왼쪽 위치를 찾음
     L2 = 가장오른쪽_클러스터_위치찾기(s, 'c')
@@ -281,6 +282,10 @@ def build_pinable_shape(s):
     
     return format_final_result(A, B, C, D)
 
+
+def build_pinable_shape2(s):
+    pass
+
 def build_quad_shape(s):
     """단순모서리용: 쿼드 셰잎 빌드"""
     A = list(s)
@@ -304,16 +309,17 @@ def format_final_result(A, B, C, D):
     maxLength = max(len(A_str), len(B_str), len(C_str), len(D_str))
     results = []
     for i in range(maxLength):
-        aChar = A_str[i] if len(A_str) > i else ' '
-        bChar = B_str[i] if len(B_str) > i else ' '
-        cChar = C_str[i] if len(C_str) > i else ' '
-        dChar = D_str[i] if len(D_str) > i else ' '
+        aChar = A_str[i] if len(A_str) > i else '-'
+        bChar = B_str[i] if len(B_str) > i else '-'
+        cChar = C_str[i] if len(C_str) > i else '-'
+        dChar = D_str[i] if len(D_str) > i else '-'
         results.append(f"{aChar}{bChar}{dChar}{cChar}")
     return ':'.join(results)
 
-def corner_process(shape: Shape) -> tuple[str, str]:
+def corner_process(shape: Shape, classification: str = None) -> tuple[str, str]:
     """단일 Shape 객체를 받아 Corner 처리를 수행하고 결과와 건물 작동 정보를 반환합니다."""
-    classification, _ = shape.classifier()
+    if classification is None:
+        classification, _ = shape.classifier()
 
     # 1사분면(q1) 기둥 추출
     q1_pillar = ""
@@ -325,28 +331,36 @@ def corner_process(shape: Shape) -> tuple[str, str]:
             q1_pillar += "S"
         else:
             q1_pillar += quad.shape
-            
-    if classification == ShapeType.SIMPLE_CORNER.value:
+    SIMPLE_CORNER = "analyzer.shape_types.simple_corner"
+    STACK_CORNER = "analyzer.shape_types.stack_corner"
+    SWAP_CORNER = "analyzer.shape_types.swap_corner"
+    CLAW_CORNER = "analyzer.shape_types.claw_corner"
+    CLAW_HYBRID_CORNER = "analyzer.shape_types.claw_hybrid_corner"
+    if classification == SIMPLE_CORNER:
         # 단순모서리: 빌드 쿼드 셰잎, "스왑"
         result = build_quad_shape(q1_pillar)
         return result, "스왑"
-    elif classification == ShapeType.STACK_CORNER.value:
+    elif classification == STACK_CORNER:
         # 스택모서리: 빌드 더블 셰잎, "스왑"
         result = build_double_shape(q1_pillar)
         return result, "스왑"
-    elif classification == ShapeType.SWAP_CORNER.value:
+    elif classification == SWAP_CORNER:
         # 스왑모서리: 빌드 컷에이블 셰잎, "스왑"
         result = build_cutable_shape(q1_pillar)
         return result, "스왑"
-    elif classification == ShapeType.CLAW_CORNER.value:
+    elif classification == CLAW_CORNER:
         # 클로모서리: 빌드 핀에이블 셰잎, "핀푸시"
         result = build_pinable_shape(q1_pillar)
+        return result, "핀푸시"
+    elif classification == CLAW_HYBRID_CORNER:
+        # 클로모서리: 빌드 핀에이블 셰잎, "핀푸시"
+        result = build_pinable_shape2(q1_pillar)
         return result, "핀푸시"
     else:
         # 모서리가 아닌 경우 기본 처리 (또는 오류 처리)
         # 이 경우는 모서리 도형만 들어온다고 가정하므로, 기본값을 정하거나 예외 발생
-        result = build_cutable_shape(q1_pillar) # 기본값으로 cutable 처리
-        return result, "스왑"
+        result = build_pinable_shape(q1_pillar) # 기본값으로 cutable 처리
+        return result, "핀푸시"
 
 def process_all_shapes_from_file(input_filepath: str, output_filepath: str):
     """입력 파일에서 도형 코드를 읽어 Corner 처리를 수행하고 결과 파일을 생성합니다."""
