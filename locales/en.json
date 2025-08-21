@@ -98,6 +98,8 @@
     "ui.msg.title.error": "Error",
     "ui.msg.title.done": "Done",
     "ui.msg.title.confirm": "Confirm",
+    "error.coordinates.out_of_bounds": "Coordinates are out of bounds",
+    "error.crystal.not_found": "No crystal found at the specified location",
     "ui.msg.delete_confirm": "Delete {n} selected items?",
     "ui.msg.button.yes": "Yes",
     "ui.msg.button.no": "No",

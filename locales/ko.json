@@ -98,6 +98,8 @@
     "ui.msg.title.error": "오류",
     "ui.msg.title.done": "완료",
     "ui.msg.title.confirm": "확인",
+    "error.coordinates.out_of_bounds": "좌표가 범위를 벗어났습니다",
+    "error.crystal.not_found": "해당 위치에 크리스탈이 없습니다",
     "ui.msg.delete_confirm": "선택된 {n}개 항목을 삭제하시겠습니까?",
     "ui.msg.button.yes": "예",
     "ui.msg.button.no": "아니오",

@@ -692,7 +692,7 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
     # ========== 8단계: 하이브리드 기반 구제 로직 ==========
     # 최종 결과가 불가능형인 경우, 하이브리드 분해를 통해 추가 분류를 시도한다.
     # skip=True인 경우 하이브리드 로직을 스킵
-    if final_classification_type == ShapeType.IMPOSSIBLE.value and not skip:
+    if final_classification_type == ShapeType.IMPOSSIBLE.value and not skip and len(shape_obj.layers) <= 5:
         try:
             from shape import Shape
             # shape_obj가 없으면 생성

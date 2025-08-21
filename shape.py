@@ -169,6 +169,45 @@ class Shape:
     def _get_piece(self, l: int, q: int) -> Optional[Quadrant]:
         return self.layers[l].quadrants[q] if 0 <= l < len(self.layers) and 0 <= q < 4 else None
 
+    def _set_piece(self, l: int, q: int, piece: Optional[Quadrant]):
+        """지정된 위치에 도형 조각을 설정합니다."""
+        if 0 <= l < len(self.layers) and 0 <= q < 4:
+            self.layers[l].quadrants[q] = piece
+
+    def destroy_crystal_at(self, layer: int, quadrant: int) -> Shape:
+        """지정된 위치의 크리스탈을 파괴하고 연쇄 파괴를 수행한 새로운 Shape를 반환합니다.
+        
+        Args:
+            layer: 레이어(층) 인덱스 (0부터 시작)
+            quadrant: 사분면 인덱스 (0=TR, 1=BR, 2=BL, 3=TL)
+            
+        Returns:
+            크리스탈 파괴 후의 새로운 Shape
+        """
+        # 입력 검증
+        if not (0 <= layer < len(self.layers) and 0 <= quadrant < 4):
+            raise ValueError(t("error.coordinates.out_of_bounds"))
+        
+        # 해당 위치에 크리스탈이 있는지 확인
+        piece = self._get_piece(layer, quadrant)
+        if not piece or piece.shape != 'c':
+            raise ValueError(t("error.crystal.not_found"))
+        
+        # Shape를 복사하여 작업
+        result_shape = self.copy()
+        
+        # 초기 파괴 위치 설정
+        initial_destroyed = {(layer, quadrant)}
+        
+        # 연쇄 파괴 계산
+        shattered_coords = result_shape._calculate_shatter_set(initial_destroyed)
+        
+        # 파괴된 위치의 크리스탈들을 제거
+        for l, q in shattered_coords:
+            result_shape._set_piece(l, q, None)
+        
+        return result_shape
+
     def _is_adjacent(self, q1: int, q2: int) -> bool:
         if q1 == q2: return False
         # 새로운 인덱스 매핑: 0=TR(0,1), 1=BR(1,1), 2=BL(1,0), 3=TL(0,0)
@@ -482,6 +521,28 @@ class Shape:
             east_shape = Shape(east_layers)
             east_shape.max_layers = self.max_layers
             
+            # 연쇄 파괴 적용: 세로로 잘린 경우
+            # 0사분면과 3사분면 둘 다 c가 있을 경우 각각 destroy_crystal_at 적용
+            # 1사분면과 2사분면 둘 다 c가 있을 경우 각각 destroy_crystal_at 적용
+            for layer_idx in range(len(east_shape.layers)):
+                # 0사분면과 3사분면 체크
+                if (east_shape._get_piece(layer_idx, 0) and east_shape._get_piece(layer_idx, 0).shape == 'c' and
+                    west_shape._get_piece(layer_idx, 3) and west_shape._get_piece(layer_idx, 3).shape == 'c'):
+                    try:
+                        east_shape = east_shape.destroy_crystal_at(layer_idx, 0)
+                        west_shape = west_shape.destroy_crystal_at(layer_idx, 3)
+                    except ValueError:
+                        pass  # 크리스탈이 이미 파괴된 경우 무시
+                
+                # 1사분면과 2사분면 체크
+                if (east_shape._get_piece(layer_idx, 1) and east_shape._get_piece(layer_idx, 1).shape == 'c' and
+                    west_shape._get_piece(layer_idx, 2) and west_shape._get_piece(layer_idx, 2).shape == 'c'):
+                    try:
+                        east_shape = east_shape.destroy_crystal_at(layer_idx, 1)
+                        west_shape = west_shape.destroy_crystal_at(layer_idx, 2)
+                    except ValueError:
+                        pass  # 크리스탈이 이미 파괴된 경우 무시
+            
             # 각각 물리 적용
             return west_shape.apply_physics(), east_shape.apply_physics()
         else:
@@ -500,6 +561,28 @@ class Shape:
                 south_layers.append(Layer(south_quadrants))
             south_shape = Shape(south_layers)
             south_shape.max_layers = self.max_layers
+            
+            # 연쇄 파괴 적용: 가로로 잘린 경우
+            # 0사분면과 1사분면 둘 다 c가 있을 경우 각각 destroy_crystal_at 적용
+            # 2사분면과 3사분면 둘 다 c가 있을 경우 각각 destroy_crystal_at 적용
+            for layer_idx in range(len(north_shape.layers)):
+                # 0사분면과 1사분면 체크
+                if (north_shape._get_piece(layer_idx, 0) and north_shape._get_piece(layer_idx, 0).shape == 'c' and
+                    south_shape._get_piece(layer_idx, 1) and south_shape._get_piece(layer_idx, 1).shape == 'c'):
+                    try:
+                        north_shape = north_shape.destroy_crystal_at(layer_idx, 0)
+                        south_shape = south_shape.destroy_crystal_at(layer_idx, 1)
+                    except ValueError:
+                        pass  # 크리스탈이 이미 파괴된 경우 무시
+                
+                # 2사분면과 3사분면 체크
+                if (south_shape._get_piece(layer_idx, 2) and south_shape._get_piece(layer_idx, 2).shape == 'c' and
+                    north_shape._get_piece(layer_idx, 3) and north_shape._get_piece(layer_idx, 3).shape == 'c'):
+                    try:
+                        south_shape = south_shape.destroy_crystal_at(layer_idx, 2)
+                        north_shape = north_shape.destroy_crystal_at(layer_idx, 3)
+                    except ValueError:
+                        pass  # 크리스탈이 이미 파괴된 경우 무시
             
             # 각각 물리 적용
             return north_shape.apply_physics(), south_shape.apply_physics()
