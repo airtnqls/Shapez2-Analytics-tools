@@ -1,4 +1,4 @@
-# Shapez2Analyzer - Shape Simulator and Analysis Tool
+# Shapez2Analyzer
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![PyQt6](https://img.shields.io/badge/PyQt6-GUI-green.svg)

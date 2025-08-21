@@ -580,6 +580,12 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
         q1_pillar_processed = corner_result.get_pillar(0)
         # q1_pillar와 q1_pillar_processed 비교
         if repr(q1_pillar_processed) != repr(pillars[0]):
+            # pillars 문자가 6이상일 경우 알수없음으로 분류
+            if len(pillars[0]) >= 6:
+                final_reasons.clear()
+                final_reasons.append(t("analyzer.unknown.layers_exceeded", layers=len(pillars[0])))
+                final_reason_string = _finalize_reasons(final_reasons)
+                return ShapeType.UNKNOWN.value, final_reason_string
             return ShapeType.IMPOSSIBLE.value, _finalize_reasons([corner_classification])
         
         # 분류 타입을 미리 결정하되 바로 리턴하지 않음

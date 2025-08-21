@@ -284,6 +284,12 @@ def build_pinable_shape(s):
 
 
 def build_pinable_shape2(s):
+    L = max(len(s), Shape.MAX_LAYERS)
+    
+    # 가장 오른쪽 c 클러스터의 가장 왼쪽 위치를 찾음
+    L2 = 가장오른쪽_클러스터_위치찾기(s, 'c')
+    
+    
     pass
 
 def build_quad_shape(s):
