@@ -4,7 +4,39 @@
 ![PyQt6](https://img.shields.io/badge/PyQt6-GUI-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+## 📺 Tutorial Video
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Bs5tuStF8Wc" title="Shapez2Analyzer Tutorial" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+## 🎬 Demo GIFs
+
+### Shape Visualise and modify
+
+![Shape Movement Demo](assets/move.gif)
+
+### Shape Operations
+
+![Shape Operations Demo](assets/oper.gif)
+
+### Shape Search (Support Regex)
+
+![Shape Search Demo](assets/search.gif)
+
+### Process Tree Visualization
+
+![Process Tree Demo](assets/tree.gif)
+
+And more ...
+
 ## Installation
+
+### For Users (Recommended)
+
+Download the latest release from: [GitHub Releases](https://github.com/airtnqls/Shapez2-Analytics-tools/releases/)
+
+Simply download the zip file, extract it, and run `Shapez2Analyzer.exe`.
+
+### For Developers
 
 ```bash
 pip install -r requirements.txt
