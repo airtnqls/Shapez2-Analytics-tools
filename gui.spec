@@ -11,7 +11,6 @@ a = Analysis(
         ('locales', 'locales'),
         ('icons', 'icons'),
         ('tests.json', '.'),
-        ('data', 'data'),
     ],
     hiddenimports=[
         'PyQt6.QtCore',
@@ -24,11 +23,6 @@ a = Analysis(
         'shape_classifier',
         'combination_generator',
         'i18n',
-        'sys',
-        'os',
-        'collections',
-        'PyQt6.sip',
-        'PyQt6.QtPrintSupport',
     ],
     hookspath=[],
     hooksconfig={},
@@ -50,16 +44,15 @@ exe = EXE(
     name='Shapez2Analyzer',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,
+    strip=False,
     upx=False,
     console=False,
-    disable_windowed_traceback=True,
+    disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
     icon='icons/icon.ico',
-    runtime_tmpdir=None,
 )
 
 coll = COLLECT(
@@ -67,7 +60,7 @@ coll = COLLECT(
     a.binaries,
     a.zipfiles,
     a.datas,
-    strip=True,
+    strip=False,
     upx=False,
     upx_exclude=[],
     name='Shapez2'
