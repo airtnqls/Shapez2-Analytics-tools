@@ -35,7 +35,7 @@ And more ...
 
 ### For Users (Recommended)
 
-## Download the latest release from: [Download](https://github.com/airtnqls/Shapez2-Analytics-tools/releases/)
+#### Download from: [Download Here](https://github.com/airtnqls/Shapez2-Analytics-tools/releases/)
 
 Simply download the zip file, extract it, and run `Shapez2Analyzer.exe`.
 
