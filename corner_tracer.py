@@ -346,6 +346,8 @@ def build_pinable_shape2(s):
                 A[i] = '-'
     print(''.join(A))
     
+    # @@@@@@@@@@@@만드는중@@@@@@@@@@@@
+    
     pass
 
 example = "SS-S-S-cS-S-c"
@@ -426,7 +428,7 @@ def corner_process(shape: Shape, classification: str = None) -> tuple[str, str]:
         return result, "핀푸시"
     elif classification == CLAW_HYBRID_CORNER:
         # 클로모서리: 빌드 핀에이블 셰잎, "핀푸시"
-        result = build_pinable_shape2(q1_pillar)
+        result = build_pinable_shape(q1_pillar)
         return result, "핀푸시"
     else:
         # 모서리가 아닌 경우 기본 처리 (또는 오류 처리)

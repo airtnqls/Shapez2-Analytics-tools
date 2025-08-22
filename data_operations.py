@@ -29,8 +29,9 @@ def get_data_directory(filename=None):
         exe_dir = os.path.dirname(sys.executable)
         base_dir = os.path.join(exe_dir, "data")
     else:
-        # 일반 실행의 경우 현재 디렉토리의 data 폴더 사용
-        base_dir = "data"
+        # 일반 실행의 경우 현재 실행파일의 디렉토리 기준 data 폴더 사용
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = os.path.join(current_dir, "data")
     
     if filename:
         return os.path.join(base_dir, filename)

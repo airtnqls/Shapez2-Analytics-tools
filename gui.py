@@ -1636,8 +1636,9 @@ class ShapezGUI(QMainWindow):
             
             try:
                 # 원본 tests.json 파일 불러오기
-                if os.path.exists("tests.json"):
-                    with open("tests.json", "r", encoding="utf-8") as f:
+                test_file_path = get_resource_path("tests.json")
+                if os.path.exists(test_file_path):
+                    with open(test_file_path, "r", encoding="utf-8") as f:
                         original_data = json.load(f)
                     
                     # 현재 테스트 데이터를 원본으로 교체
@@ -2602,7 +2603,17 @@ class ShapezGUI(QMainWindow):
 
         # 헬프 탭 추가
         help_tab_widget = QWidget()
-        help_layout = QVBoxLayout(help_tab_widget)
+        help_main_layout = QVBoxLayout(help_tab_widget)
+        help_main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 스크롤 영역 생성
+        help_scroll_area = QScrollArea()
+        help_scroll_area.setWidgetResizable(True)
+        help_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        help_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        help_scroll_widget = QWidget()
+        help_layout = QVBoxLayout(help_scroll_widget)
 
         # 링크 섹션 (웹디자인 스타일 카드)
         help_links_group = QGroupBox(t("ui.help.links.title"))
@@ -2625,7 +2636,7 @@ class ShapezGUI(QMainWindow):
         help_links_layout.addWidget(self.help_btn_github)
 
         # YouTube (임시)
-        self.help_btn_youtube = QPushButton("YouTube (temp)")
+        self.help_btn_youtube = QPushButton("YouTube")
         self.help_btn_youtube.setIcon(link_icon)
         self.help_btn_youtube.setFlat(True)
         self.help_btn_youtube.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -2635,7 +2646,7 @@ class ShapezGUI(QMainWindow):
         help_links_layout.addWidget(self.help_btn_youtube)
 
         # Discord
-        self.help_btn_discord = QPushButton("Discord")
+        self.help_btn_discord = QPushButton("Discord (temp)")
         self.help_btn_discord.setIcon(link_icon)
         self.help_btn_discord.setFlat(True)
         self.help_btn_discord.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -2646,31 +2657,78 @@ class ShapezGUI(QMainWindow):
 
         help_layout.addWidget(help_links_group)
 
-        # 분류 소개 섹션
+        # 분류 소개 섹션 - 시각화 포함
         help_intro_group = QGroupBox(t("ui.help.classification.title"))
         help_intro_layout = QVBoxLayout(help_intro_group)
-        self.help_classification_label = QLabel()
-        self.help_classification_label.setWordWrap(True)
-        self.help_classification_label.setTextFormat(Qt.TextFormat.RichText)
-        self.help_classification_label.setOpenExternalLinks(True)
-        try:
-            from shape_classifier import ShapeType
-            items = []
-            for st in ShapeType:
-                type_key = f"analyzer.shape_type.{st.name.lower()}"
-                desc_key = f"ui.help.classification.desc.{st.name.lower()}"
-                name = t(type_key)
-                desc = t(desc_key)
-                items.append(f"<li><span style='font-weight:600'>{name}</span><span style='color:#666'> — {desc}</span></li>")
-            types_html = "".join(items)
-        except Exception:
-            types_html = ""
-        self.help_classification_label.setText(f"<div style='line-height:1.7'><ul style='padding-left:18px; margin:0'>{types_html}</ul></div>")
-        help_intro_layout.addWidget(self.help_classification_label)
+        
+        # 분류별로 재정렬된 순서 정의 (코너들을 맨 아래로)
+        from shape_classifier import ShapeType
+        
+        # 각 분류별 예시 도형 코드 (사용자가 수정 가능)
+        self.help_example_shapes = {
+            ShapeType.EMPTY: ["----"],
+            ShapeType.BASIC: ["SSSS"],
+            ShapeType.SIMPLE: ["Su--RuCu", "P-P-CrCu:Wb--SrSw"],
+            ShapeType.SWAPABLE: ["cS-S", "cPS-:cP-S:cSc-"],
+            ShapeType.HYBRID: ["P:c:SSSS", "cPS-:cP-S:-Sc-:SSSS"],
+            ShapeType.COMPLEX_HYBRID: ["c:cS:cSSS", "SPSP:-S-S:cPcS:cS-c:cSS-"],
+            ShapeType.CLAW: ["P-P-:P---:cS-S", "PPP-:ScS-:SScS:--SS:cS-S"],
+            ShapeType.CLAW_HYBRID: ["P-P-:P---:cS-S:SSSS"],
+            ShapeType.CLAW_COMPLEX_HYBRID: ["P-P-:P-S-:cSPS", "PPPP:SP-S:---P:S--S:cSSS"],
+            ShapeType.SIMPLE_CORNER: ["S:S:S:S"],
+            ShapeType.STACK_CORNER: ["S:-:S", "S:c:S"],
+            ShapeType.SWAP_CORNER: ["-:S:c", "S:-:c"],
+            ShapeType.CLAW_CORNER: ["-:S:-:c"],
+            ShapeType.CLAW_HYBRID_CORNER: ["S:-:S:-:c"],
+            ShapeType.UNKNOWN: ["----"],
+            ShapeType.IMPOSSIBLE: ["-:P:c", "-P-P:SS-P:---P:c--P:cS-S"]
+        }
+        
+        general_types = [
+            ShapeType.EMPTY, ShapeType.BASIC, ShapeType.SIMPLE, 
+            ShapeType.SWAPABLE, ShapeType.HYBRID, ShapeType.COMPLEX_HYBRID, 
+            ShapeType.CLAW, ShapeType.CLAW_HYBRID, ShapeType.CLAW_COMPLEX_HYBRID
+        ]
+        corner_types = [
+            ShapeType.SIMPLE_CORNER, ShapeType.STACK_CORNER, ShapeType.SWAP_CORNER,
+            ShapeType.CLAW_CORNER, ShapeType.CLAW_HYBRID_CORNER
+        ]
+        special_types = [ShapeType.UNKNOWN, ShapeType.IMPOSSIBLE]
+        
+        # 일반 분류들
+        for st in general_types:
+            self._add_help_classification_item(help_intro_layout, st)
+        
+        # 구분선 추가
+        separator1 = QFrame()
+        separator1.setFrameShape(QFrame.Shape.HLine)
+        separator1.setFrameShadow(QFrame.Shadow.Sunken)
+        separator1.setStyleSheet("QFrame { color: #888; }")
+        help_intro_layout.addWidget(separator1)
+        
+        # 코너 분류들
+        for st in corner_types:
+            self._add_help_classification_item(help_intro_layout, st)
+        
+        # 구분선 추가
+        separator2 = QFrame()
+        separator2.setFrameShape(QFrame.Shape.HLine)
+        separator2.setFrameShadow(QFrame.Shadow.Sunken)
+        separator2.setStyleSheet("QFrame { color: #888; }")
+        help_intro_layout.addWidget(separator2)
+        
+        # 특수 분류들
+        for st in special_types:
+            self._add_help_classification_item(help_intro_layout, st)
+            
         help_layout.addWidget(help_intro_group)
 
         # 여백 채우기
         help_layout.addStretch(1)
+        
+        # 스크롤 영역에 위젯 설정
+        help_scroll_area.setWidget(help_scroll_widget)
+        help_main_layout.addWidget(help_scroll_area)
 
         idx = right_tabs.addTab(help_tab_widget, t("ui.tabs.help"))
         right_tabs.tabBar().setTabData(idx, ("key", "ui.tabs.help", None))
@@ -2892,6 +2950,86 @@ class ShapezGUI(QMainWindow):
                 layout.addWidget(reason_label)
         except Exception:
             pass
+
+    def _add_help_classification_item(self, layout, shape_type):
+        """help 탭에서 각 분류별로 설명과 예시 도형 시각화를 추가하는 헬퍼 메서드"""
+        try:
+            type_key = f"analyzer.shape_types.{shape_type.name.lower()}"
+            desc_key = f"ui.help.classification.desc.{shape_type.name.lower()}"
+            name = t(type_key)
+            desc = t(desc_key)
+            
+            # 분류명과 설명
+            header_layout = QHBoxLayout()
+            name_label = QLabel(f"<b>{name}</b>")
+            name_label.setStyleSheet("font-size: 14px; color: #333;")
+            desc_label = QLabel(f"<span style='color:#666'>{desc}</span>")
+            desc_label.setWordWrap(True)
+            
+            header_layout.addWidget(name_label)
+            header_layout.addWidget(desc_label, 1)
+            layout.addLayout(header_layout)
+            
+            # 예시 도형들 (딕셔너리에서 가져옴)
+            examples_layout = QHBoxLayout()
+            examples_layout.setSpacing(8)  # 도형 분석 탭과 동일한 간격
+            examples_layout.setContentsMargins(0, 0, 0, 0)  # 도형 분석 탭과 동일한 마진
+            
+            # 해당 분류의 예시 도형 코드들 가져오기
+            example_codes = self.help_example_shapes.get(shape_type, ["SSSS", "SSSS"])
+            
+            for i in range(len(example_codes)):
+                try:
+                    # 딕셔너리에서 해당 분류의 예시 도형 코드 사용
+                    shape_code = example_codes[i]
+                    shape = Shape.from_string(shape_code)
+                    
+                    # 각 도형을 개별 컨테이너로 감싸기
+                    example_container = QWidget()
+                    example_layout = QVBoxLayout(example_container)
+                    example_layout.setContentsMargins(4, 4, 4, 4)
+                    example_layout.setSpacing(2)
+                    
+                    # 도형 코드 라벨 (위에 표시)
+                    code_label = QLabel(shape_code)
+                    code_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    code_label.setStyleSheet("font-family: monospace; font-size: 11px; color: #555; margin-bottom: 2px;")
+                    example_layout.addWidget(code_label)
+                    
+                    # 도형 시각화 위젯 (아래에 표시)
+                    shape_widget = ShapeWidget(shape, compact=True)
+                    example_layout.addWidget(shape_widget)
+                    
+                    # 컨테이너 스타일
+                    example_container.setStyleSheet("""
+                        QWidget {
+                            background-color: rgba(248, 248, 248, 180);
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            padding: 2px;
+                        }
+                    """)
+                    
+                    examples_layout.addWidget(example_container)
+                    
+                except Exception:
+                    # 도형 생성 실패 시 빈 플레이스홀더
+                    placeholder = QLabel(f"예시 {i+1}")
+                    placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    placeholder.setStyleSheet("color: #999; font-style: italic;")
+                    examples_layout.addWidget(placeholder)
+            
+            examples_layout.addStretch()
+            layout.addLayout(examples_layout)
+            
+            # 각 분류 항목 사이에 간격 추가
+            layout.addSpacing(20)
+            
+        except Exception:
+            # 폴백: 기존 방식으로 텍스트만 표시
+            fallback_label = QLabel(f"<li><span style='font-weight:600'>{name}</span><span style='color:#666'> — {desc}</span></li>")
+            fallback_label.setWordWrap(True)
+            layout.addWidget(fallback_label)
 
     def update_input_display(self):
         """입력 필드의 텍스트가 변경될 때마다 출력 영역을 업데이트합니다."""

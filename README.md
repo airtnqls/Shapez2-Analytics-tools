@@ -57,6 +57,10 @@ python gui.py
 build.bat
 ```
 
+## ⚠️ Warning
+
+> This program and source code may contain strong spoilers.
+
 ## Features
 
 - **Shape Simulation**: Shape Code input, Operations, Analysis and Visualisation
