@@ -11,6 +11,7 @@ a = Analysis(
         ('locales', 'locales'),
         ('icons', 'icons'),
         ('tests.json', '.'),
+        ('data', 'data'),
     ],
     hiddenimports=[
         'PyQt6.QtCore',
@@ -26,11 +27,13 @@ a = Analysis(
         'sys',
         'os',
         'collections',
+        'PyQt6.sip',
+        'PyQt6.QtPrintSupport',
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'matplotlib', 'numpy'],
+    excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=None,
@@ -56,6 +59,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='icons/icon.ico',
+    runtime_tmpdir=None,
 )
 
 coll = COLLECT(
