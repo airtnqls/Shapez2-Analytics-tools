@@ -6,7 +6,9 @@
 
 ## 📺 Tutorial Video
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/Bs5tuStF8Wc" title="Shapez2Analyzer Tutorial" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+[![Shapez2Analyzer Tutorial](https://img.youtube.com/vi/Bs5tuStF8Wc/maxresdefault.jpg)](https://www.youtube.com/watch?v=Bs5tuStF8Wc)
+
+*Click the image above to watch the tutorial video*
 
 ## 🎬 Demo GIFs
 
