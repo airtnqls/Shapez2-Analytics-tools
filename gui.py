@@ -2631,7 +2631,7 @@ class ShapezGUI(QMainWindow):
         self.help_btn_youtube.setCursor(Qt.CursorShape.PointingHandCursor)
         self.help_btn_youtube.setStyleSheet("QPushButton { color: #1a73e8; border: none; background: transparent; text-align: left; } QPushButton:hover { color: #0b5bd3; }")
         _f = self.help_btn_youtube.font(); _f.setUnderline(True); self.help_btn_youtube.setFont(_f)
-        self.help_btn_youtube.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://www.youtube.com")))
+        self.help_btn_youtube.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://www.youtube.com/watch?v=Bs5tuStF8Wc")))
         help_links_layout.addWidget(self.help_btn_youtube)
 
         # Discord

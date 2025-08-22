@@ -8,6 +8,11 @@ REM Check and install dependencies
 echo Installing dependencies...
 pip install -r requirements.txt
 
+REM Clean previous builds
+echo Cleaning previous builds...
+if exist build rmdir /s /q build
+if exist dist rmdir /s /q dist
+
 REM Run PyInstaller build
 echo Starting PyInstaller build...
 pyinstaller --noconfirm gui.spec
