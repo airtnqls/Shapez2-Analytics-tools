@@ -6,7 +6,7 @@
 
 ## 📺 Tutorial Video
 
-[![Shapez2Analyzer Tutorial](https://img.youtube.com/vi/Bs5tuStF8Wc/maxresdefault.jpg)](https://www.youtube.com/watch?v=Bs5tuStF8Wc)
+[![Shapez2Analyzer Tutorial](https://img.youtube.com/vi/Bs5tuStF8Wc/0.jpg)](https://www.youtube.com/watch?v=Bs5tuStF8Wc)
 
 *Click the image above to watch the tutorial video*
 
