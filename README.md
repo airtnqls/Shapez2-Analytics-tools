@@ -3,6 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![PyQt6](https://img.shields.io/badge/PyQt6-GUI-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Languages](https://img.shields.io/badge/Languages-English%20%7C%20한국어-blue.svg)
 
 ## 📺 Tutorial Video
 
@@ -69,7 +70,7 @@ build.bat
 - ~~**Process Tree**: Implement process tree visualization~~
 - ~~**Claw Hybrid**: Implement claw and hybrid shape analysis~~
 - Corner tracer with Color/(CRSW)
-- Writing program user documentation(Video guide)
+- ~~Writing program user documentation(Video guide)~~
 - Scaling beyond 6 floors
 - Expand quadrants like hexmode
 - Fixing bugs
