@@ -8,6 +8,11 @@ REM Check and install dependencies
 echo Installing dependencies...
 pip install -r requirements.txt
 
+REM Check Python version and path
+echo Checking Python environment...
+python --version
+where python
+
 REM Clean previous builds
 echo Cleaning previous builds...
 if exist build rmdir /s /q build
