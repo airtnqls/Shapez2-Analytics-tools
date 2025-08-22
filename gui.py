@@ -2839,7 +2839,8 @@ class ShapezGUI(QMainWindow):
             if text:
                 return Shape.from_string(text)
         except Exception as e:
-            self.log(t("log.input.error", widget=input_widget.objectName(), error=str(e)))
+            # self.log(t("log.input.error", widget=input_widget.objectName(), error=str(e)))
+            pass
         return None
 
     def _add_classification_widgets(self, layout, shape: Shape):

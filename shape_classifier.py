@@ -530,7 +530,7 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
         is_cg_corner_pattern = re.search(r'-.*c', pillars[0])
         is_no_cut_pattern = re.search(r'-S-+c', pillars[0])
         is_no_pin_pattern = re.search(r'^S*-?S*c', pillars[0])
-        is_claw_hybrid_corner_pattern = re.search(r'-S---------------+c', pillars[0])
+        is_claw_hybrid_corner_pattern = re.search(r'S+-(S-)+c', pillars[0])
         
         # 핀 사유 공통 처리
         if has_pin_at_bottom:

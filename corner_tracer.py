@@ -1,6 +1,33 @@
 from shape import Shape
 from i18n import t
+import re
 
+
+def cluster_info(s: str):
+    """키:값 딕셔너리로 클러스터 정보 반환"""
+    counters = {}  # 문자별 클러스터 등장 횟수
+    result = []
+
+    for m in re.finditer(r"(.)\1*", s):
+        char = m.group(1)
+        length = len(m.group(0))
+        start = m.start()
+        end = m.end() - 1
+        
+        # 해당 문자의 등장 순서
+        idx = counters.get(char, 0)
+        counters[char] = idx + 1
+
+        cluster_dict = {
+            'char': char,
+            'length': length,
+            'start': start,
+            'end': end,
+            'idx': idx
+        }
+        result.append(cluster_dict)
+
+    return result
 
 def 가장오른쪽_클러스터_위치찾기(s, char):
     """가장 오른쪽 특정 문자 클러스터의 가장 왼쪽 위치를 찾음"""
@@ -283,14 +310,47 @@ def build_pinable_shape(s):
     return format_final_result(A, B, C, D)
 
 
+
 def build_pinable_shape2(s):
     L = max(len(s), Shape.MAX_LAYERS)
     
     # 가장 오른쪽 c 클러스터의 가장 왼쪽 위치를 찾음
     L2 = 가장오른쪽_클러스터_위치찾기(s, 'c')
     
+    # 가장 낮은 c 위치를 찾음
+    Low_c = -1
+    for i in range(len(s)):
+        if s[i] == 'c':
+            Low_c = i
+            break
+        
+    cluster = cluster_info(s[:Low_c])
+    # cluster의 모든 'S'의 갯수 합 저장
+    total_S_count = 0
+    for cluster_item in cluster:
+        if cluster_item['char'] == 'S':
+            total_S_count += cluster_item['length']
+    print(total_S_count)
+    
+    A = list(s)
+    
+    # A의 Low_c 위치까지 모든문자를 -로 교체 (역순으로)
+    # 단, total_S_count 개수만큼은 오른쪽부터 S로 교체
+    S_replaced_count = 0
+    for i in range(Low_c - 1, -1, -1):
+        if i < len(A):
+            if S_replaced_count < total_S_count:
+                A[i] = 'S'
+                S_replaced_count += 1
+            else:
+                A[i] = '-'
+    print(''.join(A))
     
     pass
+
+example = "SS-S-S-cS-S-c"
+build_pinable_shape2(example)
+
 
 def build_quad_shape(s):
     """단순모서리용: 쿼드 셰잎 빌드"""
@@ -337,6 +397,12 @@ def corner_process(shape: Shape, classification: str = None) -> tuple[str, str]:
             q1_pillar += "S"
         else:
             q1_pillar += quad.shape
+            
+    # 임시 S-S-c (이후 CLAW_HYBRID_CORNER로 통합)
+    if q1_pillar == "S-S-c":
+        result = "-PcS:SPcc:SPcS:cSc-:--c-"
+        return result, "스택, 핀푸쉬"
+    
     SIMPLE_CORNER = "analyzer.shape_types.simple_corner"
     STACK_CORNER = "analyzer.shape_types.stack_corner"
     SWAP_CORNER = "analyzer.shape_types.swap_corner"
@@ -393,8 +459,10 @@ def process_all_shapes_from_file(input_filepath: str, output_filepath: str):
 
     print(f"파일에 저장된 결과 수: {len(output_lines)}")
 
+'''
 if __name__ == "__main__":
     # 기본 파일 경로
     input_file = "data/example.txt"
     output_file = "data/derived_combinations_len6.txt"
     process_all_shapes_from_file(input_file, output_file)
+'''

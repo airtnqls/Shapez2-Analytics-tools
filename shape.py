@@ -796,6 +796,11 @@ class Shape:
             else:
                 result += "-"
         
+        # 맨 위 레이어가 모두 -로 비어있다면 레이어제거
+        # 비어있지 않을때까지 아래로 반복
+        while result and result[-1] == '-':
+            result = result[:-1]
+        
         # 결과가 4글자 이하면 각 문자 사이에 콜론 추가
         # if len(result) <= 4:
         #     result = ":".join(result)
