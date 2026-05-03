@@ -169,6 +169,7 @@ cython_debug/
 *.log
 *.tmp
 *.cache
+corner_rule_test/corners_rule_search_settings.json
 data/temp/
 data/output/
 results/
