@@ -110,7 +110,14 @@ class ProcessTreeSolver:
         """노드를 매핑에 추가"""
         if node and node.node_id:
             self.nodes_map[node.node_id] = node
-    
+
+    def _is_single_layer_mono_quadrant(self, shape_obj: Optional[Shape]) -> bool:
+        """단일 층에 조각이 한 사분면에만 있으면 True (스왑가능형 쿼드 전개가 깊이만 키우는 경우 차단)."""
+        if not shape_obj or len(shape_obj.layers) != 1:
+            return False
+        pillars = [shape_obj.get_pillar(i) for i in range(4)]
+        return sum(1 for p in pillars if p.strip("-")) == 1
+
     def create_tree_from_data(self, tree_data: Dict) -> Optional[ProcessNode]:
         """
         외부 데이터로부터 트리를 생성하는 공개 메서드
@@ -281,7 +288,6 @@ class ProcessTreeSolver:
             # 분류 정보가 없으면 다시 분석
             if not current_node.classification and target_shape:
                 current_node.classification, current_node.classification_reason = analyze_shape(target_shape_code, target_shape)
-                print(f"DEBUG: _create_simple_tree에서 분류 재수행 - 분류: {current_node.classification}, 사유: {current_node.classification_reason}")
             
             shape_type = current_node.classification
             
@@ -343,7 +349,12 @@ class ProcessTreeSolver:
         
         # 쿼드 연산이 필요한 경우 (깊이가 깊으면 기본 도형으로 처리)
         elif shape_type == ShapeType.SWAPABLE.value and depth < 100:
-            # 깊이가 100 미만인 경우에만 쿼드 연산 적용
+            if self._is_single_layer_mono_quadrant(shape_obj):
+                current_node.operation = "생략"
+                skip_node = ProcessNode("...", "생략", self._generate_node_id())
+                self._add_node_to_map(skip_node)
+                current_node.input_ids = [skip_node.node_id]
+                return
             self._apply_quad_operation(current_node, shape_code, shape_obj, depth)
         
         # 하이브리드 트레이서가 필요한 경우들 (깊이가 깊으면 기본 도형으로 처리)

@@ -39,8 +39,11 @@ import re
 import sys
 import json
 import time
+import contextlib
+import io
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Iterable, Iterator
 
@@ -59,6 +62,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QProgressBar,
     QAbstractScrollArea,
+    QCheckBox,
     QSizePolicy,
     QSpinBox,
     QStatusBar,
@@ -69,6 +73,17 @@ from PyQt6.QtWidgets import (
     QFrame,
 )
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+try:
+    from i18n import load_locales, set_language
+
+    load_locales(str(PROJECT_ROOT / "locales"))
+    set_language("en")
+except Exception:
+    pass
 
 ALPHABET = ("S", "-", "P", "c")
 Symbol = frozenset[str] | None
@@ -556,6 +571,203 @@ class RuleEngine:
         yield from dfs(0, self.start_state())
 
 
+FULL_LAYER_VALUES = tuple(
+    a + b + c + d
+    for a in ALPHABET
+    for b in ALPHABET
+    for c in ALPHABET
+    for d in ALPHABET
+)
+
+
+def simplified_layers_to_code(layers: tuple[str, ...]) -> str:
+    return ":".join(layers)
+
+
+@lru_cache(maxsize=500_000)
+def classify_full_shape(code: str) -> tuple[str, str]:
+    with contextlib.redirect_stdout(io.StringIO()):
+        from shape_classifier import analyze_shape
+
+        # analyze_shape builds the Shape object internally. Passing a prebuilt
+        # object would currently be ignored by the repository implementation.
+        return analyze_shape(code)
+
+
+def _normalize_simplified_layers(layers: Iterable[str]) -> tuple[str, ...]:
+    normalized: list[str] = []
+    for layer in layers:
+        clean = "".join(ch if ch in ALPHABET else "-" for ch in layer.strip())
+        normalized.append((clean + "----")[:4])
+    while normalized and normalized[-1] == "----":
+        normalized.pop()
+    return tuple(normalized)
+
+
+def _rotate_layer_cw(layer: str) -> str:
+    # Shape quadrant order is TR, BR, BL, TL. Clockwise rotation maps TL to TR.
+    return layer[3] + layer[0] + layer[1] + layer[2]
+
+
+def _mirror_layer(layer: str) -> str:
+    # Mirror preserves east/west vertical order: TR, TL, BL, BR.
+    return layer[0] + layer[3] + layer[2] + layer[1]
+
+
+@lru_cache(maxsize=1_000_000)
+def canonical_full_shape_code(code: str) -> str:
+    layers = _normalize_simplified_layers(code.split(":") if code else ())
+    if not layers:
+        return ""
+
+    variants: list[str] = []
+    current = layers
+    for _ in range(4):
+        variants.append(simplified_layers_to_code(current))
+        variants.append(simplified_layers_to_code(tuple(_mirror_layer(layer) for layer in current)))
+        current = tuple(_rotate_layer_cw(layer) for layer in current)
+    return min(variants)
+
+
+@lru_cache(maxsize=500_000)
+def simplify_full_shape_code(code: str) -> str:
+    with contextlib.redirect_stdout(io.StringIO()):
+        from shape import Shape
+
+        shape = Shape.from_string(code)
+        layers: list[str] = []
+        for layer in shape.layers:
+            chars: list[str] = []
+            for quadrant in layer.quadrants:
+                if quadrant is None:
+                    chars.append("-")
+                elif quadrant.shape == "P":
+                    chars.append("P")
+                elif quadrant.shape == "c":
+                    chars.append("c")
+                elif quadrant.shape in {"C", "S", "R", "W"}:
+                    chars.append("S")
+                else:
+                    chars.append("-")
+            layers.append("".join(chars))
+        while layers and layers[-1] == "----":
+            layers.pop()
+        return simplified_layers_to_code(tuple(layers))
+
+
+class FullShapeEngine:
+    alphabet = list(ALPHABET)
+
+    def __init__(self) -> None:
+        self.corner_engine = RuleEngine(DEFAULT_RULE_SPECS)
+        self._layer_transition_cache: dict[
+            tuple[tuple[State, State, State, State], str],
+            tuple[State, State, State, State] | None,
+        ] = {}
+
+    def _start_pillar_states(self) -> tuple[State, State, State, State]:
+        start = self.corner_engine.start_state()
+        return (start, start, start, start)
+
+    def _step_layer(self, states: tuple[State, State, State, State], layer: str) -> tuple[State, State, State, State] | None:
+        cache_key = (states, layer)
+        if cache_key in self._layer_transition_cache:
+            return self._layer_transition_cache[cache_key]
+
+        next_states: list[State] = []
+        for state, ch in zip(states, layer):
+            ns = self.corner_engine.step(state, ch)
+            if ns is None:
+                self._layer_transition_cache[cache_key] = None
+                return None
+            next_states.append(ns)
+        result = tuple(next_states)  # type: ignore[assignment]
+        self._layer_transition_cache[cache_key] = result
+        return result
+
+    def _is_valid_full_shape(self, code: str) -> tuple[bool, str, str]:
+        try:
+            classification, reason = classify_full_shape(code)
+            from shape_classifier import ShapeType
+        except Exception:
+            return False, "", ""
+        if classification in {ShapeType.IMPOSSIBLE.value, ShapeType.UNKNOWN.value}:
+            return False, classification, reason
+        return True, classification, reason
+
+    def _is_canonical(self, code: str) -> bool:
+        try:
+            return code == canonical_full_shape_code(code)
+        except Exception:
+            return False
+
+    def generate_valid(self, max_layers: int, query_regex=None, limit=None, cancel_flag=None, exclude_symmetry: bool = True):
+        yielded = 0
+        layers: list[str] = []
+
+        def is_cancelled() -> bool:
+            return bool(cancel_flag and cancel_flag())
+
+        def dfs(pos: int, states: tuple[State, State, State, State]):
+            nonlocal yielded
+            if is_cancelled():
+                return
+            if limit is not None and yielded >= limit:
+                return
+            if pos >= max_layers:
+                return
+
+            for layer in FULL_LAYER_VALUES:
+                if is_cancelled():
+                    return
+                ns = self._step_layer(states, layer)
+                if ns is None:
+                    continue
+                layers.append(layer)
+                if layer != "----":
+                    code = simplified_layers_to_code(tuple(layers))
+                    if exclude_symmetry and not self._is_canonical(code):
+                        layers.pop()
+                        continue
+                    else:
+                        valid, classification, reason = self._is_valid_full_shape(code)
+                    if valid and (query_regex is None or query_regex.search(code)):
+                        yielded += 1
+                        suffix = f" [{classification}]"
+                        if reason:
+                            suffix += f" {reason}"
+                        yield code + suffix
+                        if limit is not None and yielded >= limit:
+                            layers.pop()
+                            return
+                yield from dfs(pos + 1, ns)
+                if limit is not None and yielded >= limit:
+                    layers.pop()
+                    return
+                layers.pop()
+
+        yield from dfs(0, self._start_pillar_states())
+
+    def count_valid_streaming(
+        self,
+        max_layers: int,
+        query_regex=None,
+        cancel_flag=None,
+        progress=None,
+        exclude_symmetry: bool = True,
+    ) -> int:
+        count = 0
+        for count, _row in enumerate(
+            self.generate_valid(max_layers, query_regex, None, cancel_flag, exclude_symmetry),
+            start=1,
+        ):
+            if cancel_flag and cancel_flag():
+                raise RuntimeError("cancelled")
+            if progress and count % 1000 == 0:
+                progress(count)
+        return count
+
+
 EXPECTED_COUNTS = {
     1: 4,
     2: 14,
@@ -621,13 +833,14 @@ class Worker(QObject):
     def __init__(
         self,
         mode: str,
-        engine: RuleEngine,
+        engine,
         token: CancelToken,
         n: int = 0,
         regex_text: str = "",
         page_size: int = 1000,
         search_iter: Iterator[str] | None = None,
         save_path: str | None = None,
+        exclude_symmetry: bool = True,
     ) -> None:
         super().__init__()
         self.mode = mode
@@ -638,15 +851,18 @@ class Worker(QObject):
         self.page_size = page_size
         self.search_iter = search_iter
         self.save_path = save_path
+        self.exclude_symmetry = exclude_symmetry
 
     def run(self) -> None:
         started = time.perf_counter()
         try:
             if self.mode == "count":
                 self._run_count()
-            elif self.mode == "search_page":
+            elif self.mode == "full_count":
+                self._run_full_count()
+            elif self.mode in {"search_page", "full_search_page"}:
                 self._run_search_page()
-            elif self.mode == "save":
+            elif self.mode in {"save", "full_save"}:
                 self._run_save()
             elif self.mode == "selftest":
                 self._run_selftest()
@@ -692,6 +908,31 @@ class Worker(QObject):
         self.page_ready.emit(page, exhausted)
         self.finished.emit(f"Page loaded: {len(page)} items ({format_elapsed(time.perf_counter() - started)})")
 
+    def _run_full_count(self) -> None:
+        started = time.perf_counter()
+        query = self._compile_query()
+
+        def progress(count: int) -> None:
+            self.progress.emit(0, 0, f"Counting full shapes: {count}")
+
+        answer = self.engine.count_valid_streaming(
+            self.n,
+            query,
+            self.token.is_cancelled,
+            progress,
+            self.exclude_symmetry,
+        )
+        symmetry_note = (
+            "Symmetry note: rotations and mirrors are excluded."
+            if self.exclude_symmetry
+            else "Symmetry note: rotations and mirrors are included."
+        )
+        self.finished.emit(
+            f"Full shape count ({format_elapsed(time.perf_counter() - started)}) =\n"
+            f"{wrap_long_token_text(str(answer))}\n"
+            f"{symmetry_note}"
+        )
+
     def _run_save(self) -> None:
         if not self.save_path:
             raise ValueError("Save path is missing.")
@@ -699,7 +940,17 @@ class Worker(QObject):
         query = self._compile_query()
         written = 0
         with Path(self.save_path).open("w", encoding="utf-8", newline="\n") as fp:
-            for s in self.engine.generate_valid(self.n, query, None, self.token.is_cancelled):
+            if self.mode == "full_save":
+                rows = self.engine.generate_valid(
+                    self.n,
+                    query,
+                    None,
+                    self.token.is_cancelled,
+                    self.exclude_symmetry,
+                )
+            else:
+                rows = self.engine.generate_valid(self.n, query, None, self.token.is_cancelled)
+            for s in rows:
                 fp.write(s + "\n")
                 written += 1
                 if written % 1000 == 0:
@@ -731,6 +982,12 @@ def default_settings() -> dict:
         "page_size": 1000,
         "search_regex": "",
         "rules": dict(DEFAULT_RULE_MAP),
+        "full_shape": {
+            "max_layer": 5,
+            "page_size": 1000,
+            "search_regex": "",
+            "exclude_symmetry": True,
+        },
     }
 
 
@@ -749,6 +1006,11 @@ def load_settings() -> dict:
                         if isinstance(value, str):
                             merged[name] = value
                     settings["rules"] = merged
+                full_shape = loaded.get("full_shape")
+                if isinstance(full_shape, dict):
+                    merged_full = dict(settings["full_shape"])
+                    merged_full.update(full_shape)
+                    settings["full_shape"] = merged_full
     except Exception:
         return settings
     return settings
@@ -765,9 +1027,11 @@ class MainWindow(QMainWindow):
         except Exception:
             self.engine = RuleEngine(DEFAULT_RULE_SPECS)
             self.loaded_rules_valid = False
+        self.full_engine = FullShapeEngine()
         self.thread: QThread | None = None
         self.worker: Worker | None = None
         self.token: CancelToken | None = None
+        self.active_worker_mode = ""
         self.selftest_thread: QThread | None = None
         self.selftest_worker: Worker | None = None
         self.selftest_token: CancelToken | None = None
@@ -780,6 +1044,16 @@ class MainWindow(QMainWindow):
         self.search_page_size = 1000
         self.search_token: CancelToken | None = None
         self.current_page_header = ""
+        self.full_search_iter: Iterator[str] | None = None
+        self.full_search_pages: list[list[str]] = []
+        self.full_current_page_index = -1
+        self.full_search_exhausted = True
+        self.full_search_query_text = ""
+        self.full_search_n = 5
+        self.full_search_page_size = 1000
+        self.full_search_exclude_symmetry = True
+        self.full_search_token: CancelToken | None = None
+        self.full_current_page_header = ""
         self.setWindowTitle("Shapez2 Corners Rule Search")
         self.resize(980, 720)
         self._build_ui()
@@ -957,6 +1231,7 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(self.output, 1)
 
         self.tabs.addTab(search_tab, "Search")
+        self.tabs.addTab(self._build_full_shape_tab(), "Full Shape")
         self.tabs.addTab(self._build_rules_tab(), "Edit Rules")
         layout.addWidget(self.tabs, 1)
 
@@ -972,12 +1247,165 @@ class MainWindow(QMainWindow):
         self.next_page_button.clicked.connect(self.next_page)
         self.save_button.clicked.connect(self.save_results)
         self.cancel_button.clicked.connect(self.cancel_current)
+        self.full_search_button.clicked.connect(self.full_search_regex)
+        self.full_count_button.clicked.connect(self.full_count_valid)
+        self.full_prev_page_button.clicked.connect(self.full_previous_page)
+        self.full_next_page_button.clicked.connect(self.full_next_page)
+        self.full_save_button.clicked.connect(self.full_save_results)
+        self.full_cancel_button.clicked.connect(self.cancel_current)
         self.apply_rules_button.clicked.connect(self.apply_custom_rules)
         self.reset_rules_button.clicked.connect(self.reset_default_rules)
         self.cancel_button.setVisible(False)
         self.cancel_button.setEnabled(False)
+        self.full_cancel_button.setVisible(False)
+        self.full_cancel_button.setEnabled(False)
         self.prev_page_button.setEnabled(False)
         self.next_page_button.setEnabled(False)
+        self.full_prev_page_button.setEnabled(False)
+        self.full_next_page_button.setEnabled(False)
+
+    def _build_full_shape_tab(self) -> QWidget:
+        full_settings = self.settings.get("full_shape") if isinstance(self.settings.get("full_shape"), dict) else {}
+
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setSpacing(8)
+
+        controls_panel = QWidget()
+        controls_panel.setObjectName("panel")
+        form = QGridLayout(controls_panel)
+        form.setContentsMargins(10, 8, 10, 8)
+        form.setHorizontalSpacing(8)
+        form.setVerticalSpacing(6)
+
+        self.full_length_spin = QSpinBox()
+        self.full_length_spin.setRange(1, 5)
+        self.full_length_spin.setValue(int(full_settings.get("max_layer", 5)))
+        self.full_length_spin.setToolTip("Maximum whole-shape layers. Default is 5.")
+
+        self.full_page_size_spin = QSpinBox()
+        self.full_page_size_spin.setRange(1, 1_000_000)
+        self.full_page_size_spin.setValue(int(full_settings.get("page_size", 1000)))
+        self.full_page_size_spin.setToolTip("Items per page")
+
+        self.full_regex_input = QLineEdit()
+        self.full_regex_input.setPlaceholderText("Search simplified full shape regex, leave empty to show all valid shapes")
+        self.full_regex_input.setText(str(full_settings.get("search_regex", "")))
+        self.full_regex_input.setMinimumWidth(0)
+        self.full_regex_input.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.full_regex_input.setToolTip(
+            "Regex is applied to simplified whole-shape codes such as SSSS or SS-c:P--S.\n"
+            "Generation streams layer by layer and uses the existing classifier as final validation."
+        )
+
+        self.full_exclude_symmetry_check = QCheckBox("Exclude Symmetry")
+        self.full_exclude_symmetry_check.setChecked(bool(full_settings.get("exclude_symmetry", True)))
+        self.full_exclude_symmetry_check.setToolTip(
+            "Checked: count/search only one representative per rotation/mirror group.\n"
+            "Unchecked: include rotated and mirrored variants as separate results."
+        )
+
+        form.addWidget(QLabel("Max Layer"), 0, 0)
+        form.addWidget(self.full_length_spin, 0, 1)
+        form.addWidget(QLabel("Items/Page"), 0, 2)
+        form.addWidget(self.full_page_size_spin, 0, 3)
+        form.addWidget(QLabel("Search Regex"), 1, 0)
+        form.addWidget(self.full_regex_input, 1, 1, 1, 2)
+        form.addWidget(self.full_exclude_symmetry_check, 1, 3)
+        form.setColumnStretch(1, 1)
+        form.setColumnStretch(3, 1)
+        layout.addWidget(controls_panel)
+
+        action_panel = QWidget()
+        action_panel.setObjectName("toolbarPanel")
+        buttons = QHBoxLayout(action_panel)
+        buttons.setContentsMargins(8, 7, 8, 7)
+        buttons.setSpacing(8)
+
+        self.full_search_button = QPushButton("Search")
+        self.full_search_button.setIcon(lucide_icon("search", "#ffffff"))
+        self.full_search_button.setObjectName("primaryButton")
+        self.full_search_button.setToolTip("Stream valid full shapes matching the regex by page.")
+
+        self.full_count_button = QPushButton("Count")
+        self.full_count_button.setIcon(lucide_icon("calculator"))
+        self.full_count_button.setToolTip(
+            "Count valid full shapes matching the current regex. Rotations and mirrors are canonicalized."
+        )
+
+        self.full_save_button = QPushButton("Save")
+        self.full_save_button.setIcon(lucide_icon("save"))
+        self.full_save_button.setToolTip("Stream matching full-shape results to a file, one line at a time.")
+
+        self.full_cancel_button = QPushButton("Cancel")
+        self.full_cancel_button.setIcon(lucide_icon("x", "#b91c1c"))
+        self.full_cancel_button.setObjectName("dangerButton")
+        self.full_cancel_button.setToolTip("Cancel the current running task.")
+
+        self.full_prev_page_button = QPushButton()
+        self.full_prev_page_button.setIcon(lucide_icon("chevron-left"))
+        self.full_prev_page_button.setToolTip("Previous page")
+        self.full_prev_page_button.setAccessibleName("Previous page")
+        self.full_prev_page_button.setObjectName("iconButton")
+        self.full_prev_page_button.setFixedSize(34, 32)
+
+        self.full_next_page_button = QPushButton()
+        self.full_next_page_button.setIcon(lucide_icon("chevron-right"))
+        self.full_next_page_button.setToolTip("Next page")
+        self.full_next_page_button.setAccessibleName("Next page")
+        self.full_next_page_button.setObjectName("iconButton")
+        self.full_next_page_button.setFixedSize(34, 32)
+
+        for button in (
+            self.full_count_button,
+            self.full_search_button,
+            self.full_save_button,
+            self.full_cancel_button,
+            self.full_prev_page_button,
+            self.full_next_page_button,
+        ):
+            button.setIconSize(QSize(18, 18))
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        buttons.addWidget(self.full_count_button)
+        buttons.addWidget(self.full_search_button)
+        buttons.addWidget(self.full_save_button)
+        spacer = QFrame()
+        spacer.setFrameShape(QFrame.Shape.VLine)
+        spacer.setObjectName("toolbarDivider")
+        buttons.addWidget(spacer)
+        buttons.addWidget(self.full_prev_page_button)
+        buttons.addWidget(self.full_next_page_button)
+        buttons.addStretch(1)
+        layout.addWidget(action_panel)
+
+        progress_row = QHBoxLayout()
+        progress_row.setContentsMargins(0, 0, 0, 0)
+        progress_row.setSpacing(8)
+        self.full_progress_label = QLabel("Idle")
+        self.full_progress_label.setObjectName("progressLabel")
+        self.full_progress_bar = QProgressBar()
+        self.full_progress_bar.setRange(0, 100)
+        self.full_progress_bar.setValue(0)
+        progress_row.addWidget(self.full_progress_label)
+        progress_row.addWidget(self.full_progress_bar, 1)
+        progress_row.addWidget(self.full_cancel_button)
+        layout.addLayout(progress_row)
+
+        self.full_output = QTextEdit()
+        self.full_output.setObjectName("outputBox")
+        self.full_output.setReadOnly(True)
+        self.full_output.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.full_output.setWordWrapMode(QTextOption.WrapMode.WrapAnywhere)
+        self.full_output.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.full_output.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored)
+        self.full_output.setMinimumWidth(0)
+        self.full_output.setMinimumHeight(320)
+        self.full_output.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self.full_output, 1)
+
+        return tab
 
     def _build_rules_tab(self) -> QWidget:
         tab = QWidget()
@@ -1041,6 +1469,12 @@ class MainWindow(QMainWindow):
             "page_size": self.page_size_spin.value(),
             "search_regex": self.regex_input.text(),
             "rules": rules,
+            "full_shape": {
+                "max_layer": self.full_length_spin.value(),
+                "page_size": self.full_page_size_spin.value(),
+                "search_regex": self.full_regex_input.text(),
+                "exclude_symmetry": self.full_exclude_symmetry_check.isChecked(),
+            },
         }
 
     def _save_settings(self) -> None:
@@ -1056,6 +1490,10 @@ class MainWindow(QMainWindow):
         self.length_spin.valueChanged.connect(self._save_settings)
         self.page_size_spin.valueChanged.connect(self._save_settings)
         self.regex_input.textChanged.connect(self._save_settings)
+        self.full_length_spin.valueChanged.connect(self._save_settings)
+        self.full_page_size_spin.valueChanged.connect(self._save_settings)
+        self.full_regex_input.textChanged.connect(self._save_settings)
+        self.full_exclude_symmetry_check.stateChanged.connect(self._save_settings)
         for edit in self.rule_inputs.values():
             edit.textChanged.connect(self._save_settings)
 
@@ -1235,12 +1673,18 @@ class MainWindow(QMainWindow):
             self.count_button,
             self.search_button,
             self.save_button,
+            self.full_count_button,
+            self.full_search_button,
+            self.full_save_button,
+            self.full_exclude_symmetry_check,
             self.apply_rules_button,
             self.reset_rules_button,
         ):
             button.setEnabled(not busy)
         self.cancel_button.setEnabled(busy)
         self.cancel_button.setVisible(busy)
+        self.full_cancel_button.setEnabled(busy)
+        self.full_cancel_button.setVisible(busy)
         self._update_page_buttons()
 
     def _update_page_buttons(self) -> None:
@@ -1249,6 +1693,10 @@ class MainWindow(QMainWindow):
         has_cached_next = self.current_page_index + 1 < len(self.search_pages)
         can_fetch_next = self.search_iter is not None and not self.search_exhausted
         self.next_page_button.setEnabled(not busy and (has_cached_next or can_fetch_next))
+        self.full_prev_page_button.setEnabled(not busy and self.full_current_page_index > 0)
+        has_cached_full_next = self.full_current_page_index + 1 < len(self.full_search_pages)
+        can_fetch_full_next = self.full_search_iter is not None and not self.full_search_exhausted
+        self.full_next_page_button.setEnabled(not busy and (has_cached_full_next or can_fetch_full_next))
 
     def _clear_search_session(self) -> None:
         if self.search_token:
@@ -1258,6 +1706,16 @@ class MainWindow(QMainWindow):
         self.current_page_index = -1
         self.search_exhausted = True
         self.current_page_header = ""
+        self._update_page_buttons()
+
+    def _clear_full_search_session(self) -> None:
+        if self.full_search_token:
+            self.full_search_token.cancel()
+        self.full_search_iter = None
+        self.full_search_pages = []
+        self.full_current_page_index = -1
+        self.full_search_exhausted = True
+        self.full_current_page_header = ""
         self._update_page_buttons()
 
     def apply_custom_rules(self) -> None:
@@ -1295,12 +1753,19 @@ class MainWindow(QMainWindow):
         if self.thread is not None:
             QMessageBox.warning(self, "Busy", "A task is already running.")
             return
-        self.output.clear()
-        self.progress_bar.setValue(0)
-        self.progress_label.setText("Starting")
+        engine = kwargs.pop("engine", self.engine)
+        self.active_worker_mode = mode
+        if mode.startswith("full_"):
+            self.full_output.clear()
+            self.full_progress_bar.setValue(0)
+            self.full_progress_label.setText("Starting")
+        else:
+            self.output.clear()
+            self.progress_bar.setValue(0)
+            self.progress_label.setText("Starting")
         self.token = CancelToken()
         self.thread = QThread()
-        self.worker = Worker(mode, self.engine, self.token, **kwargs)
+        self.worker = Worker(mode, engine, self.token, **kwargs)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.progress.connect(self.on_progress)
@@ -1323,6 +1788,7 @@ class MainWindow(QMainWindow):
         self.worker = None
         self.thread = None
         self.token = None
+        self.active_worker_mode = ""
         self._set_busy(False)
 
     def start_background_selftest(self) -> None:
@@ -1370,17 +1836,28 @@ class MainWindow(QMainWindow):
         self.progress_label.setText("Self Test ERROR")
 
     def on_progress(self, value: int, total: int, text: str) -> None:
-        self.progress_label.setText(text)
+        label = self.full_progress_label if self.active_worker_mode.startswith("full_") else self.progress_label
+        bar = self.full_progress_bar if self.active_worker_mode.startswith("full_") else self.progress_bar
+        label.setText(text)
         if total > 0:
-            self.progress_bar.setRange(0, total)
-            self.progress_bar.setValue(value)
+            bar.setRange(0, total)
+            bar.setValue(value)
         else:
-            self.progress_bar.setRange(0, 0)
+            bar.setRange(0, 0)
 
     def on_batch(self, rows: list) -> None:
         self.output.append("\n".join(wrap_long_token_text(str(row)) for row in rows))
 
     def on_page_ready(self, page: list, exhausted: bool) -> None:
+        if self.active_worker_mode.startswith("full_"):
+            if page:
+                self.full_search_pages.append([str(row) for row in page])
+                self.full_current_page_index = len(self.full_search_pages) - 1
+            elif not self.full_search_pages:
+                self.full_current_page_index = -1
+            self.full_search_exhausted = exhausted
+            self._show_full_current_page()
+            return
         if page:
             self.search_pages.append([str(row) for row in page])
             self.current_page_index = len(self.search_pages) - 1
@@ -1391,24 +1868,32 @@ class MainWindow(QMainWindow):
 
     def on_finished(self, text: str) -> None:
         status_text = text.splitlines()[0] if text else "Done"
-        if text.startswith("Page loaded") and self.current_page_header:
+        is_full = self.active_worker_mode.startswith("full_")
+        current_header = self.full_current_page_header if is_full else self.current_page_header
+        if text.startswith("Page loaded") and current_header:
             elapsed = ""
             if "(" in text and text.endswith(")"):
                 elapsed = " " + text[text.rfind("(") :]
-            status_text = self.current_page_header + elapsed
+            status_text = current_header + elapsed
         if len(status_text) > 80:
             status_text = "Task complete"
-        self.progress_label.setText(status_text)
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(100)
+        label = self.full_progress_label if is_full else self.progress_label
+        bar = self.full_progress_bar if is_full else self.progress_bar
+        output = self.full_output if is_full else self.output
+        label.setText(status_text)
+        bar.setRange(0, 100)
+        bar.setValue(100)
         if not text.startswith("Page loaded"):
-            self.output.append(wrap_long_token_text(text))
+            output.append(wrap_long_token_text(text))
         self.statusBar().showMessage(status_text)
         self._update_page_buttons()
 
     def on_failed(self, text: str) -> None:
-        self.progress_label.setText("Error")
-        self.output.append(f"ERROR: {text}")
+        is_full = self.active_worker_mode.startswith("full_")
+        label = self.full_progress_label if is_full else self.progress_label
+        output = self.full_output if is_full else self.output
+        label.setText("Error")
+        output.append(f"ERROR: {text}")
         self.statusBar().showMessage(text)
         QMessageBox.critical(self, "Error", text)
         self._update_page_buttons()
@@ -1443,6 +1928,36 @@ class MainWindow(QMainWindow):
         self.output.moveCursor(self.output.textCursor().MoveOperation.Start)
         self.output.verticalScrollBar().setValue(0)
         self.progress_label.setText(header)
+        self.statusBar().showMessage(header)
+        self._update_page_buttons()
+
+    def _show_full_current_page(self) -> None:
+        self.full_output.clear()
+        if self.full_current_page_index < 0:
+            self.full_current_page_header = "No full-shape results"
+            self.full_output.append("No full-shape results")
+            self.full_output.verticalScrollBar().setValue(0)
+            self.full_progress_label.setText("No full-shape results")
+            self.statusBar().showMessage("No full-shape results")
+            self._update_page_buttons()
+            return
+
+        page = self.full_search_pages[self.full_current_page_index]
+        start_no = self.full_current_page_index * self.full_search_page_size + 1
+        end_no = start_no + len(page) - 1
+        header = (
+            f"Full Shape Page {self.full_current_page_index + 1} "
+            f"({start_no}-{end_no}, {len(page)} items)"
+        )
+        if self.full_search_exhausted and self.full_current_page_index == len(self.full_search_pages) - 1:
+            header += " / Last page"
+        self.full_current_page_header = header
+        self.full_output.append(header)
+        self.full_output.append("")
+        self.full_output.append("\n".join(wrap_long_token_text(str(row)) for row in page))
+        self.full_output.moveCursor(self.full_output.textCursor().MoveOperation.Start)
+        self.full_output.verticalScrollBar().setValue(0)
+        self.full_progress_label.setText(header)
         self.statusBar().showMessage(header)
         self._update_page_buttons()
 
@@ -1494,6 +2009,90 @@ class MainWindow(QMainWindow):
             self.current_page_index -= 1
             self._show_current_page()
 
+    def full_count_valid(self) -> None:
+        regex_text = self.full_regex_input.text().strip()
+        try:
+            if regex_text:
+                re.compile(regex_text)
+        except re.error as exc:
+            QMessageBox.warning(self, "Regex Error", str(exc))
+            return
+        self._start_worker(
+            "full_count",
+            engine=self.full_engine,
+            n=self.full_length_spin.value(),
+            regex_text=regex_text,
+            exclude_symmetry=self.full_exclude_symmetry_check.isChecked(),
+        )
+
+    def full_search_regex(self) -> None:
+        regex_text = self.full_regex_input.text().strip()
+        try:
+            query = re.compile(regex_text) if regex_text else None
+        except re.error as exc:
+            QMessageBox.warning(self, "Regex Error", str(exc))
+            return
+        self.full_search_pages = []
+        self.full_current_page_index = -1
+        self.full_search_exhausted = False
+        self.full_search_query_text = regex_text
+        self.full_search_n = self.full_length_spin.value()
+        self.full_search_page_size = self.full_page_size_spin.value()
+        self.full_search_exclude_symmetry = self.full_exclude_symmetry_check.isChecked()
+        self.full_search_token = CancelToken()
+        self.full_search_iter = self.full_engine.generate_valid(
+            self.full_search_n,
+            query,
+            None,
+            self.full_search_token.is_cancelled,
+            self.full_search_exclude_symmetry,
+        )
+        self._fetch_full_next_page()
+
+    def _fetch_full_next_page(self) -> None:
+        if self.full_search_iter is None or self.full_search_exhausted:
+            self._update_page_buttons()
+            return
+        self._start_worker(
+            "full_search_page",
+            engine=self.full_engine,
+            n=self.full_search_n,
+            page_size=self.full_search_page_size,
+            search_iter=self.full_search_iter,
+        )
+
+    def full_next_page(self) -> None:
+        if self.full_current_page_index + 1 < len(self.full_search_pages):
+            self.full_current_page_index += 1
+            self._show_full_current_page()
+            return
+        self._fetch_full_next_page()
+
+    def full_previous_page(self) -> None:
+        if self.full_current_page_index > 0:
+            self.full_current_page_index -= 1
+            self._show_full_current_page()
+
+    def full_save_results(self) -> None:
+        regex_text = self.full_regex_input.text().strip()
+        try:
+            if regex_text:
+                re.compile(regex_text)
+        except re.error as exc:
+            QMessageBox.warning(self, "Regex Error", str(exc))
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Save Full Shape Results", "full_shape_results.txt", "Text Files (*.txt);;All Files (*)")
+        if not path:
+            return
+        self._start_worker(
+            "full_save",
+            engine=self.full_engine,
+            n=self.full_length_spin.value(),
+            regex_text=regex_text,
+            save_path=path,
+            exclude_symmetry=self.full_exclude_symmetry_check.isChecked(),
+        )
+
     def save_results(self) -> None:
         regex_text = self.regex_input.text().strip()
         try:
@@ -1513,7 +2112,11 @@ class MainWindow(QMainWindow):
         if self.search_token:
             self.search_token.cancel()
             self.search_exhausted = True
+        if self.full_search_token:
+            self.full_search_token.cancel()
+            self.full_search_exhausted = True
         self.progress_label.setText("Cancel requested")
+        self.full_progress_label.setText("Cancel requested")
         self.statusBar().showMessage("Cancel requested")
 
 

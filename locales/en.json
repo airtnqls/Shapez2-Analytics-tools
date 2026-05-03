@@ -441,7 +441,7 @@
     "analyzer.corner_rules.rule3": "Corner Rule3. [^P]P.*c",
     "analyzer.corner_rules.rule4": "Corner Rule4. c-.*c",
     "analyzer.corner_rules.rule5": "Corner Rule5. c.-+c",
-    "analyzer.corner_rules.rule6": "Corner Rule6. ^S*-?S*c.*-S-+c",
+    "analyzer.corner_rules.rule6": "Corner Rule6. ^S*-?S*c(.*c)?(S-+)+c",
     "analyzer.limitations.pin_push_x": "Pin Push X",
     "analyzer.limitations.swap_x": "Swap X",
     "analyzer.limitations.stack_x": "Stack X",

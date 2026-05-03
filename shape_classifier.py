@@ -171,7 +171,7 @@ def _check_impossible_patterns(pillars: list[str]) -> tuple[str | None, str | No
         (r'[^P]P.*c', t("analyzer.corner_rules.rule3")),
         (r'c-.*c', t("analyzer.corner_rules.rule4")),
         (r'c.-+c', t("analyzer.corner_rules.rule5")),
-        (r'^S*-?S*c.*-S-+c', t("analyzer.corner_rules.rule6"))
+        (r'^S*-?S*c(.*c)?(S-+)+c', t("analyzer.corner_rules.rule6"))
     ]
     
     for pillar_idx, pillar in enumerate(pillars):
@@ -213,7 +213,7 @@ def _check_limitations(pillars: list[str]) -> set[str]:
     found_limitations = set()
     limitation_rules = [
         (r'^S*-?S*c', ClassificationReason.REASON_LIMITATIONS_PIN_PUSH_X, "OR"),      # OR 조건: 하나의 기둥이라도 패턴에 맞으면 제한사항 추가
-        (r'-S-+c', ClassificationReason.REASON_LIMITATIONS_SWAP_X, "OR"),        # OR 조건: 하나의 기둥이라도 패턴에 맞으면 제한사항 추가
+        (r'c(?:.*c)?(?:S-+)+c', ClassificationReason.REASON_LIMITATIONS_SWAP_X, "OR"),        # OR 조건: 하나의 기둥이라도 패턴에 맞으면 제한사항 추가
         (r'c$', ClassificationReason.REASON_LIMITATIONS_STACK_X, "AND"),          # AND 조건: 모든 기둥이 패턴에 맞아야 제한사항 추가
     ]
 
@@ -513,7 +513,15 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
     # 2, 3, 4사분면이 모두 비어있으면 모서리 도형
     is_q1_only = not q1_empty and q2_empty and q3_empty and q4_empty
 
-    if is_q1_only:
+    # 단일 층에 비어 있지 않은 기둥이 정확히 하나뿐이면(어느 사분면이든), 아래 모서리 분기의
+    # halfDestroy 후 repr 비교가 회전 동치 표기마다 달라져 오판이 난다. 다층·TR 단독 스택은
+    # 여전히 이 분기에서 처리한다.
+    nonempty_quadrant_idxs = [i for i in range(4) if pillars[i].strip("-")]
+    single_layer_mono_quadrant = (
+        len(shape_obj.layers) == 1 and len(nonempty_quadrant_idxs) == 1
+    )
+
+    if is_q1_only and not single_layer_mono_quadrant:
         # q1_pillar만으로 물리 안정성 검사를 위한 임시 Shape 객체 생성
         temp_shape_str = ':'.join(pillars[0]) if pillars[0] else ClassificationReason.REASON_EMPTY
         if temp_shape_str != ClassificationReason.REASON_EMPTY:
@@ -528,7 +536,7 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
         has_crystal = 'c' in pillars[0]
         has_pin_at_bottom = pillars[0].startswith('P') and (len(pillars[0]) > 1 and pillars[0][1] != '-')
         is_cg_corner_pattern = re.search(r'-.*c', pillars[0])
-        is_no_cut_pattern = re.search(r'-S-+c', pillars[0])
+        is_no_cut_pattern = re.search(r'c(?:.*c)?(?:S-+)+c', pillars[0])
         is_no_pin_pattern = re.search(r'^S*-?S*c', pillars[0])
         is_claw_hybrid_corner_pattern = re.search(r'S+-(S-)+c', pillars[0])
         
