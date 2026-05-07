@@ -536,9 +536,9 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
         has_crystal = 'c' in pillars[0]
         has_pin_at_bottom = pillars[0].startswith('P') and (len(pillars[0]) > 1 and pillars[0][1] != '-')
         is_cg_corner_pattern = re.search(r'-.*c', pillars[0])
-        is_no_cut_pattern = re.search(r'c(?:.*c)?(?:S-+)+c', pillars[0])
+        is_no_cut_pattern = re.search(r'-S-+c', pillars[0])
         is_no_pin_pattern = re.search(r'^S*-?S*c', pillars[0])
-        is_claw_hybrid_corner_pattern = re.search(r'S+-(S-)+c', pillars[0])
+        is_claw_hybrid_corner_pattern = re.search(r'^S*-?S*c(?:.*c)?(?:S-+)+c', pillars[0])
         
         # 핀 사유 공통 처리
         if has_pin_at_bottom:
@@ -559,10 +559,10 @@ def analyze_shape(shape: str, shape_obj=None, skip: bool = False) -> tuple[str, 
         # q1_pillar를 corner tracer의 입력으로 넣고 결과를 저장
         corner, _, _, _ = shape_obj.quad_cutter()
         
-        # 클로 하이브리드 모서리: -S-+c 패턴으로 인해 스왑X로 판정받은 경우
+        # 클로 하이브리드 모서리: c(?:.*c)?(?:S-+)+c 패턴으로 인해 스왑X로 판정받은 경우
         if is_claw_hybrid_corner_pattern:
             corner_classification = ShapeType.CLAW_HYBRID_CORNER.value
-        # 클로모서리: -S-+c 패턴으로 인해 스왑X로 판정받은 경우
+        # 클로모서리: c(?:.*c)?(?:S-+)+c 패턴으로 인해 스왑X로 판정받은 경우
         elif is_no_cut_pattern:
             corner_classification = ShapeType.CLAW_CORNER.value
         # 스왑모서리: c 아래 -가 존재하는 경우 (-.*c 패턴)

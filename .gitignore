@@ -165,6 +165,9 @@ cython_debug/
 *.ui.py
 *.qrc.py
 
+# External reference clones (not vendored)
+reference_projects/
+
 # Shapez2Analyzer specific
 *.log
 *.tmp
