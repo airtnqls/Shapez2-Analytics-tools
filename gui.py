@@ -14,8 +14,8 @@ from PyQt6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsWidget, QGraphicsProxyWidget
 )
 from PyQt6.QtWidgets import QToolButton
-from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF, QPainter, QPixmap, QIcon, QBrush, QDesktopServices
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF, QSettings, QProcess, QUrl
+from PyQt6.QtGui import QFont, QColor, QIntValidator, QKeySequence, QShortcut, QDrag, QPen, QPolygonF, QPainter, QPixmap, QIcon, QBrush, QDesktopServices, QCursor
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QMimeData, QTimer, QPointF, QSettings, QProcess, QUrl, QEvent
 
 
 
@@ -395,10 +395,22 @@ class QuadrantWidget(QLabel):
             self.setStyleSheet("background-color: #333; border: 1px solid #555; border-radius: 0px;")
 
     def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.handler and hasattr(self.handler, "begin_brush_stroke"):
+            if self.handler.begin_brush_stroke(self):
+                event.accept()
+                return
         if event.button() == Qt.MouseButton.LeftButton and self.quadrant is not None and self.input_name is not None:
             self.drag_start_position = event.position().toPoint()
 
     def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton and self.handler and hasattr(self.handler, "continue_brush_stroke"):
+            try:
+                global_pos = event.globalPosition().toPoint()
+            except AttributeError:
+                global_pos = event.globalPos()
+            if self.handler.continue_brush_stroke(global_pos):
+                event.accept()
+                return
         if not (event.buttons() & Qt.MouseButton.LeftButton):
             return
         if not hasattr(self, 'drag_start_position') or self.quadrant is None or self.input_name is None:
@@ -417,6 +429,13 @@ class QuadrantWidget(QLabel):
         drag.setHotSpot(event.position().toPoint())
         
         drag.exec(Qt.DropAction.MoveAction)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.handler and hasattr(self.handler, "end_brush_stroke"):
+            if self.handler.end_brush_stroke():
+                event.accept()
+                return
+        super().mouseReleaseEvent(event)
 
     def contextMenuEvent(self, event):
         """우클릭 시 컨텍스트 메뉴 표시"""
@@ -851,9 +870,13 @@ class InputHistory:
         self.history = []
         self.current_index = -1
         
-    def add_entry(self, input_a, input_b, outputs=None):
+    def add_entry(self, inputs, input_b=None, outputs=None):
         """새로운 항목을 히스토리에 추가. outputs는 [(title, Shape|None), ...]"""
-        entry = (input_a, input_b, outputs or [])
+        if isinstance(inputs, (list, tuple)):
+            input_values = tuple(inputs)
+        else:
+            input_values = (inputs, input_b or "")
+        entry = (input_values, outputs or [])
         
         # 현재 항목과 동일하면 추가하지 않음
         if self.history and self.current_index >= 0 and self.history[self.current_index] == entry:
@@ -1869,14 +1892,24 @@ class ShapezGUI(QMainWindow):
 
     def load_settings(self):
         """저장된 설정을 불러옵니다."""
-        input_a_text = self.settings.value("input_a", "crcrcrcr")
-        input_b_text = self.settings.value("input_b", "")
+        saved_inputs = self.settings.value("inputs", None)
+        if saved_inputs:
+            try:
+                input_texts = json.loads(saved_inputs)
+            except Exception:
+                input_texts = None
+        else:
+            input_texts = None
+        if not isinstance(input_texts, list):
+            input_texts = [
+                self.settings.value("input_a", "crcrcrcr"),
+                self.settings.value("input_b", "")
+            ]
         last_data_path = self.settings.value("last_data_path", "")
         auto_apply_enabled = self.settings.value("auto_apply_enabled", False, type=bool)
         
         # 위젯이 초기화된 후에 값을 설정
-        self.input_a.setText(input_a_text)
-        self.input_b.setText(input_b_text)
+        self._set_all_input_texts(input_texts)
         self.last_opened_data_path = last_data_path  # 초기화
 
         if last_data_path and os.path.exists(last_data_path):
@@ -1893,7 +1926,7 @@ class ShapezGUI(QMainWindow):
             self.add_data_tab(t("ui.sample"), ["CuCuCuCu", "RrRrRrRr", "P-P-P-P-"])
 
         # 설정 로드 후, 히스토리 초기 상태를 업데이트합니다.
-        self.input_history.add_entry(input_a_text, input_b_text)
+        self.input_history.add_entry(self._get_all_input_texts())
         self.update_history_buttons()
         self.update_input_display() # 초기 입력 표시
         
@@ -2033,22 +2066,10 @@ class ShapezGUI(QMainWindow):
         self.on_max_layers_changed()
 
         input_group = QGroupBox(t("ui.input.group")); input_layout = QGridLayout(input_group)
-        self.input_a = QLineEdit(); self.input_a.setObjectName(t("ui.input.a")) # 초기값은 load_settings에서 설정
-        self.input_b = QLineEdit(); self.input_b.setObjectName(t("ui.input.b")) # 초기값은 load_settings에서 설정
-        
-        # 입력 완료 시 히스토리에 저장하기 위한 이벤트 연결
-        self.input_a.textChanged.connect(self.on_input_a_changed)
-        self.input_b.textChanged.connect(self.on_input_b_changed)
-        
-        # 입력 A 행
-        self._label_input_a = QLabel(t("ui.input.a"))
-        input_layout.addWidget(self._label_input_a, 0, 0)
-        input_layout.addWidget(self.input_a, 0, 1)
-        
-        # 입력 B 행
-        self._label_input_b = QLabel(t("ui.input.b"))
-        input_layout.addWidget(self._label_input_b, 1, 0)
-        input_layout.addWidget(self.input_b, 1, 1)
+        self.input_layout = input_layout
+        self.input_widgets = []
+        self._add_input_row()
+        self._add_input_row()
         
         # 통합 Undo/Redo 버튼 (입력 A 행에 배치)
         self.undo_button = QPushButton("↶")
@@ -2064,6 +2085,12 @@ class ShapezGUI(QMainWindow):
         self.redo_button.clicked.connect(self.on_redo)
         self.redo_button.setEnabled(False)
         input_layout.addWidget(self.redo_button, 0, 3)
+
+        self.add_input_button = QPushButton("+")
+        self.add_input_button.setMaximumWidth(30)
+        self.add_input_button.setToolTip("입력 C, D... 추가")
+        self.add_input_button.clicked.connect(self.on_add_input_field)
+        input_layout.addWidget(self.add_input_button, 1, 2)
         
         left_panel.addWidget(input_group)
         
@@ -2377,6 +2404,26 @@ class ShapezGUI(QMainWindow):
         # 출력 (분석도구 탭 하단)
         output_group = QGroupBox(t("ui.output.group"))
         output_vbox = QVBoxLayout(output_group)
+        brush_layout = QHBoxLayout()
+        brush_layout.addWidget(QLabel("Brush"))
+        self.brush_buttons = {}
+        for content, label in [("--", "-"), ("Su", "S"), ("cw", "c"), ("P-", "P")]:
+            button = QPushButton(label)
+            button.setCheckable(True)
+            button.setMaximumWidth(34)
+            button.clicked.connect(lambda checked=False, c=content: self.activate_brush(c))
+            brush_layout.addWidget(button)
+            self.brush_buttons[content] = button
+        brush_layout.addStretch()
+        output_vbox.addLayout(brush_layout)
+        self.brush_enabled = False
+        self.brush_content = "Su"
+        self.brush_dragging = False
+        self.brush_touched_cells = set()
+        self.brush_cursor_active = False
+        self.brush_cursor = self._create_brush_cursor()
+        self.set_brush_content(self.brush_content)
+        QApplication.instance().installEventFilter(self)
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.output_widget = QWidget()
@@ -2826,6 +2873,8 @@ class ShapezGUI(QMainWindow):
         self.log(t("log.app.shutdown"))
         
         # 현재 입력 필드의 값 저장
+        input_texts = self._get_all_input_texts()
+        self.settings.setValue("inputs", json.dumps(input_texts, ensure_ascii=False))
         self.settings.setValue("input_a", self.input_a.text())
         self.settings.setValue("input_b", self.input_b.text())
         
@@ -2900,6 +2949,277 @@ class ShapezGUI(QMainWindow):
             # self.log(t("log.input.error", widget=input_widget.objectName(), error=str(e)))
             pass
         return None
+
+    def _input_name_for_index(self, index: int) -> str:
+        name = ""
+        index += 1
+        while index:
+            index, rem = divmod(index - 1, 26)
+            name = chr(ord("A") + rem) + name
+        return name
+
+    def _input_index_for_name(self, name: str) -> int:
+        value = 0
+        for char in name.upper():
+            if not ("A" <= char <= "Z"):
+                return 0
+            value = value * 26 + (ord(char) - ord("A") + 1)
+        return max(0, value - 1)
+
+    def _input_label_text(self, name: str, colon: bool = False) -> str:
+        if name == "A":
+            label = t("ui.label.input_a")
+        elif name == "B":
+            label = t("ui.label.input_b")
+        else:
+            label = f"{t('ui.input.prefix')} {name}"
+        return f"{label}:" if colon else label
+
+    def _add_input_row(self, text: str = ""):
+        index = len(self.input_widgets)
+        name = self._input_name_for_index(index)
+        label = QLabel(self._input_label_text(name, colon=True))
+        edit = QLineEdit()
+        edit.setObjectName(self._input_label_text(name))
+        edit.textChanged.connect(self.on_any_input_changed)
+        self.input_layout.addWidget(label, index, 0)
+        self.input_layout.addWidget(edit, index, 1)
+        remove_button = QPushButton("-")
+        remove_button.setMaximumWidth(30)
+        remove_button.setToolTip(f"{self._input_label_text(name)} 제거")
+        remove_button.clicked.connect(lambda checked=False, n=name: self.on_remove_input_field(n))
+        remove_button.setVisible(index >= 2)
+        self.input_layout.addWidget(remove_button, index, 2)
+        self.input_widgets.append((name, label, edit, remove_button))
+        if name == "A":
+            self.input_a = edit
+            self._label_input_a = label
+        elif name == "B":
+            self.input_b = edit
+            self._label_input_b = label
+        if text:
+            edit.setText(text)
+        return edit
+
+    def _ensure_input_count(self, count: int):
+        while len(self.input_widgets) < count:
+            self._add_input_row()
+
+    def _get_input_widget_by_name(self, name: str):
+        index = self._input_index_for_name(name)
+        self._ensure_input_count(index + 1)
+        return self.input_widgets[index][2]
+
+    def _get_all_input_texts(self) -> List[str]:
+        return [edit.text() for _, _, edit, _ in self.input_widgets]
+
+    def _set_all_input_texts(self, values: List[str], clear_extra: bool = True):
+        self._ensure_input_count(max(2, len(values)))
+        self.history_update_in_progress = True
+        try:
+            for index, (_, _, edit, _) in enumerate(self.input_widgets):
+                if index < len(values):
+                    edit.setText(values[index])
+                elif clear_extra:
+                    edit.clear()
+        finally:
+            self.history_update_in_progress = False
+
+    def on_add_input_field(self):
+        self._add_input_row()
+        self.add_to_history()
+        self.update_input_display()
+
+    def on_remove_input_field(self, name: str):
+        index = self._input_index_for_name(name)
+        if index < 2 or index >= len(self.input_widgets):
+            return
+
+        _, label, edit, remove_button = self.input_widgets.pop(index)
+        for widget in (label, edit, remove_button):
+            self.input_layout.removeWidget(widget)
+            widget.deleteLater()
+
+        reindexed_widgets = []
+        for row, (_, row_label, row_edit, row_remove_button) in enumerate(self.input_widgets):
+            new_name = self._input_name_for_index(row)
+            row_label.setText(self._input_label_text(new_name, colon=True))
+            row_edit.setObjectName(self._input_label_text(new_name))
+            row_remove_button.setToolTip(f"{self._input_label_text(new_name)} 제거")
+            try:
+                row_remove_button.clicked.disconnect()
+            except Exception:
+                pass
+            row_remove_button.clicked.connect(lambda checked=False, n=new_name: self.on_remove_input_field(n))
+            self.input_layout.addWidget(row_label, row, 0)
+            self.input_layout.addWidget(row_edit, row, 1)
+            self.input_layout.addWidget(row_remove_button, row, 2)
+            row_remove_button.setVisible(row >= 2)
+            reindexed_widgets.append((new_name, row_label, row_edit, row_remove_button))
+        self.input_widgets = reindexed_widgets
+        self.input_a = self.input_widgets[0][2]
+        self.input_b = self.input_widgets[1][2]
+        self._label_input_a = self.input_widgets[0][1]
+        self._label_input_b = self.input_widgets[1][1]
+
+        self.add_to_history()
+        self.update_input_display()
+
+    def set_brush_content(self, content: str):
+        self.brush_content = content
+        if hasattr(self, "brush_buttons"):
+            for button_content, button in self.brush_buttons.items():
+                button.setChecked(button_content == content)
+                button.setStyleSheet("QPushButton { font-weight: bold; }" if getattr(self, "brush_enabled", False) and button_content == content else "")
+
+    def _create_brush_cursor(self):
+        pixmap = QPixmap(24, 24)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(QColor("#222222"), 2))
+        painter.setBrush(QBrush(QColor("#f4d03f")))
+        painter.drawRect(6, 14, 8, 5)
+        painter.setBrush(QBrush(QColor("#666666")))
+        painter.drawPolygon(QPolygonF([
+            QPointF(9, 14),
+            QPointF(18, 3),
+            QPointF(21, 6),
+            QPointF(13, 16),
+        ]))
+        painter.end()
+        return QCursor(pixmap, 6, 18)
+
+    def activate_brush(self, content: str):
+        self.set_brush_content(content)
+        self.set_brush_enabled(True)
+
+    def set_brush_enabled(self, enabled: bool):
+        if self.brush_enabled == enabled:
+            return
+        self.brush_enabled = enabled
+        for button in self.brush_buttons.values():
+            button.setStyleSheet("QPushButton { font-weight: bold; }" if enabled and button.isChecked() else "")
+        if enabled and not self.brush_cursor_active:
+            QApplication.setOverrideCursor(self.brush_cursor)
+            self.brush_cursor_active = True
+        elif not enabled:
+            self.end_brush_stroke()
+            if self.brush_cursor_active:
+                QApplication.restoreOverrideCursor()
+                self.brush_cursor_active = False
+            for button in self.brush_buttons.values():
+                button.setStyleSheet("")
+
+    def eventFilter(self, obj, event):
+        if getattr(self, "brush_enabled", False):
+            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.RightButton:
+                self.set_brush_enabled(False)
+            elif event.type() == QEvent.Type.MouseMove and getattr(self, "brush_dragging", False):
+                try:
+                    self.continue_brush_stroke(event.globalPosition().toPoint())
+                except AttributeError:
+                    self.continue_brush_stroke(event.globalPos())
+            elif event.type() == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton:
+                self.end_brush_stroke()
+            elif event.type() == QEvent.Type.ApplicationDeactivate:
+                self.set_brush_enabled(False)
+        return super().eventFilter(obj, event)
+
+    def _brush_content_to_quadrant(self):
+        if self.brush_content == "--":
+            return None
+        if self.brush_content == "Su":
+            return Quadrant("S", "u")
+        if self.brush_content == "cw":
+            return Quadrant("c", "w")
+        if self.brush_content == "P-":
+            return Quadrant("P", "u")
+        return None
+
+    def _find_quadrant_widget_at(self, global_pos):
+        widget = QApplication.widgetAt(global_pos)
+        while widget is not None and not isinstance(widget, QuadrantWidget):
+            widget = widget.parentWidget()
+        return widget
+
+    def begin_brush_stroke(self, quadrant_widget):
+        if not getattr(self, "brush_enabled", False):
+            return False
+        self.brush_dragging = True
+        self.brush_touched_cells = set()
+        self.apply_brush_to_widget(quadrant_widget)
+        return True
+
+    def continue_brush_stroke(self, global_pos):
+        if not getattr(self, "brush_dragging", False):
+            return False
+        quadrant_widget = self._find_quadrant_widget_at(global_pos)
+        if quadrant_widget:
+            self.apply_brush_to_widget(quadrant_widget)
+        return True
+
+    def end_brush_stroke(self):
+        if not getattr(self, "brush_dragging", False):
+            return False
+        self.brush_dragging = False
+        if self.brush_touched_cells:
+            self.add_to_history()
+            self.update_input_display()
+        self.brush_touched_cells = set()
+        return True
+
+    def apply_brush_to_widget(self, quadrant_widget):
+        input_name = getattr(quadrant_widget, "input_name", None)
+        layer_index = getattr(quadrant_widget, "layer_index", None)
+        quad_index = getattr(quadrant_widget, "quad_index", None)
+        if input_name is None or layer_index is None or quad_index is None:
+            return False
+        cell_key = (input_name, layer_index, quad_index)
+        if cell_key in self.brush_touched_cells:
+            return False
+
+        input_widget = self._get_input_widget_by_name(input_name)
+        try:
+            shape = Shape.from_string(input_widget.text())
+        except Exception:
+            shape = Shape("")
+        max_layers = max(len(shape.layers), layer_index + 1)
+        shape.pad_layers(max_layers)
+        shape.layers[layer_index].quadrants[quad_index] = self._brush_content_to_quadrant()
+
+        self.history_update_in_progress = True
+        try:
+            input_widget.setText(repr(shape))
+        finally:
+            self.history_update_in_progress = False
+        self.brush_touched_cells.add(cell_key)
+        self._preview_brush_quadrant(quadrant_widget)
+        return True
+
+    def _preview_brush_quadrant(self, quadrant_widget):
+        new_quadrant = self._brush_content_to_quadrant()
+        quadrant_widget.quadrant = new_quadrant
+        if new_quadrant is None:
+            quadrant_widget.setText("")
+            quadrant_widget.setStyleSheet("background-color: #333; border: 1px solid #555; border-radius: 0px;")
+        elif new_quadrant.shape == "c":
+            base_color = QColor(COLOR_MAP["C"])
+            paint_color = QColor(COLOR_MAP.get(new_quadrant.color, "#FFF"))
+            quadrant_widget.setText("c")
+            quadrant_widget.setStyleSheet(f"""
+                background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 {base_color.name()}, stop:0.5 {base_color.name()}, stop:0.51 {paint_color.name()}, stop:1 {paint_color.name()});
+                color: black; border: 1px solid #555; border-radius: 0px;
+            """)
+        elif new_quadrant.shape == "P":
+            color_code = QColor(COLOR_MAP["P"])
+            quadrant_widget.setText("P")
+            quadrant_widget.setStyleSheet(f"background-color: {color_code.name()}; color: black; border: 1px solid #555; border-radius: 0px;")
+        else:
+            color_code = QColor(COLOR_MAP.get(new_quadrant.color, "#FFF"))
+            quadrant_widget.setText(new_quadrant.shape.upper())
+            quadrant_widget.setStyleSheet(f"background-color: {color_code.name()}; color: black; border: 1px solid #555; border-radius: 0px;")
 
     def _add_classification_widgets(self, layout, shape: Shape):
         """분석 탭 시각화에서 공통으로 사용하는 분류/사유 라벨을 layout 상단에 추가"""
@@ -3031,6 +3351,26 @@ class ShapezGUI(QMainWindow):
             fallback_label.setWordWrap(True)
             layout.addWidget(fallback_label)
 
+    def _add_input_preview_widgets(self):
+        for name, _, edit, _ in self.input_widgets:
+            if name != "A" and not edit.text().strip():
+                continue
+            input_shape = self.get_input_shape(edit)
+            if input_shape:
+                container = QWidget()
+                v_layout = QVBoxLayout(container)
+                v_layout.setContentsMargins(0, 0, 0, 0)
+                v_layout.addStretch(1)
+                self._add_classification_widgets(v_layout, input_shape)
+                v_layout.addWidget(ShapeWidget(
+                    input_shape,
+                    compact=True,
+                    title=self._input_label_text(name),
+                    handler=self,
+                    input_name=name
+                ))
+                self.output_layout.addWidget(container)
+
     def update_input_display(self):
         """입력 필드의 텍스트가 변경될 때마다 출력 영역을 업데이트합니다."""
         # 기존 출력 영역 클리어
@@ -3038,28 +3378,7 @@ class ShapezGUI(QMainWindow):
             if (child := self.output_layout.takeAt(0)) and child.widget():
                 child.widget().deleteLater()
         
-        # 입력 A 표시
-        input_a_shape = self.get_input_shape(self.input_a)
-        if input_a_shape:
-            container = QWidget()
-            v_layout = QVBoxLayout(container)
-            v_layout.setContentsMargins(0, 0, 0, 0)
-            v_layout.addStretch(1)
-            self._add_classification_widgets(v_layout, input_a_shape)
-            v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title=t("ui.label.input_a"), handler=self, input_name="A"))
-            self.output_layout.addWidget(container)
-        
-        # 입력 B 표시 (비어있지 않은 경우만)
-        if self.input_b.text().strip():
-            input_b_shape = self.get_input_shape(self.input_b)
-            if input_b_shape:
-                container = QWidget()
-                v_layout = QVBoxLayout(container)
-                v_layout.setContentsMargins(0, 0, 0, 0)
-                v_layout.addStretch(1)
-                self._add_classification_widgets(v_layout, input_b_shape)
-                v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title=t("ui.label.input_b"), handler=self, input_name="B"))
-                self.output_layout.addWidget(container)
+        self._add_input_preview_widgets()
         
         # 입력만 표시할 때는 출력 결과 초기화 및 적용 버튼 비활성화
         self.current_outputs = []
@@ -3087,28 +3406,7 @@ class ShapezGUI(QMainWindow):
             self.apply_button.setEnabled(False)
             return
 
-        # 입력 A 표시
-        input_a_shape = self.get_input_shape(self.input_a)
-        if input_a_shape:
-            container = QWidget()
-            v_layout = QVBoxLayout(container)
-            v_layout.setContentsMargins(0, 0, 0, 0)
-            v_layout.addStretch(1)
-            self._add_classification_widgets(v_layout, input_a_shape)
-            v_layout.addWidget(ShapeWidget(input_a_shape, compact=True, title=t("ui.label.input_a"), handler=self, input_name="A"))
-            self.output_layout.addWidget(container)
-        
-        # 입력 B 표시 (비어있지 않은 경우만)
-        if self.input_b.text().strip():
-            input_b_shape = self.get_input_shape(self.input_b)
-            if input_b_shape:
-                container = QWidget()
-                v_layout = QVBoxLayout(container)
-                v_layout.setContentsMargins(0, 0, 0, 0)
-                v_layout.addStretch(1)
-                self._add_classification_widgets(v_layout, input_b_shape)
-                v_layout.addWidget(ShapeWidget(input_b_shape, compact=True, title=t("ui.label.input_b"), handler=self, input_name="B"))
-                self.output_layout.addWidget(container)
+        self._add_input_preview_widgets()
 
         # 출력 리스트가 비어있으면 기존 출력만 깔끔히 청소하고 종료
         if not shapes:
@@ -3297,26 +3595,21 @@ class ShapezGUI(QMainWindow):
             self.log(t("log.invalid_outputs"))
             return
         elif len(output_shapes) == 1:
-            # 단일 출력: 입력 A에 적용하고 입력 B는 비움
-            self.history_update_in_progress = True
-            self.input_a.setText(repr(output_shapes[0]))
-            self.history_update_in_progress = False
-            self.input_b.clear()
+            # 단일 출력: 입력 A에 적용하고 나머지 입력은 비움
+            self._set_all_input_texts([repr(output_shapes[0])])
             self.log_verbose(t("log.apply.single", shape=repr(output_shapes[0])))
         elif len(output_shapes) == 2:
             # 이중 출력: 첫 번째는 입력 A, 두 번째는 입력 B에 적용
-            self.history_update_in_progress = True
-            self.input_a.setText(repr(output_shapes[0]))
-            self.input_b.setText(repr(output_shapes[1]))
-            self.history_update_in_progress = False
+            self._set_all_input_texts([repr(shape) for shape in output_shapes])
             self.log_verbose(t("log.apply.double.a", shape_a=repr(output_shapes[0])) + f", {t('log.apply.double.b', shape_b=repr(output_shapes[1]))}")
         else:
-            # 3개 이상의 출력: 처음 두 개만 사용
-            self.history_update_in_progress = True
-            self.input_a.setText(repr(output_shapes[0]))
-            self.input_b.setText(repr(output_shapes[1]))
-            self.history_update_in_progress = False
-            self.log_verbose(f"출력 중 처음 2개를 입력에 적용: A={repr(output_shapes[0])}, B={repr(output_shapes[1])}")
+            self._set_all_input_texts([repr(shape) for shape in output_shapes])
+            applied = ", ".join(
+                f"{self._input_name_for_index(index)}={repr(shape)}"
+                for index, shape in enumerate(output_shapes)
+            )
+            self.log_verbose(f"출력을 입력에 적용: {applied}")
+        self.update_input_display()
     
     def auto_apply_if_enabled(self):
         """자동 적용 체크박스가 체크되어 있으면 자동으로 출력을 입력에 적용합니다."""
@@ -3761,6 +4054,11 @@ class ShapezGUI(QMainWindow):
             self.input_a_label.setText(t("ui.label.input_a"))
         if hasattr(self, 'input_b_label'):
             self.input_b_label.setText(t("ui.label.input_b"))
+        if hasattr(self, 'input_widgets'):
+            for name, label, edit, remove_button in self.input_widgets:
+                label.setText(self._input_label_text(name, colon=True))
+                edit.setObjectName(self._input_label_text(name))
+                remove_button.setToolTip(f"{self._input_label_text(name)} 제거")
         
         # 로그 관련 위젯들 업데이트
         if hasattr(self, 'log_checkbox'):
@@ -3826,8 +4124,8 @@ class ShapezGUI(QMainWindow):
         """도형 시각화 위젯 간의 드래그 앤 드롭을 처리합니다."""
         self.log_verbose(f"드롭 이벤트: {src_input_name}[{src_layer}][{src_quad}] -> {tgt_input_name}[{tgt_layer}][{tgt_quad}]")
 
-        src_input_widget = self.input_a if src_input_name == "A" else self.input_b
-        tgt_input_widget = self.input_a if tgt_input_name == "A" else self.input_b
+        src_input_widget = self._get_input_widget_by_name(src_input_name)
+        tgt_input_widget = self._get_input_widget_by_name(tgt_input_name)
 
         try:
             src_shape = Shape.from_string(src_input_widget.text())
@@ -3862,8 +4160,8 @@ class ShapezGUI(QMainWindow):
     def handle_row_drop(self, src_input_name, src_layer_idx, tgt_input_name, tgt_layer_idx):
         self.log_verbose(f"행 드롭: {src_input_name}[{src_layer_idx}] -> {tgt_input_name}[{tgt_layer_idx}]")
         
-        src_input_widget = self.input_a if src_input_name == "A" else self.input_b
-        tgt_input_widget = self.input_a if tgt_input_name == "A" else self.input_b
+        src_input_widget = self._get_input_widget_by_name(src_input_name)
+        tgt_input_widget = self._get_input_widget_by_name(tgt_input_name)
 
         try:
             src_shape = Shape.from_string(src_input_widget.text())
@@ -3898,7 +4196,7 @@ class ShapezGUI(QMainWindow):
             self.log("🔥 열 교환은 동일한 입력 창 내에서만 가능합니다.")
             return
 
-        input_widget = self.input_a if src_input_name == "A" else self.input_b
+        input_widget = self._get_input_widget_by_name(src_input_name)
         
         try:
             shape = Shape.from_string(input_widget.text())
@@ -3923,7 +4221,7 @@ class ShapezGUI(QMainWindow):
         """셀 내용 변경을 처리합니다."""
         self.log_verbose(f"셀 변경: {input_name}[{layer_index}][{quad_index}] -> {new_quadrant}")
         
-        input_widget = self.input_a if input_name == "A" else self.input_b
+        input_widget = self._get_input_widget_by_name(input_name)
         
         try:
             shape = Shape.from_string(input_widget.text())
@@ -3949,7 +4247,7 @@ class ShapezGUI(QMainWindow):
 
     def handle_row_fill(self, input_name, layer_index, content):
         """행(레이어) 전체를 지정한 내용으로 채웁니다."""
-        input_widget = self.input_a if input_name == "A" else self.input_b
+        input_widget = self._get_input_widget_by_name(input_name)
         try:
             shape = Shape.from_string(input_widget.text())
         except Exception as e:
@@ -3978,7 +4276,7 @@ class ShapezGUI(QMainWindow):
 
     def handle_column_fill(self, input_name, quad_index, content):
         """모든 레이어에서 지정한 열(사분면)을 동일한 내용으로 채웁니다."""
-        input_widget = self.input_a if input_name == "A" else self.input_b
+        input_widget = self._get_input_widget_by_name(input_name)
         try:
             shape = Shape.from_string(input_widget.text())
         except Exception as e:
@@ -4009,6 +4307,16 @@ class ShapezGUI(QMainWindow):
     
     def on_input_a_changed(self):
         """입력 A 입력 완료 시 호출"""
+        self.on_any_input_changed()
+    
+    def on_input_b_changed(self):
+        """입력 B 입력 완료 시 호출"""
+        self.on_any_input_changed()
+
+    def on_any_input_changed(self):
+        """입력 필드 입력 완료 시 호출"""
+        if self.history_update_in_progress:
+            return
         if not self.history_update_in_progress:
             self.add_to_history()
         self.update_input_display()
@@ -4019,18 +4327,10 @@ class ShapezGUI(QMainWindow):
         except Exception:
             pass
     
-    def on_input_b_changed(self):
-        """입력 B 입력 완료 시 호출"""
-        if not self.history_update_in_progress:
-            self.add_to_history()
-        self.update_input_display()
-    
     def add_to_history(self, outputs: Optional[list] = None):
         """현재 입력 상태와 출력 상태를 히스토리에 추가"""
-        input_a_text = self.input_a.text()
-        input_b_text = self.input_b.text()
         outputs_to_store = self.current_outputs if outputs is None else outputs
-        self.input_history.add_entry(input_a_text, input_b_text, outputs_to_store)
+        self.input_history.add_entry(self._get_all_input_texts(), outputs=outputs_to_store)
         self.update_history_buttons()
     
     def update_history_buttons(self):
@@ -4063,11 +4363,8 @@ class ShapezGUI(QMainWindow):
             try:
                 entry = self.input_history.undo()
                 if entry is not None:
-                    input_a_text, input_b_text, outputs = entry
-                    self.history_update_in_progress = True
-                    self.input_a.setText(input_a_text)
-                    self.input_b.setText(input_b_text)
-                    self.history_update_in_progress = False
+                    input_values, outputs = entry
+                    self._set_all_input_texts(list(input_values))
                     self.update_history_buttons()
                     # 출력 시각화 복원 (Undo/Redo 중에는 로그 억제)
                     if isinstance(outputs, list):
@@ -4102,11 +4399,8 @@ class ShapezGUI(QMainWindow):
             try:
                 entry = self.input_history.redo()
                 if entry is not None:
-                    input_a_text, input_b_text, outputs = entry
-                    self.history_update_in_progress = True
-                    self.input_a.setText(input_a_text)
-                    self.input_b.setText(input_b_text)
-                    self.history_update_in_progress = False
+                    input_values, outputs = entry
+                    self._set_all_input_texts(list(input_values))
                     self.update_history_buttons()
                     # 출력 시각화 복원 (Undo/Redo 중에는 로그 억제)
                     if isinstance(outputs, list):
