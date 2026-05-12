@@ -2290,9 +2290,6 @@ def hybrid_rescue_core_verdict(code: str) -> tuple[str, str] | None:
             HYBRID_RESCUE_STATS["claw_hits"] += 1
             return "possible", "kernel_claw_complex_hybrid_rescue"
         HYBRID_RESCUE_TIMES["claw"] += time.perf_counter() - tick
-        if claw_reason == "error":
-            HYBRID_RESCUE_STATS["basic_skip_after_claw_error"] += 1
-            return None
     tick = time.perf_counter()
     HYBRID_RESCUE_STATS["basic_calls"] += 1
     if _hybrid_stack_rescue_attempt(shape_obj, claw_mode=False, normalized=normalized)[0] is not None:
