@@ -1896,6 +1896,13 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
                 if processed_claw_fast_reject_reason(predecessor) is not None:
                     PP_INVERSE_STATS["reject_processed_fast"] += 1
                     continue
+                if (
+                    index == 3
+                    and bitmask_swap_impossibility(predecessor) is None
+                    and len(bitmask_stackable_bases(predecessor)) == 0
+                ):
+                    PP_INVERSE_STATS["third_candidate_swapable_zero_base_shortcut_hits"] += 1
+                    return predecessor
                 PP_INVERSE_STATS["classified_candidates"] += 1
                 shape = Shape.from_string(predecessor)
                 classification_type, _classification_reason = analyze_shape(repr(shape), shape, True)
