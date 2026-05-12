@@ -1683,6 +1683,21 @@ def stackability_core_verdict(code: str) -> tuple[str, str] | None:
 
 
 @lru_cache(maxsize=100_000)
+def stackability_swap12_core_verdict(code: str) -> tuple[str, str] | None:
+    normalized = normalize_code(code)
+    layers = normalized.split(":") if normalized else []
+    if not layers or layers[-1] != "cSSS":
+        return None
+    for base in bitmask_stackable_bases(normalized):
+        if physics_core_verdict(base) is not None:
+            continue
+        swap = swap_core_verdict(base)
+        if swap is not None and swap[0] == "possible" and swap[1] == "kernel_swap_12_34_blocked":
+            return "possible", "kernel_stackable_swap12_base"
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def reference_stackability_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
     for witness in reference_stackability_witnesses(code, layers):
         if witness.base_swap is not None:
@@ -2559,6 +2574,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 sv, sb = kernel
                 fallback_used += 1
                 kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "stackability-swap12-core" in args.experiment:
+            tick = time.perf_counter()
+            kernel = stackability_swap12_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["stackability_swap12"] += elapsed
+            kernel_step_counts["stackability_swap12"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
         if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "stackability-core" in args.experiment:
             tick = time.perf_counter()
             kernel = stackability_core_verdict(code)
@@ -2811,6 +2837,7 @@ def main() -> int:
             "split-cut",
             "promote-scaffold-pppp-no-opp-s",
             "stackability-core",
+            "stackability-swap12-core",
             "reference-cpcp",
             "reference-derived-positive",
             "claw-tail-seed-core",
