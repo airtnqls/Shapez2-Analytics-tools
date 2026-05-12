@@ -1796,6 +1796,50 @@ def stackability_swap12_core_verdict(code: str) -> tuple[str, str] | None:
 
 
 @lru_cache(maxsize=100_000)
+def half_empty_stackability_witness(code: str) -> StackabilityWitness | None:
+    normalized = normalize_code(code)
+    if not normalized or not bitmask_physics_stable(normalized):
+        return None
+    layers = len(normalized.split(":"))
+    if layers <= 0:
+        return None
+    top = normalized.split(":")[-1]
+    if "P" in normalized or "c" not in top or top.count("S") < 2:
+        return None
+    mask_half = 0
+    for l in range(layers):
+        for q in range(2):
+            mask_half |= 3 << (2 * (l * 4 + q))
+    for witness in bitmask_stackability_witnesses(normalized):
+        if "P" in witness.base:
+            continue
+        if any(ch not in "-S:" for ch in witness.stacked_delta):
+            continue
+        if physics_core_verdict(witness.base) is not None:
+            continue
+        if swap_core_verdict(witness.base) != ("possible", "kernel_swap_14_23_blocked"):
+            continue
+        bits = _cpcp_shape_bits(witness.base, layers)
+        for angle in range(2):
+            rotated = _cpcp_rotate_bits(bits, layers, angle)
+            left = _cpcp_equiv_half_min(rotated & mask_half, layers)
+            right = _cpcp_equiv_half_min(
+                _cpcp_rotate_bits(bits, layers, angle + 2) & mask_half,
+                layers,
+            )
+            if left == 0 or right == 0:
+                return witness
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def half_empty_stackability_core_verdict(code: str) -> tuple[str, str] | None:
+    if half_empty_stackability_witness(code) is not None:
+        return "possible", "kernel_stackable_half_empty_swap14_base"
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def reference_stackability_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
     for witness in reference_stackability_witnesses(code, layers):
         if witness.base_swap is not None:
@@ -2172,6 +2216,28 @@ def stackability_tree(code: str, layers: int) -> DecompositionNode | None:
     )
 
 
+def half_empty_stackability_tree(code: str) -> DecompositionNode | None:
+    witness = half_empty_stackability_witness(code)
+    if witness is None:
+        return None
+    base = DecompositionNode(
+        kind="swap",
+        shape=witness.base,
+        detail="half_empty_swap14_base",
+    )
+    stacked_delta = DecompositionNode(
+        kind="stack_input",
+        shape=witness.stacked_delta,
+        detail="s_only_stacked_delta",
+    )
+    return DecompositionNode(
+        kind="stack",
+        shape=normalize_code(code),
+        detail=f"half_empty_heights={witness.heights}",
+        children=(base, stacked_delta),
+    )
+
+
 def swappability_tree(code: str, layers: int) -> DecompositionNode | None:
     witness = reference_cpcp_swappable_witness(code, layers)
     if witness is None:
@@ -2250,6 +2316,9 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     peeled = layer_removal_tree(code)
     if peeled is not None:
         return peeled
+    half_empty_stack = half_empty_stackability_tree(code)
+    if half_empty_stack is not None:
+        return half_empty_stack
     stack = stackability_tree(code, layers)
     if stack is not None:
         return stack
@@ -2874,6 +2943,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["stackability"] += elapsed
             kernel_step_counts["stackability"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
+            tick = time.perf_counter()
+            kernel = half_empty_stackability_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["half_empty_stackability"] += elapsed
+            kernel_step_counts["half_empty_stackability"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
