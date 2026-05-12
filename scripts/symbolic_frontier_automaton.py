@@ -1402,6 +1402,21 @@ def bitmask_physics_stable(code: str) -> bool:
 
 
 @lru_cache(maxsize=200_000)
+def bitmask_stack(bottom: str, top: str, max_layers: int = MAX_LAYERS) -> str:
+    bottom_norm = normalize_code(bottom)
+    top_norm = normalize_code(top)
+    bottom_layers = bottom_norm.split(":") if bottom_norm else []
+    top_layers = [
+        "".join("-" if ch == "c" else ch for ch in layer)
+        for layer in (top_norm.split(":") if top_norm else [])
+    ]
+    combined = ":".join(bottom_layers + top_layers)
+    stacked = bitmask_apply_physics(combined)
+    stacked_layers = stacked.split(":") if stacked else []
+    return normalize_code(":".join(stacked_layers[:max_layers]))
+
+
+@lru_cache(maxsize=200_000)
 def bitmask_push_pin(code: str, max_layers: int = MAX_LAYERS) -> str:
     normalized = normalize_code(code)
     if not normalized:
@@ -2160,6 +2175,7 @@ def _hybrid_stack_rescue_witness(shape_obj: object, claw_mode: bool, normalized:
         with contextlib.redirect_stdout(io.StringIO()):
             from shape import Shape
             from shape_classifier import ShapeType, analyze_shape
+            from data_operations import simplify_shape
 
             if claw_mode:
                 if not claw_hybrid_pattern_possible(normalized):
@@ -2190,8 +2206,8 @@ def _hybrid_stack_rescue_witness(shape_obj: object, claw_mode: bool, normalized:
                 return None
             return HybridRescueWitness(
                 mode="claw" if claw_mode else "basic",
-                left=normalize_code(repr(output_a)),
-                right=normalize_code(b_repr),
+                left=normalize_code(simplify_shape(repr(output_a))),
+                right=normalize_code(simplify_shape(b_repr)),
             )
     except Exception:
         return None
