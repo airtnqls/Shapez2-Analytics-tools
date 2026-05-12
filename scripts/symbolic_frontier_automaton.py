@@ -2462,10 +2462,6 @@ def _hybrid_stack_rescue_attempt(shape_obj: object, claw_mode: bool, normalized:
                 if removed_count == 1 and final_swap is None:
                     HYBRID_RESCUE_STATS["basic_fast_reject_removed1_final_none"] += 1
                     return None, "fast_reject_removed1_final_none"
-            bottom = left_code.split(":")[0] if left_code else "----"
-            if removed_crystal and final_swap == "swap_14_23_blocked" and bottom.count("P") <= 2:
-                HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fast_reject_s14_lowpin"] += 1
-                return None, "fast_reject_s14_lowpin"
             a_type, _a_reason = analyze_shape(repr(output_a), output_a, skip=True)
             if a_type == ShapeType.IMPOSSIBLE.value:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_a_impossible"] += 1
@@ -2870,6 +2866,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 sv, sb = kernel
                 fallback_used += 1
                 kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "reference-stackability-core" in args.experiment:
+            tick = time.perf_counter()
+            kernel = reference_stackability_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["reference_stackability"] += elapsed
+            kernel_step_counts["reference_stackability"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
         if (
             sv == "unknown"
             and args.fallback in ("kernel-core", "kernel-hybrid-core")
@@ -3134,6 +3141,7 @@ def main() -> int:
             "promote-scaffold-pppp-no-opp-s",
             "stackability-core",
             "stackability-swap12-core",
+            "reference-stackability-core",
             "reference-cpcp",
             "reference-derived-positive",
             "claw-tail-seed-core",
