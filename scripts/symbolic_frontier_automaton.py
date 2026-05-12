@@ -2031,6 +2031,42 @@ def small_right_low_base_s_support_core_verdict(code: str) -> tuple[str, str] | 
 
 
 @lru_cache(maxsize=100_000)
+def small_right_pp_low_base_support_witness(code: str) -> HybridRescueWitness | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if len(parts) < 5 or parts[-1] != "cS-S":
+        return None
+    if len(bitmask_stackable_bases(normalized)) > 3:
+        return None
+
+    for layer_index, layer in enumerate(parts):
+        if layer[2] != "P":
+            continue
+        layers = [list(raw_layer) for raw_layer in parts]
+        layers[layer_index][2] = "-"
+        left = normalize_code(":".join("".join(raw_layer) for raw_layer in layers))
+        if len(bitmask_stackable_bases(left)) > 2:
+            continue
+        witness = _verified_stack_rescue_witness(
+            normalized,
+            left,
+            "--P-",
+            "small_right_pp_low_base_support",
+            len(parts),
+        )
+        if witness is not None:
+            return witness
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def small_right_pp_low_base_support_core_verdict(code: str) -> tuple[str, str] | None:
+    if small_right_pp_low_base_support_witness(code) is not None:
+        return "possible", "kernel_small_right_pp_low_base_support_from_verified_left"
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def reference_stackability_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
     for witness in reference_stackability_witnesses(code, layers):
         if witness.base_swap is not None:
@@ -2544,6 +2580,29 @@ def small_right_low_base_s_support_tree(code: str) -> DecompositionNode | None:
     )
 
 
+def small_right_pp_low_base_support_tree(code: str) -> DecompositionNode | None:
+    witness = small_right_pp_low_base_support_witness(code)
+    if witness is None:
+        return None
+    return DecompositionNode(
+        kind="stack",
+        shape=normalize_code(code),
+        detail="small_right_pp_low_base_support",
+        children=(
+            DecompositionNode(
+                kind="claw_predecessor",
+                shape=witness.left,
+                detail="verified_left",
+            ),
+            DecompositionNode(
+                kind="stack_input",
+                shape=witness.right,
+                detail="fixed_small_right_pin_support",
+            ),
+        ),
+    )
+
+
 def swappability_tree(code: str, layers: int) -> DecompositionNode | None:
     witness = reference_cpcp_swappable_witness(code, layers)
     if witness is None:
@@ -2640,6 +2699,9 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     low_base_s_support = small_right_low_base_s_support_tree(code)
     if low_base_s_support is not None:
         return low_base_s_support
+    pp_low_base_support = small_right_pp_low_base_support_tree(code)
+    if pp_low_base_support is not None:
+        return pp_low_base_support
     stack = stackability_tree(code, layers)
     if stack is not None:
         return stack
@@ -3330,6 +3392,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["small_right_low_base_s_support"] += elapsed
             kernel_step_counts["small_right_low_base_s_support"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
+            tick = time.perf_counter()
+            kernel = small_right_pp_low_base_support_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["small_right_pp_low_base_support"] += elapsed
+            kernel_step_counts["small_right_pp_low_base_support"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
