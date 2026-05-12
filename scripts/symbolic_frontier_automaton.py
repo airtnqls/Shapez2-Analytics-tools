@@ -2164,6 +2164,33 @@ def mid_stack_delta_low_frontier_support_core_verdict(code: str) -> tuple[str, s
 
 
 @lru_cache(maxsize=100_000)
+def top_pp_pin_predecessor_support_witness(code: str) -> HybridRescueWitness | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or parts[-1] != "cSPS":
+        return None
+    if len(bitmask_stackable_bases(normalized)) != 2:
+        return None
+    top = list(parts[-1])
+    top[2] = "-"
+    left = normalize_code(":".join(parts[:-1] + ["".join(top)]))
+    return _verified_stack_rescue_witness(
+        normalized,
+        left,
+        "--P-",
+        "top_pp_pin_predecessor_support",
+        len(parts),
+    )
+
+
+@lru_cache(maxsize=100_000)
+def top_pp_pin_predecessor_support_core_verdict(code: str) -> tuple[str, str] | None:
+    if top_pp_pin_predecessor_support_witness(code) is not None:
+        return "possible", "kernel_top_pp_pin_predecessor_support_from_verified_left"
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def reference_stackability_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
     for witness in reference_stackability_witnesses(code, layers):
         if witness.base_swap is not None:
@@ -2769,6 +2796,29 @@ def mid_stack_delta_low_frontier_support_tree(code: str) -> DecompositionNode | 
     )
 
 
+def top_pp_pin_predecessor_support_tree(code: str) -> DecompositionNode | None:
+    witness = top_pp_pin_predecessor_support_witness(code)
+    if witness is None:
+        return None
+    return DecompositionNode(
+        kind="stack",
+        shape=normalize_code(code),
+        detail="top_pp_pin_predecessor_support",
+        children=(
+            DecompositionNode(
+                kind="claw_predecessor",
+                shape=witness.left,
+                detail="verified_left",
+            ),
+            DecompositionNode(
+                kind="stack_input",
+                shape=witness.right,
+                detail="top_pp_pin_delta",
+            ),
+        ),
+    )
+
+
 def swappability_tree(code: str, layers: int) -> DecompositionNode | None:
     witness = reference_cpcp_swappable_witness(code, layers)
     if witness is None:
@@ -2877,6 +2927,9 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     mid_stack_low_frontier = mid_stack_delta_low_frontier_support_tree(code)
     if mid_stack_low_frontier is not None:
         return mid_stack_low_frontier
+    top_pp_support = top_pp_pin_predecessor_support_tree(code)
+    if top_pp_support is not None:
+        return top_pp_support
     stack = stackability_tree(code, layers)
     if stack is not None:
         return stack
@@ -3611,6 +3664,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["mid_stack_delta_low_frontier_support"] += elapsed
             kernel_step_counts["mid_stack_delta_low_frontier_support"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
+            tick = time.perf_counter()
+            kernel = top_pp_pin_predecessor_support_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["top_pp_pin_predecessor_support"] += elapsed
+            kernel_step_counts["top_pp_pin_predecessor_support"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
