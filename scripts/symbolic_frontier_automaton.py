@@ -46,6 +46,24 @@ def load_corner_engine():
         return mod.RuleEngine(mod.DEFAULT_RULE_SPECS)
 
 
+CORNER_ENGINE = load_corner_engine()
+
+
+@lru_cache(maxsize=200_000)
+def corner_columns_allowed(code: str) -> bool:
+    normalized = normalize_code(code)
+    if not normalized:
+        return True
+    layers = normalized.split(":")
+    for q in range(4):
+        state = CORNER_ENGINE.start_state()
+        for layer in layers:
+            state = CORNER_ENGINE.step(state, layer[q])
+            if state is None:
+                return False
+    return True
+
+
 def _mask_for(layer: str, ch: str) -> int:
     mask = 0
     for i, c in enumerate(layer):
@@ -1653,6 +1671,8 @@ def accepted_claw_tail_seed(code: str) -> str | None:
             continue
         if not bitmask_physics_stable(seed):
             continue
+        if not corner_columns_allowed(seed):
+            continue
         if bitmask_swap_impossibility(seed) is not None:
             continue
         return seed
@@ -2458,10 +2478,6 @@ def _hybrid_stack_rescue_attempt(shape_obj: object, claw_mode: bool, normalized:
             left_code = normalize_code(simplify_shape(repr(output_a)))
             right_code = normalize_code(simplify_shape(b_repr))
             removed_count, removed_crystal, final_swap, _base_depth = bitmask_layer_removal_context(left_code)
-            if not claw_mode:
-                if removed_count == 1 and final_swap is None:
-                    HYBRID_RESCUE_STATS["basic_fast_reject_removed1_final_none"] += 1
-                    return None, "fast_reject_removed1_final_none"
             a_type, _a_reason = analyze_shape(repr(output_a), output_a, skip=True)
             if a_type == ShapeType.IMPOSSIBLE.value:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_a_impossible"] += 1
@@ -2492,7 +2508,6 @@ def hybrid_rescue_core_verdict(code: str) -> tuple[str, str] | None:
     normalized = normalize_code(code)
     if not normalized:
         return None
-    depth = len(normalized.split(":"))
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             from shape import Shape
@@ -2502,15 +2517,14 @@ def hybrid_rescue_core_verdict(code: str) -> tuple[str, str] | None:
         return None
     if "c" not in normalized:
         return None
-    if depth == MAX_LAYERS:
-        tick = time.perf_counter()
-        HYBRID_RESCUE_STATS["claw_calls"] += 1
-        claw_witness, claw_reason = _hybrid_stack_rescue_attempt(shape_obj, claw_mode=True, normalized=normalized)
-        if claw_witness is not None:
-            HYBRID_RESCUE_TIMES["claw"] += time.perf_counter() - tick
-            HYBRID_RESCUE_STATS["claw_hits"] += 1
-            return "possible", "kernel_claw_complex_hybrid_rescue"
+    tick = time.perf_counter()
+    HYBRID_RESCUE_STATS["claw_calls"] += 1
+    claw_witness, claw_reason = _hybrid_stack_rescue_attempt(shape_obj, claw_mode=True, normalized=normalized)
+    if claw_witness is not None:
         HYBRID_RESCUE_TIMES["claw"] += time.perf_counter() - tick
+        HYBRID_RESCUE_STATS["claw_hits"] += 1
+        return "possible", "kernel_claw_complex_hybrid_rescue"
+    HYBRID_RESCUE_TIMES["claw"] += time.perf_counter() - tick
     tick = time.perf_counter()
     HYBRID_RESCUE_STATS["basic_calls"] += 1
     if _hybrid_stack_rescue_attempt(shape_obj, claw_mode=False, normalized=normalized)[0] is not None:
@@ -2525,7 +2539,6 @@ def hybrid_rescue_witness(code: str) -> HybridRescueWitness | None:
     normalized = normalize_code(code)
     if not normalized or "c" not in normalized:
         return None
-    depth = len(normalized.split(":"))
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             from shape import Shape
@@ -2533,10 +2546,9 @@ def hybrid_rescue_witness(code: str) -> HybridRescueWitness | None:
             shape_obj = Shape.from_string(normalized)
     except Exception:
         return None
-    if depth == MAX_LAYERS:
-        claw, claw_reason = _hybrid_stack_rescue_attempt(shape_obj, claw_mode=True, normalized=normalized)
-        if claw is not None:
-            return claw
+    claw, claw_reason = _hybrid_stack_rescue_attempt(shape_obj, claw_mode=True, normalized=normalized)
+    if claw is not None:
+        return claw
     return _hybrid_stack_rescue_attempt(shape_obj, claw_mode=False, normalized=normalized)[0]
 
 
