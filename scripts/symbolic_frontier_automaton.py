@@ -1839,6 +1839,20 @@ def half_empty_stackability_core_verdict(code: str) -> tuple[str, str] | None:
     return None
 
 
+def _verified_stack_rescue_witness(
+    normalized: str,
+    left: str,
+    right: str,
+    mode: str,
+    layers: int,
+) -> HybridRescueWitness | None:
+    if bitmask_stack(left, right, max_layers=max(MAX_LAYERS, layers)) != normalized:
+        return None
+    if claw_verify_core_verdict(left) is None:
+        return None
+    return HybridRescueWitness(mode=mode, left=left, right=right)
+
+
 @lru_cache(maxsize=100_000)
 def small_right_cminusss_witness(code: str) -> HybridRescueWitness | None:
     normalized = normalize_code(code)
@@ -1851,11 +1865,13 @@ def small_right_cminusss_witness(code: str) -> HybridRescueWitness | None:
     layers[-1][2] = "-"
     layers[-1][3] = "-"
     left = normalize_code(":".join("".join(layer) for layer in layers))
-    if bitmask_stack(left, "--SS", max_layers=max(MAX_LAYERS, len(parts))) != normalized:
-        return None
-    if claw_verify_core_verdict(left) is None:
-        return None
-    return HybridRescueWitness(mode="small_right_cminusss", left=left, right="--SS")
+    return _verified_stack_rescue_witness(
+        normalized,
+        left,
+        "--SS",
+        "small_right_cminusss",
+        len(parts),
+    )
 
 
 @lru_cache(maxsize=100_000)
@@ -1891,11 +1907,13 @@ def small_right_dense_s_support_witness(code: str) -> HybridRescueWitness | None
         return None
     layers[3][2] = "-"
     left = normalize_code(":".join("".join(layer) for layer in layers))
-    if bitmask_stack(left, "--S-", max_layers=max(MAX_LAYERS, len(parts))) != normalized:
-        return None
-    if claw_verify_core_verdict(left) is None:
-        return None
-    return HybridRescueWitness(mode="small_right_dense_s_support", left=left, right="--S-")
+    return _verified_stack_rescue_witness(
+        normalized,
+        left,
+        "--S-",
+        "small_right_dense_s_support",
+        len(parts),
+    )
 
 
 @lru_cache(maxsize=100_000)
@@ -1921,11 +1939,13 @@ def small_right_pp_stackability_witness(code: str) -> HybridRescueWitness | None
         return None
     layers[-1][2] = "-"
     left = normalize_code(":".join("".join(layer) for layer in layers))
-    if bitmask_stack(left, "--P-", max_layers=max(MAX_LAYERS, len(parts))) != normalized:
-        return None
-    if claw_verify_core_verdict(left) is None:
-        return None
-    return HybridRescueWitness(mode="small_right_pp_stackability", left=left, right="--P-")
+    return _verified_stack_rescue_witness(
+        normalized,
+        left,
+        "--P-",
+        "small_right_pp_stackability",
+        len(parts),
+    )
 
 
 @lru_cache(maxsize=100_000)
@@ -1957,11 +1977,15 @@ def top_sss_tail_stack_witness(code: str) -> HybridRescueWitness | None:
         if not valid:
             continue
         left = normalize_code(":".join("".join(layer) for layer in layers))
-        if bitmask_stack(left, right, max_layers=max(MAX_LAYERS, len(parts))) != normalized:
-            continue
-        if claw_verify_core_verdict(left) is None:
-            continue
-        return HybridRescueWitness(mode="top_sss_tail_stack", left=left, right=right)
+        witness = _verified_stack_rescue_witness(
+            normalized,
+            left,
+            right,
+            "top_sss_tail_stack",
+            len(parts),
+        )
+        if witness is not None:
+            return witness
     return None
 
 
@@ -1987,11 +2011,15 @@ def small_right_low_base_s_support_witness(code: str) -> HybridRescueWitness | N
         layers = [list(raw_layer) for raw_layer in parts]
         layers[layer_index][2] = "-"
         left = normalize_code(":".join("".join(raw_layer) for raw_layer in layers))
-        if bitmask_stack(left, "--S-", max_layers=max(MAX_LAYERS, len(parts))) != normalized:
-            continue
-        if claw_verify_core_verdict(left) is None:
-            continue
-        return HybridRescueWitness(mode="small_right_low_base_s_support", left=left, right="--S-")
+        witness = _verified_stack_rescue_witness(
+            normalized,
+            left,
+            "--S-",
+            "small_right_low_base_s_support",
+            len(parts),
+        )
+        if witness is not None:
+            return witness
     return None
 
 
