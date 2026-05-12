@@ -1871,11 +1871,19 @@ def small_right_dense_s_support_witness(code: str) -> HybridRescueWitness | None
     parts = normalized.split(":") if normalized else []
     if len(parts) < 5 or parts[-1] != "cS-S":
         return None
-    if parts[3] not in ("--SS", "S-S-"):
-        return None
-    if parts[2].count("c") != 0 or parts[2].count("S") < 3:
-        return None
-    if normalized.count("c") > 1 or normalized.count("P") > 4:
+    dense_bridge = (
+        parts[3] in ("--SS", "S-S-")
+        and parts[2].count("c") == 0
+        and parts[2].count("S") >= 3
+        and normalized.count("c") <= 1
+        and normalized.count("P") <= 4
+    )
+    pure_s_cap = (
+        parts[3] == "-SS-"
+        and parts[2] == "SSS-"
+        and normalized.count("c") <= 2
+    )
+    if not dense_bridge and not pure_s_cap:
         return None
 
     layers = [list(layer) for layer in parts]
