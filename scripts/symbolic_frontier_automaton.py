@@ -2232,11 +2232,15 @@ def _hybrid_stack_rescue_attempt(shape_obj: object, claw_mode: bool, normalized:
                 return None, "empty_b"
             left_code = normalize_code(simplify_shape(repr(output_a)))
             right_code = normalize_code(simplify_shape(b_repr))
+            removed_count, removed_crystal, final_swap, _base_depth = bitmask_layer_removal_context(left_code)
             if not claw_mode:
-                removed_count, _removed_crystal, final_swap, _base_depth = bitmask_layer_removal_context(left_code)
                 if removed_count == 1 and final_swap is None:
                     HYBRID_RESCUE_STATS["basic_fast_reject_removed1_final_none"] += 1
                     return None, "fast_reject_removed1_final_none"
+            bottom = left_code.split(":")[0] if left_code else "----"
+            if removed_crystal and final_swap == "swap_14_23_blocked" and bottom.count("P") <= 2:
+                HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fast_reject_s14_lowpin"] += 1
+                return None, "fast_reject_s14_lowpin"
             a_type, _a_reason = analyze_shape(repr(output_a), output_a, skip=True)
             if a_type == ShapeType.IMPOSSIBLE.value:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_a_impossible"] += 1
