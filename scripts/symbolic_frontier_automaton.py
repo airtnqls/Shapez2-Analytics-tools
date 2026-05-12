@@ -2031,6 +2031,51 @@ def swappability_tree(code: str, layers: int) -> DecompositionNode | None:
     )
 
 
+def bitmask_swap_tree(code: str) -> DecompositionNode | None:
+    normalized = normalize_code(code)
+    if not normalized:
+        return None
+    swap_status = bitmask_swap_impossibility(normalized)
+    if swap_status == "swap_both_blocked":
+        return None
+    return DecompositionNode(
+        kind="swap",
+        shape=normalized,
+        detail="bitmask_" + normalize_code_label(swap_status or "swapable"),
+    )
+
+
+def layer_removal_tree(code: str) -> DecompositionNode | None:
+    normalized = normalize_code(code)
+    removed_count, removed_crystal, final_swap, _base_depth = bitmask_layer_removal_context(normalized)
+    if removed_count <= 0 or removed_crystal:
+        return None
+
+    current = normalized
+    peeled_layers: list[str] = []
+    for _ in range(removed_count):
+        current, removed = bitmask_remove_top_nonempty_layer(current)
+        if removed is None:
+            return None
+        peeled_layers.append(removed)
+
+    base = bitmask_swap_tree(current)
+    if base is None:
+        return None
+
+    children: list[DecompositionNode] = [base]
+    children.extend(
+        DecompositionNode(kind="stack_input", shape=layer, detail=f"peeled_top_{index + 1}")
+        for index, layer in enumerate(reversed(peeled_layers))
+    )
+    return DecompositionNode(
+        kind="stack",
+        shape=normalized,
+        detail=f"layer_removal_{removed_count}_{normalize_code_label(final_swap or 'swapable')}",
+        children=tuple(children),
+    )
+
+
 def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | None:
     normalized = normalize_code(code)
     if not normalized:
@@ -2044,6 +2089,12 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     swap = swappability_tree(code, layers)
     if swap is not None:
         return swap
+    bitmask_swap = bitmask_swap_tree(code)
+    if bitmask_swap is not None:
+        return bitmask_swap
+    peeled = layer_removal_tree(code)
+    if peeled is not None:
+        return peeled
     stack = stackability_tree(code, layers)
     if stack is not None:
         return stack
@@ -2355,8 +2406,6 @@ def hybrid_rescue_witness(code: str) -> HybridRescueWitness | None:
         claw, claw_reason = _hybrid_stack_rescue_attempt(shape_obj, claw_mode=True, normalized=normalized)
         if claw is not None:
             return claw
-        if claw_reason == "error":
-            return None
     return _hybrid_stack_rescue_attempt(shape_obj, claw_mode=False, normalized=normalized)[0]
 
 
