@@ -2169,7 +2169,7 @@ def top_pp_pin_predecessor_support_witness(code: str) -> HybridRescueWitness | N
     parts = normalized.split(":") if normalized else []
     if not parts or parts[-1] != "cSPS":
         return None
-    if len(bitmask_stackable_bases(normalized)) != 2:
+    if len(bitmask_stackable_bases(normalized)) > 3:
         return None
     top = list(parts[-1])
     top[2] = "-"
