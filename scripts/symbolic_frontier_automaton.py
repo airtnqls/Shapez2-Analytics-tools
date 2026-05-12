@@ -2204,7 +2204,7 @@ def basic_hybrid_has_b_candidate(code: str) -> bool:
     return False
 
 
-def _hybrid_stack_rescue_witness(shape_obj: object, claw_mode: bool, normalized: str) -> HybridRescueWitness | None:
+def _hybrid_stack_rescue_attempt(shape_obj: object, claw_mode: bool, normalized: str) -> tuple[HybridRescueWitness | None, str]:
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             from shape import Shape
@@ -2214,7 +2214,7 @@ def _hybrid_stack_rescue_witness(shape_obj: object, claw_mode: bool, normalized:
             if claw_mode:
                 if not claw_hybrid_pattern_possible(normalized):
                     HYBRID_RESCUE_STATS["claw_reject_pattern"] += 1
-                    return None
+                    return None, "pattern_reject"
                 from claw_hybrid_tracer import claw_hybrid
 
                 HYBRID_RESCUE_STATS["claw_exec"] += 1
@@ -2222,20 +2222,20 @@ def _hybrid_stack_rescue_witness(shape_obj: object, claw_mode: bool, normalized:
             else:
                 if not basic_hybrid_has_b_candidate(normalized):
                     HYBRID_RESCUE_STATS["basic_reject_initial_empty_b"] += 1
-                    return None
+                    return None, "initial_empty_b"
                 HYBRID_RESCUE_STATS["basic_exec"] += 1
                 output_a, output_b = shape_obj.copy().hybrid()
 
             b_repr = repr(output_b)
             if not b_repr:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_empty_b"] += 1
-                return None
+                return None, "empty_b"
             left_code = normalize_code(simplify_shape(repr(output_a)))
             right_code = normalize_code(simplify_shape(b_repr))
             a_type, _a_reason = analyze_shape(repr(output_a), output_a, skip=True)
             if a_type == ShapeType.IMPOSSIBLE.value:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_a_impossible"] += 1
-                return None
+                return None, "a_impossible"
             replayed = bitmask_stack(
                 left_code,
                 right_code,
@@ -2243,14 +2243,18 @@ def _hybrid_stack_rescue_witness(shape_obj: object, claw_mode: bool, normalized:
             )
             if replayed != normalized:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_stack_miss"] += 1
-                return None
-            return HybridRescueWitness(
-                mode="claw" if claw_mode else "basic",
-                left=left_code,
-                right=right_code,
+                return None, "stack_miss"
+            return (
+                HybridRescueWitness(
+                    mode="claw" if claw_mode else "basic",
+                    left=left_code,
+                    right=right_code,
+                ),
+                "hit",
             )
     except Exception:
-        return None
+        HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_error"] += 1
+        return None, "error"
 
 
 @lru_cache(maxsize=100_000)
@@ -2271,14 +2275,18 @@ def hybrid_rescue_core_verdict(code: str) -> tuple[str, str] | None:
     if depth == MAX_LAYERS:
         tick = time.perf_counter()
         HYBRID_RESCUE_STATS["claw_calls"] += 1
-        if _hybrid_stack_rescue_witness(shape_obj, claw_mode=True, normalized=normalized) is not None:
+        claw_witness, claw_reason = _hybrid_stack_rescue_attempt(shape_obj, claw_mode=True, normalized=normalized)
+        if claw_witness is not None:
             HYBRID_RESCUE_TIMES["claw"] += time.perf_counter() - tick
             HYBRID_RESCUE_STATS["claw_hits"] += 1
             return "possible", "kernel_claw_complex_hybrid_rescue"
         HYBRID_RESCUE_TIMES["claw"] += time.perf_counter() - tick
+        if claw_reason == "error":
+            HYBRID_RESCUE_STATS["basic_skip_after_claw_error"] += 1
+            return None
     tick = time.perf_counter()
     HYBRID_RESCUE_STATS["basic_calls"] += 1
-    if _hybrid_stack_rescue_witness(shape_obj, claw_mode=False, normalized=normalized) is not None:
+    if _hybrid_stack_rescue_attempt(shape_obj, claw_mode=False, normalized=normalized)[0] is not None:
         HYBRID_RESCUE_TIMES["basic"] += time.perf_counter() - tick
         HYBRID_RESCUE_STATS["basic_hits"] += 1
         return "possible", "kernel_complex_hybrid_rescue"
@@ -2299,10 +2307,12 @@ def hybrid_rescue_witness(code: str) -> HybridRescueWitness | None:
     except Exception:
         return None
     if depth == MAX_LAYERS:
-        claw = _hybrid_stack_rescue_witness(shape_obj, claw_mode=True, normalized=normalized)
+        claw, claw_reason = _hybrid_stack_rescue_attempt(shape_obj, claw_mode=True, normalized=normalized)
         if claw is not None:
             return claw
-    return _hybrid_stack_rescue_witness(shape_obj, claw_mode=False, normalized=normalized)
+        if claw_reason == "error":
+            return None
+    return _hybrid_stack_rescue_attempt(shape_obj, claw_mode=False, normalized=normalized)[0]
 
 
 def hybrid_rescue_tree(code: str) -> DecompositionNode | None:
