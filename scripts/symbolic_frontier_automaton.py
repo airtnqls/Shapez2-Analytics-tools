@@ -1580,6 +1580,28 @@ def claw_tail_seed_tree(code: str) -> DecompositionNode | None:
     )
 
 
+def pp_inverse_predecessor_tree(code: str, layers: int) -> DecompositionNode | None:
+    normalized = normalize_code(code)
+    predecessor = pp_inverse_predecessor_witness(normalized, layers)
+    if predecessor is None:
+        return None
+    predecessor_tree = swappability_tree(predecessor, layers)
+    if predecessor_tree is None:
+        predecessor_tree = bitmask_swap_tree(predecessor)
+    if predecessor_tree is None:
+        predecessor_tree = DecompositionNode(
+            kind="pin_predecessor",
+            shape=predecessor,
+            detail="inverse_push_pin_verified",
+        )
+    return DecompositionNode(
+        kind="pin_push",
+        shape=normalized,
+        detail="pp_inverse_predecessor_verified",
+        children=(predecessor_tree,),
+    )
+
+
 def claw_verified_tree(code: str, layers: int) -> DecompositionNode | None:
     normalized = normalize_code(code)
     verified, reason = claw_verify_status(normalized)
@@ -1793,6 +1815,86 @@ def pp_minimal_witness(code: str, layers: int) -> PpMinimalWitness:
         predecessor_stackability=reference_stackability_core_verdict(predecessor, layers),
         target_stackable_base_count=len(bitmask_stackable_bases(normalized)),
     )
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts:
+        return ()
+
+    base_parts = parts[1:]
+    candidates: list[str] = []
+    base = normalize_code(":".join(base_parts))
+    if bitmask_push_pin(base, layers) == normalized:
+        candidates.append(base)
+
+    padded = list(base_parts)
+    while len(padded) < layers:
+        padded.append("----")
+
+    for width in range(1, 5):
+        for q_combo in itertools.combinations(range(4), width):
+            candidate = [list(layer) for layer in padded]
+            valid = True
+            for q in q_combo:
+                top = -1
+                for l in range(layers):
+                    if candidate[l][q] != "-":
+                        top = l
+                start = top + 1
+                if start >= layers:
+                    valid = False
+                    break
+                for l in range(start, layers):
+                    candidate[l][q] = "c"
+            if not valid:
+                continue
+            predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+            if bitmask_push_pin(predecessor, layers) == normalized:
+                candidates.append(predecessor)
+    return tuple(dict.fromkeys(candidates))
+
+
+@lru_cache(maxsize=100_000)
+def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    if not normalized:
+        return None
+    normalized_layers = normalized.split(":")
+    top = normalized_layers[-1]
+    target_base_count = len(bitmask_stackable_bases(normalized))
+    minimal_predecessor = normalize_code(":".join(normalized_layers[1:]))
+    direct_minimal_push = bitmask_push_pin(minimal_predecessor, layers) == normalized
+    should_probe = (
+        top == "cS--" and target_base_count <= 3
+    ) or (
+        top == "cS-S" and direct_minimal_push and target_base_count == 0
+    )
+    if not should_probe:
+        return None
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            from shape import Shape
+            from shape_classifier import ShapeType, analyze_shape
+
+            for predecessor in bitmask_inverse_push_pin_candidates(normalized, layers):
+                if processed_claw_fast_reject_reason(predecessor) is not None:
+                    continue
+                shape = Shape.from_string(predecessor)
+                classification_type, _classification_reason = analyze_shape(repr(shape), shape, True)
+                if ShapeType.SWAPABLE.value in classification_type:
+                    return predecessor
+    except Exception:
+        return None
+    return None
+
+
+def pp_inverse_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    if pp_inverse_predecessor_witness(code, layers) is None:
+        return None
+    return "possible", "kernel_pp_inverse_predecessor_verified"
 
 
 def _bottom_pin_delta_base(base: str, target: str) -> bool:
@@ -2083,6 +2185,9 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     claw_seed = claw_tail_seed_tree(code)
     if claw_seed is not None:
         return claw_seed
+    pp_inverse = pp_inverse_predecessor_tree(code, layers)
+    if pp_inverse is not None:
+        return pp_inverse
     claw_verified = claw_verified_tree(code, layers)
     if claw_verified is not None:
         return claw_verified
@@ -2697,6 +2802,21 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 sv, sb = kernel
                 fallback_used += 1
                 kernel_used += 1
+        if (
+            sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and "pp-inverse-predecessor-core" in args.experiment
+        ):
+            tick = time.perf_counter()
+            kernel = pp_inverse_predecessor_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["pp_inverse_predecessor"] += elapsed
+            kernel_step_counts["pp_inverse_predecessor"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
         if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "stackability-swap12-core" in args.experiment:
             tick = time.perf_counter()
             kernel = stackability_swap12_core_verdict(code)
@@ -2982,6 +3102,7 @@ def main() -> int:
             "reference-cpcp",
             "reference-derived-positive",
             "claw-tail-seed-core",
+            "pp-inverse-predecessor-core",
             "defer-swap-positive",
         ),
         default=[],
