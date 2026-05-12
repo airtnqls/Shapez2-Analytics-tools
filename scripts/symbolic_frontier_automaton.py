@@ -1545,6 +1545,22 @@ def claw_tail_seed_core_verdict(code: str) -> tuple[str, str] | None:
     return "possible", "kernel_claw_tail_seed_swapable"
 
 
+@lru_cache(maxsize=100_000)
+def claw_bottom_floor_reject_core_verdict(code: str) -> tuple[str, str] | None:
+    normalized = normalize_code(code)
+    if not normalized:
+        return None
+    removed_count, removed_crystal, _final_swap, _base_depth = bitmask_layer_removal_context(normalized)
+    if removed_count <= 0 or not removed_crystal:
+        return None
+    bottom = normalized.split(":")[0]
+    if "c" in bottom:
+        return "impossible", "kernel_claw_bottom_c_reject"
+    if bottom.count("S") >= 2:
+        return "impossible", "kernel_claw_bottom_s_reject"
+    return None
+
+
 def claw_tail_seed_tree(code: str) -> DecompositionNode | None:
     normalized = normalize_code(code)
     seed = accepted_claw_tail_seed(normalized)
@@ -1567,6 +1583,9 @@ def claw_tail_seed_tree(code: str) -> DecompositionNode | None:
 def accepted_claw_tail_seed(code: str) -> str | None:
     normalized = normalize_code(code)
     max_layers = max(MAX_LAYERS, len(normalized.split(":")) if normalized else 0)
+    layers = normalized.split(":") if normalized else []
+    if layers and layers[-1] == "cS--":
+        return None
     removed_count, removed_crystal, _final_swap, _base_depth = bitmask_layer_removal_context(normalized)
     if removed_count <= 0 or not removed_crystal:
         return None
@@ -2596,7 +2615,14 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 sv, sb = kernel
                 fallback_used += 1
                 kernel_used += 1
-        if sv == "unknown" and args.fallback in ("kernel-core", "kernel-hybrid-core"):
+        if (
+            sv == "unknown"
+            and args.fallback in ("kernel-core", "kernel-hybrid-core")
+            and (
+                args.fallback != "kernel-hybrid-core"
+                or claw_bottom_floor_reject_core_verdict(code) is None
+            )
+        ):
             tick = time.perf_counter()
             kernel = claw_verify_core_verdict(code)
             elapsed = time.perf_counter() - tick
@@ -2614,6 +2640,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["hybrid_rescue"] += elapsed
             kernel_step_counts["hybrid_rescue"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
+            tick = time.perf_counter()
+            kernel = claw_bottom_floor_reject_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["claw_bottom_floor_reject"] += elapsed
+            kernel_step_counts["claw_bottom_floor_reject"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
