@@ -2196,18 +2196,24 @@ def _hybrid_stack_rescue_witness(shape_obj: object, claw_mode: bool, normalized:
             if not b_repr:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_empty_b"] += 1
                 return None
+            left_code = normalize_code(simplify_shape(repr(output_a)))
+            right_code = normalize_code(simplify_shape(b_repr))
             a_type, _a_reason = analyze_shape(repr(output_a), output_a, skip=True)
             if a_type == ShapeType.IMPOSSIBLE.value:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_a_impossible"] += 1
                 return None
-            stacked_1 = Shape.stack(output_a, output_b)
-            if repr(stacked_1) != repr(shape_obj):
+            replayed = bitmask_stack(
+                left_code,
+                right_code,
+                max_layers=max(MAX_LAYERS, len(normalized.split(":"))),
+            )
+            if replayed != normalized:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_stack_miss"] += 1
                 return None
             return HybridRescueWitness(
                 mode="claw" if claw_mode else "basic",
-                left=normalize_code(simplify_shape(repr(output_a))),
-                right=normalize_code(simplify_shape(b_repr)),
+                left=left_code,
+                right=right_code,
             )
     except Exception:
         return None
