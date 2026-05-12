@@ -1870,12 +1870,16 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
     PP_INVERSE_STATS["calls"] += 1
     normalized_layers = normalized.split(":")
     top = normalized_layers[-1]
+    if top not in {"cS--", "cS-S"}:
+        PP_INVERSE_STATS["gate_skip"] += 1
+        PP_INVERSE_STATS["gate_skip_top"] += 1
+        return None
     target_base_count = len(bitmask_stackable_bases(normalized))
-    minimal_predecessor = normalize_code(":".join(normalized_layers[1:]))
-    direct_minimal_push = bitmask_push_pin(minimal_predecessor, layers) == normalized
-    should_probe = (
-        top == "cS--" and target_base_count <= 3
-    ) or (
+    direct_minimal_push = False
+    if top == "cS-S":
+        minimal_predecessor = normalize_code(":".join(normalized_layers[1:]))
+        direct_minimal_push = bitmask_push_pin(minimal_predecessor, layers) == normalized
+    should_probe = (top == "cS--" and target_base_count <= 3) or (
         top == "cS-S" and direct_minimal_push and target_base_count == 0
     )
     if not should_probe:
