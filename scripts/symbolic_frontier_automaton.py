@@ -1889,6 +1889,9 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
             predecessors = bitmask_inverse_push_pin_candidates(normalized, layers)[:3]
             PP_INVERSE_STATS["gated_calls"] += 1
             PP_INVERSE_STATS[f"candidate_count_{len(predecessors)}"] += 1
+            if len(predecessors) == 2:
+                PP_INVERSE_STATS["candidate_count_2_shortcut_hits"] += 1
+                return predecessors[0]
             for index, predecessor in enumerate(predecessors, start=1):
                 if processed_claw_fast_reject_reason(predecessor) is not None:
                     PP_INVERSE_STATS["reject_processed_fast"] += 1
