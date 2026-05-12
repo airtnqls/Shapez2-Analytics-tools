@@ -33,6 +33,7 @@ HYBRID_RESCUE_STATS: Counter[str] = Counter()
 HYBRID_RESCUE_TIMES: Counter[str] = Counter()
 CLAW_VERIFY_STATS: Counter[str] = Counter()
 CLAW_VERIFY_TIMES: Counter[str] = Counter()
+PP_INVERSE_STATS: Counter[str] = Counter()
 REFERENCE_CPCP_DIR = PROJECT_ROOT / "reference_projects" / "shapez2-cpcp1998"
 
 
@@ -1829,6 +1830,8 @@ def bitmask_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ..
     base = normalize_code(":".join(base_parts))
     if bitmask_push_pin(base, layers) == normalized:
         candidates.append(base)
+        if len(candidates) >= 3:
+            return tuple(candidates)
 
     padded = list(base_parts)
     while len(padded) < layers:
@@ -1854,6 +1857,8 @@ def bitmask_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ..
             predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
             if bitmask_push_pin(predecessor, layers) == normalized:
                 candidates.append(predecessor)
+                if len(candidates) >= 3:
+                    return tuple(dict.fromkeys(candidates))
     return tuple(dict.fromkeys(candidates))
 
 
@@ -1862,6 +1867,7 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
     normalized = normalize_code(code)
     if not normalized:
         return None
+    PP_INVERSE_STATS["calls"] += 1
     normalized_layers = normalized.split(":")
     top = normalized_layers[-1]
     target_base_count = len(bitmask_stackable_bases(normalized))
@@ -1873,21 +1879,31 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
         top == "cS-S" and direct_minimal_push and target_base_count == 0
     )
     if not should_probe:
+        PP_INVERSE_STATS["gate_skip"] += 1
         return None
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             from shape import Shape
             from shape_classifier import ShapeType, analyze_shape
 
-            for predecessor in bitmask_inverse_push_pin_candidates(normalized, layers):
+            predecessors = bitmask_inverse_push_pin_candidates(normalized, layers)[:3]
+            PP_INVERSE_STATS["gated_calls"] += 1
+            PP_INVERSE_STATS[f"candidate_count_{len(predecessors)}"] += 1
+            for index, predecessor in enumerate(predecessors, start=1):
                 if processed_claw_fast_reject_reason(predecessor) is not None:
+                    PP_INVERSE_STATS["reject_processed_fast"] += 1
                     continue
+                PP_INVERSE_STATS["classified_candidates"] += 1
                 shape = Shape.from_string(predecessor)
                 classification_type, _classification_reason = analyze_shape(repr(shape), shape, True)
                 if ShapeType.SWAPABLE.value in classification_type:
+                    PP_INVERSE_STATS["hits"] += 1
+                    PP_INVERSE_STATS[f"first_hit_index_{index}"] += 1
                     return predecessor
     except Exception:
+        PP_INVERSE_STATS["error"] += 1
         return None
+    PP_INVERSE_STATS["misses"] += 1
     return None
 
 
@@ -2660,6 +2676,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     HYBRID_RESCUE_TIMES.clear()
     CLAW_VERIFY_STATS.clear()
     CLAW_VERIFY_TIMES.clear()
+    PP_INVERSE_STATS.clear()
     automaton = SymbolicFrontierAutomaton(
         corner_mode=corner_mode,
         max_depth=args.depth,
@@ -3018,6 +3035,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         for key, step_time in CLAW_VERIFY_TIMES.most_common():
             avg = step_time / calls if calls else 0.0
             print(f"  {key}: {step_time:.6f}s avg={avg:.9f}s")
+    if PP_INVERSE_STATS:
+        print("pp_inverse_stats:")
+        for key, count in sorted(PP_INVERSE_STATS.items()):
+            print(f"  {key}: {count}")
     if symbolic_time > 0:
         print(f"legacy_vs_symbolic={legacy_time / symbolic_time:.3f}x")
     print("symbolic_buckets:")
