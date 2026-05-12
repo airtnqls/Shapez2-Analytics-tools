@@ -2212,7 +2212,7 @@ def hybrid_rescue_core_verdict(code: str) -> tuple[str, str] | None:
         return None
     if "c" not in normalized:
         return None
-    if depth <= MAX_LAYERS:
+    if depth == MAX_LAYERS:
         tick = time.perf_counter()
         HYBRID_RESCUE_STATS["claw_calls"] += 1
         if _hybrid_stack_rescue_witness(shape_obj, claw_mode=True, normalized=normalized) is not None:
@@ -2234,6 +2234,7 @@ def hybrid_rescue_witness(code: str) -> HybridRescueWitness | None:
     normalized = normalize_code(code)
     if not normalized or "c" not in normalized:
         return None
+    depth = len(normalized.split(":"))
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             from shape import Shape
@@ -2241,9 +2242,10 @@ def hybrid_rescue_witness(code: str) -> HybridRescueWitness | None:
             shape_obj = Shape.from_string(normalized)
     except Exception:
         return None
-    claw = _hybrid_stack_rescue_witness(shape_obj, claw_mode=True, normalized=normalized)
-    if claw is not None:
-        return claw
+    if depth == MAX_LAYERS:
+        claw = _hybrid_stack_rescue_witness(shape_obj, claw_mode=True, normalized=normalized)
+        if claw is not None:
+            return claw
     return _hybrid_stack_rescue_witness(shape_obj, claw_mode=False, normalized=normalized)
 
 
