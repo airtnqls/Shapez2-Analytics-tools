@@ -1580,6 +1580,42 @@ def claw_tail_seed_tree(code: str) -> DecompositionNode | None:
     )
 
 
+def claw_verified_tree(code: str, layers: int) -> DecompositionNode | None:
+    normalized = normalize_code(code)
+    verified, reason = claw_verify_status(normalized)
+    if not verified:
+        return None
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            from shape import Shape
+            from claw_tracer import claw_process
+            from data_operations import simplify_shape
+
+            shape_repr = repr(Shape.from_string(normalized))
+            processed_shape_str = claw_process(shape_repr)
+            processed_code = normalize_code(simplify_shape(processed_shape_str)) if processed_shape_str else ""
+    except Exception:
+        return None
+    if not processed_code:
+        return None
+    pushed = bitmask_push_pin(processed_code, max(MAX_LAYERS, len(normalized.split(":"))))
+    if pushed != normalized:
+        return None
+    processed_tree = swappability_tree(processed_code, layers)
+    if processed_tree is None:
+        processed_tree = DecompositionNode(
+            kind="claw_predecessor",
+            shape=processed_code,
+            detail="verified_processed_shape",
+        )
+    return DecompositionNode(
+        kind="pin_push",
+        shape=normalized,
+        detail=normalize_code_label(reason or "claw_verified"),
+        children=(processed_tree,),
+    )
+
+
 def accepted_claw_tail_seed(code: str) -> str | None:
     normalized = normalize_code(code)
     max_layers = max(MAX_LAYERS, len(normalized.split(":")) if normalized else 0)
@@ -2002,6 +2038,9 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     claw_seed = claw_tail_seed_tree(code)
     if claw_seed is not None:
         return claw_seed
+    claw_verified = claw_verified_tree(code, layers)
+    if claw_verified is not None:
+        return claw_verified
     swap = swappability_tree(code, layers)
     if swap is not None:
         return swap
