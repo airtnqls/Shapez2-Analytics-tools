@@ -1936,6 +1936,43 @@ def small_right_pp_stackability_core_verdict(code: str) -> tuple[str, str] | Non
 
 
 @lru_cache(maxsize=100_000)
+def top_sss_tail_stack_witness(code: str) -> HybridRescueWitness | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if len(parts) < 5 or parts[-1] != "cSSS":
+        return None
+    if parts[3] == "cP-S":
+        return None
+
+    for right in ("-SSS", "--SS"):
+        layers = [list(layer) for layer in parts]
+        valid = True
+        for q, ch in enumerate(right):
+            if ch == "-":
+                continue
+            if layers[-1][q] != ch:
+                valid = False
+                break
+            layers[-1][q] = "-"
+        if not valid:
+            continue
+        left = normalize_code(":".join("".join(layer) for layer in layers))
+        if bitmask_stack(left, right, max_layers=max(MAX_LAYERS, len(parts))) != normalized:
+            continue
+        if claw_verify_core_verdict(left) is None:
+            continue
+        return HybridRescueWitness(mode="top_sss_tail_stack", left=left, right=right)
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def top_sss_tail_stack_core_verdict(code: str) -> tuple[str, str] | None:
+    if top_sss_tail_stack_witness(code) is not None:
+        return "possible", "kernel_top_sss_tail_stack_from_verified_left"
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def reference_stackability_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
     for witness in reference_stackability_witnesses(code, layers):
         if witness.base_swap is not None:
@@ -2403,6 +2440,29 @@ def small_right_pp_stackability_tree(code: str) -> DecompositionNode | None:
     )
 
 
+def top_sss_tail_stack_tree(code: str) -> DecompositionNode | None:
+    witness = top_sss_tail_stack_witness(code)
+    if witness is None:
+        return None
+    return DecompositionNode(
+        kind="stack",
+        shape=normalize_code(code),
+        detail="top_sss_tail_stack",
+        children=(
+            DecompositionNode(
+                kind="claw_predecessor",
+                shape=witness.left,
+                detail="verified_left",
+            ),
+            DecompositionNode(
+                kind="stack_input",
+                shape=witness.right,
+                detail="top_sss_tail_input",
+            ),
+        ),
+    )
+
+
 def swappability_tree(code: str, layers: int) -> DecompositionNode | None:
     witness = reference_cpcp_swappable_witness(code, layers)
     if witness is None:
@@ -2493,6 +2553,9 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     pp_stackability = small_right_pp_stackability_tree(code)
     if pp_stackability is not None:
         return pp_stackability
+    top_sss_tail = top_sss_tail_stack_tree(code)
+    if top_sss_tail is not None:
+        return top_sss_tail
     stack = stackability_tree(code, layers)
     if stack is not None:
         return stack
@@ -3161,6 +3224,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["small_right_pp_stackability"] += elapsed
             kernel_step_counts["small_right_pp_stackability"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
+            tick = time.perf_counter()
+            kernel = top_sss_tail_stack_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["top_sss_tail_stack"] += elapsed
+            kernel_step_counts["top_sss_tail_stack"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
