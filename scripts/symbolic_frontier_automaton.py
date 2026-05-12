@@ -2133,7 +2133,7 @@ def small_right_shallow_left_s_support_core_verdict(code: str) -> tuple[str, str
 def mid_stack_delta_low_frontier_support_witness(code: str) -> HybridRescueWitness | None:
     normalized = normalize_code(code)
     parts = normalized.split(":") if normalized else []
-    if not parts or parts[-1] != "cS-S":
+    if not parts or parts[-1] not in {"cS-S", "c---"}:
         return None
     if len(bitmask_stackable_bases(normalized)) > 3:
         return None
