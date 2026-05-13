@@ -2008,11 +2008,15 @@ def _top_sss_pair_support_witness(
     *,
     mode: str,
     cleared_top_indices: tuple[int, int],
+    required_penultimate: str,
+    required_antepenultimate: str,
     right: str,
 ) -> HybridRescueWitness | None:
     normalized = normalize_code(code)
     parts = normalized.split(":") if normalized else []
     if len(parts) < 5 or parts[-1] != "cSSS" or parts[-2][2] != "S":
+        return None
+    if parts[-2] != required_penultimate or parts[-3] != required_antepenultimate:
         return None
 
     layers = [list(layer) for layer in parts]
@@ -2038,6 +2042,8 @@ def top_sss_right_crystal_pair_support_witness(code: str) -> HybridRescueWitness
         code,
         mode="top_sss_right_crystal_pair_support",
         cleared_top_indices=(2, 3),
+        required_penultimate="-PS-",
+        required_antepenultimate="-SS-",
         right="--Sc:--SS",
     )
 
@@ -2048,6 +2054,8 @@ def top_sss_center_crystal_pair_support_witness(code: str) -> HybridRescueWitnes
         code,
         mode="top_sss_center_crystal_pair_support",
         cleared_top_indices=(1, 2),
+        required_penultimate="--SP",
+        required_antepenultimate="--SS",
         right="-cS-:-SS-",
     )
 
