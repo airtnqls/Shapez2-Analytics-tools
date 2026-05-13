@@ -64,7 +64,15 @@ def _known_zero_stack(args: argparse.Namespace) -> tuple[set[str], set[str]]:
 def _lower_prefix_allowed(code: str, mode: str) -> bool:
     normalized = sfa.normalize_code(code)
     if not normalized:
-        return mode in {"none", "physics", "physics-corner", "swappable", "stackable", "swappable-stackable"}
+        return mode in {
+            "none",
+            "physics",
+            "physics-corner",
+            "swappable",
+            "stackable",
+            "swappable-stackable",
+            "decomposition",
+        }
     if mode == "none":
         return True
     if mode in {"physics", "physics-corner", "swappable", "stackable", "swappable-stackable"}:
@@ -78,6 +86,13 @@ def _lower_prefix_allowed(code: str, mode: str) -> bool:
             return False
     if mode in {"stackable", "swappable-stackable"}:
         if not sfa.bitmask_stackability_witnesses(normalized):
+            return False
+    if mode == "decomposition":
+        if not sfa.bitmask_physics_stable(normalized):
+            return False
+        if not sfa.corner_columns_allowed(normalized):
+            return False
+        if sfa.reference_decomposition_tree(normalized, len(normalized.split(":"))) is None:
             return False
     return True
 
@@ -167,7 +182,7 @@ def main() -> int:
     parser.add_argument("--frontier-filter", action="store_true")
     parser.add_argument(
         "--lower-filter",
-        choices=("none", "physics", "physics-corner", "swappable", "stackable", "swappable-stackable"),
+        choices=("none", "physics", "physics-corner", "swappable", "stackable", "swappable-stackable", "decomposition"),
         default="none",
     )
     parser.add_argument("--max-candidates", type=int, default=0)
