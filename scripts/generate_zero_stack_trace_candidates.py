@@ -197,9 +197,6 @@ def _claw_common_target_allowed(code: str) -> bool:
     highest = max(layer for layer, _q in c_positions)
     if sum(1 for layer, _q in c_positions if layer == highest) != 1:
         return False
-    for text in parts:
-        if text == "--c-":
-            return False
     return True
 
 
@@ -242,9 +239,8 @@ def _sorted_claw_notes_target_allowed(code: str) -> bool:
         return False
     if parts[-1][2] != "-":
         return False
-    for layer in parts[: min(3, len(parts))]:
-        if layer[2] == "-":
-            return False
+    if all(layer[2] == "-" for layer in parts):
+        return False
     if any(layer == "--c-" for layer in parts):
         return False
     return True
