@@ -1666,6 +1666,7 @@ def claw_verified_tree(code: str, layers: int) -> DecompositionNode | None:
         bitmask_bridge_inverse_push_pin_candidates,
         bitmask_connected_shatter_inverse_push_pin_candidates,
         bitmask_piece_lift_shatter_inverse_push_pin_candidates,
+        bitmask_double_s_lift_shatter_inverse_push_pin_candidates,
     )
     for predecessor_family in predecessor_families:
         for predecessor in predecessor_family(normalized, layers):
@@ -2605,9 +2606,9 @@ def bitmask_connected_shatter_inverse_push_pin_candidates(code: str, layers: int
     seen_states: set[tuple[tuple[int, int], ...]] = set()
     pending: list[tuple[tuple[int, int], ...]] = [((li, qi),) for li, qi in starts]
     max_states = 1536
-    max_added = 10
+    max_added = 12
 
-    while pending and len(seen_states) < max_states and len(candidates) < 24:
+    while pending and len(seen_states) < max_states and len(candidates) < 40:
         state = tuple(sorted(pending.pop(0)))
         if state in seen_states:
             continue
@@ -2628,7 +2629,6 @@ def bitmask_connected_shatter_inverse_push_pin_candidates(code: str, layers: int
             predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
             if bitmask_push_pin(predecessor, layers) == normalized:
                 candidates.append(predecessor)
-                continue
 
         if len(state) >= max_added:
             continue
@@ -2716,6 +2716,78 @@ def bitmask_piece_lift_shatter_inverse_push_pin_candidates(code: str, layers: in
                     for cell in sorted(frontier):
                         if cell not in state:
                             pending.append(tuple(sorted(state + (cell,))))
+    return tuple(candidates)
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_double_s_lift_shatter_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    top_layer = layers - 1
+    max_states = 1536
+    max_added = 12
+
+    for source_layer in range(min(3, layers - 1)):
+        liftable_columns = [
+            q
+            for q in range(4)
+            if base_parts[source_layer][q] == "S" and base_parts[source_layer + 1][q] == "-"
+        ]
+        for q1, q2 in itertools.combinations(liftable_columns, 2):
+            base_grid = [list(layer) for layer in base_parts]
+            for q in (q1, q2):
+                base_grid[source_layer][q] = "c"
+                base_grid[source_layer + 1][q] = "S"
+
+            starts = [(top_layer, tq) for tq in range(4) if base_grid[top_layer][tq] in {"-", "c"}]
+            pending: list[tuple[tuple[int, int], ...]] = [((li, qi),) for li, qi in starts]
+            seen_states: set[tuple[tuple[int, int], ...]] = set()
+
+            while pending and len(seen_states) < max_states and len(candidates) < 40:
+                state = tuple(sorted(pending.pop(0)))
+                if state in seen_states:
+                    continue
+                seen_states.add(state)
+
+                candidate = [row[:] for row in base_grid]
+                added = 0
+                valid = True
+                for li, qi in state:
+                    ch = candidate[li][qi]
+                    if ch not in {"-", "c"}:
+                        valid = False
+                        break
+                    if ch == "-":
+                        candidate[li][qi] = "c"
+                        added += 1
+                if valid and added:
+                    predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+                    if predecessor not in seen_candidates and bitmask_push_pin(predecessor, layers) == normalized:
+                        seen_candidates.add(predecessor)
+                        candidates.append(predecessor)
+
+                if len(state) >= max_added:
+                    continue
+                frontier: set[tuple[int, int]] = set()
+                for li, qi in state:
+                    for nl in (li - 1, li + 1):
+                        if 0 <= nl < layers and base_grid[nl][qi] in {"-", "c"}:
+                            frontier.add((nl, qi))
+                    for nq in _adjacent_q(qi):
+                        if base_grid[li][nq] in {"-", "c"}:
+                            frontier.add((li, nq))
+                for cell in sorted(frontier):
+                    if cell not in state:
+                        pending.append(tuple(sorted(state + (cell,))))
     return tuple(candidates)
 
 
