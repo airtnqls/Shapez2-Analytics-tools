@@ -3456,7 +3456,7 @@ def _hybrid_stack_rescue_attempt(shape_obj: object, claw_mode: bool, normalized:
 @lru_cache(maxsize=100_000)
 def hybrid_rescue_core_verdict(code: str) -> tuple[str, str] | None:
     normalized = normalize_code(code)
-    if not normalized:
+    if not normalized or "c" not in normalized:
         return None
     try:
         with contextlib.redirect_stdout(io.StringIO()):
@@ -3464,8 +3464,6 @@ def hybrid_rescue_core_verdict(code: str) -> tuple[str, str] | None:
 
             shape_obj = Shape.from_string(normalized)
     except Exception:
-        return None
-    if "c" not in normalized:
         return None
     tick = time.perf_counter()
     HYBRID_RESCUE_STATS["claw_calls"] += 1
