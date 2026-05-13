@@ -2949,6 +2949,31 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     return None
 
 
+def audited_reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | None:
+    snapshots = (
+        HYBRID_RESCUE_STATS.copy(),
+        HYBRID_RESCUE_TIMES.copy(),
+        CLAW_VERIFY_STATS.copy(),
+        CLAW_VERIFY_TIMES.copy(),
+        PP_INVERSE_STATS.copy(),
+    )
+    try:
+        return reference_decomposition_tree(code, layers)
+    finally:
+        for target, snapshot in zip(
+            (
+                HYBRID_RESCUE_STATS,
+                HYBRID_RESCUE_TIMES,
+                CLAW_VERIFY_STATS,
+                CLAW_VERIFY_TIMES,
+                PP_INVERSE_STATS,
+            ),
+            snapshots,
+        ):
+            target.clear()
+            target.update(snapshot)
+
+
 PROCESSED_CLAW_IMPOSSIBLE_PILLAR_PATTERNS = (
     re.compile(r"-P"),
     re.compile(r"^P*-+c"),
@@ -3400,6 +3425,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         code_iter = iter_data_codes(args.eval_data, args.depth)
 
     total = skipped_by_layer = skipped_by_bucket = non_unknown = fallback_used = kernel_used = legacy_fallback_used = legacy_match = strict_match = virtual_legacy_possible = 0
+    decomposition_tree_checked = decomposition_tree_missing = 0
     compare_total = compare_non_unknown = compare_known = legacy_known_match = strict_known_match = 0
     symbolic_time = kernel_time = legacy_time = 0.0
     kernel_step_times: Counter[str] = Counter()
@@ -3414,6 +3440,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     samples: list[str] = []
     legacy_unknown_samples: list[str] = []
     strict_samples: list[str] = []
+    decomposition_tree_samples: list[str] = []
     started = time.perf_counter()
     compare_every = max(1, args.compare_every)
     skip_bucket_re = re.compile(args.eval_skip_bucket_regex) if args.eval_skip_bucket_regex else None
@@ -3757,6 +3784,14 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             total -= 1
             skipped_by_bucket += 1
             continue
+        if args.fail_on_missing_decomposition_tree and sv == "possible":
+            decomposition_tree_checked += 1
+            if audited_reference_decomposition_tree(code, args.depth) is None:
+                decomposition_tree_missing += 1
+                if len(decomposition_tree_samples) < args.max_mismatches:
+                    decomposition_tree_samples.append(
+                        f"{normalize_code(code)}\tmissing_decomposition_tree\tbucket={sv}/{sb}"
+                    )
         layer_counts[normalized_layer_count] += 1
         lv = strict = lc = lr = ""
         needs_legacy_fallback = sv == "unknown" and args.fallback in ("legacy-core", "kernel-core", "kernel-hybrid-core")
@@ -3821,6 +3856,8 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     print(f"fallback_used={fallback_used}")
     print(f"kernel_used={kernel_used}")
     print(f"legacy_fallback_used={legacy_fallback_used}")
+    print(f"decomposition_tree_checked={decomposition_tree_checked}")
+    print(f"decomposition_tree_missing={decomposition_tree_missing}")
     if args.no_compare_legacy:
         print("compare_total=0")
         print("compare_non_unknown=0")
@@ -3924,11 +3961,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         print("sample_strict_mismatches:")
         for sample in strict_samples:
             print(sample)
+    if decomposition_tree_samples:
+        print("sample_missing_decomposition_trees:")
+        for sample in decomposition_tree_samples:
+            print(sample)
     if args.fail_on_unknown and non_unknown != total:
         return 1
     if args.fail_on_legacy_fallback and legacy_fallback_used:
         return 1
     if args.fail_on_known_mismatch and compare_known and strict_known_match != compare_known:
+        return 1
+    if args.fail_on_missing_decomposition_tree and decomposition_tree_missing:
         return 1
     return 1 if strict_samples else 0
 
@@ -3995,6 +4038,7 @@ def main() -> int:
     parser.add_argument("--fail-on-unknown", action="store_true")
     parser.add_argument("--fail-on-legacy-fallback", action="store_true")
     parser.add_argument("--fail-on-known-mismatch", action="store_true")
+    parser.add_argument("--fail-on-missing-decomposition-tree", action="store_true")
     parser.add_argument(
         "--fallback",
         choices=("none", "physics-core", "swap-core", "legacy-core", "kernel-core", "kernel-hybrid-core"),

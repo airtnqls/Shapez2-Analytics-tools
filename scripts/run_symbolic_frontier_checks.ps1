@@ -18,6 +18,7 @@ python -B scripts\symbolic_frontier_automaton.py `
     --fail-on-unknown `
     --fail-on-legacy-fallback `
     --fail-on-known-mismatch `
+    --fail-on-missing-decomposition-tree `
     --eval-max-seconds $TimeoutSeconds
 
 python -B scripts\symbolic_frontier_automaton.py `
@@ -31,6 +32,7 @@ python -B scripts\symbolic_frontier_automaton.py `
     --max-mismatches 4 `
     --fail-on-unknown `
     --fail-on-legacy-fallback `
+    --fail-on-missing-decomposition-tree `
     --eval-max-seconds $TimeoutSeconds
 
 python -B scripts\symbolic_frontier_automaton.py `
