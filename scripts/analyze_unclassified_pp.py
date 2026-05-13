@@ -82,6 +82,26 @@ def _bucket(value: int, cap: int = 10) -> str:
     return f">{cap}" if value > cap else str(value)
 
 
+def _minimal_drop(code: str) -> str:
+    parts = sfa.normalize_code(code).split(":") if code else []
+    return sfa.normalize_code(":".join(parts[1:]))
+
+
+def _zero_stack_trace(code: str, layers: int, max_depth: int) -> tuple[int, str, int, str, str]:
+    current = sfa.normalize_code(code)
+    depth = 0
+    seen: set[str] = set()
+    while current and current not in seen and depth < max_depth and sfa.top_single_c_zero_stack_candidate(current):
+        seen.add(current)
+        depth += 1
+        current = _minimal_drop(current)
+    if not current:
+        return depth, "empty", 0, "empty", ""
+    subtype = sfa.pp_subtype_candidate(current, layers).subtype
+    stack_count = len(sfa.bitmask_stackability_witnesses(current))
+    return depth, subtype, stack_count, _top_pair(current), current
+
+
 def _min_stack_delta(pred: str) -> tuple[str, str, str]:
     witnesses = sfa.bitmask_stackability_witnesses(pred)
     if not witnesses:
@@ -133,6 +153,12 @@ def analyze(args: argparse.Namespace) -> int:
     minimal_pred_subtype_counts: Counter[str] = Counter()
     minimal_pred_stack_counts: Counter[str] = Counter()
     minimal_pred_swap_counts: Counter[str] = Counter()
+    zero_stack_trace_depth_counts: Counter[int] = Counter()
+    zero_stack_trace_exit_counts: Counter[str] = Counter()
+    zero_stack_trace_exit_stack_counts: Counter[str] = Counter()
+    zero_stack_trace_exit_top_pair_counts: Counter[str] = Counter()
+    zero_stack_trace_exit_safe_stack_counts: Counter[str] = Counter()
+    zero_stack_trace_exit_min_base_swap_counts: Counter[str] = Counter()
     inverse_count_counts: Counter[str] = Counter()
     inverse_contains_counts: Counter[str] = Counter()
     target_top_pair_counts: Counter[str] = Counter()
@@ -196,6 +222,18 @@ def analyze(args: argparse.Namespace) -> int:
         else:
             minimal_pred_subtype_counts["empty"] += 1
 
+        trace_depth, trace_exit, trace_exit_stack, trace_exit_top, trace_exit_code = _zero_stack_trace(
+            pred, args.layers, args.trace_depth
+        )
+        zero_stack_trace_depth_counts[trace_depth] += 1
+        zero_stack_trace_exit_counts[trace_exit] += 1
+        zero_stack_trace_exit_stack_counts[_bucket(trace_exit_stack)] += 1
+        zero_stack_trace_exit_top_pair_counts[trace_exit_top] += 1
+        if trace_exit_code:
+            zero_stack_trace_exit_safe_stack_counts[str(sfa.safe_stackability_witness(trace_exit_code) is not None)] += 1
+            _delta, exit_min_swap, _heights = _min_stack_delta(trace_exit_code)
+            zero_stack_trace_exit_min_base_swap_counts[exit_min_swap] += 1
+
         inv_contains = "skipped"
         if not args.skip_inverse:
             inv_counts, inv_contains = _inverse_summary(target, pred, args.layers)
@@ -236,6 +274,12 @@ def analyze(args: argparse.Namespace) -> int:
         ("minimal_pred_subtype_counts", minimal_pred_subtype_counts),
         ("minimal_pred_stack_counts", minimal_pred_stack_counts),
         ("minimal_pred_swap_counts", minimal_pred_swap_counts),
+        ("zero_stack_trace_depth_counts", zero_stack_trace_depth_counts),
+        ("zero_stack_trace_exit_counts", zero_stack_trace_exit_counts),
+        ("zero_stack_trace_exit_stack_counts", zero_stack_trace_exit_stack_counts),
+        ("zero_stack_trace_exit_top_pair_counts", zero_stack_trace_exit_top_pair_counts),
+        ("zero_stack_trace_exit_safe_stack_counts", zero_stack_trace_exit_safe_stack_counts),
+        ("zero_stack_trace_exit_min_base_swap_counts", zero_stack_trace_exit_min_base_swap_counts),
         ("inverse_count_counts", inverse_count_counts),
         ("inverse_contains_counts", inverse_contains_counts),
         ("target_top_pair_counts", target_top_pair_counts),
@@ -264,6 +308,7 @@ def main() -> int:
     parser.add_argument("--skip-inverse", action="store_true")
     parser.add_argument("--top", type=int, default=20)
     parser.add_argument("--max-examples", type=int, default=5)
+    parser.add_argument("--trace-depth", type=int, default=8)
     return analyze(parser.parse_args())
 
 
