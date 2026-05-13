@@ -2074,6 +2074,67 @@ def top_sss_center_crystal_pair_support_core_verdict(code: str) -> tuple[str, st
     return None
 
 
+def _small_right_top_s_support_witness(
+    code: str,
+    *,
+    mode: str,
+    required_penultimate: str,
+    required_antepenultimate: str,
+) -> HybridRescueWitness | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if len(parts) < 5 or parts[-1] != "cS--":
+        return None
+    if parts[-2] != required_penultimate or parts[-3] != required_antepenultimate:
+        return None
+    layers = [list(layer) for layer in parts]
+    if layers[-2][2] != "S":
+        return None
+    layers[-2][2] = "-"
+    left = normalize_code(":".join("".join(layer) for layer in layers))
+    return _verified_stack_rescue_witness(
+        normalized,
+        left,
+        "--S-",
+        mode,
+        len(parts),
+    )
+
+
+@lru_cache(maxsize=100_000)
+def small_right_stair_s_support_witness(code: str) -> HybridRescueWitness | None:
+    return _small_right_top_s_support_witness(
+        code,
+        mode="small_right_stair_s_support",
+        required_penultimate="S-S-",
+        required_antepenultimate="S-SS",
+    )
+
+
+@lru_cache(maxsize=100_000)
+def small_right_midpin_s_support_witness(code: str) -> HybridRescueWitness | None:
+    return _small_right_top_s_support_witness(
+        code,
+        mode="small_right_midpin_s_support",
+        required_penultimate="-PS-",
+        required_antepenultimate="-SS-",
+    )
+
+
+@lru_cache(maxsize=100_000)
+def small_right_stair_s_support_core_verdict(code: str) -> tuple[str, str] | None:
+    if small_right_stair_s_support_witness(code) is not None:
+        return "possible", "kernel_small_right_stair_s_support_from_verified_left"
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def small_right_midpin_s_support_core_verdict(code: str) -> tuple[str, str] | None:
+    if small_right_midpin_s_support_witness(code) is not None:
+        return "possible", "kernel_small_right_midpin_s_support_from_verified_left"
+    return None
+
+
 @lru_cache(maxsize=100_000)
 def small_right_low_base_s_support_witness(code: str) -> HybridRescueWitness | None:
     normalized = normalize_code(code)
@@ -2796,6 +2857,22 @@ def top_sss_center_crystal_pair_support_tree(code: str) -> DecompositionNode | N
     )
 
 
+def small_right_stair_s_support_tree(code: str) -> DecompositionNode | None:
+    return _pair_support_tree(
+        code,
+        small_right_stair_s_support_witness(code),
+        "small_right_stair_s_support",
+    )
+
+
+def small_right_midpin_s_support_tree(code: str) -> DecompositionNode | None:
+    return _pair_support_tree(
+        code,
+        small_right_midpin_s_support_witness(code),
+        "small_right_midpin_s_support",
+    )
+
+
 def small_right_low_base_s_support_tree(code: str) -> DecompositionNode | None:
     witness = small_right_low_base_s_support_witness(code)
     if witness is None:
@@ -3033,6 +3110,12 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     top_sss_center_crystal_pair = top_sss_center_crystal_pair_support_tree(code)
     if top_sss_center_crystal_pair is not None:
         return top_sss_center_crystal_pair
+    small_right_stair_support = small_right_stair_s_support_tree(code)
+    if small_right_stair_support is not None:
+        return small_right_stair_support
+    small_right_midpin_support = small_right_midpin_s_support_tree(code)
+    if small_right_midpin_support is not None:
+        return small_right_midpin_support
     low_base_s_support = small_right_low_base_s_support_tree(code)
     if low_base_s_support is not None:
         return low_base_s_support
@@ -3779,6 +3862,28 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["top_sss_center_crystal_pair_support"] += elapsed
             kernel_step_counts["top_sss_center_crystal_pair_support"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
+            tick = time.perf_counter()
+            kernel = small_right_stair_s_support_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["small_right_stair_s_support"] += elapsed
+            kernel_step_counts["small_right_stair_s_support"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
+            tick = time.perf_counter()
+            kernel = small_right_midpin_s_support_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["small_right_midpin_s_support"] += elapsed
+            kernel_step_counts["small_right_midpin_s_support"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
