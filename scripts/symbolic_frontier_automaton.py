@@ -1814,6 +1814,36 @@ def bitmask_stackable_bases(code: str) -> tuple[str, ...]:
 
 
 @lru_cache(maxsize=100_000)
+def bitmask_stackable_base_count_exceeds(code: str, limit: int) -> bool:
+    normalized = normalize_code(code)
+    if not normalized:
+        return False
+    layers = normalized.split(":")
+    column_heights = [_column_height(layers, q) for q in range(4)]
+    split_options: list[list[int]] = []
+    for q, height in enumerate(column_heights):
+        options = [0]
+        for l in range(height):
+            ch = layers[l][q]
+            if ch == "c":
+                options = []
+            if ch != "-":
+                options.append(l + 1)
+        split_options.append(options)
+    seen: set[str] = set()
+    for heights in itertools.product(*split_options):
+        base = _prefix_base_from_heights(layers, heights)
+        if base == normalized or base in seen:
+            continue
+        if not _stacked_zone_reconstructible(layers, heights):
+            continue
+        seen.add(base)
+        if len(seen) > limit:
+            return True
+    return False
+
+
+@lru_cache(maxsize=100_000)
 def bitmask_stackability_witnesses(code: str) -> tuple[StackabilityWitness, ...]:
     normalized = normalize_code(code)
     if not normalized:
@@ -2044,7 +2074,7 @@ def small_right_pp_stackability_witness(code: str) -> HybridRescueWitness | None
         return None
     if parts[3] not in ("c-S-", "S-S-"):
         return None
-    if len(bitmask_stackable_bases(normalized)) > 3:
+    if bitmask_stackable_base_count_exceeds(normalized, 3):
         return None
 
     layers = [list(layer) for layer in parts]
@@ -2277,7 +2307,7 @@ def small_right_low_base_s_support_witness(code: str) -> HybridRescueWitness | N
     parts = normalized.split(":") if normalized else []
     if len(parts) < 5 or parts[-1] != "cS-S":
         return None
-    if len(bitmask_stackable_bases(normalized)) > 1:
+    if bitmask_stackable_base_count_exceeds(normalized, 1):
         return None
 
     for layer_index, layer in enumerate(parts):
@@ -2311,7 +2341,7 @@ def small_right_pp_low_base_support_witness(code: str) -> HybridRescueWitness | 
     parts = normalized.split(":") if normalized else []
     if len(parts) < 5 or parts[-1] != "cS-S":
         return None
-    if len(bitmask_stackable_bases(normalized)) > 3:
+    if bitmask_stackable_base_count_exceeds(normalized, 3):
         return None
 
     for layer_index, layer in enumerate(parts):
@@ -2320,7 +2350,7 @@ def small_right_pp_low_base_support_witness(code: str) -> HybridRescueWitness | 
         layers = [list(raw_layer) for raw_layer in parts]
         layers[layer_index][2] = "-"
         left = normalize_code(":".join("".join(raw_layer) for raw_layer in layers))
-        if len(bitmask_stackable_bases(left)) > 2:
+        if bitmask_stackable_base_count_exceeds(left, 2):
             continue
         witness = _verified_stack_rescue_witness(
             normalized,
@@ -2386,7 +2416,7 @@ def small_right_shallow_left_s_support_witness(code: str) -> HybridRescueWitness
     layers = [list(layer) for layer in parts]
     layers[3][2] = "-"
     left = normalize_code(":".join("".join(layer) for layer in layers))
-    if len(bitmask_stackable_bases(left)) > 2:
+    if bitmask_stackable_base_count_exceeds(left, 2):
         return None
     return _verified_stack_rescue_witness(
         normalized,
@@ -2410,7 +2440,7 @@ def mid_stack_delta_low_frontier_support_witness(code: str) -> HybridRescueWitne
     parts = normalized.split(":") if normalized else []
     if not parts or parts[-1] not in {"cS-S", "c---"}:
         return None
-    if len(bitmask_stackable_bases(normalized)) > 3:
+    if bitmask_stackable_base_count_exceeds(normalized, 3):
         return None
     base = mid_stack_delta_base(normalized)
     if base is None:
@@ -2444,7 +2474,7 @@ def top_pp_pin_predecessor_support_witness(code: str) -> HybridRescueWitness | N
     parts = normalized.split(":") if normalized else []
     if not parts or parts[-1] != "cSPS":
         return None
-    if len(bitmask_stackable_bases(normalized)) > 3:
+    if bitmask_stackable_base_count_exceeds(normalized, 3):
         return None
     top = list(parts[-1])
     top[2] = "-"
@@ -2863,9 +2893,9 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
     removed_count, removed_crystal, final_swap, _base_depth = bitmask_layer_removal_context(normalized)
     should_probe = False
     if top == "cS--" and removed_count == 1 and removed_crystal and final_swap == "swap_12_34_blocked":
-        should_probe = len(bitmask_stackable_bases(normalized)) <= 3
+        should_probe = not bitmask_stackable_base_count_exceeds(normalized, 3)
     elif top == "cS-S" and removed_count == 1 and removed_crystal and final_swap is None and direct_minimal_push:
-        should_probe = len(bitmask_stackable_bases(normalized)) == 0
+        should_probe = not bitmask_stackable_base_count_exceeds(normalized, 0)
     if not should_probe:
         PP_INVERSE_STATS["gate_skip"] += 1
         return None
@@ -2892,7 +2922,7 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
                 if (
                     index == 3
                     and bitmask_swap_impossibility(predecessor) is None
-                    and len(bitmask_stackable_bases(predecessor)) == 0
+                    and not bitmask_stackable_base_count_exceeds(predecessor, 0)
                 ):
                     PP_INVERSE_STATS["third_candidate_swapable_zero_base_shortcut_hits"] += 1
                     return predecessor
