@@ -1960,6 +1960,16 @@ def bitmask_stackable_base(code: str) -> str | None:
     return bases[0] if bases else None
 
 
+REFERENCE_DERIVED_PP_POSITIVE_SUBTYPES = frozenset(
+    {
+        "direct_pp_candidate",
+        "bottom_pin_derivative_pp_candidate",
+        "mid_stack_delta_pp_candidate",
+        "top_s_derivative_pp_candidate",
+    }
+)
+
+
 @lru_cache(maxsize=100_000)
 def safe_stackability_witness(code: str) -> StackabilityWitness | None:
     normalized = normalize_code(code)
@@ -3174,6 +3184,17 @@ def bitmask_claw_tail_seed_variants(code: str, max_layers: int = MAX_LAYERS) -> 
     return tuple(dict.fromkeys(variants))
 
 
+def top_single_c_zero_stack_candidate(code: str) -> bool:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if len(parts) < 2:
+        return False
+    top = parts[-1]
+    if top.count("c") != 1 or any(ch not in {"-", "c"} for ch in top):
+        return False
+    return not bitmask_stackability_witnesses(normalized)
+
+
 def pp_subtype_candidate(code: str, layers: int) -> PpSubtypeWitness:
     minimal = pp_minimal_witness(code, layers)
     bottom_pin_base = bottom_pin_delta_base(code)
@@ -3198,6 +3219,8 @@ def pp_subtype_candidate(code: str, layers: int) -> PpSubtypeWitness:
     elif top_s_base is not None:
         subtype = "top_s_derivative_pp_candidate"
         derivative_base = top_s_base
+    elif top_single_c_zero_stack_candidate(code):
+        subtype = "top_single_c_zero_stack_unresolved_pp_candidate"
     else:
         subtype = "unclassified_pp_candidate"
     return PpSubtypeWitness(
@@ -4318,7 +4341,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 positive = ("possible", "reference_derived_stackable")
             else:
                 subtype = pp_subtype_candidate(code, args.depth)
-                if subtype.subtype != "unclassified_pp_candidate":
+                if subtype.subtype in REFERENCE_DERIVED_PP_POSITIVE_SUBTYPES:
                     ref = reference_cpcp_verdict(code, args.depth)
                     if ref is not None and ref[0] == "possible":
                         positive = ("possible", f"reference_derived_{subtype.subtype}")
