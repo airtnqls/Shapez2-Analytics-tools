@@ -206,6 +206,53 @@ def _enumerate_sequences(
     return generated, truncated
 
 
+def _enumerate_abstract_sequences(
+    trained: set[tuple[int, tuple[tuple[str, str], ...]]],
+    order: int,
+    layers: int,
+    max_sequences: int,
+    started: float,
+    max_seconds: float,
+) -> tuple[int, bool]:
+    starts = sorted(gram for index, gram in trained if index == 0)
+    transitions: dict[tuple[int, tuple[tuple[str, str], ...]], list[tuple[str, str]]] = {}
+    for index, gram in trained:
+        if len(gram) != order:
+            continue
+        transitions.setdefault((index, gram[:-1]), []).append(gram[-1])
+    for values in transitions.values():
+        values.sort()
+
+    count = 0
+    truncated = False
+
+    def rec(sequence: tuple[tuple[str, str], ...]) -> None:
+        nonlocal count, truncated
+        if truncated:
+            return
+        if max_seconds and time.perf_counter() - started > max_seconds:
+            truncated = True
+            return
+        if max_sequences and count >= max_sequences:
+            truncated = True
+            return
+        if len(sequence) == layers:
+            count += 1
+            return
+        index = len(sequence) - order + 1
+        suffix = sequence[-(order - 1) :]
+        for child in transitions.get((index, suffix), ()):
+            rec(sequence + (child,))
+            if truncated:
+                return
+
+    for start in starts:
+        rec(start)
+        if truncated:
+            break
+    return count, truncated
+
+
 def validate(args: argparse.Namespace) -> int:
     started = time.perf_counter()
     records = _collect(args)
@@ -226,8 +273,18 @@ def validate(args: argparse.Namespace) -> int:
             started,
             args.max_seconds,
         )
+        abstract_generated_count = 0
+        abstract_truncated = False
     else:
         generated, truncated = set(), False
+        abstract_generated_count, abstract_truncated = _enumerate_abstract_sequences(
+            trained,
+            args.order,
+            args.layers,
+            args.max_sequences,
+            started,
+            args.max_seconds,
+        )
     train_preds = {record.predecessor for record in train}
     holdout_preds = {record.predecessor for record in holdout}
     generated_train = generated & train_preds
@@ -247,6 +304,8 @@ def validate(args: argparse.Namespace) -> int:
     print(f"holdout_accept_rate={100.0 * holdout_accept / len(holdout) if holdout else 100:.6f}%")
     print(f"generated={len(generated)}")
     print(f"generated_truncated={truncated}")
+    print(f"abstract_generated_count={abstract_generated_count}")
+    print(f"abstract_generated_truncated={abstract_truncated}")
     print(f"generated_train_overlap={len(generated_train)}")
     print(f"generated_holdout_overlap={len(generated_holdout)}")
     print(f"generated_holdout_recall={100.0 * len(generated_holdout) / len(holdout_preds) if holdout_preds else 100:.6f}%")
