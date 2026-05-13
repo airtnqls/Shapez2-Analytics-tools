@@ -4047,19 +4047,22 @@ def hybrid_rescue_skip_reason(code: str) -> str | None:
     if parts[-1] == "c--S" and removal == (1, True, "swap_14_23_blocked"):
         return "top_cminus_s_swap14_blocked_single_crystal_strip"
     if (
-        parts[-1] == "cSSS"
+        len(parts) >= 2
+        and parts[-1] == "cSSS"
         and parts[-2] == "-PS-"
         and removal == (1, True, "swap_12_34_blocked")
     ):
         return "top_csss_penult_ps_swap12_blocked_single_crystal_strip"
     if (
-        parts[-1] == "cSSS"
+        len(parts) >= 2
+        and parts[-1] == "cSSS"
         and parts[-2] == "-SS-"
         and removal == (1, True, "swap_12_34_blocked")
     ):
         return "top_csss_penult_ss_swap12_blocked_single_crystal_strip"
     if (
-        parts[-1] == "cS--"
+        len(parts) >= 2
+        and parts[-1] == "cS--"
         and parts[-2] == "S-Sc"
         and removal == (1, True, "swap_12_34_blocked")
     ):
@@ -4245,7 +4248,8 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     total = skipped_by_layer = skipped_by_bucket = non_unknown = fallback_used = kernel_used = legacy_fallback_used = legacy_match = strict_match = virtual_legacy_possible = 0
     decomposition_tree_checked = decomposition_tree_missing = 0
     decomposition_tree_open_leaf_total = decomposition_tree_open_tree_count = 0
-    compare_total = compare_non_unknown = compare_known = legacy_known_match = strict_known_match = reference_known_match = 0
+    compare_total = compare_non_unknown = 0
+    legacy_compare_known = reference_compare_known = legacy_known_match = strict_known_match = reference_known_match = 0
     reference_match = 0
     symbolic_time = kernel_time = legacy_time = reference_time = 0.0
     kernel_step_times: Counter[str] = Counter()
@@ -4269,6 +4273,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     decomposition_tree_samples: list[str] = []
     started = time.perf_counter()
     compare_every = max(1, args.compare_every)
+    selected_compare_mode = "none" if args.no_compare_legacy else args.compare_against
     skip_bucket_re = re.compile(args.eval_skip_bucket_regex) if args.eval_skip_bucket_regex else None
 
     for code in code_iter:
@@ -4685,19 +4690,21 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         layer_counts[normalized_layer_count] += 1
         lv = strict = lc = lr = ref_verdict = ref_bucket = ""
         needs_legacy_fallback = sv == "unknown" and args.fallback in ("legacy-core", "kernel-core", "kernel-hybrid-core")
-        compare_mode = "none" if args.no_compare_legacy else args.compare_against
+        compare_mode = selected_compare_mode
         compare_enabled = compare_mode != "none"
         if compare_enabled and compare_every > 1 and total % compare_every != 0:
             compare_enabled = False
         if compare_enabled and args.compare_limit and compare_total >= args.compare_limit:
             compare_enabled = False
+        compare_legacy_enabled = compare_enabled and compare_mode in ("legacy", "both")
+        compare_reference_enabled = compare_enabled and compare_mode in ("reference", "both")
         if compare_enabled:
             compare_total += 1
-        if needs_legacy_fallback or (compare_enabled and compare_mode == "legacy"):
+        if needs_legacy_fallback or compare_legacy_enabled:
             tick = time.perf_counter()
             lv, strict, lc, lr = legacy_verdict(code)
             legacy_time += time.perf_counter() - tick
-        if compare_enabled and compare_mode == "reference":
+        if compare_reference_enabled:
             tick = time.perf_counter()
             reference = reference_cpcp_verdict(code, args.depth)
             reference_time += time.perf_counter() - tick
@@ -4715,27 +4722,27 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             samples_for_bucket = bucket_samples.setdefault(sample_key, [])
             if len(samples_for_bucket) < args.bucket_samples:
                 samples_for_bucket.append(normalized_for_count)
-        if compare_enabled and compare_mode == "legacy":
+        if compare_legacy_enabled:
             legacy_pairs[(sv, lv, sb)] += 1
             strict_pairs[(sv, strict, sb)] += 1
-        if compare_enabled and compare_mode == "reference":
+        if compare_reference_enabled:
             reference_pairs[(sv, ref_verdict, sb)] += 1
         if args.legacy_hints and sv == "unknown":
             hint = legacy_hint_signature(code)
             legacy_hints[(sb, strict, hint)] += 1
             for feature in projected_legacy_hint_features(hint):
                 legacy_hint_features[(sb, strict, feature)] += 1
-        if compare_enabled and compare_mode == "legacy" and lv == "possible" and strict == "impossible":
+        if compare_legacy_enabled and lv == "possible" and strict == "impossible":
             virtual_legacy_possible += 1
         if sv != "unknown":
             non_unknown += 1
             if not compare_enabled:
                 continue
             compare_non_unknown += 1
-            if compare_mode == "legacy":
+            if compare_legacy_enabled:
                 strict_known = strict != "unknown"
                 if strict_known:
-                    compare_known += 1
+                    legacy_compare_known += 1
                     if sv == lv:
                         legacy_known_match += 1
                     if sv == strict:
@@ -4750,10 +4757,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                     strict_match += 1
                 elif not (args.ignore_legacy_unknown and strict == "unknown") and len(strict_samples) < args.max_mismatches:
                     strict_samples.append(f"{code}\tsymbolic={sv}/{sb}\tstrict={strict}\tlegacy={lv}/{lc}\treason={lr}")
-            elif compare_mode == "reference":
+            if compare_reference_enabled:
                 reference_known = ref_verdict != "unknown"
                 if reference_known:
-                    compare_known += 1
+                    reference_compare_known += 1
                     if sv == ref_verdict:
                         reference_known_match += 1
                 if sv == ref_verdict:
@@ -4812,24 +4819,24 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     elif compare_mode_for_report == "legacy":
         print(f"compare_total={compare_total}")
         print(f"compare_non_unknown={compare_non_unknown}")
-        print(f"compare_known={compare_known}")
+        print(f"compare_known={legacy_compare_known}")
         print(f"legacy_match={legacy_match}")
         print(f"legacy_precision={100.0 * legacy_match / compare_non_unknown if compare_non_unknown else 100:.6f}%")
         print(f"legacy_known_match={legacy_known_match}")
-        print(f"legacy_known_precision={100.0 * legacy_known_match / compare_known if compare_known else 100:.6f}%")
+        print(f"legacy_known_precision={100.0 * legacy_known_match / legacy_compare_known if legacy_compare_known else 100:.6f}%")
         print(f"strict_match={strict_match}")
         print(f"strict_precision={100.0 * strict_match / compare_non_unknown if compare_non_unknown else 100:.6f}%")
         print(f"strict_known_match={strict_known_match}")
-        print(f"strict_known_precision={100.0 * strict_known_match / compare_known if compare_known else 100:.6f}%")
+        print(f"strict_known_precision={100.0 * strict_known_match / legacy_compare_known if legacy_compare_known else 100:.6f}%")
         print(f"virtual_legacy_possible={virtual_legacy_possible}")
         print("reference_match=NA")
         print("reference_precision=NA")
         print("reference_known_match=NA")
         print("reference_known_precision=NA")
-    else:
+    elif compare_mode_for_report == "reference":
         print(f"compare_total={compare_total}")
         print(f"compare_non_unknown={compare_non_unknown}")
-        print(f"compare_known={compare_known}")
+        print(f"compare_known={reference_compare_known}")
         print("legacy_match=NA")
         print("legacy_precision=NA")
         print("legacy_known_match=NA")
@@ -4842,14 +4849,35 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         print(f"reference_match={reference_match}")
         print(f"reference_precision={100.0 * reference_match / compare_non_unknown if compare_non_unknown else 100:.6f}%")
         print(f"reference_known_match={reference_known_match}")
-        print(f"reference_known_precision={100.0 * reference_known_match / compare_known if compare_known else 100:.6f}%")
+        print(f"reference_known_precision={100.0 * reference_known_match / reference_compare_known if reference_compare_known else 100:.6f}%")
+    else:
+        print(f"compare_total={compare_total}")
+        print(f"compare_non_unknown={compare_non_unknown}")
+        print(f"legacy_compare_known={legacy_compare_known}")
+        print(f"reference_compare_known={reference_compare_known}")
+        print(f"legacy_match={legacy_match}")
+        print(f"legacy_precision={100.0 * legacy_match / compare_non_unknown if compare_non_unknown else 100:.6f}%")
+        print(f"legacy_known_match={legacy_known_match}")
+        print(f"legacy_known_precision={100.0 * legacy_known_match / legacy_compare_known if legacy_compare_known else 100:.6f}%")
+        print(f"strict_match={strict_match}")
+        print(f"strict_precision={100.0 * strict_match / compare_non_unknown if compare_non_unknown else 100:.6f}%")
+        print(f"strict_known_match={strict_known_match}")
+        print(f"strict_known_precision={100.0 * strict_known_match / legacy_compare_known if legacy_compare_known else 100:.6f}%")
+        print(f"virtual_legacy_possible={virtual_legacy_possible}")
+        print(f"reference_match={reference_match}")
+        print(f"reference_precision={100.0 * reference_match / compare_non_unknown if compare_non_unknown else 100:.6f}%")
+        print(f"reference_known_match={reference_known_match}")
+        print(f"reference_known_precision={100.0 * reference_known_match / reference_compare_known if reference_compare_known else 100:.6f}%")
     print(f"elapsed={time.perf_counter() - started:.6f}s")
     print(f"symbolic_time={symbolic_time:.6f}s")
     print(f"kernel_time={kernel_time:.6f}s")
     air_time = symbolic_time + kernel_time
     print(f"air_time={air_time:.6f}s")
     print(f"legacy_time={legacy_time:.6f}s")
-    print(f"reference_time={reference_time:.6f}s")
+    if selected_compare_mode in ("reference", "both"):
+        print(f"reference_time={reference_time:.6f}s")
+    else:
+        print("reference_time=NA")
     if layer_counts:
         print("eval_layer_counts:")
         for layer_count, count in sorted(layer_counts.items()):
@@ -4890,16 +4918,20 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         print("legacy_vs_symbolic=NA")
     if air_time > 0 and legacy_time > 0:
         print(f"legacy_vs_air={legacy_time / air_time:.3f}x")
+        print(f"air_speedup_over_legacy={legacy_time / air_time:.3f}x")
     else:
         print("legacy_vs_air=NA")
+        print("air_speedup_over_legacy=NA")
     if symbolic_time > 0 and reference_time > 0:
         print(f"reference_vs_symbolic={reference_time / symbolic_time:.3f}x")
     else:
         print("reference_vs_symbolic=NA")
     if air_time > 0 and reference_time > 0:
         print(f"reference_vs_air={reference_time / air_time:.3f}x")
+        print(f"reference_speedup_over_air={air_time / reference_time:.3f}x")
     else:
         print("reference_vs_air=NA")
+        print("reference_speedup_over_air=NA")
     print("symbolic_buckets:")
     for (verdict, bucket), count in buckets.most_common(12):
         print(f"  {verdict}/{bucket}: {count}")
@@ -4911,14 +4943,14 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 print(f"  {verdict}/{bucket}:")
                 for sample in samples_for_bucket:
                     print(f"    {sample}")
-    if compare_mode_for_report == "legacy":
+    if compare_mode_for_report in ("legacy", "both"):
         print("top_legacy_pairs:")
         for (sv, lv, bucket), count in legacy_pairs.most_common(12):
             print(f"  symbolic={sv}/{bucket} legacy={lv}: {count}")
         print("top_strict_pairs:")
         for (sv, strict, bucket), count in strict_pairs.most_common(12):
             print(f"  symbolic={sv}/{bucket} strict={strict}: {count}")
-    if compare_mode_for_report == "reference":
+    if compare_mode_for_report in ("reference", "both"):
         print("top_reference_pairs:")
         for (sv, ref, bucket), count in reference_pairs.most_common(12):
             print(f"  symbolic={sv}/{bucket} reference={ref}: {count}")
@@ -4959,10 +4991,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         return 1
     if (
         args.fail_on_known_mismatch
-        and compare_known
+        and (legacy_compare_known or reference_compare_known)
         and (
-            (compare_mode_for_report == "legacy" and strict_known_match != compare_known)
-            or (compare_mode_for_report == "reference" and reference_known_match != compare_known)
+            (compare_mode_for_report in ("legacy", "both") and strict_known_match != legacy_compare_known)
+            or (compare_mode_for_report in ("reference", "both") and reference_known_match != reference_compare_known)
         )
     ):
         return 1
@@ -5031,7 +5063,7 @@ def main() -> int:
     parser.add_argument("--bucket-samples", type=int, default=0)
     parser.add_argument("--compare-limit", type=int, default=0)
     parser.add_argument("--compare-every", type=int, default=1)
-    parser.add_argument("--compare-against", choices=("legacy", "reference", "none"), default="legacy")
+    parser.add_argument("--compare-against", choices=("legacy", "reference", "both", "none"), default="legacy")
     parser.add_argument("--ignore-legacy-unknown", action="store_true")
     parser.add_argument("--fail-on-unknown", action="store_true")
     parser.add_argument("--fail-on-legacy-fallback", action="store_true")
