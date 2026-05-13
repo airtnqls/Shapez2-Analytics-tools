@@ -87,6 +87,25 @@ CLAW_HYBRID_MISS_ONLY_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bool, s
         ("cSSS", "--SS", (1, True, "swap_14_23_blocked")),
     }
 )
+BASIC_HYBRID_MISS_ONLY_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bool, str | None]]] = frozenset(
+    {
+        ("cS-S", "--Sc", (1, True, None)),
+        ("cS-S", "-cS-", (1, True, None)),
+        ("cS--", "S-SS", (1, True, "swap_12_34_blocked")),
+        ("cS-S", "S-Sc", (1, True, "swap_12_34_blocked")),
+        ("cS--", "S--S", (1, True, "swap_12_34_blocked")),
+        ("cS-S", "-P--", (1, True, None)),
+        ("cS-S", "-S--", (1, True, None)),
+        ("cS-S", "---P", (1, True, None)),
+        ("cS-S", "---S", (1, True, None)),
+        ("cS-S", "S-SS", (1, True, "swap_12_34_blocked")),
+        ("cS-S", "S--S", (1, True, "swap_12_34_blocked")),
+        ("cS--", "c--S", (1, True, "swap_12_34_blocked")),
+        ("cS--", "c-Sc", (1, True, "swap_12_34_blocked")),
+        ("cSSS", "--SP", (1, True, "swap_14_23_blocked")),
+        ("cSSS", "--SS", (1, True, "swap_14_23_blocked")),
+    }
+)
 REFERENCE_CPCP_DIR = PROJECT_ROOT / "reference_projects" / "shapez2-cpcp1998"
 
 
@@ -3951,6 +3970,14 @@ def _hybrid_stack_rescue_attempt(shape_obj: object, claw_mode: bool, normalized:
                 if not basic_hybrid_has_b_candidate(normalized):
                     HYBRID_RESCUE_STATS["basic_reject_initial_empty_b"] += 1
                     return None, "initial_empty_b"
+                parts = normalized.split(":")
+                removal = bitmask_layer_removal_context(normalized)[:3]
+                if (
+                    len(parts) >= 2
+                    and (parts[-1], parts[-2], removal) in BASIC_HYBRID_MISS_ONLY_TOP_PEN_REMS
+                ):
+                    HYBRID_RESCUE_STATS["basic_reject_miss_only"] += 1
+                    return None, "miss_only_reject"
                 HYBRID_RESCUE_STATS["basic_exec"] += 1
                 output_a, output_b = shape_obj.copy().hybrid()
 
