@@ -2474,6 +2474,40 @@ def bitmask_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ..
 
 
 @lru_cache(maxsize=100_000)
+def bitmask_bridge_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or parts[-1] != "cS-S":
+        return ()
+
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    signatures = (
+        ((3, 2), (3, 3), (4, 3), (5, 3)),
+        ((3, 3), (3, 4), (4, 3), (5, 3)),
+    )
+    candidates: list[str] = []
+    for signature in signatures:
+        candidate = [list(layer) for layer in base_parts]
+        valid = True
+        for layer_index, quadrant_index in signature:
+            li = layer_index - 1
+            qi = quadrant_index - 1
+            if li >= len(candidate) or candidate[li][qi] not in {"-", "c"}:
+                valid = False
+                break
+            candidate[li][qi] = "c"
+        if not valid:
+            continue
+        predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+        if bitmask_push_pin(predecessor, layers) == normalized:
+            candidates.append(predecessor)
+    return tuple(dict.fromkeys(candidates))
+
+
+@lru_cache(maxsize=100_000)
 def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
     normalized = normalize_code(code)
     if not normalized:
@@ -2501,7 +2535,12 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
             from shape import Shape
             from shape_classifier import ShapeType, analyze_shape
 
-            predecessors = bitmask_inverse_push_pin_candidates(normalized, layers)[:3]
+            predecessors = tuple(
+                dict.fromkeys(
+                    bitmask_inverse_push_pin_candidates(normalized, layers)
+                    + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
+                )
+            )[:4]
             PP_INVERSE_STATS["gated_calls"] += 1
             PP_INVERSE_STATS[f"candidate_count_{len(predecessors)}"] += 1
             if len(predecessors) == 2:
