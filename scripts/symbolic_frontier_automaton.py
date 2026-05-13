@@ -3061,6 +3061,66 @@ def pp_inverse_predecessor_core_verdict(code: str, layers: int) -> tuple[str, st
     return "possible", "kernel_pp_inverse_predecessor_verified"
 
 
+@lru_cache(maxsize=100_000)
+def zero_stack_trace_seed(code: str, layers: int, max_depth: int = 8) -> tuple[str, str] | None:
+    current = normalize_code(code)
+    seen: set[str] = set()
+    stripped = 0
+    while current and current not in seen and stripped < max_depth and top_single_c_zero_stack_candidate(current):
+        seen.add(current)
+        parts = current.split(":")
+        current = normalize_code(":".join(parts[1:]))
+        stripped += 1
+    if stripped == 0 or not current:
+        return None
+    if not bitmask_physics_stable(current):
+        return None
+    if not corner_columns_allowed(current):
+        return None
+    for witness in bitmask_stackability_witnesses(current):
+        base = witness.base
+        if not bitmask_physics_stable(base):
+            continue
+        if not corner_columns_allowed(base):
+            continue
+        if bitmask_swap_impossibility(base) is None:
+            return current, base
+    return None
+
+
+def zero_stack_pp_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    if not normalized:
+        return None
+    parts = normalized.split(":")
+    top = parts[-1]
+    if "P" in top or top.count("c") != 1:
+        return None
+    candidates = tuple(
+        dict.fromkeys(
+            bitmask_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
+        )
+    )[:24]
+    for predecessor in candidates:
+        if bitmask_push_pin(predecessor, layers) != normalized:
+            continue
+        if bitmask_swap_impossibility(predecessor) is not None:
+            continue
+        if processed_claw_fast_reject_reason(predecessor) is not None:
+            continue
+        if zero_stack_trace_seed(predecessor, layers) is not None:
+            return predecessor
+    return None
+
+
+def zero_stack_pp_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    if zero_stack_pp_predecessor_witness(code, layers) is None:
+        return None
+    return "possible", "kernel_zero_stack_pp_predecessor"
+
+
 def _bottom_pin_delta_base(base: str, target: str) -> bool:
     base_layers = normalize_code(base).split(":") if normalize_code(base) else []
     target_layers = normalize_code(target).split(":") if normalize_code(target) else []
@@ -4420,6 +4480,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 sv, sb = kernel
                 fallback_used += 1
                 kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "zero-stack-pp-predecessor-core" in args.experiment:
+            tick = time.perf_counter()
+            kernel = zero_stack_pp_predecessor_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["zero_stack_pp_predecessor"] += elapsed
+            kernel_step_counts["zero_stack_pp_predecessor"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
         if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "stackability-swap12-core" in args.experiment:
             tick = time.perf_counter()
             kernel = stackability_swap12_core_verdict(code)
@@ -5066,6 +5137,7 @@ def main() -> int:
             "reference-derived-positive",
             "claw-tail-seed-core",
             "pp-inverse-predecessor-core",
+            "zero-stack-pp-predecessor-core",
             "defer-swap-positive",
         ),
         default=[],

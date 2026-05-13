@@ -159,6 +159,7 @@ def analyze(args: argparse.Namespace) -> int:
     zero_stack_trace_exit_top_pair_counts: Counter[str] = Counter()
     zero_stack_trace_exit_safe_stack_counts: Counter[str] = Counter()
     zero_stack_trace_exit_min_base_swap_counts: Counter[str] = Counter()
+    zero_stack_trace_seed_counts: Counter[str] = Counter()
     inverse_count_counts: Counter[str] = Counter()
     inverse_contains_counts: Counter[str] = Counter()
     target_top_pair_counts: Counter[str] = Counter()
@@ -233,6 +234,7 @@ def analyze(args: argparse.Namespace) -> int:
             zero_stack_trace_exit_safe_stack_counts[str(sfa.safe_stackability_witness(trace_exit_code) is not None)] += 1
             _delta, exit_min_swap, _heights = _min_stack_delta(trace_exit_code)
             zero_stack_trace_exit_min_base_swap_counts[exit_min_swap] += 1
+        zero_stack_trace_seed_counts[str(sfa.zero_stack_trace_seed(pred, args.layers) is not None)] += 1
 
         inv_contains = "skipped"
         if not args.skip_inverse:
@@ -280,6 +282,7 @@ def analyze(args: argparse.Namespace) -> int:
         ("zero_stack_trace_exit_top_pair_counts", zero_stack_trace_exit_top_pair_counts),
         ("zero_stack_trace_exit_safe_stack_counts", zero_stack_trace_exit_safe_stack_counts),
         ("zero_stack_trace_exit_min_base_swap_counts", zero_stack_trace_exit_min_base_swap_counts),
+        ("zero_stack_trace_seed_counts", zero_stack_trace_seed_counts),
         ("inverse_count_counts", inverse_count_counts),
         ("inverse_contains_counts", inverse_contains_counts),
         ("target_top_pair_counts", target_top_pair_counts),
