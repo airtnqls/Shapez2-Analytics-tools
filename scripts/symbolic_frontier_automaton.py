@@ -2487,6 +2487,9 @@ def bitmask_bridge_inverse_push_pin_candidates(code: str, layers: int) -> tuple[
     signatures = (
         ((3, 2), (3, 3), (4, 3), (5, 3)),
         ((3, 3), (3, 4), (4, 3), (5, 3)),
+        ((2, 4), (3, 3), (3, 4), (4, 3), (5, 3)),
+        ((2, 3), (3, 2), (3, 3), (4, 3), (5, 3)),
+        ((3, 2), (3, 3), (3, 4), (4, 3), (5, 3)),
     )
     candidates: list[str] = []
     for signature in signatures:
