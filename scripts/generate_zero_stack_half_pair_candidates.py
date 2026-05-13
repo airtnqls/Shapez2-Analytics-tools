@@ -74,6 +74,31 @@ def _layer_at(code: str, index: int) -> str:
     return parts[index] if index < len(parts) else "----"
 
 
+def _abstract_layer(layer: str, mode: str) -> str:
+    if mode == "raw":
+        return layer
+    if mode == "classes":
+        return "".join("-" if ch == "-" else "X" if ch in {"S", "P"} else "c" for ch in layer)
+    if mode == "mask_counts":
+        occ = "".join("1" if ch != "-" else "0" for ch in layer)
+        return f"{occ}|P{layer.count('P')}S{layer.count('S')}c{layer.count('c')}"
+    raise ValueError(mode)
+
+
+def _abstract_pair_sequence(left: str, right: str, layers: int, mode: str) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        (_abstract_layer(_layer_at(left, index), mode), _abstract_layer(_layer_at(right, index), mode))
+        for index in range(layers)
+    )
+
+
+def _abstract_ngrams(sequence: tuple[tuple[str, str], ...], order: int) -> set[tuple[int, tuple[tuple[str, str], ...]]]:
+    return {
+        (index, sequence[index : index + order])
+        for index in range(len(sequence) - order + 1)
+    }
+
+
 def _known(
     args: argparse.Namespace,
 ) -> tuple[
@@ -86,6 +111,7 @@ def _known(
     set[tuple[int, str, str, str, str]],
     set[tuple[int, str, str, str, str, str, str]],
     set[tuple[int, str, str, str, str, str, str, str, str]],
+    set[tuple[int, tuple[tuple[str, str], ...]]],
 ]:
     predecessors: set[str] = set()
     targets: set[str] = set()
@@ -96,6 +122,7 @@ def _known(
     indexed_transitions: set[tuple[int, str, str, str, str]] = set()
     indexed_trigrams: set[tuple[int, str, str, str, str, str, str]] = set()
     indexed_quadgrams: set[tuple[int, str, str, str, str, str, str, str, str]] = set()
+    abstract_ngrams: set[tuple[int, tuple[tuple[str, str], ...]]] = set()
     started = time.perf_counter()
     total = 0
     for code in sfa.iter_data_codes(args.data, max_layers=args.layers):
@@ -162,6 +189,13 @@ def _known(
                         _layer_at(right, index + 3),
                     )
                 )
+            if args.abstract_order > 0:
+                abstract_ngrams.update(
+                    _abstract_ngrams(
+                        _abstract_pair_sequence(left, right, args.layers, args.abstract_mode),
+                        args.abstract_order,
+                    )
+                )
     return (
         predecessors,
         targets,
@@ -172,6 +206,7 @@ def _known(
         indexed_transitions,
         indexed_trigrams,
         indexed_quadgrams,
+        abstract_ngrams,
     )
 
 
@@ -406,6 +441,7 @@ def generate(args: argparse.Namespace) -> int:
         observed_indexed_transitions,
         observed_indexed_trigrams,
         observed_indexed_quadgrams,
+        observed_abstract_ngrams,
     ) = _known(args)
     sequence_truncated = False
     if args.sequence_mode == "transitions":
@@ -520,6 +556,11 @@ def generate(args: argparse.Namespace) -> int:
         if not predecessor:
             rejected["overlap_conflict"] += 1
             continue
+        if args.require_observed_abstract_ngrams:
+            sequence = _abstract_pair_sequence(left, right, args.layers, args.abstract_mode)
+            if not _abstract_ngrams(sequence, args.abstract_order) <= observed_abstract_ngrams:
+                rejected["abstract_ngram"] += 1
+                continue
         if len(predecessor.split(":")) > args.layers:
             rejected["too_tall"] += 1
             continue
@@ -593,6 +634,7 @@ def generate(args: argparse.Namespace) -> int:
     print(f"observed_indexed_transitions={len(observed_indexed_transitions)}")
     print(f"observed_indexed_trigrams={len(observed_indexed_trigrams)}")
     print(f"observed_indexed_quadgrams={len(observed_indexed_quadgrams)}")
+    print(f"observed_abstract_ngrams={len(observed_abstract_ngrams)}")
     print(f"pair_space={len(pairs)}")
     print(f"sequence_truncated={sequence_truncated}")
     print(f"tested={tested}")
@@ -641,6 +683,9 @@ def main() -> int:
     parser.add_argument("--predecessor-only", action="store_true")
     parser.add_argument("--feature-report", action="store_true")
     parser.add_argument("--top", type=int, default=12)
+    parser.add_argument("--abstract-mode", choices=("raw", "classes", "mask_counts"), default="classes")
+    parser.add_argument("--abstract-order", type=int, default=3)
+    parser.add_argument("--require-observed-abstract-ngrams", action="store_true")
     parser.add_argument("--shuffle", action="store_true")
     parser.add_argument("--seed", type=int, default=1)
     return generate(parser.parse_args())
