@@ -1805,6 +1805,8 @@ def claw_verified_tree(code: str, layers: int) -> DecompositionNode | None:
         return None
     processed_tree = swappability_tree(processed_code, layers)
     if processed_tree is None:
+        processed_tree = bitmask_swap_tree(processed_code)
+    if processed_tree is None:
         processed_tree = DecompositionNode(
             kind="claw_predecessor",
             shape=processed_code,
