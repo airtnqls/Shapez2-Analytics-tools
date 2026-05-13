@@ -61,6 +61,27 @@ def _known_zero_stack(args: argparse.Namespace) -> tuple[set[str], set[str]]:
     return targets, suffixes
 
 
+def _lower_prefix_allowed(code: str, mode: str) -> bool:
+    normalized = sfa.normalize_code(code)
+    if not normalized:
+        return mode in {"none", "physics", "physics-corner", "swappable", "stackable", "swappable-stackable"}
+    if mode == "none":
+        return True
+    if mode in {"physics", "physics-corner", "swappable", "stackable", "swappable-stackable"}:
+        if not sfa.bitmask_physics_stable(normalized):
+            return False
+    if mode in {"physics-corner", "swappable", "stackable", "swappable-stackable"}:
+        if not sfa.corner_columns_allowed(normalized):
+            return False
+    if mode in {"swappable", "swappable-stackable"}:
+        if sfa.bitmask_swap_impossibility(normalized) is not None:
+            return False
+    if mode in {"stackable", "swappable-stackable"}:
+        if not sfa.bitmask_stackability_witnesses(normalized):
+            return False
+    return True
+
+
 def generate(args: argparse.Namespace) -> int:
     started = time.perf_counter()
     known_targets, suffixes = _known_zero_stack(args)
@@ -71,6 +92,7 @@ def generate(args: argparse.Namespace) -> int:
     tested = 0
     rejected_trace = rejected_push = 0
     rejected_frontier = 0
+    rejected_lower = 0
 
     for suffix in sorted(suffixes):
         if args.max_seconds and time.perf_counter() - started > args.max_seconds:
@@ -82,6 +104,10 @@ def generate(args: argparse.Namespace) -> int:
             if args.max_candidates and tested >= args.max_candidates:
                 break
             tested += 1
+            lower_prefix = sfa.normalize_code(":".join(lower))
+            if not _lower_prefix_allowed(lower_prefix, args.lower_filter):
+                rejected_lower += 1
+                continue
             predecessor = sfa.normalize_code(":".join(lower + (suffix,)))
             if not predecessor:
                 continue
@@ -127,6 +153,7 @@ def generate(args: argparse.Namespace) -> int:
     print(f"rejected_trace={rejected_trace}")
     print(f"rejected_push={rejected_push}")
     print(f"rejected_frontier={rejected_frontier}")
+    print(f"rejected_lower={rejected_lower}")
     print(f"elapsed={time.perf_counter() - started:.6f}s")
     return 0
 
@@ -138,6 +165,11 @@ def main() -> int:
     parser.add_argument("--suffix-width", type=int, default=4)
     parser.add_argument("--alphabet", default="-SPc")
     parser.add_argument("--frontier-filter", action="store_true")
+    parser.add_argument(
+        "--lower-filter",
+        choices=("none", "physics", "physics-corner", "swappable", "stackable", "swappable-stackable"),
+        default="none",
+    )
     parser.add_argument("--max-candidates", type=int, default=0)
     parser.add_argument("--max-seconds", type=float, default=120.0)
     return generate(parser.parse_args())

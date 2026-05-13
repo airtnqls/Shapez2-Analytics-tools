@@ -67,6 +67,11 @@ def analyze(args: argparse.Namespace) -> int:
     prefix_signature_counts: Counter[str] = Counter()
     target_top_counts: Counter[str] = Counter()
     suffix_counts: Counter[tuple[int, str]] = Counter()
+    lower_prefix_swap_counts: Counter[tuple[int, str]] = Counter()
+    lower_prefix_physics_counts: Counter[tuple[int, str]] = Counter()
+    lower_prefix_stack_counts: Counter[tuple[int, str]] = Counter()
+    lower_prefix_corner_counts: Counter[tuple[int, str]] = Counter()
+    lower_prefix_reference_counts: Counter[tuple[int, str]] = Counter()
     examples: defaultdict[str, list[str]] = defaultdict(list)
 
     for code in sfa.iter_data_codes(args.data, max_layers=args.layers):
@@ -88,6 +93,20 @@ def analyze(args: argparse.Namespace) -> int:
         pred_parts = predecessor.split(":")
         for width in range(1, min(args.layers, len(pred_parts)) + 1):
             suffix_counts[(width, ":".join(pred_parts[-width:]))] += 1
+            lower = sfa.normalize_code(":".join(pred_parts[:-width]))
+            if lower:
+                lower_prefix_swap_counts[(width, sfa.bitmask_swap_impossibility(lower) or "swappable")] += 1
+                lower_prefix_physics_counts[(width, str(sfa.bitmask_physics_stable(lower)))] += 1
+                lower_prefix_stack_counts[(width, str(bool(sfa.bitmask_stackability_witnesses(lower))))] += 1
+                lower_prefix_corner_counts[(width, str(sfa.corner_columns_allowed(lower)))] += 1
+                reference = sfa.reference_cpcp_verdict(lower, min(args.layers, len(lower.split(":"))))
+                lower_prefix_reference_counts[(width, "/".join(reference) if reference is not None else "none")] += 1
+            else:
+                lower_prefix_swap_counts[(width, "empty")] += 1
+                lower_prefix_physics_counts[(width, "empty")] += 1
+                lower_prefix_stack_counts[(width, "empty")] += 1
+                lower_prefix_corner_counts[(width, "empty")] += 1
+                lower_prefix_reference_counts[(width, "empty")] += 1
         selected += 1
         prefix, seed, seed_type = _drop_bottom_trace(predecessor, args.layers)
         seed_type_counts[seed_type] += 1
@@ -139,6 +158,11 @@ def analyze(args: argparse.Namespace) -> int:
         ("transition_counts", transition_counts),
         ("transition_by_index_counts", transition_by_index_counts),
         ("suffix_counts", suffix_counts),
+        ("lower_prefix_swap_counts", lower_prefix_swap_counts),
+        ("lower_prefix_physics_counts", lower_prefix_physics_counts),
+        ("lower_prefix_stack_counts", lower_prefix_stack_counts),
+        ("lower_prefix_corner_counts", lower_prefix_corner_counts),
+        ("lower_prefix_reference_counts", lower_prefix_reference_counts),
         ("target_top_counts", target_top_counts),
     )
     for title, counter in sections:
