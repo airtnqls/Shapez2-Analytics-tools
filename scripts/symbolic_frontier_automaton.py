@@ -1757,6 +1757,49 @@ def pp_inverse_predecessor_tree(code: str, layers: int) -> DecompositionNode | N
     )
 
 
+def zero_stack_pp_predecessor_tree(code: str, layers: int, include_connected: bool = False) -> DecompositionNode | None:
+    normalized = normalize_code(code)
+    predecessor = zero_stack_pp_predecessor_witness(normalized, layers, include_connected=include_connected)
+    if predecessor is None:
+        return None
+    seed_pair = zero_stack_trace_seed(predecessor, layers)
+    if seed_pair is None:
+        return None
+    seed, base = seed_pair
+    base_tree = bitmask_swap_tree(base)
+    if base_tree is None:
+        return None
+
+    stripped = 0
+    current = predecessor
+    seen: set[str] = set()
+    while current and current not in seen and top_single_c_zero_stack_candidate(current):
+        seen.add(current)
+        current = normalize_code(":".join(current.split(":")[1:]))
+        stripped += 1
+
+    return DecompositionNode(
+        kind="pin_push",
+        shape=normalized,
+        detail="zero_stack_pp_predecessor",
+        children=(
+            DecompositionNode(
+                kind="zero_stack_strip",
+                shape=predecessor,
+                detail=f"stripped={stripped}",
+                children=(
+                    DecompositionNode(
+                        kind="stack",
+                        shape=seed,
+                        detail="zero_stack_seed_stackable",
+                        children=(base_tree,),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
 def claw_verified_tree(code: str, layers: int) -> DecompositionNode | None:
     normalized = normalize_code(code)
     verified, reason = claw_verify_status(normalized)
@@ -3693,6 +3736,9 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     pp_inverse = pp_inverse_predecessor_tree(code, layers)
     if pp_inverse is not None:
         return pp_inverse
+    zero_stack_pp = zero_stack_pp_predecessor_tree(code, layers)
+    if zero_stack_pp is not None:
+        return zero_stack_pp
     claw_verified = claw_verified_tree(code, layers)
     if claw_verified is not None:
         return claw_verified
