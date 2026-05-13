@@ -3267,16 +3267,11 @@ def stackability_tree(code: str, layers: int) -> DecompositionNode | None:
     if not witness:
         return None
     base = DecompositionNode(kind="swap", shape=witness.base, detail=base_detail)
-    stacked_delta = DecompositionNode(
-        kind="stack_input",
-        shape=witness.stacked_delta,
-        detail="target_minus_base",
-    )
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail=f"heights={witness.heights}",
-        children=(base, stacked_delta),
+        children=(base, stack_input_tree(witness.stacked_delta, "target_minus_base")),
     )
 
 
@@ -3289,16 +3284,11 @@ def half_empty_stackability_tree(code: str) -> DecompositionNode | None:
         shape=witness.base,
         detail="half_empty_swap14_base",
     )
-    stacked_delta = DecompositionNode(
-        kind="stack_input",
-        shape=witness.stacked_delta,
-        detail="s_only_stacked_delta",
-    )
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail=f"half_empty_heights={witness.heights}",
-        children=(base, stacked_delta),
+        children=(base, stack_input_tree(witness.stacked_delta, "s_only_stacked_delta")),
     )
 
 
@@ -3318,6 +3308,14 @@ def verified_left_predecessor_tree(left: str, layers: int, detail: str = "verifi
     )
 
 
+def stack_input_tree(shape: str, detail: str) -> DecompositionNode:
+    normalized = normalize_code(shape)
+    parts = normalized.split(":") if normalized else []
+    if len(parts) == 1 and "S" in parts[0] and "P" not in parts[0] and "c" not in parts[0]:
+        return DecompositionNode(kind="input", shape=normalized, detail=detail)
+    return DecompositionNode(kind="stack_input", shape=normalized, detail=detail)
+
+
 def small_right_cminusss_tree(code: str) -> DecompositionNode | None:
     witness = small_right_cminusss_witness(code)
     if witness is None:
@@ -3329,11 +3327,7 @@ def small_right_cminusss_tree(code: str) -> DecompositionNode | None:
         detail="small_right_cminusss",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="fixed_small_right",
-            ),
+            stack_input_tree(witness.right, "fixed_small_right"),
         ),
     )
 
@@ -3349,11 +3343,7 @@ def small_right_dense_s_support_tree(code: str) -> DecompositionNode | None:
         detail="small_right_dense_s_support",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="fixed_small_right_dense_s_support",
-            ),
+            stack_input_tree(witness.right, "fixed_small_right_dense_s_support"),
         ),
     )
 
@@ -3369,11 +3359,7 @@ def small_right_pp_stackability_tree(code: str) -> DecompositionNode | None:
         detail="small_right_pp_stackability",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="fixed_small_right_pin",
-            ),
+            stack_input_tree(witness.right, "fixed_small_right_pin"),
         ),
     )
 
@@ -3389,11 +3375,7 @@ def top_sss_tail_stack_tree(code: str) -> DecompositionNode | None:
         detail="top_sss_tail_stack",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="top_sss_tail_input",
-            ),
+            stack_input_tree(witness.right, "top_sss_tail_input"),
         ),
     )
 
@@ -3410,11 +3392,7 @@ def _pair_support_tree(code: str, witness: HybridRescueWitness | None, detail: s
         detail=detail,
         children=(
             left_tree,
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail=detail + "_input",
-            ),
+            stack_input_tree(witness.right, detail + "_input"),
         ),
     )
 
@@ -3470,11 +3448,7 @@ def small_right_low_base_s_support_tree(code: str) -> DecompositionNode | None:
         detail="small_right_low_base_s_support",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="fixed_small_right_support",
-            ),
+            stack_input_tree(witness.right, "fixed_small_right_support"),
         ),
     )
 
@@ -3490,11 +3464,7 @@ def small_right_pp_low_base_support_tree(code: str) -> DecompositionNode | None:
         detail="small_right_pp_low_base_support",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="fixed_small_right_pin_support",
-            ),
+            stack_input_tree(witness.right, "fixed_small_right_pin_support"),
         ),
     )
 
@@ -3510,11 +3480,7 @@ def paired_small_right_s_support_tree(code: str) -> DecompositionNode | None:
         detail="paired_small_right_s_support",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="paired_small_right_support",
-            ),
+            stack_input_tree(witness.right, "paired_small_right_support"),
         ),
     )
 
@@ -3530,11 +3496,7 @@ def small_right_shallow_left_s_support_tree(code: str) -> DecompositionNode | No
         detail="small_right_shallow_left_s_support",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="shallow_left_small_right_support",
-            ),
+            stack_input_tree(witness.right, "shallow_left_small_right_support"),
         ),
     )
 
@@ -3550,11 +3512,7 @@ def mid_stack_delta_low_frontier_support_tree(code: str) -> DecompositionNode | 
         detail="mid_stack_delta_low_frontier_support",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="mid_stack_delta_low_frontier",
-            ),
+            stack_input_tree(witness.right, "mid_stack_delta_low_frontier"),
         ),
     )
 
@@ -3570,11 +3528,7 @@ def top_pp_pin_predecessor_support_tree(code: str) -> DecompositionNode | None:
         detail="top_pp_pin_predecessor_support",
         children=(
             verified_left_predecessor_tree(witness.left, layers),
-            DecompositionNode(
-                kind="stack_input",
-                shape=witness.right,
-                detail="top_pp_pin_delta",
-            ),
+            stack_input_tree(witness.right, "top_pp_pin_delta"),
         ),
     )
 
@@ -3624,7 +3578,7 @@ def layer_removal_tree(code: str) -> DecompositionNode | None:
 
     children: list[DecompositionNode] = [base]
     children.extend(
-        DecompositionNode(kind="stack_input", shape=layer, detail=f"peeled_top_{index + 1}")
+        stack_input_tree(layer, f"peeled_top_{index + 1}")
         for index, layer in enumerate(reversed(peeled_layers))
     )
     return DecompositionNode(
@@ -4114,13 +4068,14 @@ def hybrid_rescue_tree(code: str) -> DecompositionNode | None:
     witness = hybrid_rescue_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail=f"{witness.mode}_hybrid_rescue",
         children=(
-            DecompositionNode(kind="hybrid_left", shape=witness.left, detail=witness.mode),
-            DecompositionNode(kind="hybrid_right", shape=witness.right, detail=witness.mode),
+            verified_left_predecessor_tree(witness.left, layers, f"{witness.mode}_hybrid_left"),
+            stack_input_tree(witness.right, f"{witness.mode}_hybrid_right"),
         ),
     )
 
