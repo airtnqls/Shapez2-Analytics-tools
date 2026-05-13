@@ -53,8 +53,6 @@ TOP_LAYER_HYBRID_MISS_ONLY: frozenset[tuple[str, tuple[int, bool, str | None]]] 
 )
 SAFE_STACKABILITY_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bool, str | None]]] = frozenset(
     {
-        ("cSSS", "S--S", (1, True, "swap_12_34_blocked")),
-        ("cSSS", "c--S", (1, True, "swap_12_34_blocked")),
         ("cSS-", "S-SS", (2, True, "swap_12_34_blocked")),
         ("cSSS", "S-SS", (2, True, "swap_12_34_blocked")),
         ("cSSS", "SS--", (1, True, "swap_14_23_blocked")),
