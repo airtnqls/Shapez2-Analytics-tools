@@ -97,6 +97,7 @@ def _shape_bits(code: str, layers: int) -> int:
     while len(parts) < layers:
         parts.append("----")
     bits = 0
+    # cpcp1998 dump encoding is Empty=0, Pin=1, Shape=2, Crystal=3.
     mapping = {"-": 0, "P": 1, "S": 2, "c": 3}
     for l, layer in enumerate(parts[:layers]):
         for q, ch in enumerate(layer):

@@ -1304,6 +1304,7 @@ def _cpcp_shape_bits(code: str, layers: int) -> int:
     while len(parts) < layers:
         parts.append("----")
     bits = 0
+    # cpcp1998 dump encoding is Empty=0, Pin=1, Shape=2, Crystal=3.
     mapping = {"-": 0, "P": 1, "S": 2, "c": 3}
     for l, layer in enumerate(parts[:layers]):
         for q, ch in enumerate(layer):
@@ -4863,8 +4864,14 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         print("pp_inverse_stats:")
         for key, count in sorted(PP_INVERSE_STATS.items()):
             print(f"  {key}: {count}")
-    if symbolic_time > 0:
+    if symbolic_time > 0 and legacy_time > 0:
         print(f"legacy_vs_symbolic={legacy_time / symbolic_time:.3f}x")
+    else:
+        print("legacy_vs_symbolic=NA")
+    if symbolic_time > 0 and reference_time > 0:
+        print(f"reference_vs_symbolic={reference_time / symbolic_time:.3f}x")
+    else:
+        print("reference_vs_symbolic=NA")
     print("symbolic_buckets:")
     for (verdict, bucket), count in buckets.most_common(12):
         print(f"  {verdict}/{bucket}: {count}")
