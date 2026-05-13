@@ -2003,6 +2003,69 @@ def top_sss_tail_stack_core_verdict(code: str) -> tuple[str, str] | None:
     return None
 
 
+def _top_sss_pair_support_witness(
+    code: str,
+    *,
+    mode: str,
+    cleared_top_indices: tuple[int, int],
+    right: str,
+) -> HybridRescueWitness | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if len(parts) < 5 or parts[-1] != "cSSS" or parts[-2][2] != "S":
+        return None
+
+    layers = [list(layer) for layer in parts]
+    layers[-2][2] = "-"
+    top = layers[-1]
+    for q in cleared_top_indices:
+        top[q] = "-"
+    left = normalize_code(":".join("".join(layer) for layer in layers))
+    if bitmask_layer_removal_context(left)[0] != 1:
+        return None
+    return _verified_stack_rescue_witness(
+        normalized,
+        left,
+        right,
+        mode,
+        len(parts),
+    )
+
+
+@lru_cache(maxsize=100_000)
+def top_sss_right_crystal_pair_support_witness(code: str) -> HybridRescueWitness | None:
+    return _top_sss_pair_support_witness(
+        code,
+        mode="top_sss_right_crystal_pair_support",
+        cleared_top_indices=(2, 3),
+        right="--Sc:--SS",
+    )
+
+
+@lru_cache(maxsize=100_000)
+def top_sss_center_crystal_pair_support_witness(code: str) -> HybridRescueWitness | None:
+    return _top_sss_pair_support_witness(
+        code,
+        mode="top_sss_center_crystal_pair_support",
+        cleared_top_indices=(1, 2),
+        right="-cS-:-SS-",
+    )
+
+
+@lru_cache(maxsize=100_000)
+def top_sss_right_crystal_pair_support_core_verdict(code: str) -> tuple[str, str] | None:
+    if top_sss_right_crystal_pair_support_witness(code) is not None:
+        return "possible", "kernel_top_sss_right_crystal_pair_support_from_verified_left"
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def top_sss_center_crystal_pair_support_core_verdict(code: str) -> tuple[str, str] | None:
+    if top_sss_center_crystal_pair_support_witness(code) is not None:
+        return "possible", "kernel_top_sss_center_crystal_pair_support_from_verified_left"
+    return None
+
+
 @lru_cache(maxsize=100_000)
 def small_right_low_base_s_support_witness(code: str) -> HybridRescueWitness | None:
     normalized = normalize_code(code)
@@ -2688,6 +2751,43 @@ def top_sss_tail_stack_tree(code: str) -> DecompositionNode | None:
     )
 
 
+def _pair_support_tree(code: str, witness: HybridRescueWitness | None, detail: str) -> DecompositionNode | None:
+    if witness is None:
+        return None
+    left_tree = claw_verified_tree(witness.left, len(normalize_code(code).split(":")))
+    if left_tree is None:
+        return None
+    return DecompositionNode(
+        kind="stack",
+        shape=normalize_code(code),
+        detail=detail,
+        children=(
+            left_tree,
+            DecompositionNode(
+                kind="stack_input",
+                shape=witness.right,
+                detail=detail + "_input",
+            ),
+        ),
+    )
+
+
+def top_sss_right_crystal_pair_support_tree(code: str) -> DecompositionNode | None:
+    return _pair_support_tree(
+        code,
+        top_sss_right_crystal_pair_support_witness(code),
+        "top_sss_right_crystal_pair_support",
+    )
+
+
+def top_sss_center_crystal_pair_support_tree(code: str) -> DecompositionNode | None:
+    return _pair_support_tree(
+        code,
+        top_sss_center_crystal_pair_support_witness(code),
+        "top_sss_center_crystal_pair_support",
+    )
+
+
 def small_right_low_base_s_support_tree(code: str) -> DecompositionNode | None:
     witness = small_right_low_base_s_support_witness(code)
     if witness is None:
@@ -2919,6 +3019,12 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     top_sss_tail = top_sss_tail_stack_tree(code)
     if top_sss_tail is not None:
         return top_sss_tail
+    top_sss_right_crystal_pair = top_sss_right_crystal_pair_support_tree(code)
+    if top_sss_right_crystal_pair is not None:
+        return top_sss_right_crystal_pair
+    top_sss_center_crystal_pair = top_sss_center_crystal_pair_support_tree(code)
+    if top_sss_center_crystal_pair is not None:
+        return top_sss_center_crystal_pair
     low_base_s_support = small_right_low_base_s_support_tree(code)
     if low_base_s_support is not None:
         return low_base_s_support
@@ -3643,6 +3749,28 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["top_sss_tail_stack"] += elapsed
             kernel_step_counts["top_sss_tail_stack"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
+            tick = time.perf_counter()
+            kernel = top_sss_right_crystal_pair_support_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["top_sss_right_crystal_pair_support"] += elapsed
+            kernel_step_counts["top_sss_right_crystal_pair_support"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
+            tick = time.perf_counter()
+            kernel = top_sss_center_crystal_pair_support_core_verdict(code)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["top_sss_center_crystal_pair_support"] += elapsed
+            kernel_step_counts["top_sss_center_crystal_pair_support"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
