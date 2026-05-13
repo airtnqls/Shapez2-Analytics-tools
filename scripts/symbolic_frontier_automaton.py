@@ -3530,11 +3530,29 @@ def hybrid_rescue_witness(code: str) -> HybridRescueWitness | None:
 def hybrid_rescue_skip_reason(code: str) -> str | None:
     normalized = normalize_code(code)
     parts = normalized.split(":") if normalized else []
-    if not parts or parts[-1] != "c--S":
+    if not parts:
         return None
     removal = bitmask_layer_removal_context(normalized)[:3]
-    if removal == (1, True, "swap_14_23_blocked"):
+    if parts[-1] == "c--S" and removal == (1, True, "swap_14_23_blocked"):
         return "top_cminus_s_swap14_blocked_single_crystal_strip"
+    if (
+        parts[-1] == "cSSS"
+        and parts[-2] == "-PS-"
+        and removal == (1, True, "swap_12_34_blocked")
+    ):
+        return "top_csss_penult_ps_swap12_blocked_single_crystal_strip"
+    if (
+        parts[-1] == "cSSS"
+        and parts[-2] == "-SS-"
+        and removal == (1, True, "swap_12_34_blocked")
+    ):
+        return "top_csss_penult_ss_swap12_blocked_single_crystal_strip"
+    if (
+        parts[-1] == "cS--"
+        and parts[-2] == "S-Sc"
+        and removal == (1, True, "swap_12_34_blocked")
+    ):
+        return "top_csminus_penult_s_sc_swap12_blocked_single_crystal_strip"
     return None
 
 
