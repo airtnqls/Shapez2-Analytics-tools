@@ -2599,10 +2599,10 @@ def bitmask_connected_shatter_inverse_push_pin_candidates(code: str, layers: int
     candidates: list[str] = []
     seen_states: set[tuple[tuple[int, int], ...]] = set()
     pending: list[tuple[tuple[int, int], ...]] = [((li, qi),) for li, qi in starts]
-    max_states = 96
-    max_added = 8
+    max_states = 1536
+    max_added = 10
 
-    while pending and len(seen_states) < max_states and len(candidates) < 4:
+    while pending and len(seen_states) < max_states and len(candidates) < 24:
         state = tuple(sorted(pending.pop(0)))
         if state in seen_states:
             continue
