@@ -99,24 +99,53 @@ def _collect(args: argparse.Namespace) -> list[Record]:
     return records
 
 
-def _ngrams(sequence: tuple[tuple[str, str], ...], order: int, indexed: bool = True) -> set[tuple[int, tuple[tuple[str, str], ...]]]:
+def _ngram_index(index: int, sequence_len: int, order: int, index_mode: str) -> int:
+    if index_mode == "absolute":
+        return index
+    if index_mode == "none":
+        return -1
+    if index_mode == "top_relative":
+        return index - (sequence_len - order)
+    if index_mode == "top_relative_prefix":
+        return index - (sequence_len - order)
+    raise ValueError(index_mode)
+
+
+def _ngrams(
+    sequence: tuple[tuple[str, str], ...],
+    order: int,
+    index_mode: str = "absolute",
+) -> set[tuple[int, tuple[tuple[str, str], ...]]]:
     return {
-        (index if indexed else -1, sequence[index : index + order])
+        (_ngram_index(index, len(sequence), order, index_mode), sequence[index : index + order])
         for index in range(len(sequence) - order + 1)
     }
 
 
-def _train_ngrams(records: list[Record], order: int, indexed: bool = True) -> set[tuple[int, tuple[tuple[str, str], ...]]]:
+def _train_ngrams(records: list[Record], order: int, index_mode: str = "absolute") -> set[tuple[int, tuple[tuple[str, str], ...]]]:
     out: set[tuple[int, tuple[tuple[str, str], ...]]] = set()
     for record in records:
         for sequence in record.sequences:
-            out.update(_ngrams(sequence, order, indexed=indexed))
+            out.update(_ngrams(sequence, order, index_mode=index_mode))
+            if index_mode == "top_relative_prefix":
+                out.update(_ngrams(sequence, order, index_mode="none"))
     return out
 
 
-def _accepted_by_ngrams(record: Record, order: int, trained: set[tuple[int, tuple[tuple[str, str], ...]]], indexed: bool = True) -> bool:
+def _accepted_by_ngrams(
+    record: Record,
+    order: int,
+    trained: set[tuple[int, tuple[tuple[str, str], ...]]],
+    index_mode: str = "absolute",
+) -> bool:
     for sequence in record.sequences:
-        grams = _ngrams(sequence, order, indexed=indexed)
+        grams = _ngrams(sequence, order, index_mode=index_mode)
+        if index_mode == "top_relative_prefix":
+            min_index = min((index for index, _gram in grams), default=0)
+            grams = {
+                ((-1 if index == min_index else index), gram)
+                for index, gram in grams
+            }
         if grams and grams <= trained:
             return True
     return False
@@ -213,14 +242,23 @@ def _enumerate_abstract_sequences(
     max_sequences: int,
     started: float,
     max_seconds: float,
-    indexed: bool = True,
+    index_mode: str = "absolute",
+    train_layers: int = 5,
 ) -> tuple[int, bool]:
-    starts = sorted(gram for index, gram in trained if index == (0 if indexed else -1))
+    if index_mode == "absolute":
+        start_index = 0
+    elif index_mode == "none":
+        start_index = -1
+    elif index_mode == "top_relative_prefix":
+        start_index = -1
+    else:
+        start_index = -(layers - order)
+    starts = sorted(gram for index, gram in trained if index == start_index)
     transitions: dict[tuple[int, tuple[tuple[str, str], ...]], list[tuple[str, str]]] = {}
     for index, gram in trained:
         if len(gram) != order:
             continue
-        transitions.setdefault((index if indexed else -1, gram[:-1]), []).append(gram[-1])
+        transitions.setdefault((index if index_mode != "none" else -1, gram[:-1]), []).append(gram[-1])
     for values in transitions.values():
         values.sort()
 
@@ -240,7 +278,15 @@ def _enumerate_abstract_sequences(
         if len(sequence) == layers:
             count += 1
             return
-        index = len(sequence) - order + 1 if indexed else -1
+        raw_index = len(sequence) - order + 1
+        if index_mode == "none":
+            index = -1
+        elif index_mode == "top_relative_prefix":
+            top_relative_index = _ngram_index(raw_index, layers, order, "top_relative")
+            min_train_top_relative = -(train_layers - order)
+            index = -1 if top_relative_index < min_train_top_relative else top_relative_index
+        else:
+            index = _ngram_index(raw_index, layers, order, index_mode)
         suffix = sequence[-(order - 1) :]
         for child in transitions.get((index, suffix), ()):
             rec(sequence + (child,))
@@ -262,10 +308,10 @@ def validate(args: argparse.Namespace) -> int:
     train_size = int(len(records) * args.train_ratio)
     train = records[:train_size]
     holdout = records[train_size:]
-    indexed = not args.unindexed
-    trained = _train_ngrams(train, args.order, indexed=indexed)
-    train_accept = sum(1 for record in train if _accepted_by_ngrams(record, args.order, trained, indexed=indexed))
-    holdout_accept = sum(1 for record in holdout if _accepted_by_ngrams(record, args.order, trained, indexed=indexed))
+    index_mode = "none" if args.unindexed else args.index_mode
+    trained = _train_ngrams(train, args.order, index_mode=index_mode)
+    train_accept = sum(1 for record in train if _accepted_by_ngrams(record, args.order, trained, index_mode=index_mode))
+    holdout_accept = sum(1 for record in holdout if _accepted_by_ngrams(record, args.order, trained, index_mode=index_mode))
     if args.abstraction == "raw":
         generated, truncated = _enumerate_sequences(
             trained,
@@ -274,7 +320,7 @@ def validate(args: argparse.Namespace) -> int:
             args.max_sequences,
             started,
             args.max_seconds,
-            indexed=indexed,
+            indexed=index_mode != "none",
         )
         abstract_generated_count = 0
         abstract_truncated = False
@@ -287,7 +333,8 @@ def validate(args: argparse.Namespace) -> int:
             args.max_sequences,
             started,
             args.max_seconds,
-            indexed=indexed,
+            index_mode=index_mode,
+            train_layers=args.train_layers,
         )
     train_preds = {record.predecessor for record in train}
     holdout_preds = {record.predecessor for record in holdout}
@@ -300,7 +347,7 @@ def validate(args: argparse.Namespace) -> int:
     print(f"generate_layers={args.generate_layers}")
     print(f"order={args.order}")
     print(f"abstraction={args.abstraction}")
-    print(f"indexed={indexed}")
+    print(f"index_mode={index_mode}")
     print(f"records={len(records)}")
     print(f"train={len(train)}")
     print(f"holdout={len(holdout)}")
@@ -330,6 +377,7 @@ def main() -> int:
     parser.add_argument("--order", type=int, default=4)
     parser.add_argument("--abstraction", choices=("raw", "counts", "mask_counts", "classes"), default="raw")
     parser.add_argument("--unindexed", action="store_true")
+    parser.add_argument("--index-mode", choices=("absolute", "top_relative", "top_relative_prefix"), default="absolute")
     parser.add_argument("--train-ratio", type=float, default=0.8)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--limit", type=int, default=0)
