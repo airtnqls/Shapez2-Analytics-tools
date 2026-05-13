@@ -84,6 +84,8 @@ def _known(
     set[tuple[str, str]],
     set[tuple[int, str, str]],
     set[tuple[int, str, str, str, str]],
+    set[tuple[int, str, str, str, str, str, str]],
+    set[tuple[int, str, str, str, str, str, str, str, str]],
 ]:
     predecessors: set[str] = set()
     targets: set[str] = set()
@@ -92,6 +94,8 @@ def _known(
     top_pairs: set[tuple[str, str]] = set()
     indexed_layer_pairs: set[tuple[int, str, str]] = set()
     indexed_transitions: set[tuple[int, str, str, str, str]] = set()
+    indexed_trigrams: set[tuple[int, str, str, str, str, str, str]] = set()
+    indexed_quadgrams: set[tuple[int, str, str, str, str, str, str, str, str]] = set()
     started = time.perf_counter()
     total = 0
     for code in sfa.iter_data_codes(args.data, max_layers=args.layers):
@@ -132,7 +136,43 @@ def _known(
                         _layer_at(right, index + 1),
                     )
                 )
-    return predecessors, targets, left_halves, right_halves, top_pairs, indexed_layer_pairs, indexed_transitions
+            for index in range(args.layers - 2):
+                indexed_trigrams.add(
+                    (
+                        index,
+                        _layer_at(left, index),
+                        _layer_at(right, index),
+                        _layer_at(left, index + 1),
+                        _layer_at(right, index + 1),
+                        _layer_at(left, index + 2),
+                        _layer_at(right, index + 2),
+                    )
+                )
+            for index in range(args.layers - 3):
+                indexed_quadgrams.add(
+                    (
+                        index,
+                        _layer_at(left, index),
+                        _layer_at(right, index),
+                        _layer_at(left, index + 1),
+                        _layer_at(right, index + 1),
+                        _layer_at(left, index + 2),
+                        _layer_at(right, index + 2),
+                        _layer_at(left, index + 3),
+                        _layer_at(right, index + 3),
+                    )
+                )
+    return (
+        predecessors,
+        targets,
+        left_halves,
+        right_halves,
+        top_pairs,
+        indexed_layer_pairs,
+        indexed_transitions,
+        indexed_trigrams,
+        indexed_quadgrams,
+    )
 
 
 def _target_allowed(code: str, args: argparse.Namespace) -> bool:
@@ -141,6 +181,17 @@ def _target_allowed(code: str, args: argparse.Namespace) -> bool:
     if args.target_sorted_claw_notes_filter and not _sorted_claw_notes_target_allowed(code):
         return False
     return True
+
+
+def _cheap_zero_stack_top(code: str) -> bool:
+    normalized = sfa.normalize_code(code)
+    if not normalized:
+        return False
+    parts = normalized.split(":")
+    if len(parts) < 2:
+        return False
+    top = parts[-1]
+    return top.count("c") == 1 and all(ch in {"-", "c"} for ch in top)
 
 
 def _codes_from_pair_sequence(sequence: tuple[tuple[str, str], ...]) -> tuple[str, str]:
@@ -193,6 +244,105 @@ def _generate_sequence_pairs(
     return pairs, truncated
 
 
+def _generate_trigram_sequence_pairs(
+    layers: int,
+    observed_indexed_transitions: set[tuple[int, str, str, str, str]],
+    observed_indexed_trigrams: set[tuple[int, str, str, str, str, str, str]],
+    max_sequences: int,
+    started: float,
+    max_seconds: float,
+) -> tuple[list[tuple[str, str]], bool]:
+    starts = sorted(
+        ((left, right), (next_left, next_right))
+        for index, left, right, next_left, next_right in observed_indexed_transitions
+        if index == 0
+    )
+    transitions: dict[tuple[int, str, str, str, str], list[tuple[str, str]]] = {}
+    for index, left, right, mid_left, mid_right, next_left, next_right in observed_indexed_trigrams:
+        transitions.setdefault((index, left, right, mid_left, mid_right), []).append((next_left, next_right))
+    for values in transitions.values():
+        values.sort()
+
+    pairs: list[tuple[str, str]] = []
+    truncated = False
+
+    def rec(index: int, sequence: tuple[tuple[str, str], ...]) -> None:
+        nonlocal truncated
+        if truncated:
+            return
+        if max_seconds and time.perf_counter() - started > max_seconds:
+            truncated = True
+            return
+        if max_sequences and len(pairs) >= max_sequences:
+            truncated = True
+            return
+        if len(sequence) == layers:
+            pairs.append(_codes_from_pair_sequence(sequence))
+            return
+        prev_left, prev_right = sequence[-2]
+        cur_left, cur_right = sequence[-1]
+        for child in transitions.get((index, prev_left, prev_right, cur_left, cur_right), ()):
+            rec(index + 1, sequence + (child,))
+            if truncated:
+                return
+
+    for first, second in starts:
+        rec(0, (first, second))
+        if truncated:
+            break
+    return pairs, truncated
+
+
+def _generate_quadgram_sequence_pairs(
+    layers: int,
+    observed_indexed_trigrams: set[tuple[int, str, str, str, str, str, str]],
+    observed_indexed_quadgrams: set[tuple[int, str, str, str, str, str, str, str, str]],
+    max_sequences: int,
+    started: float,
+    max_seconds: float,
+) -> tuple[list[tuple[str, str]], bool]:
+    starts = sorted(
+        ((left, right), (mid_left, mid_right), (next_left, next_right))
+        for index, left, right, mid_left, mid_right, next_left, next_right in observed_indexed_trigrams
+        if index == 0
+    )
+    transitions: dict[tuple[int, str, str, str, str, str, str], list[tuple[str, str]]] = {}
+    for index, a_left, a_right, b_left, b_right, c_left, c_right, d_left, d_right in observed_indexed_quadgrams:
+        transitions.setdefault((index, a_left, a_right, b_left, b_right, c_left, c_right), []).append((d_left, d_right))
+    for values in transitions.values():
+        values.sort()
+
+    pairs: list[tuple[str, str]] = []
+    truncated = False
+
+    def rec(index: int, sequence: tuple[tuple[str, str], ...]) -> None:
+        nonlocal truncated
+        if truncated:
+            return
+        if max_seconds and time.perf_counter() - started > max_seconds:
+            truncated = True
+            return
+        if max_sequences and len(pairs) >= max_sequences:
+            truncated = True
+            return
+        if len(sequence) == layers:
+            pairs.append(_codes_from_pair_sequence(sequence))
+            return
+        a_left, a_right = sequence[-3]
+        b_left, b_right = sequence[-2]
+        c_left, c_right = sequence[-1]
+        for child in transitions.get((index, a_left, a_right, b_left, b_right, c_left, c_right), ()):
+            rec(index + 1, sequence + (child,))
+            if truncated:
+                return
+
+    for first, second, third in starts:
+        rec(0, (first, second, third))
+        if truncated:
+            break
+    return pairs, truncated
+
+
 def generate(args: argparse.Namespace) -> int:
     started = time.perf_counter()
     (
@@ -203,6 +353,8 @@ def generate(args: argparse.Namespace) -> int:
         observed_top_pairs,
         observed_indexed_layer_pairs,
         observed_indexed_transitions,
+        observed_indexed_trigrams,
+        observed_indexed_quadgrams,
     ) = _known(args)
     sequence_truncated = False
     if args.sequence_mode == "transitions":
@@ -210,6 +362,24 @@ def generate(args: argparse.Namespace) -> int:
             args.layers,
             observed_indexed_layer_pairs,
             observed_indexed_transitions,
+            args.max_sequences,
+            started,
+            args.max_seconds,
+        )
+    elif args.sequence_mode == "trigrams":
+        pairs, sequence_truncated = _generate_trigram_sequence_pairs(
+            args.layers,
+            observed_indexed_transitions,
+            observed_indexed_trigrams,
+            args.max_sequences,
+            started,
+            args.max_seconds,
+        )
+    elif args.sequence_mode == "quadgrams":
+        pairs, sequence_truncated = _generate_quadgram_sequence_pairs(
+            args.layers,
+            observed_indexed_trigrams,
+            observed_indexed_quadgrams,
             args.max_sequences,
             started,
             args.max_seconds,
@@ -256,6 +426,44 @@ def generate(args: argparse.Namespace) -> int:
             if not ok:
                 rejected["index_transition"] += 1
                 continue
+        if args.require_observed_index_trigrams:
+            ok = True
+            for index in range(args.layers - 2):
+                trigram = (
+                    index,
+                    _layer_at(left, index),
+                    _layer_at(right, index),
+                    _layer_at(left, index + 1),
+                    _layer_at(right, index + 1),
+                    _layer_at(left, index + 2),
+                    _layer_at(right, index + 2),
+                )
+                if trigram not in observed_indexed_trigrams:
+                    ok = False
+                    break
+            if not ok:
+                rejected["index_trigram"] += 1
+                continue
+        if args.require_observed_index_quadgrams:
+            ok = True
+            for index in range(args.layers - 3):
+                quadgram = (
+                    index,
+                    _layer_at(left, index),
+                    _layer_at(right, index),
+                    _layer_at(left, index + 1),
+                    _layer_at(right, index + 1),
+                    _layer_at(left, index + 2),
+                    _layer_at(right, index + 2),
+                    _layer_at(left, index + 3),
+                    _layer_at(right, index + 3),
+                )
+                if quadgram not in observed_indexed_quadgrams:
+                    ok = False
+                    break
+            if not ok:
+                rejected["index_quadgram"] += 1
+                continue
         predecessor = _or_shape(left, _rotate_180(right))
         if not predecessor:
             rejected["overlap_conflict"] += 1
@@ -263,21 +471,25 @@ def generate(args: argparse.Namespace) -> int:
         if len(predecessor.split(":")) > args.layers:
             rejected["too_tall"] += 1
             continue
+        if args.require_zero_stack and not _cheap_zero_stack_top(predecessor):
+            rejected["not_zero_stack_top"] += 1
+            continue
         if args.require_zero_stack and not sfa.top_single_c_zero_stack_candidate(predecessor):
             rejected["not_zero_stack"] += 1
             continue
         if args.require_trace_seed and sfa.zero_stack_trace_seed(predecessor, args.layers, allow_terminal_crystal=True) is None:
             rejected["no_trace_seed"] += 1
             continue
-        pushed = sfa.bitmask_push_pin(predecessor, args.layers)
-        if not pushed:
-            rejected["empty_push"] += 1
-            continue
-        if not _target_allowed(pushed, args):
-            rejected["target_filter"] += 1
-            continue
         generated_predecessors.add(predecessor)
-        generated_targets.add(pushed)
+        if not args.predecessor_only:
+            pushed = sfa.bitmask_push_pin(predecessor, args.layers)
+            if not pushed:
+                rejected["empty_push"] += 1
+                continue
+            if not _target_allowed(pushed, args):
+                rejected["target_filter"] += 1
+                continue
+            generated_targets.add(pushed)
 
     predecessor_overlap = generated_predecessors & known_predecessors
     target_overlap = generated_targets & known_targets
@@ -290,6 +502,8 @@ def generate(args: argparse.Namespace) -> int:
     print(f"observed_top_pairs={len(observed_top_pairs)}")
     print(f"observed_indexed_layer_pairs={len(observed_indexed_layer_pairs)}")
     print(f"observed_indexed_transitions={len(observed_indexed_transitions)}")
+    print(f"observed_indexed_trigrams={len(observed_indexed_trigrams)}")
+    print(f"observed_indexed_quadgrams={len(observed_indexed_quadgrams)}")
     print(f"pair_space={len(pairs)}")
     print(f"sequence_truncated={sequence_truncated}")
     print(f"tested={tested}")
@@ -322,8 +536,11 @@ def main() -> int:
     parser.add_argument("--require-observed-top-pair", action="store_true")
     parser.add_argument("--require-observed-index-layer-pairs", action="store_true")
     parser.add_argument("--require-observed-index-transitions", action="store_true")
-    parser.add_argument("--sequence-mode", choices=("cartesian", "transitions"), default="cartesian")
+    parser.add_argument("--require-observed-index-trigrams", action="store_true")
+    parser.add_argument("--require-observed-index-quadgrams", action="store_true")
+    parser.add_argument("--sequence-mode", choices=("cartesian", "transitions", "trigrams", "quadgrams"), default="cartesian")
     parser.add_argument("--max-sequences", type=int, default=0)
+    parser.add_argument("--predecessor-only", action="store_true")
     parser.add_argument("--shuffle", action="store_true")
     parser.add_argument("--seed", type=int, default=1)
     return generate(parser.parse_args())
