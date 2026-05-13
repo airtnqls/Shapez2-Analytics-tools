@@ -64,6 +64,13 @@ def corner_columns_allowed(code: str) -> bool:
     return True
 
 
+@lru_cache(maxsize=200_000)
+def cached_skip_shape_analysis(shape_text: str) -> tuple[str, str]:
+    from shape_classifier import analyze_shape
+
+    return analyze_shape(shape_text, skip=True)
+
+
 def _mask_for(layer: str, ch: str) -> int:
     mask = 0
     for i, c in enumerate(layer):
@@ -2324,7 +2331,7 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
                     return predecessor
                 PP_INVERSE_STATS["classified_candidates"] += 1
                 shape = Shape.from_string(predecessor)
-                classification_type, _classification_reason = analyze_shape(repr(shape), shape, True)
+                classification_type, _classification_reason = cached_skip_shape_analysis(repr(shape))
                 if ShapeType.SWAPABLE.value in classification_type:
                     PP_INVERSE_STATS["hits"] += 1
                     PP_INVERSE_STATS[f"first_hit_index_{index}"] += 1
@@ -3005,7 +3012,7 @@ def claw_verify_status(code: str) -> tuple[bool, str]:
                 CLAW_VERIFY_STATS["swap_impossible"] += 1
                 return False, ClassificationReason.REASON_CLAW_SWAP_IMPOSSIBLE
             processed_shape = Shape.from_string(processed_shape_str)
-            classification_type, _classification_reason = analyze_shape(repr(processed_shape), processed_shape, True)
+            classification_type, _classification_reason = cached_skip_shape_analysis(repr(processed_shape))
             CLAW_VERIFY_TIMES["classify_processed"] += time.perf_counter() - tick
             if ShapeType.SWAPABLE.value not in classification_type:
                 CLAW_VERIFY_STATS["swap_impossible"] += 1
@@ -3158,7 +3165,7 @@ def _hybrid_stack_rescue_attempt(shape_obj: object, claw_mode: bool, normalized:
             left_code = normalize_code(simplify_shape(repr(output_a)))
             right_code = normalize_code(simplify_shape(b_repr))
             removed_count, removed_crystal, final_swap, _base_depth = bitmask_layer_removal_context(left_code)
-            a_type, _a_reason = analyze_shape(repr(output_a), output_a, skip=True)
+            a_type, _a_reason = cached_skip_shape_analysis(repr(output_a))
             if a_type == ShapeType.IMPOSSIBLE.value:
                 HYBRID_RESCUE_STATS[("claw" if claw_mode else "basic") + "_fail_a_impossible"] += 1
                 return None, "a_impossible"
@@ -3296,7 +3303,7 @@ def legacy_hint_signature(code: str) -> str:
                 b_repr = repr(b_obj)
                 if not b_repr:
                     return f"{split_name}:emptyB"
-                a_type, _ = analyze_shape(a_repr, a_obj, skip=True)
+                a_type, _ = cached_skip_shape_analysis(a_repr)
                 a_ok = a_type not in (ShapeType.IMPOSSIBLE.value, ShapeType.UNKNOWN.value)
                 stack_ab = repr(Shape.stack(a_obj, b_obj)) == repr(shape_obj)
                 stack_ba = repr(Shape.stack(b_obj, a_obj)) == repr(shape_obj)
