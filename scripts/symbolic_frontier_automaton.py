@@ -416,6 +416,35 @@ def decomposition_tree_dependency_tags(node: DecompositionNode) -> tuple[str, ..
     return tuple(sorted(tags))
 
 
+OPEN_DECOMPOSITION_LEAF_KINDS = frozenset(
+    {
+        "claw_predecessor",
+        "hybrid_left",
+        "hybrid_right",
+        "pin_predecessor",
+        "stack_input",
+        "verified_predecessor",
+    }
+)
+
+
+def decomposition_tree_open_leaf_keys(node: DecompositionNode) -> Counter[str]:
+    leaves: Counter[str] = Counter()
+
+    def visit(current: DecompositionNode) -> None:
+        if current.children:
+            for child in current.children:
+                visit(child)
+            return
+        if current.kind in OPEN_DECOMPOSITION_LEAF_KINDS:
+            leaves[decomposition_tree_root_key(current)] += 1
+        elif current.kind == "pp" and current.detail == "empty_trace":
+            leaves[decomposition_tree_root_key(current)] += 1
+
+    visit(node)
+    return leaves
+
+
 @dataclass(frozen=True)
 class HybridRescueWitness:
     mode: str
@@ -1192,7 +1221,8 @@ def extract_codes(path: Path, max_layers: int = MAX_LAYERS) -> Iterable[str]:
 
 def iter_data_codes(data_dir: Path, max_layers: int = MAX_LAYERS) -> Iterable[str]:
     seen: set[str] = set()
-    for path in sorted(data_dir.rglob("*.txt")):
+    paths = [data_dir] if data_dir.is_file() else sorted(data_dir.rglob("*.txt"))
+    for path in paths:
         for code in extract_codes(path, max_layers):
             if code not in seen:
                 seen.add(code)
@@ -1203,7 +1233,8 @@ def iter_data_codes_by_file(data_dir: Path, per_file: int, seed: int, shuffle: b
     rng = random.Random(seed)
     seen: set[str] = set()
     sampled: list[str] = []
-    for path in sorted(data_dir.rglob("*.txt")):
+    paths = [data_dir] if data_dir.is_file() else sorted(data_dir.rglob("*.txt"))
+    for path in paths:
         file_codes = []
         file_seen: set[str] = set()
         for code in extract_codes(path, max_layers):
@@ -4241,6 +4272,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
 
     total = skipped_by_layer = skipped_by_bucket = non_unknown = fallback_used = kernel_used = legacy_fallback_used = legacy_match = strict_match = virtual_legacy_possible = 0
     decomposition_tree_checked = decomposition_tree_missing = 0
+    decomposition_tree_open_leaf_total = decomposition_tree_open_tree_count = 0
     compare_total = compare_non_unknown = compare_known = legacy_known_match = strict_known_match = 0
     symbolic_time = kernel_time = legacy_time = 0.0
     kernel_step_times: Counter[str] = Counter()
@@ -4253,6 +4285,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     kernel_step_counts: Counter[str] = Counter()
     decomposition_tree_roots: Counter[str] = Counter()
     decomposition_tree_dependencies: Counter[tuple[str, ...]] = Counter()
+    decomposition_tree_open_leaf_kinds: Counter[str] = Counter()
     bucket_samples: dict[tuple[str, str], list[str]] = {}
     samples: list[str] = []
     legacy_unknown_samples: list[str] = []
@@ -4664,10 +4697,15 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 if len(decomposition_tree_samples) < args.max_mismatches:
                     decomposition_tree_samples.append(
                         f"{normalize_code(code)}\tmissing_decomposition_tree\tbucket={sv}/{sb}"
-                    )
+                )
             else:
                 decomposition_tree_roots[decomposition_tree_root_key(tree)] += 1
                 decomposition_tree_dependencies[decomposition_tree_dependency_tags(tree)] += 1
+                open_leaves = decomposition_tree_open_leaf_keys(tree)
+                if open_leaves:
+                    decomposition_tree_open_tree_count += 1
+                    decomposition_tree_open_leaf_total += open_leaves.total()
+                    decomposition_tree_open_leaf_kinds.update(open_leaves)
         layer_counts[normalized_layer_count] += 1
         lv = strict = lc = lr = ""
         needs_legacy_fallback = sv == "unknown" and args.fallback in ("legacy-core", "kernel-core", "kernel-hybrid-core")
@@ -4734,6 +4772,8 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     print(f"legacy_fallback_used={legacy_fallback_used}")
     print(f"decomposition_tree_checked={decomposition_tree_checked}")
     print(f"decomposition_tree_missing={decomposition_tree_missing}")
+    print(f"decomposition_tree_open_tree_count={decomposition_tree_open_tree_count}")
+    print(f"decomposition_tree_open_leaf_total={decomposition_tree_open_leaf_total}")
     if decomposition_tree_roots:
         print("decomposition_tree_roots:")
         for root_key, count in decomposition_tree_roots.most_common(20):
@@ -4743,6 +4783,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         for dependency_tags, count in decomposition_tree_dependencies.most_common(20):
             label = ",".join(dependency_tags) if dependency_tags else "none"
             print(f"  {label}: {count}")
+    if decomposition_tree_open_leaf_kinds:
+        print("decomposition_tree_open_leaf_kinds:")
+        for leaf_key, count in decomposition_tree_open_leaf_kinds.most_common(20):
+            print(f"  {leaf_key}: {count}")
     if args.no_compare_legacy:
         print("compare_total=0")
         print("compare_non_unknown=0")
@@ -4858,6 +4902,8 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         return 1
     if args.fail_on_missing_decomposition_tree and decomposition_tree_missing:
         return 1
+    if args.fail_on_open_decomposition_leaf and decomposition_tree_open_leaf_total:
+        return 1
     return 1 if strict_samples else 0
 
 
@@ -4924,6 +4970,7 @@ def main() -> int:
     parser.add_argument("--fail-on-legacy-fallback", action="store_true")
     parser.add_argument("--fail-on-known-mismatch", action="store_true")
     parser.add_argument("--fail-on-missing-decomposition-tree", action="store_true")
+    parser.add_argument("--fail-on-open-decomposition-leaf", action="store_true")
     parser.add_argument(
         "--fallback",
         choices=("none", "physics-core", "swap-core", "legacy-core", "kernel-core", "kernel-hybrid-core"),
