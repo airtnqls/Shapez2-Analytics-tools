@@ -58,6 +58,14 @@ SAFE_STACKABILITY_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bool, str |
         ("cSS-", "S-SS", (2, True, "swap_12_34_blocked")),
     }
 )
+CLAW_PRIMITIVE_PREDECESSOR_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bool, str | None]]] = frozenset(
+    {
+        ("cS-S", "S-S-", (1, True, None)),
+        ("cS-S", "c-S-", (1, True, None)),
+        ("cS-S", "S---", (1, True, None)),
+        ("cS-S", "c---", (1, True, None)),
+    }
+)
 REFERENCE_CPCP_DIR = PROJECT_ROOT / "reference_projects" / "shapez2-cpcp1998"
 
 
@@ -3710,12 +3718,41 @@ def processed_claw_fast_reject_reason(code: str) -> str | None:
 
 
 @lru_cache(maxsize=100_000)
+def claw_primitive_swapable_predecessor(code: str) -> str | None:
+    normalized = normalize_code(code)
+    if not normalized:
+        return None
+    parts = normalized.split(":")
+    if len(parts) < 2:
+        return None
+    removal = bitmask_layer_removal_context(normalized)[:3]
+    if (parts[-1], parts[-2], removal) not in CLAW_PRIMITIVE_PREDECESSOR_TOP_PEN_REMS:
+        return None
+    layers = len(normalized.split(":"))
+    for predecessor_family in (bitmask_inverse_push_pin_candidates, bitmask_bridge_inverse_push_pin_candidates):
+        for predecessor in predecessor_family(normalized, layers):
+            if bitmask_push_pin(predecessor, max(MAX_LAYERS, layers)) != normalized:
+                continue
+            if processed_claw_fast_reject_reason(predecessor) is not None:
+                continue
+            if bitmask_swap_impossibility(predecessor) is None:
+                return predecessor
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def claw_verify_status(code: str) -> tuple[bool, str]:
     normalized = normalize_code(code)
     removed_count, removed_crystal, _final_swap, _base_depth = bitmask_layer_removal_context(normalized)
     if removed_count <= 0 or not removed_crystal:
         return False, "not_claw_context"
     CLAW_VERIFY_STATS["calls"] += 1
+    tick = time.perf_counter()
+    primitive_predecessor = claw_primitive_swapable_predecessor(normalized)
+    CLAW_VERIFY_TIMES["primitive_predecessor"] += time.perf_counter() - tick
+    if primitive_predecessor is not None:
+        CLAW_VERIFY_STATS["primitive_predecessor_verified"] += 1
+        return True, "claw_possible"
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             from shape import Shape
