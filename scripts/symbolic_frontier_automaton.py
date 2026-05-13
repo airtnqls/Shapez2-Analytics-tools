@@ -1757,12 +1757,22 @@ def pp_inverse_predecessor_tree(code: str, layers: int) -> DecompositionNode | N
     )
 
 
-def zero_stack_pp_predecessor_tree(code: str, layers: int, include_connected: bool = False) -> DecompositionNode | None:
+def zero_stack_pp_predecessor_tree(
+    code: str,
+    layers: int,
+    include_connected: bool = False,
+    allow_terminal_crystal: bool = False,
+) -> DecompositionNode | None:
     normalized = normalize_code(code)
-    predecessor = zero_stack_pp_predecessor_witness(normalized, layers, include_connected=include_connected)
+    predecessor = zero_stack_pp_predecessor_witness(
+        normalized,
+        layers,
+        include_connected=include_connected,
+        allow_terminal_crystal=allow_terminal_crystal,
+    )
     if predecessor is None:
         return None
-    seed_pair = zero_stack_trace_seed(predecessor, layers)
+    seed_pair = zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=allow_terminal_crystal)
     if seed_pair is None:
         return None
     seed, base = seed_pair
@@ -1786,7 +1796,7 @@ def zero_stack_pp_predecessor_tree(code: str, layers: int, include_connected: bo
             DecompositionNode(
                 kind="zero_stack_strip",
                 shape=predecessor,
-                detail=f"stripped={stripped}",
+                detail=f"stripped={stripped};terminal_crystal={allow_terminal_crystal}",
                 children=(
                     DecompositionNode(
                         kind="stack",
@@ -3105,7 +3115,12 @@ def pp_inverse_predecessor_core_verdict(code: str, layers: int) -> tuple[str, st
 
 
 @lru_cache(maxsize=100_000)
-def zero_stack_trace_seed(code: str, layers: int, max_depth: int = 8) -> tuple[str, str] | None:
+def zero_stack_trace_seed(
+    code: str,
+    layers: int,
+    max_depth: int = 8,
+    allow_terminal_crystal: bool = False,
+) -> tuple[str, str] | None:
     current = normalize_code(code)
     seen: set[str] = set()
     stripped = 0
@@ -3120,6 +3135,15 @@ def zero_stack_trace_seed(code: str, layers: int, max_depth: int = 8) -> tuple[s
         return None
     if not corner_columns_allowed(current):
         return None
+    current_parts = current.split(":")
+    if (
+        allow_terminal_crystal
+        and len(current_parts) == 1
+        and current_parts[0].count("c") == 1
+        and all(ch in {"-", "c"} for ch in current_parts[0])
+        and bitmask_swap_impossibility(current) is None
+    ):
+        return current, current
     for witness in bitmask_stackability_witnesses(current):
         base = witness.base
         if not bitmask_physics_stable(base):
@@ -3131,7 +3155,12 @@ def zero_stack_trace_seed(code: str, layers: int, max_depth: int = 8) -> tuple[s
     return None
 
 
-def zero_stack_pp_predecessor_witness(code: str, layers: int, include_connected: bool = False) -> str | None:
+def zero_stack_pp_predecessor_witness(
+    code: str,
+    layers: int,
+    include_connected: bool = False,
+    allow_terminal_crystal: bool = False,
+) -> str | None:
     normalized = normalize_code(code)
     if not normalized:
         return None
@@ -3155,7 +3184,7 @@ def zero_stack_pp_predecessor_witness(code: str, layers: int, include_connected:
             continue
         if processed_claw_fast_reject_reason(predecessor) is not None:
             continue
-        if zero_stack_trace_seed(predecessor, layers) is not None:
+        if zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=allow_terminal_crystal) is not None:
             return predecessor
     return None
 
@@ -3170,6 +3199,12 @@ def zero_stack_connected_pp_predecessor_core_verdict(code: str, layers: int) -> 
     if zero_stack_pp_predecessor_witness(code, layers, include_connected=True) is None:
         return None
     return "possible", "kernel_zero_stack_connected_pp_predecessor"
+
+
+def zero_stack_terminal_crystal_pp_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    if zero_stack_pp_predecessor_witness(code, layers, allow_terminal_crystal=True) is None:
+        return None
+    return "possible", "kernel_zero_stack_terminal_crystal_pp_predecessor"
 
 
 def _bottom_pin_delta_base(base: str, target: str) -> bool:
@@ -3739,6 +3774,9 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     zero_stack_pp = zero_stack_pp_predecessor_tree(code, layers)
     if zero_stack_pp is not None:
         return zero_stack_pp
+    zero_stack_terminal = zero_stack_pp_predecessor_tree(code, layers, allow_terminal_crystal=True)
+    if zero_stack_terminal is not None:
+        return zero_stack_terminal
     claw_verified = claw_verified_tree(code, layers)
     if claw_verified is not None:
         return claw_verified
@@ -4792,6 +4830,21 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 kernel_used += 1
         if (
             sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and "zero-stack-terminal-crystal-pp-predecessor-core" in args.experiment
+        ):
+            tick = time.perf_counter()
+            kernel = zero_stack_terminal_crystal_pp_predecessor_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["zero_stack_terminal_crystal_pp_predecessor"] += elapsed
+            kernel_step_counts["zero_stack_terminal_crystal_pp_predecessor"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if (
+            sv == "unknown"
             and args.fallback in ("kernel-core", "kernel-hybrid-core")
             and (
                 args.fallback != "kernel-hybrid-core"
@@ -5225,6 +5278,7 @@ def main() -> int:
             "zero-stack-pp-predecessor-early",
             "zero-stack-pp-predecessor-core",
             "zero-stack-connected-pp-predecessor-core",
+            "zero-stack-terminal-crystal-pp-predecessor-core",
             "defer-swap-positive",
         ),
         default=[],

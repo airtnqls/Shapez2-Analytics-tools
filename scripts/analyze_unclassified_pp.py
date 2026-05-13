@@ -160,11 +160,13 @@ def analyze(args: argparse.Namespace) -> int:
     zero_stack_trace_exit_safe_stack_counts: Counter[str] = Counter()
     zero_stack_trace_exit_min_base_swap_counts: Counter[str] = Counter()
     zero_stack_trace_seed_counts: Counter[str] = Counter()
+    zero_stack_trace_terminal_seed_counts: Counter[str] = Counter()
     inverse_count_counts: Counter[str] = Counter()
     inverse_contains_counts: Counter[str] = Counter()
     target_top_pair_counts: Counter[str] = Counter()
     target_removal_counts: Counter[str] = Counter()
     examples: defaultdict[str, list[str]] = defaultdict(list)
+    zero_stack_seed_miss_samples: list[str] = []
 
     for code in sfa.iter_data_codes(args.data, max_layers=args.layers):
         if args.limit and total >= args.limit:
@@ -234,7 +236,14 @@ def analyze(args: argparse.Namespace) -> int:
             zero_stack_trace_exit_safe_stack_counts[str(sfa.safe_stackability_witness(trace_exit_code) is not None)] += 1
             _delta, exit_min_swap, _heights = _min_stack_delta(trace_exit_code)
             zero_stack_trace_exit_min_base_swap_counts[exit_min_swap] += 1
-        zero_stack_trace_seed_counts[str(sfa.zero_stack_trace_seed(pred, args.layers) is not None)] += 1
+        seed_pair = sfa.zero_stack_trace_seed(pred, args.layers)
+        zero_stack_trace_seed_counts[str(seed_pair is not None)] += 1
+        terminal_seed_pair = sfa.zero_stack_trace_seed(pred, args.layers, allow_terminal_crystal=True)
+        zero_stack_trace_terminal_seed_counts[str(terminal_seed_pair is not None)] += 1
+        if seed_pair is None and len(zero_stack_seed_miss_samples) < args.max_examples:
+            zero_stack_seed_miss_samples.append(
+                f"T={target}\tA={pred}\ttrace_depth={trace_depth}\texit={trace_exit}\texit_stack={trace_exit_stack}"
+            )
 
         inv_contains = "skipped"
         if not args.skip_inverse:
@@ -283,6 +292,7 @@ def analyze(args: argparse.Namespace) -> int:
         ("zero_stack_trace_exit_safe_stack_counts", zero_stack_trace_exit_safe_stack_counts),
         ("zero_stack_trace_exit_min_base_swap_counts", zero_stack_trace_exit_min_base_swap_counts),
         ("zero_stack_trace_seed_counts", zero_stack_trace_seed_counts),
+        ("zero_stack_trace_terminal_seed_counts", zero_stack_trace_terminal_seed_counts),
         ("inverse_count_counts", inverse_count_counts),
         ("inverse_contains_counts", inverse_contains_counts),
         ("target_top_pair_counts", target_top_pair_counts),
@@ -298,6 +308,10 @@ def analyze(args: argparse.Namespace) -> int:
             print(f"  {subtype}:")
             for row in rows:
                 print(f"    {row}")
+    if zero_stack_seed_miss_samples:
+        print("zero_stack_seed_miss_samples:")
+        for row in zero_stack_seed_miss_samples:
+            print(f"  {row}")
     return 0
 
 

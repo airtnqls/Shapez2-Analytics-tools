@@ -75,7 +75,12 @@ def analyze(args: argparse.Namespace) -> int:
         if not normalized:
             continue
         total += 1
-        pred = sfa.zero_stack_pp_predecessor_witness(normalized, args.layers, include_connected=args.include_connected)
+        pred = sfa.zero_stack_pp_predecessor_witness(
+            normalized,
+            args.layers,
+            include_connected=args.include_connected,
+            allow_terminal_crystal=args.allow_terminal_crystal,
+        )
         if pred is None:
             miss_reasons["no_zero_stack_pp_predecessor"] += 1
             continue
@@ -140,6 +145,7 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=20260514)
     parser.add_argument("--no-shuffle", action="store_true")
     parser.add_argument("--include-connected", action="store_true")
+    parser.add_argument("--allow-terminal-crystal", action="store_true")
     parser.add_argument("--top", type=int, default=20)
     parser.add_argument("--max-samples", type=int, default=8)
     return analyze(parser.parse_args())
