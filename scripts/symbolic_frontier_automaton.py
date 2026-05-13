@@ -3527,6 +3527,17 @@ def hybrid_rescue_witness(code: str) -> HybridRescueWitness | None:
     return _hybrid_stack_rescue_attempt(shape_obj, claw_mode=False, normalized=normalized)[0]
 
 
+def hybrid_rescue_skip_reason(code: str) -> str | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or parts[-1] != "c--S":
+        return None
+    removal = bitmask_layer_removal_context(normalized)[:3]
+    if removal == (1, True, "swap_14_23_blocked"):
+        return "top_cminus_s_swap14_blocked_single_crystal_strip"
+    return None
+
+
 def hybrid_rescue_tree(code: str) -> DecompositionNode | None:
     witness = hybrid_rescue_witness(code)
     if witness is None:
@@ -4068,16 +4079,20 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 fallback_used += 1
                 kernel_used += 1
         if sv == "unknown" and args.fallback == "kernel-hybrid-core":
-            tick = time.perf_counter()
-            kernel = hybrid_rescue_core_verdict(code)
-            elapsed = time.perf_counter() - tick
-            kernel_time += elapsed
-            kernel_step_times["hybrid_rescue"] += elapsed
-            kernel_step_counts["hybrid_rescue"] += 1
-            if kernel is not None:
-                sv, sb = kernel
-                fallback_used += 1
-                kernel_used += 1
+            skip_reason = hybrid_rescue_skip_reason(code)
+            if skip_reason is not None:
+                HYBRID_RESCUE_STATS["prefilter_skip_" + skip_reason] += 1
+            else:
+                tick = time.perf_counter()
+                kernel = hybrid_rescue_core_verdict(code)
+                elapsed = time.perf_counter() - tick
+                kernel_time += elapsed
+                kernel_step_times["hybrid_rescue"] += elapsed
+                kernel_step_counts["hybrid_rescue"] += 1
+                if kernel is not None:
+                    sv, sb = kernel
+                    fallback_used += 1
+                    kernel_used += 1
         if sv == "unknown" and args.fallback == "kernel-hybrid-core":
             tick = time.perf_counter()
             kernel = claw_bottom_floor_reject_core_verdict(code)
