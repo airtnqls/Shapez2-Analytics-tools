@@ -63,6 +63,8 @@ def analyze(args: argparse.Namespace) -> int:
     pred_skip_type_counts: Counter[tuple[str, str]] = Counter()
     target_layers: Counter[int] = Counter()
     predecessor_layers: Counter[int] = Counter()
+    predecessor_c_counts: Counter[int] = Counter()
+    predecessor_highest_c: Counter[tuple[int, int, str]] = Counter()
     target_top_signatures: Counter[str] = Counter()
     predecessor_top_signatures: Counter[str] = Counter()
     mismatch_samples: list[str] = []
@@ -93,7 +95,20 @@ def analyze(args: argparse.Namespace) -> int:
                 mismatch_samples.append(f"{target}\tempty_predecessor")
             continue
         unique_predecessors.add(pred)
-        predecessor_layers[len(pred.split(":")) if pred else 0] += 1
+        pred_parts = pred.split(":") if pred else []
+        predecessor_layers[len(pred_parts)] += 1
+        predecessor_c_counts[sum(layer.count("c") for layer in pred_parts)] += 1
+        highest_c_layer = -1
+        highest_c_count = 0
+        highest_c_text = ""
+        for layer_idx in range(len(pred_parts) - 1, -1, -1):
+            count = pred_parts[layer_idx].count("c")
+            if count:
+                highest_c_layer = layer_idx
+                highest_c_count = count
+                highest_c_text = pred_parts[layer_idx]
+                break
+        predecessor_highest_c[(highest_c_layer, highest_c_count, highest_c_text)] += 1
         predecessor_fanout[pred] += 1
         if len(fanout_samples[pred]) < 3:
             fanout_samples[pred].append(target)
@@ -143,6 +158,12 @@ def analyze(args: argparse.Namespace) -> int:
     print("predecessor_layer_counts:")
     for layer, count in sorted(predecessor_layers.items()):
         print(f"  {layer}: {count}")
+    print("predecessor_c_counts:")
+    for c_count, count in predecessor_c_counts.most_common(20):
+        print(f"  {c_count}: {count}")
+    print("predecessor_highest_c:")
+    for (layer, c_count, text), count in predecessor_highest_c.most_common(20):
+        print(f"  {count}: layer={layer} c_count={c_count} text={text}")
     print("target_top_signatures:")
     for sig, count in target_top_signatures.most_common(16):
         print(f"  {count}: {sig}")
