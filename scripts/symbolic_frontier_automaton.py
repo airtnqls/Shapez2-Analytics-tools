@@ -2524,8 +2524,20 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
     if top == "cS-S":
         minimal_predecessor = normalize_code(":".join(normalized_layers[1:]))
         direct_minimal_push = bitmask_push_pin(minimal_predecessor, layers) == normalized
-    should_probe = (top == "cS--" and target_base_count <= 3) or (
-        top == "cS-S" and direct_minimal_push and target_base_count == 0
+    removed_count, removed_crystal, final_swap, _base_depth = bitmask_layer_removal_context(normalized)
+    should_probe = (
+        top == "cS--"
+        and removed_count == 1
+        and removed_crystal
+        and final_swap == "swap_12_34_blocked"
+        and target_base_count <= 3
+    ) or (
+        top == "cS-S"
+        and removed_count == 1
+        and removed_crystal
+        and final_swap is None
+        and direct_minimal_push
+        and target_base_count == 0
     )
     if not should_probe:
         PP_INVERSE_STATS["gate_skip"] += 1
