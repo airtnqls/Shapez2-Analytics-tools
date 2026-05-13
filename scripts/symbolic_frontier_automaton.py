@@ -34,6 +34,23 @@ HYBRID_RESCUE_TIMES: Counter[str] = Counter()
 CLAW_VERIFY_STATS: Counter[str] = Counter()
 CLAW_VERIFY_TIMES: Counter[str] = Counter()
 PP_INVERSE_STATS: Counter[str] = Counter()
+TOP_LAYER_HYBRID_MISS_ONLY: frozenset[tuple[str, tuple[int, bool, str | None]]] = frozenset(
+    {
+        ("S-Sc", (1, True, None)),
+        ("-ScS", (1, True, None)),
+        ("--cS", (1, True, "swap_12_34_blocked")),
+        ("-cS-", (1, True, "swap_14_23_blocked")),
+        ("Sc--", (1, True, "swap_12_34_blocked")),
+        ("--Sc", (1, True, "swap_12_34_blocked")),
+        ("-Sc-", (1, True, "swap_14_23_blocked")),
+        ("S--c", (1, True, "swap_14_23_blocked")),
+        ("ScS-", (1, True, "swap_12_34_blocked")),
+        ("ScS-", (1, True, "swap_14_23_blocked")),
+        ("-ScS", (1, True, "swap_12_34_blocked")),
+        ("cSPP", (1, True, "swap_12_34_blocked")),
+        ("ScP-", (1, True, "swap_12_34_blocked")),
+    }
+)
 REFERENCE_CPCP_DIR = PROJECT_ROOT / "reference_projects" / "shapez2-cpcp1998"
 
 
@@ -3893,6 +3910,12 @@ def hybrid_rescue_skip_reason(code: str) -> str | None:
     if not parts:
         return None
     removal = bitmask_layer_removal_context(normalized)[:3]
+    if (
+        (parts[-1], removal) in TOP_LAYER_HYBRID_MISS_ONLY
+        and basic_hybrid_has_b_candidate(normalized)
+        and claw_hybrid_pattern_possible(normalized)
+    ):
+        return "top_layer_hybrid_miss_only_strip"
     if parts[-1] == "c--S" and removal == (1, True, "swap_14_23_blocked"):
         return "top_cminus_s_swap14_blocked_single_crystal_strip"
     if (
