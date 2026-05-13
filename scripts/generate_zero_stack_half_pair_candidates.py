@@ -180,6 +180,10 @@ def _target_allowed(code: str, args: argparse.Namespace) -> bool:
         return False
     if args.target_sorted_claw_notes_filter and not _sorted_claw_notes_target_allowed(code):
         return False
+    if args.target_strict_legacy_filter:
+        verdict, _reason = sfa.strict_legacy_verdict_to_symbolic(code)
+        if verdict != "possible":
+            return False
     return True
 
 
@@ -533,6 +537,7 @@ def main() -> int:
     parser.add_argument("--require-trace-seed", action="store_true")
     parser.add_argument("--target-claw-common-filter", action="store_true")
     parser.add_argument("--target-sorted-claw-notes-filter", action="store_true")
+    parser.add_argument("--target-strict-legacy-filter", action="store_true")
     parser.add_argument("--require-observed-top-pair", action="store_true")
     parser.add_argument("--require-observed-index-layer-pairs", action="store_true")
     parser.add_argument("--require-observed-index-transitions", action="store_true")
