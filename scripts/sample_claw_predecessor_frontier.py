@@ -15,6 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import symbolic_frontier_automaton as sfa
+from analyze_claw_preimages import _claw_predecessor
 
 
 TARGET_TOP_FRONTIER = frozenset(
@@ -68,6 +69,8 @@ def _frontier_bucket(predecessor: str, layers: int) -> tuple[str, str]:
     if sfa.claw_bottom_floor_reject_core_verdict(target) is not None:
         return "reject", "target_bottom_floor_reject"
     swap = sfa.bitmask_swap_impossibility(predecessor)
+    if swap == "swap_both_blocked":
+        return "reject", "predecessor_swap_both_blocked"
     return "accept", f"pred_swap={swap}|target_top={target_top}|rem={removal}"
 
 
@@ -108,17 +111,57 @@ def sample(args: argparse.Namespace) -> int:
     return 0
 
 
+def verify_known(args: argparse.Namespace) -> int:
+    started = time.perf_counter()
+    total = accept = 0
+    buckets: Counter[str] = Counter()
+    samples: dict[str, str] = {}
+    for code in sfa.iter_data_codes(args.known_data, max_layers=args.layers):
+        if args.limit and total >= args.limit:
+            break
+        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+            break
+        target = sfa.normalize_code(code)
+        if not target:
+            continue
+        total += 1
+        predecessor = _claw_predecessor(target)
+        verdict, bucket = _frontier_bucket(predecessor, args.layers)
+        if verdict == "accept":
+            accept += 1
+        buckets[bucket] += 1
+        if verdict != "accept" and bucket not in samples:
+            samples[bucket] = f"{target} <- {predecessor}"
+    print(f"known_data={args.known_data}")
+    print(f"layers={args.layers}")
+    print(f"known_total={total}")
+    print(f"known_accept={accept}")
+    print(f"known_accept_rate={100.0 * accept / total if total else 100:.6f}%")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print("known_buckets:")
+    for key, count in buckets.most_common(args.top):
+        print(f"  {key}: {count}")
+        if key in samples and args.examples:
+            print(f"    example={samples[key]}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Sample top unique-c predecessor frontier candidates.")
     parser.add_argument("--layers", type=int, default=5)
     parser.add_argument("--samples", type=int, default=20000)
+    parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--max-seconds", type=float, default=120.0)
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument("--alphabet", default="-SPc")
     parser.add_argument("--weights", default="0.25,0.35,0.20,0.20")
     parser.add_argument("--top", type=int, default=24)
     parser.add_argument("--examples", action="store_true")
-    return sample(parser.parse_args())
+    parser.add_argument("--known-data", type=Path)
+    args = parser.parse_args()
+    if args.known_data is not None:
+        return verify_known(args)
+    return sample(args)
 
 
 if __name__ == "__main__":
