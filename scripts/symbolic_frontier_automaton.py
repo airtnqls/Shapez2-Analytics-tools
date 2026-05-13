@@ -3919,11 +3919,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 sv, sb = kernel
                 fallback_used += 1
                 kernel_used += 1
-        if (
-            sv == "unknown"
-            and args.fallback == "kernel-hybrid-core"
-            and "pp-inverse-predecessor-core" in args.experiment
-        ):
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
             tick = time.perf_counter()
             kernel = pp_inverse_predecessor_core_verdict(code, args.depth)
             elapsed = time.perf_counter() - tick
