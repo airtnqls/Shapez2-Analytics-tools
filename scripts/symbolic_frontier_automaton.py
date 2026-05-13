@@ -56,6 +56,15 @@ SAFE_STACKABILITY_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bool, str |
         ("cSSS", "S--S", (1, True, "swap_12_34_blocked")),
         ("cSSS", "c--S", (1, True, "swap_12_34_blocked")),
         ("cSS-", "S-SS", (2, True, "swap_12_34_blocked")),
+        ("cSSS", "S-SS", (2, True, "swap_12_34_blocked")),
+        ("cSSS", "SS--", (1, True, "swap_14_23_blocked")),
+        ("c-S-", "SSSS", (2, True, "swap_12_34_blocked")),
+        ("c---", "SSSS", (2, True, "swap_12_34_blocked")),
+        ("c-SS", "SS-S", (1, True, "swap_12_34_blocked")),
+        ("--SS", "cSSS", (2, True, "swap_12_34_blocked")),
+        ("cSS-", "c-SS", (2, True, "swap_12_34_blocked")),
+        ("cSS-", "cS-S", (1, True, "swap_14_23_blocked")),
+        ("cSSS", "S--P", (1, True, "swap_12_34_blocked")),
     }
 )
 CLAW_PRIMITIVE_PREDECESSOR_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bool, str | None]]] = frozenset(
