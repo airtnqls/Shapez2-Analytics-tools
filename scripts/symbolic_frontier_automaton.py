@@ -2496,7 +2496,7 @@ def bitmask_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ..
 def bitmask_bridge_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
     normalized = normalize_code(code)
     parts = normalized.split(":") if normalized else []
-    if not parts or parts[-1] not in {"cS-S", "ScS-", "-ScS", "S-Sc"}:
+    if not parts or parts[-1] not in {"cS-S", "ScS-", "-ScS", "S-Sc", "SP--", "cS--", "-S-S", "S---"}:
         return ()
 
     base_parts = list(parts[1:])
@@ -2510,6 +2510,12 @@ def bitmask_bridge_inverse_push_pin_candidates(code: str, layers: int) -> tuple[
             ((2, 4), (3, 3), (3, 4), (4, 3), (5, 3)),
             ((2, 3), (3, 2), (3, 3), (4, 3), (5, 3)),
             ((3, 2), (3, 3), (3, 4), (4, 3), (5, 3)),
+            ((1, 4), (2, 3), (2, 4), (3, 3), (4, 3), (5, 3)),
+            ((1, 2), (2, 2), (2, 3), (3, 2), (3, 3), (4, 3), (5, 3)),
+            ((1, 2), (1, 3), (2, 2), (2, 3), (3, 2), (3, 3), (4, 3), (5, 3)),
+            ((2, 2), (3, 2), (3, 3), (4, 3), (5, 3)),
+            ((1, 2), (1, 4), (2, 2), (2, 3), (2, 4), (3, 3), (4, 3), (5, 3)),
+            ((1, 3), (1, 4), (2, 3), (2, 4), (3, 2), (3, 3), (4, 3), (5, 3)),
         ),
         "ScS-": (
             ((3, 4), (4, 4), (5, 4)),
@@ -2524,6 +2530,18 @@ def bitmask_bridge_inverse_push_pin_candidates(code: str, layers: int) -> tuple[
         "S-Sc": (
             ((1, 2), (2, 2), (2, 3), (3, 2), (4, 2), (5, 2)),
             ((1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (5, 2)),
+        ),
+        "SP--": (
+            ((1, 2), (1, 3), (2, 2), (2, 3), (3, 3), (4, 3), (5, 3)),
+        ),
+        "cS--": (
+            ((3, 3), (4, 3), (5, 3)),
+        ),
+        "-S-S": (
+            ((1, 4), (2, 3), (2, 4), (3, 3), (4, 3), (5, 3)),
+        ),
+        "S---": (
+            ((3, 3), (4, 3), (5, 3)),
         ),
     }[parts[-1]]
     candidates: list[str] = []
