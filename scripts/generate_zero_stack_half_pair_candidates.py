@@ -184,7 +184,54 @@ def _target_allowed(code: str, args: argparse.Namespace) -> bool:
         verdict, _reason = sfa.strict_legacy_verdict_to_symbolic(code)
         if verdict != "possible":
             return False
+    if args.target_swap_both_filter and sfa.bitmask_swap_impossibility(code) != "swap_both_blocked":
+        return False
+    if args.target_top_single_c_filter:
+        parts = sfa.normalize_code(code).split(":") if sfa.normalize_code(code) else []
+        top = parts[-1] if parts else "----"
+        if top.count("c") != 1:
+            return False
     return True
+
+
+def _target_feature(code: str) -> tuple[str, ...]:
+    normalized = sfa.normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    first = parts[0] if parts else "----"
+    top = parts[-1] if parts else "----"
+    return (
+        f"layers={len(parts)}",
+        f"first={first}",
+        f"top={top}",
+        f"top_c={top.count('c')}",
+        f"top_p={top.count('P')}",
+        f"first_p={first.count('P')}",
+        f"first_s={first.count('S')}",
+        f"removal={sfa.bitmask_layer_removal_context(normalized)[:3]}",
+        f"swap={sfa.bitmask_swap_impossibility(normalized) or 'swappable'}",
+    )
+
+
+def _predecessor_feature(code: str) -> tuple[str, ...]:
+    normalized = sfa.normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    top = parts[-1] if parts else "----"
+    return (
+        f"layers={len(parts)}",
+        f"top={top}",
+        f"swap={sfa.bitmask_swap_impossibility(normalized) or 'swappable'}",
+        f"trace={sfa.zero_stack_trace_seed(normalized, len(parts), allow_terminal_crystal=True) is not None}",
+    )
+
+
+def _update_feature_counts(
+    counters: dict[str, Counter[str]],
+    prefix: str,
+    features: tuple[str, ...],
+) -> None:
+    for feature in features:
+        key, value = feature.split("=", 1)
+        counters[f"{prefix}_{key}"][value] += 1
 
 
 def _cheap_zero_stack_top(code: str) -> bool:
@@ -394,6 +441,7 @@ def generate(args: argparse.Namespace) -> int:
         random.Random(args.seed).shuffle(pairs)
     generated_predecessors: set[str] = set()
     generated_targets: set[str] = set()
+    predecessor_to_target: dict[str, str] = {}
     rejected = Counter()
     tested = 0
     for left, right in pairs:
@@ -494,9 +542,46 @@ def generate(args: argparse.Namespace) -> int:
                 rejected["target_filter"] += 1
                 continue
             generated_targets.add(pushed)
+            predecessor_to_target[predecessor] = pushed
 
     predecessor_overlap = generated_predecessors & known_predecessors
     target_overlap = generated_targets & known_targets
+    feature_counters: dict[str, Counter[str]] = {}
+    if args.feature_report:
+        feature_counters = {
+            "known_pred_layers": Counter(),
+            "known_pred_top": Counter(),
+            "known_pred_swap": Counter(),
+            "known_pred_trace": Counter(),
+            "extra_pred_layers": Counter(),
+            "extra_pred_top": Counter(),
+            "extra_pred_swap": Counter(),
+            "extra_pred_trace": Counter(),
+            "known_target_layers": Counter(),
+            "known_target_first": Counter(),
+            "known_target_top": Counter(),
+            "known_target_top_c": Counter(),
+            "known_target_top_p": Counter(),
+            "known_target_first_p": Counter(),
+            "known_target_first_s": Counter(),
+            "known_target_removal": Counter(),
+            "known_target_swap": Counter(),
+            "extra_target_layers": Counter(),
+            "extra_target_first": Counter(),
+            "extra_target_top": Counter(),
+            "extra_target_top_c": Counter(),
+            "extra_target_top_p": Counter(),
+            "extra_target_first_p": Counter(),
+            "extra_target_first_s": Counter(),
+            "extra_target_removal": Counter(),
+            "extra_target_swap": Counter(),
+        }
+        for predecessor in generated_predecessors:
+            group = "known" if predecessor in known_predecessors else "extra"
+            _update_feature_counts(feature_counters, f"{group}_pred", _predecessor_feature(predecessor))
+            target = predecessor_to_target.get(predecessor)
+            if target:
+                _update_feature_counts(feature_counters, f"{group}_target", _target_feature(target))
     print(f"input={args.data}")
     print(f"layers={args.layers}")
     print(f"known_zero_stack_predecessors={len(known_predecessors)}")
@@ -523,6 +608,12 @@ def generate(args: argparse.Namespace) -> int:
     print("rejected:")
     for key, count in rejected.most_common():
         print(f"  {key}: {count}")
+    if args.feature_report:
+        print("feature_report:")
+        for title in sorted(feature_counters):
+            print(f"  {title}:")
+            for key, count in feature_counters[title].most_common(args.top):
+                print(f"    {key}: {count}")
     return 0
 
 
@@ -538,6 +629,8 @@ def main() -> int:
     parser.add_argument("--target-claw-common-filter", action="store_true")
     parser.add_argument("--target-sorted-claw-notes-filter", action="store_true")
     parser.add_argument("--target-strict-legacy-filter", action="store_true")
+    parser.add_argument("--target-swap-both-filter", action="store_true")
+    parser.add_argument("--target-top-single-c-filter", action="store_true")
     parser.add_argument("--require-observed-top-pair", action="store_true")
     parser.add_argument("--require-observed-index-layer-pairs", action="store_true")
     parser.add_argument("--require-observed-index-transitions", action="store_true")
@@ -546,6 +639,8 @@ def main() -> int:
     parser.add_argument("--sequence-mode", choices=("cartesian", "transitions", "trigrams", "quadgrams"), default="cartesian")
     parser.add_argument("--max-sequences", type=int, default=0)
     parser.add_argument("--predecessor-only", action="store_true")
+    parser.add_argument("--feature-report", action="store_true")
+    parser.add_argument("--top", type=int, default=12)
     parser.add_argument("--shuffle", action="store_true")
     parser.add_argument("--seed", type=int, default=1)
     return generate(parser.parse_args())
