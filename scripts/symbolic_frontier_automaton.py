@@ -1660,6 +1660,25 @@ def claw_verified_tree(code: str, layers: int) -> DecompositionNode | None:
     verified, reason = claw_verify_status(normalized)
     if not verified:
         return None
+    for predecessor in tuple(
+        dict.fromkeys(
+            bitmask_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
+        )
+    ):
+        if processed_claw_fast_reject_reason(predecessor) is not None:
+            continue
+        processed_tree = swappability_tree(predecessor, layers)
+        if processed_tree is None:
+            processed_tree = bitmask_swap_tree(predecessor)
+        if processed_tree is None:
+            continue
+        return DecompositionNode(
+            kind="pin_push",
+            shape=normalized,
+            detail=normalize_code_label(reason or "claw_verified"),
+            children=(processed_tree,),
+        )
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             from shape import Shape
