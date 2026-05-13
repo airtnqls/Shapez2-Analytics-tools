@@ -319,6 +319,33 @@ class DecompositionNode:
     children: tuple["DecompositionNode", ...] = ()
 
 
+def decomposition_tree_root_key(node: DecompositionNode) -> str:
+    return f"{normalize_code_label(node.kind)}:{normalize_code_label(node.detail)}"
+
+
+def decomposition_tree_dependency_tags(node: DecompositionNode) -> tuple[str, ...]:
+    tags: set[str] = set()
+
+    def visit(current: DecompositionNode) -> None:
+        detail = current.detail.lower()
+        kind = current.kind.lower()
+        if "hybrid" in detail or "hybrid" in kind:
+            tags.add("hybrid")
+        if "claw" in detail or "claw" in kind:
+            tags.add("claw")
+        if "pp" in detail or "pin" in detail:
+            tags.add("pp")
+        if "stack" in detail or "stack" in kind:
+            tags.add("stack")
+        if "swap" in detail or "swap" in kind:
+            tags.add("swap")
+        for child in current.children:
+            visit(child)
+
+    visit(node)
+    return tuple(sorted(tags))
+
+
 @dataclass(frozen=True)
 class HybridRescueWitness:
     mode: str
@@ -3672,6 +3699,8 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     legacy_hint_features: Counter[tuple[str, str, str]] = Counter()
     layer_counts: Counter[int] = Counter()
     kernel_step_counts: Counter[str] = Counter()
+    decomposition_tree_roots: Counter[str] = Counter()
+    decomposition_tree_dependencies: Counter[tuple[str, ...]] = Counter()
     bucket_samples: dict[tuple[str, str], list[str]] = {}
     samples: list[str] = []
     legacy_unknown_samples: list[str] = []
@@ -4077,12 +4106,16 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             continue
         if args.fail_on_missing_decomposition_tree and sv == "possible":
             decomposition_tree_checked += 1
-            if audited_reference_decomposition_tree(code, args.depth) is None:
+            tree = audited_reference_decomposition_tree(code, args.depth)
+            if tree is None:
                 decomposition_tree_missing += 1
                 if len(decomposition_tree_samples) < args.max_mismatches:
                     decomposition_tree_samples.append(
                         f"{normalize_code(code)}\tmissing_decomposition_tree\tbucket={sv}/{sb}"
                     )
+            else:
+                decomposition_tree_roots[decomposition_tree_root_key(tree)] += 1
+                decomposition_tree_dependencies[decomposition_tree_dependency_tags(tree)] += 1
         layer_counts[normalized_layer_count] += 1
         lv = strict = lc = lr = ""
         needs_legacy_fallback = sv == "unknown" and args.fallback in ("legacy-core", "kernel-core", "kernel-hybrid-core")
@@ -4149,6 +4182,15 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     print(f"legacy_fallback_used={legacy_fallback_used}")
     print(f"decomposition_tree_checked={decomposition_tree_checked}")
     print(f"decomposition_tree_missing={decomposition_tree_missing}")
+    if decomposition_tree_roots:
+        print("decomposition_tree_roots:")
+        for root_key, count in decomposition_tree_roots.most_common(20):
+            print(f"  {root_key}: {count}")
+    if decomposition_tree_dependencies:
+        print("decomposition_tree_dependency_tags:")
+        for dependency_tags, count in decomposition_tree_dependencies.most_common(20):
+            label = ",".join(dependency_tags) if dependency_tags else "none"
+            print(f"  {label}: {count}")
     if args.no_compare_legacy:
         print("compare_total=0")
         print("compare_non_unknown=0")
