@@ -174,6 +174,10 @@ def generate(args: argparse.Namespace) -> int:
     rejected = Counter()
     target_features = Counter()
     predecessor_features = Counter()
+    target_verdicts = Counter()
+    predecessor_subtypes = Counter()
+    predecessor_stackability = Counter()
+    selected_rows: list[str] = []
     for abstract_sequence in abstract_sequences:
         if args.max_seconds and time.perf_counter() - started > args.max_seconds:
             break
@@ -209,6 +213,14 @@ def generate(args: argparse.Namespace) -> int:
                 continue
             generated_predecessors.add(predecessor)
             generated_targets.add(pushed)
+            predecessor_subtypes[sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype] += 1
+            predecessor_stackability[str(bool(sfa.bitmask_stackability_witnesses(predecessor)))] += 1
+            if args.classify_targets:
+                strict, reason = sfa.strict_legacy_verdict_to_symbolic(pushed)
+                target_verdicts[(strict, reason)] += 1
+                if strict in set(args.capture_verdict):
+                    if len(selected_rows) < args.max_capture:
+                        selected_rows.append(f"{strict}\t{reason}\tT={pushed}\tA={predecessor}")
             p_parts = predecessor.split(":") if predecessor else []
             t_parts = pushed.split(":") if pushed else []
             predecessor_features[(
@@ -249,6 +261,20 @@ def generate(args: argparse.Namespace) -> int:
     print("predecessor_features:")
     for key, count in predecessor_features.most_common(args.top):
         print(f"  {key}: {count}")
+    print("predecessor_subtypes:")
+    for key, count in predecessor_subtypes.most_common(args.top):
+        print(f"  {key}: {count}")
+    print("predecessor_stackability:")
+    for key, count in predecessor_stackability.most_common(args.top):
+        print(f"  {key}: {count}")
+    if args.classify_targets:
+        print("target_verdicts:")
+        for key, count in target_verdicts.most_common(args.top):
+            print(f"  {key}: {count}")
+    if selected_rows:
+        print("captured:")
+        for row in selected_rows:
+            print(row)
     return 0
 
 
@@ -271,6 +297,9 @@ def main() -> int:
     parser.add_argument("--target-swap-both-filter", action="store_true")
     parser.add_argument("--target-removed-crystal-filter", action="store_true")
     parser.add_argument("--top", type=int, default=16)
+    parser.add_argument("--classify-targets", action="store_true")
+    parser.add_argument("--capture-verdict", action="append", default=[])
+    parser.add_argument("--max-capture", type=int, default=20)
     return generate(parser.parse_args())
 
 
