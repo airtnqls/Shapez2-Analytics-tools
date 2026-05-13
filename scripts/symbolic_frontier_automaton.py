@@ -4209,6 +4209,20 @@ def projected_legacy_hint_features(signature: str) -> tuple[str, ...]:
     return tuple(features)
 
 
+def reference_mismatch_tag(symbolic_verdict: str, symbolic_bucket: str, reference_verdict: str) -> str:
+    if "single_column_corner" in symbolic_bucket:
+        return "single_column_policy"
+    if symbolic_verdict == "impossible" and reference_verdict == "possible":
+        if "claw_verification_failed" in symbolic_bucket or "corner" in symbolic_bucket:
+            return "strict_impossible_vs_cpcp_possible"
+        return "symbolic_impossible_reference_possible"
+    if symbolic_verdict == "possible" and reference_verdict == "impossible":
+        if symbolic_bucket.startswith("possible_"):
+            return "symbolic_frontier_positive_not_in_cpcp"
+        return "kernel_positive_not_in_cpcp"
+    return "structural_reference_mismatch"
+
+
 def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     HYBRID_RESCUE_STATS.clear()
     HYBRID_RESCUE_TIMES.clear()
@@ -4239,6 +4253,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     legacy_pairs: Counter[tuple[str, str, str]] = Counter()
     strict_pairs: Counter[tuple[str, str, str]] = Counter()
     reference_pairs: Counter[tuple[str, str, str]] = Counter()
+    reference_mismatch_tags: Counter[str] = Counter()
     legacy_hints: Counter[tuple[str, str, str]] = Counter()
     legacy_hint_features: Counter[tuple[str, str, str]] = Counter()
     layer_counts: Counter[int] = Counter()
@@ -4743,10 +4758,13 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                         reference_known_match += 1
                 if sv == ref_verdict:
                     reference_match += 1
-                elif ref_verdict != "unknown" and len(reference_samples) < args.max_mismatches:
-                    reference_samples.append(
-                        f"{code}\tsymbolic={sv}/{sb}\treference={ref_verdict}/{ref_bucket}"
-                    )
+                elif ref_verdict != "unknown":
+                    mismatch_tag = reference_mismatch_tag(sv, sb, ref_verdict)
+                    reference_mismatch_tags[mismatch_tag] += 1
+                    if len(reference_samples) < args.max_mismatches:
+                        reference_samples.append(
+                            f"{code}\tsymbolic={sv}/{sb}\treference={ref_verdict}/{ref_bucket}\ttag={mismatch_tag}"
+                        )
 
     print(f"eval_total={total}")
     print(f"eval_skipped_by_layer={skipped_by_layer}")
@@ -4828,6 +4846,8 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     print(f"elapsed={time.perf_counter() - started:.6f}s")
     print(f"symbolic_time={symbolic_time:.6f}s")
     print(f"kernel_time={kernel_time:.6f}s")
+    air_time = symbolic_time + kernel_time
+    print(f"air_time={air_time:.6f}s")
     print(f"legacy_time={legacy_time:.6f}s")
     print(f"reference_time={reference_time:.6f}s")
     if layer_counts:
@@ -4868,10 +4888,18 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         print(f"legacy_vs_symbolic={legacy_time / symbolic_time:.3f}x")
     else:
         print("legacy_vs_symbolic=NA")
+    if air_time > 0 and legacy_time > 0:
+        print(f"legacy_vs_air={legacy_time / air_time:.3f}x")
+    else:
+        print("legacy_vs_air=NA")
     if symbolic_time > 0 and reference_time > 0:
         print(f"reference_vs_symbolic={reference_time / symbolic_time:.3f}x")
     else:
         print("reference_vs_symbolic=NA")
+    if air_time > 0 and reference_time > 0:
+        print(f"reference_vs_air={reference_time / air_time:.3f}x")
+    else:
+        print("reference_vs_air=NA")
     print("symbolic_buckets:")
     for (verdict, bucket), count in buckets.most_common(12):
         print(f"  {verdict}/{bucket}: {count}")
@@ -4894,6 +4922,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         print("top_reference_pairs:")
         for (sv, ref, bucket), count in reference_pairs.most_common(12):
             print(f"  symbolic={sv}/{bucket} reference={ref}: {count}")
+        if reference_mismatch_tags:
+            print("reference_mismatch_tags:")
+            for tag, count in reference_mismatch_tags.most_common():
+                print(f"  {tag}: {count}")
     if args.legacy_hints:
         print("top_legacy_hints_for_unknown:")
         for (bucket, strict, hint), count in legacy_hints.most_common(24):
