@@ -61,6 +61,7 @@ def analyze(args: argparse.Namespace) -> int:
     predecessor_fanout: Counter[str] = Counter()
     pred_type_counts: Counter[tuple[str, str]] = Counter()
     pred_skip_type_counts: Counter[tuple[str, str]] = Counter()
+    pred_decomposition_counts: Counter[str] = Counter()
     target_layers: Counter[int] = Counter()
     predecessor_layers: Counter[int] = Counter()
     predecessor_c_counts: Counter[int] = Counter()
@@ -128,6 +129,14 @@ def analyze(args: argparse.Namespace) -> int:
                 pred_skip_type_counts[_skip_type(pred)] += 1
             except Exception as exc:
                 pred_skip_type_counts[(type(exc).__name__, "skip_classification_error")] += 1
+        if args.decompose_predecessor:
+            if sfa.reference_cpcp_swappable_witness(pred, args.layers) is not None:
+                pred_decomposition_counts["reference_swappable"] += 1
+            elif sfa.reference_stackability_core_verdict(pred, args.layers) is not None:
+                pred_decomposition_counts["reference_stackable"] += 1
+            else:
+                subtype = sfa.pp_subtype_candidate(pred, args.layers).subtype
+                pred_decomposition_counts[subtype] += 1
 
     elapsed = time.perf_counter() - started
     print(f"input={args.data}")
@@ -152,6 +161,10 @@ def analyze(args: argparse.Namespace) -> int:
         print("predecessor_skip_types:")
         for (kind, reason), count in pred_skip_type_counts.most_common(20):
             print(f"  {count}: {kind}/{reason}")
+    if pred_decomposition_counts:
+        print("predecessor_decomposition:")
+        for key, count in pred_decomposition_counts.most_common(24):
+            print(f"  {key}: {count}")
     print("target_layer_counts:")
     for layer, count in sorted(target_layers.items()):
         print(f"  {layer}: {count}")
@@ -188,6 +201,7 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=1000)
     parser.add_argument("--max-seconds", type=float, default=120.0)
     parser.add_argument("--classify-predecessor", action="store_true")
+    parser.add_argument("--decompose-predecessor", action="store_true")
     parser.add_argument("--max-samples", type=int, default=8)
     return analyze(parser.parse_args())
 
