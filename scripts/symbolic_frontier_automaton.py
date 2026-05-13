@@ -3271,20 +3271,33 @@ def half_empty_stackability_tree(code: str) -> DecompositionNode | None:
     )
 
 
+def verified_left_predecessor_tree(left: str, layers: int, detail: str = "verified_left") -> DecompositionNode:
+    for tree in (
+        claw_verified_tree(left, layers),
+        swappability_tree(left, layers),
+        bitmask_swap_tree(left),
+        layer_removal_tree(left),
+    ):
+        if tree is not None:
+            return tree
+    return DecompositionNode(
+        kind="verified_predecessor",
+        shape=left,
+        detail=detail,
+    )
+
+
 def small_right_cminusss_tree(code: str) -> DecompositionNode | None:
     witness = small_right_cminusss_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="small_right_cminusss",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
@@ -3298,16 +3311,13 @@ def small_right_dense_s_support_tree(code: str) -> DecompositionNode | None:
     witness = small_right_dense_s_support_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="small_right_dense_s_support",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
@@ -3321,16 +3331,13 @@ def small_right_pp_stackability_tree(code: str) -> DecompositionNode | None:
     witness = small_right_pp_stackability_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="small_right_pp_stackability",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
@@ -3344,16 +3351,13 @@ def top_sss_tail_stack_tree(code: str) -> DecompositionNode | None:
     witness = top_sss_tail_stack_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="top_sss_tail_stack",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
@@ -3428,16 +3432,13 @@ def small_right_low_base_s_support_tree(code: str) -> DecompositionNode | None:
     witness = small_right_low_base_s_support_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="small_right_low_base_s_support",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
@@ -3451,16 +3452,13 @@ def small_right_pp_low_base_support_tree(code: str) -> DecompositionNode | None:
     witness = small_right_pp_low_base_support_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="small_right_pp_low_base_support",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
@@ -3474,16 +3472,13 @@ def paired_small_right_s_support_tree(code: str) -> DecompositionNode | None:
     witness = paired_small_right_s_support_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="paired_small_right_s_support",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
@@ -3497,16 +3492,13 @@ def small_right_shallow_left_s_support_tree(code: str) -> DecompositionNode | No
     witness = small_right_shallow_left_s_support_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="small_right_shallow_left_s_support",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
@@ -3520,16 +3512,13 @@ def mid_stack_delta_low_frontier_support_tree(code: str) -> DecompositionNode | 
     witness = mid_stack_delta_low_frontier_support_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="mid_stack_delta_low_frontier_support",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
@@ -3543,16 +3532,13 @@ def top_pp_pin_predecessor_support_tree(code: str) -> DecompositionNode | None:
     witness = top_pp_pin_predecessor_support_witness(code)
     if witness is None:
         return None
+    layers = len(normalize_code(code).split(":"))
     return DecompositionNode(
         kind="stack",
         shape=normalize_code(code),
         detail="top_pp_pin_predecessor_support",
         children=(
-            DecompositionNode(
-                kind="claw_predecessor",
-                shape=witness.left,
-                detail="verified_left",
-            ),
+            verified_left_predecessor_tree(witness.left, layers),
             DecompositionNode(
                 kind="stack_input",
                 shape=witness.right,
