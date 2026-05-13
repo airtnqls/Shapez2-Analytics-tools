@@ -1635,7 +1635,7 @@ def claw_tail_seed_tree(code: str) -> DecompositionNode | None:
 
 def pp_inverse_predecessor_tree(code: str, layers: int) -> DecompositionNode | None:
     normalized = normalize_code(code)
-    predecessor = pp_inverse_predecessor_witness(normalized, layers)
+    predecessor = oriented_pp_inverse_predecessor_witness(normalized, layers)
     if predecessor is None:
         return None
     predecessor_tree = swappability_tree(predecessor, layers)
@@ -2717,8 +2717,33 @@ def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
     return None
 
 
+@lru_cache(maxsize=100_000)
+def oriented_pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    if not normalized:
+        return None
+    direct = pp_inverse_predecessor_witness(normalized, layers)
+    if direct is not None:
+        return direct
+
+    top = normalized.split(":")[-1]
+    if top not in {"--cS", "S--c", "-cS-", "ScS-"}:
+        return None
+    for turns in (1, 2, 3):
+        if _rotate_layer_text(top, turns) not in {"cS--", "cS-S"}:
+            continue
+        rotated = _rotate_code_text(normalized, turns)
+        rotated_predecessor = pp_inverse_predecessor_witness(rotated, layers)
+        if rotated_predecessor is None:
+            continue
+        predecessor = _rotate_code_text(rotated_predecessor, -turns)
+        if bitmask_push_pin(predecessor, layers) == normalized:
+            return predecessor
+    return None
+
+
 def pp_inverse_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
-    if pp_inverse_predecessor_witness(code, layers) is None:
+    if oriented_pp_inverse_predecessor_witness(code, layers) is None:
         return None
     return "possible", "kernel_pp_inverse_predecessor_verified"
 
