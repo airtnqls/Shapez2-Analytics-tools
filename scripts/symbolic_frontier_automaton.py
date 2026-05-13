@@ -75,6 +75,18 @@ CLAW_PRIMITIVE_PREDECESSOR_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bo
         ("cS-S", "c---", (1, True, None)),
     }
 )
+CLAW_HYBRID_MISS_ONLY_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bool, str | None]]] = frozenset(
+    {
+        ("cS-S", "-cS-", (1, True, None)),
+        ("cS-S", "--Sc", (1, True, None)),
+        ("cS-S", "S-Sc", (1, True, "swap_12_34_blocked")),
+        ("cS--", "c-Sc", (1, True, "swap_12_34_blocked")),
+        ("cS-S", "c-Sc", (1, True, "swap_12_34_blocked")),
+        ("cSP-", "S-Sc", (1, True, "swap_12_34_blocked")),
+        ("cSSS", "--SP", (1, True, "swap_14_23_blocked")),
+        ("cSSS", "--SS", (1, True, "swap_14_23_blocked")),
+    }
+)
 REFERENCE_CPCP_DIR = PROJECT_ROOT / "reference_projects" / "shapez2-cpcp1998"
 
 
@@ -3923,6 +3935,14 @@ def _hybrid_stack_rescue_attempt(shape_obj: object, claw_mode: bool, normalized:
                 if not claw_hybrid_pattern_possible(normalized):
                     HYBRID_RESCUE_STATS["claw_reject_pattern"] += 1
                     return None, "pattern_reject"
+                parts = normalized.split(":")
+                removal = bitmask_layer_removal_context(normalized)[:3]
+                if (
+                    len(parts) >= 2
+                    and (parts[-1], parts[-2], removal) in CLAW_HYBRID_MISS_ONLY_TOP_PEN_REMS
+                ):
+                    HYBRID_RESCUE_STATS["claw_reject_miss_only"] += 1
+                    return None, "miss_only_reject"
                 from claw_hybrid_tracer import claw_hybrid
 
                 HYBRID_RESCUE_STATS["claw_exec"] += 1
