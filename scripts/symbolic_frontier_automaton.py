@@ -1660,26 +1660,31 @@ def claw_verified_tree(code: str, layers: int) -> DecompositionNode | None:
     verified, reason = claw_verify_status(normalized)
     if not verified:
         return None
-    for predecessor in tuple(
-        dict.fromkeys(
-            bitmask_inverse_push_pin_candidates(normalized, layers)
-            + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
-            + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
-        )
-    ):
-        if processed_claw_fast_reject_reason(predecessor) is not None:
-            continue
-        processed_tree = swappability_tree(predecessor, layers)
-        if processed_tree is None:
-            processed_tree = bitmask_swap_tree(predecessor)
-        if processed_tree is None:
-            continue
-        return DecompositionNode(
-            kind="pin_push",
-            shape=normalized,
-            detail=normalize_code_label(reason or "claw_verified"),
-            children=(processed_tree,),
-        )
+    seen_predecessors: set[str] = set()
+    predecessor_families = (
+        bitmask_inverse_push_pin_candidates,
+        bitmask_bridge_inverse_push_pin_candidates,
+        bitmask_connected_shatter_inverse_push_pin_candidates,
+        bitmask_piece_lift_shatter_inverse_push_pin_candidates,
+    )
+    for predecessor_family in predecessor_families:
+        for predecessor in predecessor_family(normalized, layers):
+            if predecessor in seen_predecessors:
+                continue
+            seen_predecessors.add(predecessor)
+            if processed_claw_fast_reject_reason(predecessor) is not None:
+                continue
+            processed_tree = swappability_tree(predecessor, layers)
+            if processed_tree is None:
+                processed_tree = bitmask_swap_tree(predecessor)
+            if processed_tree is None:
+                continue
+            return DecompositionNode(
+                kind="pin_push",
+                shape=normalized,
+                detail=normalize_code_label(reason or "claw_verified"),
+                children=(processed_tree,),
+            )
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             from shape import Shape
@@ -2639,6 +2644,79 @@ def bitmask_connected_shatter_inverse_push_pin_candidates(code: str, layers: int
             if cell not in state:
                 pending.append(tuple(sorted(state + (cell,))))
     return tuple(dict.fromkeys(candidates))
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_piece_lift_shatter_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    top_layer = layers - 1
+    max_states = 1536
+    max_added = 10
+
+    for source_layer in range(min(3, layers)):
+        for q in range(4):
+            piece = base_parts[source_layer][q]
+            if piece not in {"P", "S"}:
+                continue
+            for delta in (1, 2):
+                target_layer = source_layer + delta
+                if target_layer >= layers or base_parts[target_layer][q] != "-":
+                    continue
+
+                base_grid = [list(layer) for layer in base_parts]
+                base_grid[source_layer][q] = "c"
+                base_grid[target_layer][q] = piece
+                starts = [(top_layer, tq) for tq in range(4) if base_grid[top_layer][tq] in {"-", "c"}]
+                pending: list[tuple[tuple[int, int], ...]] = [((li, qi),) for li, qi in starts]
+                seen_states: set[tuple[tuple[int, int], ...]] = set()
+
+                while pending and len(seen_states) < max_states and len(candidates) < 24:
+                    state = tuple(sorted(pending.pop(0)))
+                    if state in seen_states:
+                        continue
+                    seen_states.add(state)
+
+                    candidate = [row[:] for row in base_grid]
+                    added = 0
+                    valid = True
+                    for li, qi in state:
+                        ch = candidate[li][qi]
+                        if ch not in {"-", "c"}:
+                            valid = False
+                            break
+                        if ch == "-":
+                            candidate[li][qi] = "c"
+                            added += 1
+                    if valid and added:
+                        predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+                        if predecessor not in seen_candidates and bitmask_push_pin(predecessor, layers) == normalized:
+                            seen_candidates.add(predecessor)
+                            candidates.append(predecessor)
+
+                    if len(state) >= max_added:
+                        continue
+                    frontier: set[tuple[int, int]] = set()
+                    for li, qi in state:
+                        for nl in (li - 1, li + 1):
+                            if 0 <= nl < layers and base_grid[nl][qi] in {"-", "c"}:
+                                frontier.add((nl, qi))
+                        for nq in _adjacent_q(qi):
+                            if base_grid[li][nq] in {"-", "c"}:
+                                frontier.add((li, nq))
+                    for cell in sorted(frontier):
+                        if cell not in state:
+                            pending.append(tuple(sorted(state + (cell,))))
+    return tuple(candidates)
 
 
 @lru_cache(maxsize=100_000)
