@@ -40,12 +40,22 @@ def _trace_depth(code: str) -> int:
     return depth
 
 
+def _source_contains(target: str, pred: str, layers: int) -> str:
+    sources = (
+        ("simple", sfa.bitmask_inverse_push_pin_candidates(target, layers)),
+        ("bridge", sfa.bitmask_bridge_inverse_push_pin_candidates(target, layers)),
+        ("connected", sfa.bitmask_connected_shatter_inverse_push_pin_candidates(target, layers)),
+    )
+    return ",".join(name for name, candidates in sources if pred in candidates) or "none"
+
+
 def analyze(args: argparse.Namespace) -> int:
     started = time.perf_counter()
     total = hits = strict_known = strict_match = 0
     hit_pairs: Counter[tuple[str, str]] = Counter()
     predecessor_subtypes: Counter[str] = Counter()
     strict_feature_counts: Counter[tuple[str, str, str]] = Counter()
+    source_counts: Counter[str] = Counter()
     miss_reasons: Counter[str] = Counter()
     samples: list[str] = []
 
@@ -65,11 +75,12 @@ def analyze(args: argparse.Namespace) -> int:
         if not normalized:
             continue
         total += 1
-        pred = sfa.zero_stack_pp_predecessor_witness(normalized, args.layers)
+        pred = sfa.zero_stack_pp_predecessor_witness(normalized, args.layers, include_connected=args.include_connected)
         if pred is None:
             miss_reasons["no_zero_stack_pp_predecessor"] += 1
             continue
         hits += 1
+        source_counts[_source_contains(normalized, pred, args.layers)] += 1
         predecessor_subtypes[sfa.pp_subtype_candidate(pred, args.layers).subtype] += 1
         strict, cls, reason = _strict(normalized)
         hit_pairs[(strict, reason or cls)] += 1
@@ -99,6 +110,9 @@ def analyze(args: argparse.Namespace) -> int:
     print("predecessor_subtypes:")
     for key, count in predecessor_subtypes.most_common(args.top):
         print(f"  {key}: {count}")
+    print("source_counts:")
+    for key, count in source_counts.most_common(args.top):
+        print(f"  {key}: {count}")
     print("hit_strict_pairs:")
     for (strict, reason), count in hit_pairs.most_common(args.top):
         print(f"  {strict}/{reason}: {count}")
@@ -125,6 +139,7 @@ def main() -> int:
     parser.add_argument("--random", type=int, default=0)
     parser.add_argument("--seed", type=int, default=20260514)
     parser.add_argument("--no-shuffle", action="store_true")
+    parser.add_argument("--include-connected", action="store_true")
     parser.add_argument("--top", type=int, default=20)
     parser.add_argument("--max-samples", type=int, default=8)
     return analyze(parser.parse_args())

@@ -3088,7 +3088,7 @@ def zero_stack_trace_seed(code: str, layers: int, max_depth: int = 8) -> tuple[s
     return None
 
 
-def zero_stack_pp_predecessor_witness(code: str, layers: int) -> str | None:
+def zero_stack_pp_predecessor_witness(code: str, layers: int, include_connected: bool = False) -> str | None:
     normalized = normalize_code(code)
     if not normalized:
         return None
@@ -3096,13 +3096,15 @@ def zero_stack_pp_predecessor_witness(code: str, layers: int) -> str | None:
     top = parts[-1]
     if "P" in top or top.count("c") != 1:
         return None
-    candidates = tuple(
-        dict.fromkeys(
-            bitmask_inverse_push_pin_candidates(normalized, layers)
-            + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
-            + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
-        )
+    candidate_sources = (
+        bitmask_inverse_push_pin_candidates(normalized, layers)
+        + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
     )[:24]
+    if include_connected:
+        candidate_sources = tuple(
+            dict.fromkeys(candidate_sources + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers))
+        )[:24]
+    candidates = tuple(dict.fromkeys(candidate_sources))
     for predecessor in candidates:
         if bitmask_push_pin(predecessor, layers) != normalized:
             continue
@@ -3119,6 +3121,12 @@ def zero_stack_pp_predecessor_core_verdict(code: str, layers: int) -> tuple[str,
     if zero_stack_pp_predecessor_witness(code, layers) is None:
         return None
     return "possible", "kernel_zero_stack_pp_predecessor"
+
+
+def zero_stack_connected_pp_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    if zero_stack_pp_predecessor_witness(code, layers, include_connected=True) is None:
+        return None
+    return "possible", "kernel_zero_stack_connected_pp_predecessor"
 
 
 def _bottom_pin_delta_base(base: str, target: str) -> bool:
@@ -4480,17 +4488,6 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 sv, sb = kernel
                 fallback_used += 1
                 kernel_used += 1
-        if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "zero-stack-pp-predecessor-core" in args.experiment:
-            tick = time.perf_counter()
-            kernel = zero_stack_pp_predecessor_core_verdict(code, args.depth)
-            elapsed = time.perf_counter() - tick
-            kernel_time += elapsed
-            kernel_step_times["zero_stack_pp_predecessor"] += elapsed
-            kernel_step_counts["zero_stack_pp_predecessor"] += 1
-            if kernel is not None:
-                sv, sb = kernel
-                fallback_used += 1
-                kernel_used += 1
         if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "stackability-swap12-core" in args.experiment:
             tick = time.perf_counter()
             kernel = stackability_swap12_core_verdict(code)
@@ -4701,6 +4698,32 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["reference_stackability"] += elapsed
             kernel_step_counts["reference_stackability"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "zero-stack-pp-predecessor-core" in args.experiment:
+            tick = time.perf_counter()
+            kernel = zero_stack_pp_predecessor_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["zero_stack_pp_predecessor"] += elapsed
+            kernel_step_counts["zero_stack_pp_predecessor"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if (
+            sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and "zero-stack-connected-pp-predecessor-core" in args.experiment
+        ):
+            tick = time.perf_counter()
+            kernel = zero_stack_connected_pp_predecessor_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["zero_stack_connected_pp_predecessor"] += elapsed
+            kernel_step_counts["zero_stack_connected_pp_predecessor"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
@@ -5138,6 +5161,7 @@ def main() -> int:
             "claw-tail-seed-core",
             "pp-inverse-predecessor-core",
             "zero-stack-pp-predecessor-core",
+            "zero-stack-connected-pp-predecessor-core",
             "defer-swap-positive",
         ),
         default=[],
