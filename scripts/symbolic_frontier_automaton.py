@@ -51,6 +51,13 @@ TOP_LAYER_HYBRID_MISS_ONLY: frozenset[tuple[str, tuple[int, bool, str | None]]] 
         ("ScP-", (1, True, "swap_12_34_blocked")),
     }
 )
+SAFE_STACKABILITY_TOP_PEN_REMS: frozenset[tuple[str, str, tuple[int, bool, str | None]]] = frozenset(
+    {
+        ("cSSS", "S--S", (1, True, "swap_12_34_blocked")),
+        ("cSSS", "c--S", (1, True, "swap_12_34_blocked")),
+        ("cSS-", "S-SS", (2, True, "swap_12_34_blocked")),
+    }
+)
 REFERENCE_CPCP_DIR = PROJECT_ROOT / "reference_projects" / "shapez2-cpcp1998"
 
 
@@ -1844,16 +1851,45 @@ def bitmask_stackable_base(code: str) -> str | None:
 
 
 @lru_cache(maxsize=100_000)
-def stackability_core_verdict(code: str) -> tuple[str, str] | None:
-    for base in bitmask_stackable_bases(code):
+def safe_stackability_witness(code: str) -> StackabilityWitness | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if len(parts) < 2:
+        return None
+    removal = bitmask_layer_removal_context(normalized)[:3]
+    if (parts[-1], parts[-2], removal) not in SAFE_STACKABILITY_TOP_PEN_REMS:
+        return None
+    if claw_bottom_floor_reject_core_verdict(normalized) is not None:
+        return None
+    if not bitmask_physics_stable(normalized):
+        return None
+    for witness in bitmask_stackability_witnesses(normalized):
+        base = witness.base
+        if claw_bottom_floor_reject_core_verdict(base) is not None:
+            continue
         if physics_core_verdict(base) is not None:
             continue
         swap = swap_core_verdict(base)
         if swap is not None and swap[0] == "possible":
-            return "possible", "kernel_stackable_from_" + swap[1]
+            return witness
         removal = layer_removal_core_verdict(base)
         if removal is not None and removal[0] == "possible":
-            return "possible", "kernel_stackable_from_" + removal[1]
+            return witness
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def stackability_core_verdict(code: str) -> tuple[str, str] | None:
+    witness = safe_stackability_witness(code)
+    if witness is None:
+        return None
+    base = witness.base
+    swap = swap_core_verdict(base)
+    if swap is not None and swap[0] == "possible":
+        return "possible", "kernel_stackable_from_" + swap[1]
+    removal = layer_removal_core_verdict(base)
+    if removal is not None and removal[0] == "possible":
+        return "possible", "kernel_stackable_from_" + removal[1]
     return None
 
 
@@ -3123,10 +3159,17 @@ def pp_trace_tree(code: str, layers: int, max_depth: int = 4) -> DecompositionNo
 
 def stackability_tree(code: str, layers: int) -> DecompositionNode | None:
     witnesses = reference_stackability_witnesses(code, layers)
-    if not witnesses:
+    if witnesses:
+        witness = witnesses[0]
+        base_detail = f"angle={witness.base_swap.angle}" if witness.base_swap else "swap_unknown"
+    else:
+        witness = safe_stackability_witness(code)
+        if witness is None:
+            return None
+        base_detail = "safe_stackability_base"
+    if not witness:
         return None
-    witness = witnesses[0]
-    base = DecompositionNode(kind="swap", shape=witness.base, detail=f"angle={witness.base_swap.angle}" if witness.base_swap else "swap_unknown")
+    base = DecompositionNode(kind="swap", shape=witness.base, detail=base_detail)
     stacked_delta = DecompositionNode(
         kind="stack_input",
         shape=witness.stacked_delta,
@@ -4254,7 +4297,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 sv, sb = kernel
                 fallback_used += 1
                 kernel_used += 1
-        if sv == "unknown" and args.fallback == "kernel-hybrid-core" and "stackability-core" in args.experiment:
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core":
             tick = time.perf_counter()
             kernel = stackability_core_verdict(code)
             elapsed = time.perf_counter() - tick
