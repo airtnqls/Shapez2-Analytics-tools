@@ -3144,6 +3144,101 @@ def bitmask_bottom_extra_pin_inverse_push_pin_candidates(code: str, layers: int)
 
 
 @lru_cache(maxsize=100_000)
+def bitmask_bottom_extra_pin_suffix_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    target_bottom = parts[0]
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    extra_pin_cols = [
+        q
+        for q, ch in enumerate(target_bottom)
+        if ch == "P" and (q >= len(base_parts[0]) or base_parts[0][q] == "-")
+    ]
+    if not extra_pin_cols or len(extra_pin_cols) > 2:
+        return ()
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    for q in extra_pin_cols:
+        for pin_layer in range(1, min(4, layers)):
+            if base_parts[pin_layer][q] != "-":
+                continue
+            candidate = [list(layer) for layer in base_parts]
+            candidate[pin_layer][q] = "P"
+            added = 0
+            for layer in range(pin_layer + 1, layers):
+                if candidate[layer][q] == "-":
+                    candidate[layer][q] = "c"
+                    added += 1
+            if added == 0:
+                continue
+            predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+            if predecessor in seen_candidates:
+                continue
+            if bitmask_push_pin(predecessor, layers) == normalized:
+                seen_candidates.add(predecessor)
+                candidates.append(predecessor)
+                if len(candidates) >= 40:
+                    return tuple(candidates)
+    return tuple(candidates)
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_bottom_extra_supported_piece_suffix_inverse_push_pin_candidates(
+    code: str, layers: int
+) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    target_bottom = parts[0]
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    extra_piece_cols = [
+        (q, ch)
+        for q, ch in enumerate(target_bottom)
+        if ch in {"S", "c"} and (q >= len(base_parts[0]) or base_parts[0][q] == "-")
+    ]
+    if not extra_piece_cols or len(extra_piece_cols) > 1:
+        return ()
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    q, piece = extra_piece_cols[0]
+    for piece_layer in range(1, min(4, layers)):
+        if base_parts[piece_layer][q] != "-":
+            continue
+        for nq in _adjacent_q(q):
+            candidate = [list(layer) for layer in base_parts]
+            candidate[piece_layer][q] = piece
+            added = 0
+            for layer in range(piece_layer, layers):
+                if candidate[layer][nq] == "-":
+                    candidate[layer][nq] = "c"
+                    added += 1
+            if added == 0:
+                continue
+            predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+            if predecessor in seen_candidates:
+                continue
+            if bitmask_push_pin(predecessor, layers) == normalized:
+                seen_candidates.add(predecessor)
+                candidates.append(predecessor)
+                if len(candidates) >= 40:
+                    return tuple(candidates)
+    return tuple(candidates)
+
+
+@lru_cache(maxsize=100_000)
 def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
     normalized = normalize_code(code)
     if not normalized:
@@ -3302,6 +3397,8 @@ def zero_stack_pp_predecessor_witness(
     for predecessor in candidates:
         if bitmask_push_pin(predecessor, layers) != normalized:
             continue
+        if not bitmask_physics_stable(predecessor):
+            continue
         seed = zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=allow_terminal_crystal)
         if seed is None:
             continue
@@ -3317,6 +3414,7 @@ def zero_stack_pp_predecessor_witness(
         extended_sources = (
             bitmask_vertical_spine_shatter_inverse_push_pin_candidates(normalized, layers)
             + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_claw_delta_grammar_inverse_push_pin_candidates(normalized, layers)
         )
         if layers > MAX_LAYERS:
             extended_sources = (
@@ -3324,6 +3422,8 @@ def zero_stack_pp_predecessor_witness(
                 + bitmask_piece_lift_shatter_inverse_push_pin_candidates(normalized, layers)
                 + bitmask_double_s_lift_shatter_inverse_push_pin_candidates(normalized, layers)
                 + bitmask_bottom_extra_pin_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_bottom_extra_pin_suffix_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_bottom_extra_supported_piece_suffix_inverse_push_pin_candidates(normalized, layers)
             )
         connected_candidates = tuple(
             predecessor
@@ -3334,6 +3434,8 @@ def zero_stack_pp_predecessor_witness(
         connected_candidates = ()
     for predecessor in connected_candidates:
         if bitmask_push_pin(predecessor, layers) != normalized:
+            continue
+        if not bitmask_physics_stable(predecessor):
             continue
         seed = zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=allow_terminal_crystal)
         if seed is None:
@@ -3347,6 +3449,179 @@ def zero_stack_pp_predecessor_witness(
         if seed is not None:
             return predecessor
     return None
+
+
+def claw_overflow_suffix_is_sacrificial_tower(
+    predecessor: str,
+    claw_layers: int,
+    max_layers: int,
+    crystal_column: int = 2,
+) -> bool:
+    normalized = normalize_code(predecessor)
+    if not normalized or claw_layers < 0 or max_layers <= 0 or not (0 <= crystal_column < 4):
+        return False
+    parts = normalized.split(":")
+    if len(parts) > max_layers:
+        return False
+    overflow_layer = "".join("c" if q == crystal_column else "-" for q in range(4))
+    padded = parts + ["----"] * (max_layers - len(parts))
+    return all(layer == overflow_layer for layer in padded[claw_layers:max_layers])
+
+
+def claw_overflow_suffix_depth(predecessor: str, max_layers: int, crystal_column: int = 2) -> int:
+    normalized = normalize_code(predecessor)
+    if not normalized or max_layers <= 0 or not (0 <= crystal_column < 4):
+        return 0
+    parts = normalized.split(":")
+    overflow_layer = "".join("c" if q == crystal_column else "-" for q in range(4))
+    depth = 0
+    for layer in reversed((parts + ["----"] * max(0, max_layers - len(parts)))[:max_layers]):
+        if layer != overflow_layer:
+            break
+        depth += 1
+    return depth
+
+
+CLAW_DELTA_LAYER_TRANSITIONS: tuple[tuple[int, str, str], ...] = (
+    (4, "----", "--c-"),
+    (3, "cS-S", "cScS"),
+    (3, "cS--", "cSc-"),
+    (2, "c---", "c-c-"),
+    (2, "c--S", "c-cS"),
+    (2, "S--S", "SccS"),
+    (2, "S--S", "S-cS"),
+    (3, "c---", "c-c-"),
+    (2, "S---", "Sccc"),
+    (2, "S---", "S-cc"),
+    (2, "S---", "S-c-"),
+    (2, "S---", "Scc-"),
+    (2, "-S--", "-Scc"),
+    (2, "-P--", "-Pcc"),
+    (2, "cS-S", "cScS"),
+    (2, "---P", "-ccP"),
+    (2, "---S", "-ccS"),
+    (2, "SS-S", "SScS"),
+    (3, "----", "--c-"),
+    (1, "SS-S", "SScS"),
+    (2, "-S--", "-Sc-"),
+    (2, "-P--", "-Pc-"),
+    (2, "---P", "--cP"),
+    (2, "---S", "--cS"),
+    (1, "c---", "c-c-"),
+    (2, "cS--", "cSc-"),
+    (1, "cS--", "cSc-"),
+    (1, "ScS-", "ScSc"),
+    (1, "SSS-", "SSSc"),
+    (1, "SS--", "SScc"),
+    (0, "-P-P", "-PcP"),
+    (0, "-P-S", "-PcS"),
+    (0, "-S-P", "-ScP"),
+    (1, "SP-S", "-Pcc"),
+    (1, "SP-S", "SccS"),
+    (2, "-P--", "SPcS"),
+    (2, "c---", "cPc-"),
+    (2, "---P", "-PcP"),
+    (2, "---S", "-PcS"),
+    (2, "SS-P", "SScc"),
+    (2, "c---", "c-cP"),
+    (2, "S--S", "SPcS"),
+    (0, "SP-S", "-Pcc"),
+    (2, "---P", "-ScP"),
+    (2, "---S", "-ScS"),
+    (1, "SS-P", "SScc"),
+    (0, "SS-P", "-ccP"),
+    (1, "-P--", "SPcS"),
+    (2, "-S--", "-ScS"),
+    (1, "---S", "-ScS"),
+    (2, "-P--", "-PcS"),
+    (0, "SS-S", "-Scc"),
+    (0, "SS-S", "-ccS"),
+    (0, "-S-S", "-ScS"),
+    (1, "---P", "SScP"),
+    (1, "---P", "-ScP"),
+    (1, "---P", "-cSP"),
+    (0, "PSS-", "P-cc"),
+    (2, "S---", "SPcc"),
+    (2, "-P--", "SPcS"),
+    (2, "-P--", "SPcc"),
+)
+
+
+def _load_generated_claw_delta_layer_transitions() -> tuple[tuple[int, str, str], ...]:
+    path = Path(__file__).resolve().parent / "claw_delta_transitions.py"
+    if not path.exists():
+        return ()
+    try:
+        spec = importlib.util.spec_from_file_location("generated_claw_delta_transitions", path)
+        if spec is None or spec.loader is None:
+            return ()
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        transitions = getattr(module, "CLAW_DELTA_LAYER_TRANSITIONS", ())
+    except Exception:
+        return ()
+    out: list[tuple[int, str, str]] = []
+    for item in transitions:
+        if (
+            isinstance(item, tuple)
+            and len(item) == 3
+            and isinstance(item[0], int)
+            and isinstance(item[1], str)
+            and isinstance(item[2], str)
+        ):
+            out.append(item)
+    return tuple(out)
+
+
+CLAW_DELTA_LAYER_TRANSITIONS = tuple(
+    dict.fromkeys(CLAW_DELTA_LAYER_TRANSITIONS + _load_generated_claw_delta_layer_transitions())
+)
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_claw_delta_grammar_inverse_push_pin_candidates(
+    code: str,
+    layers: int,
+    max_changed_layers: int = 5,
+    max_tests: int = 20_000,
+) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    options_by_layer: list[set[str]] = [{base_parts[layer]} for layer in range(layers)]
+    for layer, before, after in CLAW_DELTA_LAYER_TRANSITIONS:
+        if layer < layers and base_parts[layer] == before:
+            options_by_layer[layer].add(after)
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    tested = 0
+    for rows in itertools.product(*(sorted(options) for options in options_by_layer)):
+        changed = sum(1 for before, after in zip(base_parts, rows) if before != after)
+        if changed == 0 or changed > max_changed_layers:
+            continue
+        tested += 1
+        if tested > max_tests:
+            break
+        predecessor = normalize_code(":".join(rows))
+        if predecessor in seen_candidates:
+            continue
+        if not claw_overflow_suffix_depth(predecessor, layers):
+            continue
+        if not bitmask_physics_stable(predecessor):
+            continue
+        if bitmask_push_pin(predecessor, layers) == normalized:
+            seen_candidates.add(predecessor)
+            candidates.append(predecessor)
+            if len(candidates) >= 64:
+                return tuple(candidates)
+    return tuple(candidates)
 
 
 def zero_stack_pp_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
@@ -3379,10 +3654,13 @@ def zero_stack_terminal_crystal_failure_core_verdict(code: str, layers: int) -> 
             + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
             + bitmask_vertical_spine_shatter_inverse_push_pin_candidates(normalized, layers)
             + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_claw_delta_grammar_inverse_push_pin_candidates(normalized, layers)
             + (
                 bitmask_piece_lift_shatter_inverse_push_pin_candidates(normalized, layers)
                 + bitmask_double_s_lift_shatter_inverse_push_pin_candidates(normalized, layers)
                 + bitmask_bottom_extra_pin_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_bottom_extra_pin_suffix_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_bottom_extra_supported_piece_suffix_inverse_push_pin_candidates(normalized, layers)
                 if layers > MAX_LAYERS
                 else ()
             )
@@ -3391,6 +3669,7 @@ def zero_stack_terminal_crystal_failure_core_verdict(code: str, layers: int) -> 
     trace_candidates = tuple(
         predecessor
         for predecessor in candidates
+        if bitmask_push_pin(predecessor, layers) == normalized
         if zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=True) is not None
     )
     viable_trace_candidates = tuple(
@@ -3400,7 +3679,22 @@ def zero_stack_terminal_crystal_failure_core_verdict(code: str, layers: int) -> 
     )
     if not viable_trace_candidates:
         return None
-    if any(bitmask_swap_impossibility(predecessor) is None for predecessor in viable_trace_candidates):
+
+    stable_viable_trace_candidates = tuple(
+        predecessor
+        for predecessor in viable_trace_candidates
+        if bitmask_physics_stable(predecessor)
+    )
+    if not stable_viable_trace_candidates:
+        if len(viable_trace_candidates) != 1:
+            return None
+        predecessor = viable_trace_candidates[0]
+        physics_predecessor = bitmask_apply_physics(predecessor)
+        if bitmask_push_pin(physics_predecessor, layers) == normalized:
+            return None
+        return "impossible", "kernel_zero_stack_terminal_unique_unstable_predecessor"
+
+    if any(bitmask_swap_impossibility(predecessor) is None for predecessor in stable_viable_trace_candidates):
         return None
     return "impossible", "kernel_zero_stack_terminal_non_swappable_predecessor"
 
@@ -5076,7 +5370,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         if (
             sv == "unknown"
             and args.fallback == "kernel-hybrid-core"
-            and "zero-stack-terminal-crystal-pp-predecessor-core" in args.experiment
+            and (
+                args.depth >= 6
+                or "zero-stack-terminal-crystal-pp-predecessor-core" in args.experiment
+            )
         ):
             tick = time.perf_counter()
             kernel = zero_stack_terminal_crystal_pp_predecessor_core_verdict(code, args.depth)
@@ -5091,7 +5388,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         if (
             sv == "unknown"
             and args.fallback == "kernel-hybrid-core"
-            and "zero-stack-terminal-crystal-pp-predecessor-core" in args.experiment
+            and (
+                args.depth >= 6
+                or "zero-stack-terminal-crystal-pp-predecessor-core" in args.experiment
+            )
         ):
             tick = time.perf_counter()
             kernel = zero_stack_terminal_crystal_failure_core_verdict(code, args.depth)

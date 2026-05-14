@@ -54,6 +54,7 @@ def _abstract_pair(pair: tuple[str, str], mode: str) -> tuple[str, str]:
 
 def _train(args: argparse.Namespace):
     started = time.perf_counter()
+    max_train_seconds = args.max_train_seconds or args.max_seconds
     abstract_ngrams: set[tuple[int, tuple[tuple[str, str], ...]]] = set()
     raw_by_abstract: defaultdict[tuple[str, str], set[tuple[str, str]]] = defaultdict(set)
     raw_pair_counts: Counter[tuple[str, str]] = Counter()
@@ -62,7 +63,7 @@ def _train(args: argparse.Namespace):
     for code in sfa.iter_data_codes(args.data, max_layers=args.train_layers):
         if args.limit and total >= args.limit:
             break
-        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+        if max_train_seconds and time.perf_counter() - started > max_train_seconds:
             break
         target = sfa.normalize_code(code)
         if not target:
@@ -244,15 +245,18 @@ def generate(args: argparse.Namespace) -> int:
                 strict, reason = sfa.strict_legacy_verdict_to_symbolic(pushed)
                 target_verdicts[(strict, reason)] += 1
                 kernel_verdict = None
-                for kernel_fn in (
-                    sfa.swap_core_verdict,
-                    sfa.zero_stack_terminal_crystal_pp_predecessor_core_verdict,
-                    sfa.zero_stack_terminal_crystal_failure_core_verdict,
-                    sfa.claw_failure_core_verdict,
-                ):
-                    kernel_verdict = kernel_fn(pushed, args.generate_layers) if kernel_fn.__name__.startswith("zero_stack") else kernel_fn(pushed)
-                    if kernel_verdict is not None:
-                        break
+                if strict == "impossible" and "corner_rule" in reason:
+                    kernel_verdict = (strict, reason)
+                else:
+                    for kernel_fn in (
+                        sfa.swap_core_verdict,
+                        sfa.zero_stack_terminal_crystal_pp_predecessor_core_verdict,
+                        sfa.zero_stack_terminal_crystal_failure_core_verdict,
+                        sfa.claw_failure_core_verdict,
+                    ):
+                        kernel_verdict = kernel_fn(pushed, args.generate_layers) if kernel_fn.__name__.startswith("zero_stack") else kernel_fn(pushed)
+                        if kernel_verdict is not None:
+                            break
                 target_kernel_verdicts[kernel_verdict or (strict, reason)] += 1
                 capture_reasons = set(args.capture_kernel_reason)
                 effective_kernel_verdict = kernel_verdict or (strict, reason)
@@ -266,6 +270,7 @@ def generate(args: argparse.Namespace) -> int:
                         seed_current = seed[0] if seed else ""
                         seed_base = seed[1] if seed else ""
                         seed_witnesses = sfa.bitmask_stackability_witnesses(seed_current) if seed_current else ()
+                        predecessor_physics = sfa.bitmask_apply_physics(predecessor)
                         selected_records.append(
                             {
                                 "verdict": strict,
@@ -279,6 +284,13 @@ def generate(args: argparse.Namespace) -> int:
                                 ).subtype,
                                 "predecessor_stackable": bool(
                                     sfa.bitmask_stackability_witnesses(predecessor)
+                                ),
+                                "predecessor_stable": predecessor_physics == predecessor,
+                                "predecessor_physics": predecessor_physics,
+                                "predecessor_physics_push_matches": (
+                                    sfa.bitmask_push_pin(predecessor_physics, args.generate_layers) == pushed
+                                    if predecessor_physics
+                                    else False
                                 ),
                                 "predecessor_swap": sfa.bitmask_swap_impossibility(predecessor)
                                 or "swappable",
@@ -383,6 +395,7 @@ def main() -> int:
     parser.add_argument("--abstract-mode", choices=("classes", "mask_counts"), default="classes")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--max-seconds", type=float, default=120.0)
+    parser.add_argument("--max-train-seconds", type=float, default=0.0)
     parser.add_argument("--max-abstract-sequences", type=int, default=50000)
     parser.add_argument("--max-raw-per-layer", type=int, default=3)
     parser.add_argument("--max-raw-tests", type=int, default=100000)

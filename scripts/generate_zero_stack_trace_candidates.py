@@ -209,6 +209,53 @@ def _candidate_allowed(code: str, args: argparse.Namespace) -> bool:
     return True
 
 
+def _top_signature(code: str) -> str:
+    normalized = sfa.normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts:
+        return "empty"
+    top = parts[-1]
+    penult = parts[-2] if len(parts) >= 2 else "none"
+    return f"{penult}>{top}|rem={sfa.bitmask_layer_removal_context(normalized)[:3]}"
+
+
+def _zero_stack_depth(code: str) -> int:
+    current = sfa.normalize_code(code)
+    depth = 0
+    seen: set[str] = set()
+    while current and current not in seen and sfa.top_single_c_zero_stack_candidate(current):
+        seen.add(current)
+        parts = current.split(":")
+        current = sfa.normalize_code(":".join(parts[1:]))
+        depth += 1
+    return depth
+
+
+def _seed_signature(code: str, layers: int, allow_terminal_crystal: bool) -> str:
+    seed = sfa.zero_stack_trace_seed(code, layers, allow_terminal_crystal=allow_terminal_crystal)
+    if seed is None:
+        return "missing"
+    seed_current, _seed_base = seed
+    return _top_signature(seed_current)
+
+
+def _feature_counts(
+    predecessors: set[str],
+    targets: set[str],
+    args: argparse.Namespace,
+) -> dict[str, Counter[str]]:
+    return {
+        "predecessor_top": Counter(_top_signature(code) for code in predecessors),
+        "predecessor_depth": Counter(str(_zero_stack_depth(code)) for code in predecessors),
+        "predecessor_seed": Counter(
+            _seed_signature(code, args.layers, args.allow_terminal_crystal) for code in predecessors
+        ),
+        "target_top": Counter(_top_signature(code) for code in targets),
+        "target_first": Counter((code.split(":")[0] if code else "empty") for code in targets),
+        "target_c_count": Counter(str(sum(layer.count("c") for layer in code.split(":"))) for code in targets),
+    }
+
+
 def _record_allowed(code: str, args: argparse.Namespace) -> bool:
     if args.require_swappable and sfa.bitmask_swap_impossibility(code) is not None:
         return False
@@ -383,6 +430,9 @@ def generate(args: argparse.Namespace) -> int:
                     if args.target_sorted_claw_notes_filter and not _sorted_claw_notes_target_allowed(pushed):
                         rejected["target_sorted_claw_notes"] += 1
                         continue
+                    if args.target_removed_crystal_filter and not sfa.bitmask_layer_removal_context(pushed)[1]:
+                        rejected["target_removed_crystal"] += 1
+                        continue
                     generated_targets.add(pushed)
                     if args.classify_targets:
                         verdict = sfa.strict_legacy_verdict_to_symbolic(pushed)
@@ -497,6 +547,17 @@ def generate(args: argparse.Namespace) -> int:
         print(f"{title}:")
         for key, count in counter.most_common(args.top):
             print(f"  {key}: {count}")
+    if args.compare_extra_features:
+        for label, preds, targets in (
+            ("known", known_predecessors, known_targets),
+            ("extra", generated_predecessors - known_predecessors, generated_targets - known_targets),
+        ):
+            print(f"{label}_feature_counts:")
+            feature_counts = _feature_counts(preds, targets, args)
+            for feature_name, counter in feature_counts.items():
+                print(f"  {feature_name}:")
+                for key, count in counter.most_common(args.top):
+                    print(f"    {count}: {key}")
     return 0
 
 
@@ -522,6 +583,7 @@ def main() -> int:
     parser.add_argument("--target-claw-common-filter", action="store_true")
     parser.add_argument("--target-sorted-claw-notes-filter", action="store_true")
     parser.add_argument("--target-corner-filter", action="store_true")
+    parser.add_argument("--target-removed-crystal-filter", action="store_true")
     parser.add_argument("--prune-no-future-pin-interaction", action="store_true")
     parser.add_argument("--prefix-layer-filter", action="store_true")
     parser.add_argument("--prefix-transition-filter", action="store_true")
@@ -533,6 +595,7 @@ def main() -> int:
     parser.add_argument("--capture-kernel-reason", action="append", default=[])
     parser.add_argument("--max-capture", type=int, default=50)
     parser.add_argument("--write-captured", type=Path)
+    parser.add_argument("--compare-extra-features", action="store_true")
     return generate(parser.parse_args())
 
 
