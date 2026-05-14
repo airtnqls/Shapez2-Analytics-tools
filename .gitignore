@@ -2,6 +2,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
+scripts/tmp_captured_*.jsonl
+scripts/tmp_trace_*.jsonl
+scripts/tmp_*.jsonl
+scripts/tmp_*.json
+tmp_pycache/
 
 # C extensions
 *.so

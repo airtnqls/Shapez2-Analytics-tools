@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import json
 import random
 import sys
 import time
@@ -21,15 +22,16 @@ from generate_zero_stack_forward_pp import _claw_common_target_allowed, _sorted_
 from generate_zero_stack_half_pair_candidates import _mask_shape, _or_shape, _rotate_180
 from validate_half_pair_ngram_generalization import _abstract_layer, _ngram_index
 
+with contextlib.redirect_stdout(io.StringIO()):
+    from claw_tracer import claw_process as _claw_process
+    from data_operations import simplify_shape as _simplify_shape
+    from shape import Shape as _Shape
+
 
 def _claw_predecessor(code: str) -> str:
     with contextlib.redirect_stdout(io.StringIO()):
-        from claw_tracer import claw_process
-        from data_operations import simplify_shape
-        from shape import Shape
-
-        raw = claw_process(repr(Shape.from_string(code)))
-        return sfa.normalize_code(simplify_shape(raw) if raw else "")
+        raw = _claw_process(repr(_Shape.from_string(code)))
+        return sfa.normalize_code(_simplify_shape(raw) if raw else "")
 
 
 def _layer_at(code: str, index: int) -> str:
@@ -175,9 +177,12 @@ def generate(args: argparse.Namespace) -> int:
     target_features = Counter()
     predecessor_features = Counter()
     target_verdicts = Counter()
+    target_kernel_verdicts = Counter()
     predecessor_subtypes = Counter()
     predecessor_stackability = Counter()
+    predecessor_seed_status = Counter()
     selected_rows: list[str] = []
+    selected_records: list[dict[str, object]] = []
     for abstract_sequence in abstract_sequences:
         if args.max_seconds and time.perf_counter() - started > args.max_seconds:
             break
@@ -205,12 +210,32 @@ def generate(args: argparse.Namespace) -> int:
             if args.target_sorted_claw_notes_filter and not _sorted_claw_notes_target_allowed(pushed):
                 rejected["target_notes"] += 1
                 continue
+            if args.target_corner_filter and not sfa.corner_columns_allowed(pushed):
+                rejected["target_corner"] += 1
+                continue
             if args.target_swap_both_filter and sfa.bitmask_swap_impossibility(pushed) != "swap_both_blocked":
                 rejected["target_swap"] += 1
                 continue
             if args.target_removed_crystal_filter and not sfa.bitmask_layer_removal_context(pushed)[1]:
                 rejected["target_removed_crystal"] += 1
                 continue
+            seed = sfa.zero_stack_trace_seed(
+                predecessor,
+                args.generate_layers,
+                allow_terminal_crystal=True,
+            )
+            if seed is None:
+                predecessor_seed_status["missing_zero_stack_seed"] += 1
+                if args.require_seed_stackable:
+                    rejected["missing_zero_stack_seed"] += 1
+                    continue
+            else:
+                seed_current, _seed_base = seed
+                seed_stackable = bool(sfa.bitmask_stackability_witnesses(seed_current))
+                predecessor_seed_status["seed_stackable" if seed_stackable else "seed_nonstackable"] += 1
+                if args.require_seed_stackable and not seed_stackable:
+                    rejected["seed_nonstackable"] += 1
+                    continue
             generated_predecessors.add(predecessor)
             generated_targets.add(pushed)
             predecessor_subtypes[sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype] += 1
@@ -218,9 +243,68 @@ def generate(args: argparse.Namespace) -> int:
             if args.classify_targets:
                 strict, reason = sfa.strict_legacy_verdict_to_symbolic(pushed)
                 target_verdicts[(strict, reason)] += 1
-                if strict in set(args.capture_verdict):
+                kernel_verdict = None
+                for kernel_fn in (
+                    sfa.swap_core_verdict,
+                    sfa.zero_stack_terminal_crystal_pp_predecessor_core_verdict,
+                    sfa.zero_stack_terminal_crystal_failure_core_verdict,
+                    sfa.claw_failure_core_verdict,
+                ):
+                    kernel_verdict = kernel_fn(pushed, args.generate_layers) if kernel_fn.__name__.startswith("zero_stack") else kernel_fn(pushed)
+                    if kernel_verdict is not None:
+                        break
+                target_kernel_verdicts[kernel_verdict or (strict, reason)] += 1
+                capture_reasons = set(args.capture_kernel_reason)
+                effective_kernel_verdict = kernel_verdict or (strict, reason)
+                if strict in set(args.capture_verdict) or effective_kernel_verdict[1] in capture_reasons:
+                    if len(selected_records) < args.max_capture:
+                        seed = sfa.zero_stack_trace_seed(
+                            predecessor,
+                            args.generate_layers,
+                            allow_terminal_crystal=True,
+                        )
+                        seed_current = seed[0] if seed else ""
+                        seed_base = seed[1] if seed else ""
+                        seed_witnesses = sfa.bitmask_stackability_witnesses(seed_current) if seed_current else ()
+                        selected_records.append(
+                            {
+                                "verdict": strict,
+                                "reason": reason,
+                                "kernel_verdict": effective_kernel_verdict[0],
+                                "kernel_reason": effective_kernel_verdict[1],
+                                "target": pushed,
+                                "predecessor": predecessor,
+                                "predecessor_subtype": sfa.pp_subtype_candidate(
+                                    predecessor, args.generate_layers
+                                ).subtype,
+                                "predecessor_stackable": bool(
+                                    sfa.bitmask_stackability_witnesses(predecessor)
+                                ),
+                                "predecessor_swap": sfa.bitmask_swap_impossibility(predecessor)
+                                or "swappable",
+                                "target_swap": sfa.bitmask_swap_impossibility(pushed) or "swappable",
+                                "target_layer_removal": sfa.bitmask_layer_removal_context(pushed)[:3],
+                                "zero_stack_seed_current": seed_current,
+                                "zero_stack_seed_base": seed_base,
+                                "zero_stack_seed_stackable": bool(seed_witnesses),
+                                "zero_stack_seed_witnesses": [
+                                    {
+                                        "base": witness.base,
+                                        "delta": witness.stacked_delta,
+                                        "heights": witness.heights,
+                                    }
+                                    for witness in seed_witnesses[: args.max_capture_witnesses]
+                                ],
+                                "abstract_sequence": abstract_sequence,
+                                "raw_sequence": raw_sequence,
+                            }
+                        )
                     if len(selected_rows) < args.max_capture:
-                        selected_rows.append(f"{strict}\t{reason}\tT={pushed}\tA={predecessor}")
+                        selected_rows.append(
+                            f"{strict}\t{reason}\t"
+                            f"kernel={effective_kernel_verdict[0]}/{effective_kernel_verdict[1]}\t"
+                            f"T={pushed}\tA={predecessor}"
+                        )
             p_parts = predecessor.split(":") if predecessor else []
             t_parts = pushed.split(":") if pushed else []
             predecessor_features[(
@@ -267,14 +351,26 @@ def generate(args: argparse.Namespace) -> int:
     print("predecessor_stackability:")
     for key, count in predecessor_stackability.most_common(args.top):
         print(f"  {key}: {count}")
+    print("predecessor_seed_status:")
+    for key, count in predecessor_seed_status.most_common(args.top):
+        print(f"  {key}: {count}")
     if args.classify_targets:
         print("target_verdicts:")
         for key, count in target_verdicts.most_common(args.top):
+            print(f"  {key}: {count}")
+        print("target_kernel_verdicts:")
+        for key, count in target_kernel_verdicts.most_common(args.top):
             print(f"  {key}: {count}")
     if selected_rows:
         print("captured:")
         for row in selected_rows:
             print(row)
+    if args.write_captured and selected_records:
+        args.write_captured.parent.mkdir(parents=True, exist_ok=True)
+        with args.write_captured.open("w", encoding="utf-8") as handle:
+            for record in selected_records:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        print(f"captured_written={args.write_captured}")
     return 0
 
 
@@ -294,12 +390,17 @@ def main() -> int:
     parser.add_argument("--shuffle", action="store_true")
     parser.add_argument("--target-claw-common-filter", action="store_true")
     parser.add_argument("--target-sorted-claw-notes-filter", action="store_true")
+    parser.add_argument("--target-corner-filter", action="store_true")
     parser.add_argument("--target-swap-both-filter", action="store_true")
     parser.add_argument("--target-removed-crystal-filter", action="store_true")
+    parser.add_argument("--require-seed-stackable", action="store_true")
     parser.add_argument("--top", type=int, default=16)
     parser.add_argument("--classify-targets", action="store_true")
     parser.add_argument("--capture-verdict", action="append", default=[])
+    parser.add_argument("--capture-kernel-reason", action="append", default=[])
     parser.add_argument("--max-capture", type=int, default=20)
+    parser.add_argument("--max-capture-witnesses", type=int, default=4)
+    parser.add_argument("--write-captured", type=Path)
     return generate(parser.parse_args())
 
 

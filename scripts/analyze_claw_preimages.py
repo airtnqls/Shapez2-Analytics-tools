@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import json
 import sys
 import time
 from collections import Counter, defaultdict
@@ -17,31 +18,28 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import symbolic_frontier_automaton as sfa
 
+with contextlib.redirect_stdout(io.StringIO()):
+    from claw_tracer import claw_process as _claw_process
+    from data_operations import simplify_shape as _simplify_shape
+    from shape import Shape as _Shape
+    from shape_classifier import analyze_shape as _analyze_shape
+
 
 def _legacy_type(code: str) -> tuple[str, str]:
     with contextlib.redirect_stdout(io.StringIO()):
-        from shape import Shape
-        from shape_classifier import analyze_shape
-
-        result, reason = analyze_shape(code, Shape.from_string(code))
+        result, reason = _analyze_shape(code, _Shape.from_string(code))
     return str(result), str(reason)
 
 
 def _skip_type(code: str) -> tuple[str, str]:
     with contextlib.redirect_stdout(io.StringIO()):
-        from shape import Shape
-
-        return sfa.cached_skip_shape_analysis(repr(Shape.from_string(code)))
+        return sfa.cached_skip_shape_analysis(repr(_Shape.from_string(code)))
 
 
 def _claw_predecessor(code: str) -> str:
     with contextlib.redirect_stdout(io.StringIO()):
-        from claw_tracer import claw_process
-        from data_operations import simplify_shape
-        from shape import Shape
-
-        raw = claw_process(repr(Shape.from_string(code)))
-        return sfa.normalize_code(simplify_shape(raw) if raw else "")
+        raw = _claw_process(repr(_Shape.from_string(code)))
+        return sfa.normalize_code(_simplify_shape(raw) if raw else "")
 
 
 def _top_signature(code: str) -> str:
@@ -62,6 +60,7 @@ def analyze(args: argparse.Namespace) -> int:
     pred_type_counts: Counter[tuple[str, str]] = Counter()
     pred_skip_type_counts: Counter[tuple[str, str]] = Counter()
     pred_decomposition_counts: Counter[str] = Counter()
+    pred_axis_counts: Counter[str] = Counter()
     target_layers: Counter[int] = Counter()
     predecessor_layers: Counter[int] = Counter()
     predecessor_c_counts: Counter[int] = Counter()
@@ -137,8 +136,43 @@ def analyze(args: argparse.Namespace) -> int:
             else:
                 subtype = sfa.pp_subtype_candidate(pred, args.layers).subtype
                 pred_decomposition_counts[subtype] += 1
+        if args.axis_decompose_predecessor:
+            swap_reason = sfa.bitmask_swap_impossibility(pred)
+            if swap_reason is None:
+                pred_axis_counts["half_swappable"] += 1
+            elif sfa.bitmask_stackability_witnesses(pred):
+                pred_axis_counts[f"stackable_after_{swap_reason}"] += 1
+            else:
+                subtype = sfa.pp_subtype_candidate(pred, args.layers).subtype
+                pred_axis_counts[f"pp:{subtype}"] += 1
 
     elapsed = time.perf_counter() - started
+    summary = {
+        "input": str(args.data),
+        "layers": args.layers,
+        "total": total,
+        "processed": processed,
+        "errors": errors,
+        "empty_predecessor": empty_pred,
+        "push_matches": push_matches,
+        "push_match_rate": (100.0 * push_matches / processed if processed else 100.0),
+        "unique_predecessors": len(unique_predecessors),
+        "elapsed": elapsed,
+        "predecessor_axis_decomposition": dict(pred_axis_counts),
+        "predecessor_decomposition": dict(pred_decomposition_counts),
+        "target_layer_counts": dict(target_layers),
+        "predecessor_layer_counts": dict(predecessor_layers),
+        "predecessor_c_counts": dict(predecessor_c_counts),
+        "predecessor_highest_c": {
+            f"layer={layer}|c_count={c_count}|text={text}": count
+            for (layer, c_count, text), count in predecessor_highest_c.items()
+        },
+        "target_top_signatures": dict(target_top_signatures),
+        "predecessor_top_signatures": dict(predecessor_top_signatures),
+    }
+    if args.write_json:
+        args.write_json.parent.mkdir(parents=True, exist_ok=True)
+        args.write_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"input={args.data}")
     print(f"layers={args.layers}")
     print(f"total={total}")
@@ -164,6 +198,10 @@ def analyze(args: argparse.Namespace) -> int:
     if pred_decomposition_counts:
         print("predecessor_decomposition:")
         for key, count in pred_decomposition_counts.most_common(24):
+            print(f"  {key}: {count}")
+    if pred_axis_counts:
+        print("predecessor_axis_decomposition:")
+        for key, count in pred_axis_counts.most_common(24):
             print(f"  {key}: {count}")
     print("target_layer_counts:")
     for layer, count in sorted(target_layers.items()):
@@ -191,6 +229,8 @@ def analyze(args: argparse.Namespace) -> int:
         print("error_samples:")
         for sample in error_samples:
             print(sample)
+    if args.write_json:
+        print(f"wrote_json={args.write_json}")
     return 0
 
 
@@ -202,6 +242,8 @@ def main() -> int:
     parser.add_argument("--max-seconds", type=float, default=120.0)
     parser.add_argument("--classify-predecessor", action="store_true")
     parser.add_argument("--decompose-predecessor", action="store_true")
+    parser.add_argument("--axis-decompose-predecessor", action="store_true")
+    parser.add_argument("--write-json", type=Path, default=None)
     parser.add_argument("--max-samples", type=int, default=8)
     return analyze(parser.parse_args())
 

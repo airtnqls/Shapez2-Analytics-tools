@@ -589,8 +589,11 @@ class SymbolicFrontierAutomaton:
         key = (q, column)
         if key not in self.single_column_verdicts:
             code = _column_to_shape(column, q)
-            _legacy, strict, _cls, _reason = legacy_verdict(code)
-            self.single_column_verdicts[key] = strict if strict in {"possible", "impossible"} else "unknown"
+            if not bitmask_physics_stable(code):
+                self.single_column_verdicts[key] = "impossible"
+            else:
+                _legacy, strict, _cls, _reason = legacy_verdict(code)
+                self.single_column_verdicts[key] = strict if strict in {"possible", "impossible"} else "unknown"
         return self.single_column_verdicts[key]
 
     def canonicalize(self, state: SymbolicState) -> SymbolicState:
@@ -1296,6 +1299,11 @@ def strict_legacy_verdict_to_symbolic(code: str) -> tuple[str, str]:
 
 def _adjacent_q(q: int) -> tuple[int, int]:
     return ((1, 3), (0, 2), (1, 3), (0, 2))[q]
+
+
+def _nonempty_column_count(code: str) -> int:
+    parts = normalize_code(code).split(":") if normalize_code(code) else []
+    return sum(any(layer[q] != "-" for layer in parts) for q in range(4))
 
 
 def _cpcp_shape_bits(code: str, layers: int) -> int:
@@ -2873,6 +2881,50 @@ def bitmask_connected_shatter_inverse_push_pin_candidates(code: str, layers: int
 
 
 @lru_cache(maxsize=100_000)
+def bitmask_vertical_spine_shatter_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    base_grid = [list(layer) for layer in base_parts]
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    top_layer = layers - 1
+
+    for q in range(4):
+        if base_grid[top_layer][q] != "-":
+            continue
+        spine = tuple((layer, q) for layer in range(layers) if base_grid[layer][q] == "-")
+        if not spine:
+            continue
+        arm_options = tuple(
+            (layer, nq)
+            for layer in range(layers)
+            for nq in _adjacent_q(q)
+            if base_grid[layer][nq] == "-"
+        )
+        for arm_count in range(0, min(4, len(arm_options)) + 1):
+            for arms in itertools.combinations(arm_options, arm_count):
+                candidate = [row[:] for row in base_grid]
+                for li, qi in spine + arms:
+                    candidate[li][qi] = "c"
+                predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+                if predecessor in seen_candidates:
+                    continue
+                if bitmask_push_pin(predecessor, layers) == normalized:
+                    seen_candidates.add(predecessor)
+                    candidates.append(predecessor)
+                    if len(candidates) >= 40:
+                        return tuple(candidates)
+    return tuple(candidates)
+
+
+@lru_cache(maxsize=100_000)
 def bitmask_piece_lift_shatter_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
     normalized = normalize_code(code)
     parts = normalized.split(":") if normalized else []
@@ -3014,6 +3066,80 @@ def bitmask_double_s_lift_shatter_inverse_push_pin_candidates(code: str, layers:
                 for cell in sorted(frontier):
                     if cell not in state:
                         pending.append(tuple(sorted(state + (cell,))))
+    return tuple(candidates)
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_bottom_extra_pin_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    target_bottom = parts[0]
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    extra_pin_cols = [
+        q
+        for q, ch in enumerate(target_bottom)
+        if ch == "P" and (q >= len(base_parts[0]) or base_parts[0][q] == "-")
+    ]
+    if not extra_pin_cols or len(extra_pin_cols) > 2:
+        return ()
+
+    placement_choices: list[list[tuple[int, int]]] = []
+    for q in extra_pin_cols:
+        choices = [
+            (layer, q)
+            for layer in range(1, min(4, layers))
+            if base_parts[layer][q] == "-"
+        ]
+        if not choices:
+            return ()
+        placement_choices.append(choices[:3])
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    top_layer = layers - 1
+
+    for placements in itertools.product(*placement_choices):
+        base_grid = [list(layer) for layer in base_parts]
+        valid = True
+        for li, qi in placements:
+            if base_grid[li][qi] != "-":
+                valid = False
+                break
+            base_grid[li][qi] = "P"
+        if not valid:
+            continue
+
+        for q in range(4):
+            if base_grid[top_layer][q] != "-":
+                continue
+            spine = tuple((layer, q) for layer in range(layers) if base_grid[layer][q] == "-")
+            if not spine:
+                continue
+            arm_options = tuple(
+                (layer, nq)
+                for layer in range(layers)
+                for nq in _adjacent_q(q)
+                if base_grid[layer][nq] == "-"
+            )
+            for arm_count in range(0, min(2, len(arm_options)) + 1):
+                for arms in itertools.combinations(arm_options, arm_count):
+                    candidate = [row[:] for row in base_grid]
+                    for li, qi in spine + arms:
+                        candidate[li][qi] = "c"
+                    predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+                    if predecessor in seen_candidates:
+                        continue
+                    if bitmask_push_pin(predecessor, layers) == normalized:
+                        seen_candidates.add(predecessor)
+                        candidates.append(predecessor)
+                        if len(candidates) >= 40:
+                            return tuple(candidates)
     return tuple(candidates)
 
 
@@ -3168,23 +3294,57 @@ def zero_stack_pp_predecessor_witness(
     top = parts[-1]
     if "P" in top or top.count("c") != 1:
         return None
-    candidate_sources = (
+    primary_sources = (
         bitmask_inverse_push_pin_candidates(normalized, layers)
         + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
     )[:24]
-    if include_connected:
-        candidate_sources = tuple(
-            dict.fromkeys(candidate_sources + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers))
-        )[:24]
-    candidates = tuple(dict.fromkeys(candidate_sources))
+    candidates = tuple(dict.fromkeys(primary_sources))
     for predecessor in candidates:
         if bitmask_push_pin(predecessor, layers) != normalized:
             continue
-        if bitmask_swap_impossibility(predecessor) is not None:
+        seed = zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=allow_terminal_crystal)
+        if seed is None:
             continue
+        if layers > MAX_LAYERS and allow_terminal_crystal and bitmask_stackability_witnesses(seed[0]):
+            return predecessor
         if processed_claw_fast_reject_reason(predecessor) is not None:
             continue
-        if zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=allow_terminal_crystal) is not None:
+        if bitmask_swap_impossibility(predecessor) is not None:
+            continue
+        if seed is not None:
+            return predecessor
+    if include_connected:
+        extended_sources = (
+            bitmask_vertical_spine_shatter_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
+        )
+        if layers > MAX_LAYERS:
+            extended_sources = (
+                extended_sources
+                + bitmask_piece_lift_shatter_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_double_s_lift_shatter_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_bottom_extra_pin_inverse_push_pin_candidates(normalized, layers)
+            )
+        connected_candidates = tuple(
+            predecessor
+            for predecessor in extended_sources
+            if predecessor not in candidates
+        )[:64]
+    else:
+        connected_candidates = ()
+    for predecessor in connected_candidates:
+        if bitmask_push_pin(predecessor, layers) != normalized:
+            continue
+        seed = zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=allow_terminal_crystal)
+        if seed is None:
+            continue
+        if layers > MAX_LAYERS and allow_terminal_crystal and bitmask_stackability_witnesses(seed[0]):
+            return predecessor
+        if processed_claw_fast_reject_reason(predecessor) is not None:
+            continue
+        if bitmask_swap_impossibility(predecessor) is not None:
+            continue
+        if seed is not None:
             return predecessor
     return None
 
@@ -3202,9 +3362,47 @@ def zero_stack_connected_pp_predecessor_core_verdict(code: str, layers: int) -> 
 
 
 def zero_stack_terminal_crystal_pp_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
-    if zero_stack_pp_predecessor_witness(code, layers, allow_terminal_crystal=True) is None:
+    if layers < 6:
         return None
-    return "possible", "kernel_zero_stack_terminal_crystal_pp_predecessor"
+    if zero_stack_pp_predecessor_witness(code, layers, include_connected=True, allow_terminal_crystal=True) is None:
+        return None
+    return "possible", "kernel_zero_stack_terminal_connected_pp_predecessor"
+
+
+def zero_stack_terminal_crystal_failure_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    if layers < 6:
+        return None
+    normalized = normalize_code(code)
+    candidates = tuple(
+        dict.fromkeys(
+            bitmask_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_vertical_spine_shatter_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
+            + (
+                bitmask_piece_lift_shatter_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_double_s_lift_shatter_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_bottom_extra_pin_inverse_push_pin_candidates(normalized, layers)
+                if layers > MAX_LAYERS
+                else ()
+            )
+        )
+    )
+    trace_candidates = tuple(
+        predecessor
+        for predecessor in candidates
+        if zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=True) is not None
+    )
+    viable_trace_candidates = tuple(
+        predecessor
+        for predecessor in trace_candidates
+        if processed_claw_fast_reject_reason(predecessor) is None
+    )
+    if not viable_trace_candidates:
+        return None
+    if any(bitmask_swap_impossibility(predecessor) is None for predecessor in viable_trace_candidates):
+        return None
+    return "impossible", "kernel_zero_stack_terminal_non_swappable_predecessor"
 
 
 def _bottom_pin_delta_base(base: str, target: str) -> bool:
@@ -3483,6 +3681,8 @@ def verified_left_predecessor_tree(left: str, layers: int, detail: str = "verifi
 def stack_input_tree(shape: str, detail: str) -> DecompositionNode:
     normalized = normalize_code(shape)
     parts = normalized.split(":") if normalized else []
+    if not normalized:
+        return DecompositionNode(kind="input", shape="", detail=detail + "_empty")
     if len(parts) == 1 and "S" in parts[0] and "P" not in parts[0] and "c" not in parts[0]:
         return DecompositionNode(kind="input", shape=normalized, detail=detail)
     return DecompositionNode(kind="stack_input", shape=normalized, detail=detail)
@@ -3720,13 +3920,58 @@ def bitmask_swap_tree(code: str) -> DecompositionNode | None:
     normalized = normalize_code(code)
     if not normalized:
         return None
+    if not bitmask_physics_stable(normalized):
+        return None
     swap_status = bitmask_swap_impossibility(normalized)
     if swap_status == "swap_both_blocked":
         return None
+    if swap_status is None and _nonempty_column_count(normalized) == 1 and "c" in normalized:
+        return None
+    stable_pair: tuple[DecompositionNode, DecompositionNode] | None = None
+    fallback_pair: tuple[DecompositionNode, DecompositionNode] | None = None
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            from shape import Shape
+
+            shape = Shape.from_string(normalized)
+            for horizontal, detail in ((False, "swap_cut_12_34"), (True, "swap_cut_14_23")):
+                left, right = shape.simple_cutter(horizontal=horizontal)
+                left_code = normalize_code(repr(left))
+                right_code = normalize_code(repr(right))
+                if not left_code and not right_code:
+                    continue
+                pair = (
+                    stack_input_tree(left_code, detail + "_left"),
+                    stack_input_tree(right_code, detail + "_right"),
+                )
+                if (not left_code or bitmask_physics_stable(left_code)) and (
+                    not right_code or bitmask_physics_stable(right_code)
+                ):
+                    stable_pair = pair
+                    break
+                if fallback_pair is None:
+                    left_node = DecompositionNode(
+                        kind="cut_half_unstable",
+                        shape=left_code,
+                        detail=detail + "_left_unstable" if left_code and not bitmask_physics_stable(left_code) else detail + "_left",
+                    )
+                    right_node = DecompositionNode(
+                        kind="cut_half_unstable",
+                        shape=right_code,
+                        detail=detail + "_right_unstable" if right_code and not bitmask_physics_stable(right_code) else detail + "_right",
+                    )
+                    fallback_pair = (
+                        left_node,
+                        right_node,
+                    )
+    except Exception:
+        stable_pair = None
+    children = stable_pair or fallback_pair or ()
     return DecompositionNode(
         kind="swap",
         shape=normalized,
         detail="bitmask_" + normalize_code_label(swap_status or "swapable"),
+        children=children,
     )
 
 
@@ -4839,6 +5084,21 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["zero_stack_terminal_crystal_pp_predecessor"] += elapsed
             kernel_step_counts["zero_stack_terminal_crystal_pp_predecessor"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if (
+            sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and "zero-stack-terminal-crystal-pp-predecessor-core" in args.experiment
+        ):
+            tick = time.perf_counter()
+            kernel = zero_stack_terminal_crystal_failure_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["zero_stack_terminal_crystal_failure"] += elapsed
+            kernel_step_counts["zero_stack_terminal_crystal_failure"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
