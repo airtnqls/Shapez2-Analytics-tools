@@ -1441,6 +1441,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     if args.write_summary_json:
         summary = {
             "mode": "predecessor_new_family_candidates",
+            "argv": sys.argv[1:],
+            "cwd": str(Path.cwd()),
             "family_mode": args.predecessor_family_mode,
             "base_layers": base_layers,
             "data_base_families": data_base_family_count,
@@ -2014,6 +2016,8 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
     if args.write_summary_json:
         summary = {
             "input": str(args.data),
+            "argv": sys.argv[1:],
+            "cwd": str(Path.cwd()),
             "train_layers": args.train_layers,
             "generate_layers": args.generate_layers,
             "order": args.order,
@@ -2374,6 +2378,8 @@ def main() -> int:
                 )
                 aggregate_summary = {
                     "mode": "predecessor_new_family_candidates_seed_count",
+                    "argv": sys.argv[1:],
+                    "cwd": str(Path.cwd()),
                     "family_mode": args.predecessor_family_mode,
                     "base_seed": base_seed,
                     "seed_count": len(seed_summaries),
@@ -2491,6 +2497,8 @@ def main() -> int:
             )
             aggregate_summary = {
                 "mode": "generate_seed_count",
+                "argv": sys.argv[1:],
+                "cwd": str(Path.cwd()),
                 "base_seed": base_seed,
                 "seed_count": len(seed_summaries),
                 "tested_raw": sum(item.get("tested_raw", 0) for item in seed_summaries),
