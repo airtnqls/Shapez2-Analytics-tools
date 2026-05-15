@@ -2362,6 +2362,40 @@ def main() -> int:
                 print("seed_count_new_families:")
                 for key, count in aggregate_new_families.most_common(args.top):
                     print(f"  {count}\t{key}")
+            if base_write_summary_json is not None:
+                aggregate_summary_path = base_write_summary_json.with_name(
+                    f"{base_write_summary_json.stem}_aggregate{base_write_summary_json.suffix}"
+                )
+                aggregate_summary = {
+                    "mode": "predecessor_new_family_candidates_seed_count",
+                    "family_mode": args.predecessor_family_mode,
+                    "base_seed": base_seed,
+                    "seed_count": len(seed_summaries),
+                    "tested_raw": sum(item.get("tested_raw", 0) for item in seed_summaries),
+                    "generated_targets": sum(item.get("generated_targets", 0) for item in seed_summaries),
+                    "max_new_family_count": max(item.get("new_family_count", 0) for item in seed_summaries),
+                    "unique_new_family_count": len(aggregate_new_families),
+                    "new_targets": sum(item.get("new_targets", 0) for item in seed_summaries),
+                    "generated_base_cache_hits": sum(
+                        1 for item in seed_summaries if item.get("generated_base_cache_hit")
+                    ),
+                    "stop_reasons": dict(sorted(stop_reasons.items())),
+                    "new_families": {repr(key): count for key, count in aggregate_new_families.items()},
+                    "seeds": [
+                        {
+                            key: value
+                            for key, value in item.items()
+                            if key != "new_family_counts"
+                        }
+                        for item in seed_summaries
+                    ],
+                }
+                aggregate_summary_path.parent.mkdir(parents=True, exist_ok=True)
+                aggregate_summary_path.write_text(
+                    json.dumps(aggregate_summary, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                print(f"seed_count_summary_written={aggregate_summary_path}")
         return exit_code
     if args.high_layer_pp_smoke:
         return high_layer_pp_smoke(args)
