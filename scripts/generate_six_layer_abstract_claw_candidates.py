@@ -1295,6 +1295,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     family_counts = Counter()
     new_family_counts = Counter()
     new_family_verdicts = Counter()
+    new_family_verdicts_by_family: defaultdict[tuple[object, ...], Counter[tuple[str, str]]] = defaultdict(Counter)
     rejected = Counter()
     new_samples: list[str] = []
     stop_reason = "exhausted"
@@ -1371,6 +1372,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                         cheap_prune_only=False,
                     )
                 new_family_verdicts[verdict] += 1
+                new_family_verdicts_by_family[family][verdict] += 1
             if len(new_samples) < args.max_capture:
                 new_samples.append(f"family={family}\tT={pushed}\tA={predecessor}")
         if stop_reason != "exhausted":
@@ -1421,6 +1423,14 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         print("new_family_kernel_verdicts:")
         for key, count in new_family_verdicts.most_common(args.top):
             print(f"  {count}\t{key}")
+        if new_family_verdicts_by_family:
+            print("new_family_kernel_verdicts_by_family:")
+            for family, family_count in new_family_counts.most_common(args.top):
+                verdicts = new_family_verdicts_by_family.get(family, Counter())
+                verdict_summary = ", ".join(
+                    f"{count} {verdict}" for verdict, count in verdicts.most_common(4)
+                )
+                print(f"  {family_count}\t{family}\t{verdict_summary}")
     if new_samples:
         print("new_family_samples:")
         for sample in new_samples:
@@ -1471,6 +1481,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "new_families": {repr(key): count for key, count in new_family_counts.items()},
             "all_families": {repr(key): count for key, count in family_counts.items()},
             "new_family_kernel_verdicts": {repr(key): count for key, count in new_family_verdicts.items()},
+            "new_family_kernel_verdicts_by_family": {
+                repr(family): {repr(verdict): count for verdict, count in verdicts.items()}
+                for family, verdicts in new_family_verdicts_by_family.items()
+            },
         }
         args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
         args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1497,6 +1511,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "new_family_count": len(new_family_counts),
             "new_family_counts": Counter(new_family_counts),
             "new_family_kernel_verdicts": Counter(new_family_verdicts),
+            "new_family_verdicts_by_family": {
+                family: Counter(verdicts)
+                for family, verdicts in new_family_verdicts_by_family.items()
+            },
             "new_targets": len(new_targets),
             "new_target_set": set(new_targets),
             "new_pair_set": set(new_pairs),
@@ -2234,6 +2252,108 @@ def replay_captured(args: argparse.Namespace) -> int:
     return 0
 
 
+def replay_pairs(args: argparse.Namespace) -> int:
+    pair_counts: Counter[tuple[str, str]] = Counter()
+    family_counts: Counter[tuple[object, ...]] = Counter()
+    family_verdicts: defaultdict[tuple[object, ...], Counter[tuple[str, str]]] = defaultdict(Counter)
+    unknown_samples: list[str] = []
+    total = 0
+    push_mismatches = 0
+    replay_paths = list(args.replay_pairs or ())
+    for replay_path in replay_paths:
+        for line in replay_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            target_raw, predecessor_raw = line.split("\t", 1)
+            target = sfa.normalize_code(target_raw)
+            predecessor = sfa.normalize_code(predecessor_raw)
+            target_layers = len(target.split(":")) if target else 0
+            predecessor_layers = len(predecessor.split(":")) if predecessor else 0
+            replay_layers = max(args.generate_layers, target_layers, predecessor_layers)
+            if sfa.bitmask_push_pin(predecessor, replay_layers) != target:
+                push_mismatches += 1
+            family = _predecessor_push_signature(predecessor, target, args.predecessor_family_mode)
+            verdict = _kernel_verdict_for_target(
+                target,
+                replay_layers,
+                use_generated_predecessor_evidence=args.use_generated_predecessor_evidence,
+                predecessor=predecessor,
+                cheap_prune_only=args.cheap_prune_only,
+            )
+            if verdict[0] == "unknown" and args.classify_residual_full:
+                verdict = _kernel_verdict_for_target(
+                    target,
+                    replay_layers,
+                    use_generated_predecessor_evidence=args.use_generated_predecessor_evidence,
+                    predecessor=predecessor,
+                    cheap_prune_only=False,
+                )
+            total += 1
+            pair_counts[verdict] += 1
+            family_counts[family] += 1
+            family_verdicts[family][verdict] += 1
+            if verdict[0] == "unknown" and len(unknown_samples) < args.max_capture:
+                unknown_samples.append(f"{replay_path}\tT={target}\tA={predecessor}\treason={verdict[1]}")
+
+    unknown = sum(count for (verdict, _reason), count in pair_counts.items() if verdict == "unknown")
+    legacy_fallback = sum(
+        count for (_verdict, reason), count in pair_counts.items() if reason.startswith("fallback_legacy_core_")
+    )
+    print(f"replay_pairs_count={len(replay_paths)}")
+    for replay_path in replay_paths:
+        print(f"replay_pairs={replay_path}")
+    print(f"replay_pairs_total={total}")
+    print(f"replay_pairs_push_mismatches={push_mismatches}")
+    print(f"replay_pairs_unknown={unknown}")
+    print(f"replay_pairs_legacy_fallback={legacy_fallback}")
+    print(f"replay_pairs_unique_families={len(family_counts)}")
+    print("replay_pairs_kernel_verdicts:")
+    for key, count in pair_counts.most_common(args.top):
+        print(f"  {count}\t{key}")
+    print("replay_pairs_families:")
+    for family, count in family_counts.most_common(args.top):
+        print(f"  {count}\t{family}")
+    print("replay_pairs_kernel_verdicts_by_family:")
+    for family, count in family_counts.most_common(args.top):
+        verdict_summary = ", ".join(
+            f"{verdict_count} {verdict}" for verdict, verdict_count in family_verdicts[family].most_common(6)
+        )
+        print(f"  {count}\t{family}\t{verdict_summary}")
+    if unknown_samples:
+        print("replay_pairs_unknown_samples:")
+        for sample in unknown_samples:
+            print(sample)
+    if args.write_summary_json:
+        summary = {
+            "mode": "replay_pairs",
+            "argv": sys.argv[1:],
+            "cwd": str(Path.cwd()),
+            "family_mode": args.predecessor_family_mode,
+            "paths": [str(path) for path in replay_paths],
+            "total": total,
+            "push_mismatches": push_mismatches,
+            "unknown": unknown,
+            "legacy_fallback": legacy_fallback,
+            "unique_families": len(family_counts),
+            "kernel_verdicts": {repr(key): count for key, count in pair_counts.items()},
+            "families": {repr(key): count for key, count in family_counts.items()},
+            "kernel_verdicts_by_family": {
+                repr(family): {repr(verdict): count for verdict, count in verdicts.items()}
+                for family, verdicts in family_verdicts.items()
+            },
+        }
+        args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
+        args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"replay_pairs_summary_written={args.write_summary_json}")
+    if args.fail_on_kernel_unknown and unknown:
+        return 1
+    if args.fail_on_kernel_legacy_fallback and legacy_fallback:
+        return 1
+    if push_mismatches:
+        return 1
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate exploratory 6-layer claw candidates from abstract half-pair automaton.")
     parser.add_argument("--data", type=Path, default=PROJECT_ROOT / "data" / "all40171clawsnohybrid.txt")
@@ -2301,6 +2421,7 @@ def main() -> int:
     parser.add_argument("--write-training-cache", type=Path)
     parser.add_argument("--replay-captured", type=Path, action="append", default=[])
     parser.add_argument("--replay-captured-glob", action="append", default=[])
+    parser.add_argument("--replay-pairs", type=Path, action="append", default=[])
     parser.add_argument("--estimate-generation-space", action="store_true")
     parser.add_argument("--pp-essential-profile", action="store_true")
     parser.add_argument("--frontier-signature-profile", action="store_true")
@@ -2338,6 +2459,8 @@ def main() -> int:
         sfa.bitmask_relative_high_tail_inverse_push_pin_candidates = lambda code, layers: ()
     if args.replay_captured or args.replay_captured_glob:
         return replay_captured(args)
+    if args.replay_pairs:
+        return replay_pairs(args)
     if args.estimate_generation_space:
         return estimate_generation_space(args)
     if args.pp_essential_profile:
@@ -2384,11 +2507,14 @@ def main() -> int:
         if seed_summaries:
             aggregate_new_families = Counter()
             aggregate_kernel_verdicts = Counter()
+            aggregate_kernel_verdicts_by_family: defaultdict[tuple[object, ...], Counter[tuple[str, str]]] = defaultdict(Counter)
             aggregate_new_targets = set()
             aggregate_new_pairs = set()
             for item in seed_summaries:
                 aggregate_new_families.update(item.get("new_family_counts", Counter()))
                 aggregate_kernel_verdicts.update(item.get("new_family_kernel_verdicts", Counter()))
+                for family, verdicts in item.get("new_family_verdicts_by_family", {}).items():
+                    aggregate_kernel_verdicts_by_family[family].update(verdicts)
                 aggregate_new_targets.update(item.get("new_target_set", set()))
                 aggregate_new_pairs.update(item.get("new_pair_set", set()))
             print("seed_count_summary:")
@@ -2414,6 +2540,14 @@ def main() -> int:
                 print("seed_count_new_family_kernel_verdicts:")
                 for key, count in aggregate_kernel_verdicts.most_common(args.top):
                     print(f"  {count}\t{key}")
+            if aggregate_kernel_verdicts_by_family:
+                print("seed_count_new_family_kernel_verdicts_by_family:")
+                for family, family_count in aggregate_new_families.most_common(args.top):
+                    verdicts = aggregate_kernel_verdicts_by_family.get(family, Counter())
+                    verdict_summary = ", ".join(
+                        f"{count} {verdict}" for verdict, count in verdicts.most_common(4)
+                    )
+                    print(f"  {family_count}\t{family}\t{verdict_summary}")
             if base_write_targets is not None:
                 base_write_targets.parent.mkdir(parents=True, exist_ok=True)
                 base_write_targets.write_text("\n".join(sorted(aggregate_new_targets)) + "\n", encoding="utf-8")
@@ -2456,6 +2590,10 @@ def main() -> int:
                     "new_family_kernel_verdicts": {
                         repr(key): count for key, count in aggregate_kernel_verdicts.items()
                     },
+                    "new_family_kernel_verdicts_by_family": {
+                        repr(family): {repr(verdict): count for verdict, count in verdicts.items()}
+                        for family, verdicts in aggregate_kernel_verdicts_by_family.items()
+                    },
                     "seeds": [
                         {
                             key: value
@@ -2464,6 +2602,7 @@ def main() -> int:
                             not in (
                                 "new_family_counts",
                                 "new_family_kernel_verdicts",
+                                "new_family_verdicts_by_family",
                                 "new_target_set",
                                 "new_pair_set",
                             )
