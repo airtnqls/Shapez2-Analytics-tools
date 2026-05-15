@@ -1193,7 +1193,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         sequence_time = 0.0
         training_cache_hit = False
     base_families = _load_predecessor_families(args.data, base_layers, args.predecessor_family_mode)
+    data_base_family_count = len(base_families)
+    generated_base_family_union: set[tuple[object, ...]] = set()
     generated_base_stats = Counter()
+    generated_base_started = time.perf_counter()
     if args.generated_base_layers:
         base_args = copy.copy(args)
         base_args.generate_layers = args.generated_base_layers
@@ -1209,7 +1212,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             generated_base_stats.update(seed_stats)
             generated_base_stats["seed_runs"] += 1
             generated_base_stats["families_seen"] += len(generated_base_families)
+            generated_base_family_union.update(generated_base_families)
             base_families.update(generated_base_families)
+    generated_base_time = time.perf_counter() - generated_base_started
+    generated_base_added_count = len(base_families) - data_base_family_count
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
     abstract_sequences = list(abstract_sequences)
     if args.shuffle:
@@ -1307,12 +1313,16 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     print("mode=predecessor_new_family_candidates")
     print(f"family_mode={args.predecessor_family_mode}")
     print(f"base_layers={base_layers}")
+    print(f"data_base_families={data_base_family_count}")
     print(f"base_families={len(base_families)}")
     if args.generated_base_layers:
         print(f"generated_base_layers={args.generated_base_layers}")
         print(f"generated_base_raw_tests={args.generated_base_raw_tests or args.max_raw_tests}")
         print(f"generated_base_seed={base_seed}")
         print(f"generated_base_seed_count={max(1, args.generated_base_seed_count)}")
+        print(f"generated_base_unique_families={len(generated_base_family_union)}")
+        print(f"generated_base_added_families={generated_base_added_count}")
+        print(f"generated_base_time={generated_base_time:.6f}s")
         print("generated_base_rejected:")
         for key, count in generated_base_stats.most_common(args.top):
             print(f"  {key}: {count}")
