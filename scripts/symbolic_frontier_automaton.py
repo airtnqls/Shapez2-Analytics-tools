@@ -4658,6 +4658,17 @@ def claw_frontier_tail_invalid_predecessor_core_verdict(code: str, layers: int) 
             if verdict is not None and verdict[0] == "impossible":
                 suffix = "" if turns == 0 else f"_rot{turns}"
                 return "impossible", f"kernel_claw_frontier_tail_invalid_predecessor{suffix}"
+        if (
+            len(parts) == layers
+            and parts[0] == "-PPP"
+            and parts[-3] in {"S-Sc", "S-Pc"}
+            and parts[-2] == "--c-"
+            and parts[-1] in {"--cS", "--cP"}
+        ):
+            verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
+            if verdict is not None and verdict[0] == "impossible":
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_frontier_tail_invalid_predecessor{suffix}"
         rotated = bitmask_rotate_clockwise(rotated)
     return None
 
@@ -4706,6 +4717,17 @@ def claw_terminal_sss_side_invalid_predecessor_core_verdict(code: str, layers: i
         ):
             verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
             if verdict is not None and verdict[0] == "impossible":
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
+        if (
+            len(parts) == layers
+            and parts[0] == "P-PP"
+            and parts[-3] == "--Sc"
+            and parts[-2] == "--c-"
+            and parts[-1] in {"-ScS", "-PcS"}
+        ):
+            reason = claw_unstable_predecessor_candidate_reason(rotated, layers)
+            if reason is not None:
                 suffix = "" if turns == 0 else f"_rot{turns}"
                 return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
         if (
