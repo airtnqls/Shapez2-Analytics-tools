@@ -5650,6 +5650,9 @@ def stack_input_tree(shape: str, detail: str) -> DecompositionNode:
     parts = normalized.split(":") if normalized else []
     if not normalized:
         return DecompositionNode(kind="input", shape="", detail=detail + "_empty")
+    basic_tree = basic_symbolic_possible_tree(normalized, len(parts))
+    if basic_tree is not None:
+        return basic_tree
     if "c" not in normalized and bitmask_physics_stable(normalized):
         return DecompositionNode(kind="input", shape=normalized, detail=detail + "_supported_no_crystal")
     if len(parts) == 1 and "P" not in parts[0]:
