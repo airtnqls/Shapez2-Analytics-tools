@@ -1496,6 +1496,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "generated_targets": len(generated_targets),
             "new_family_count": len(new_family_counts),
             "new_family_counts": Counter(new_family_counts),
+            "new_family_kernel_verdicts": Counter(new_family_verdicts),
             "new_targets": len(new_targets),
             "new_target_set": set(new_targets),
             "new_pair_set": set(new_pairs),
@@ -2382,10 +2383,12 @@ def main() -> int:
             seed_summaries.append(getattr(args, "_last_predecessor_new_family_summary", {}))
         if seed_summaries:
             aggregate_new_families = Counter()
+            aggregate_kernel_verdicts = Counter()
             aggregate_new_targets = set()
             aggregate_new_pairs = set()
             for item in seed_summaries:
                 aggregate_new_families.update(item.get("new_family_counts", Counter()))
+                aggregate_kernel_verdicts.update(item.get("new_family_kernel_verdicts", Counter()))
                 aggregate_new_targets.update(item.get("new_target_set", set()))
                 aggregate_new_pairs.update(item.get("new_pair_set", set()))
             print("seed_count_summary:")
@@ -2406,6 +2409,10 @@ def main() -> int:
             if aggregate_new_families:
                 print("seed_count_new_families:")
                 for key, count in aggregate_new_families.most_common(args.top):
+                    print(f"  {count}\t{key}")
+            if aggregate_kernel_verdicts:
+                print("seed_count_new_family_kernel_verdicts:")
+                for key, count in aggregate_kernel_verdicts.most_common(args.top):
                     print(f"  {count}\t{key}")
             if base_write_targets is not None:
                 base_write_targets.parent.mkdir(parents=True, exist_ok=True)
@@ -2446,11 +2453,20 @@ def main() -> int:
                     ),
                     "stop_reasons": dict(sorted(stop_reasons.items())),
                     "new_families": {repr(key): count for key, count in aggregate_new_families.items()},
+                    "new_family_kernel_verdicts": {
+                        repr(key): count for key, count in aggregate_kernel_verdicts.items()
+                    },
                     "seeds": [
                         {
                             key: value
                             for key, value in item.items()
-                            if key not in ("new_family_counts", "new_target_set", "new_pair_set")
+                            if key
+                            not in (
+                                "new_family_counts",
+                                "new_family_kernel_verdicts",
+                                "new_target_set",
+                                "new_pair_set",
+                            )
                         }
                         for item in seed_summaries
                     ],
