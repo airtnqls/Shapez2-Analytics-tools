@@ -1138,6 +1138,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     new_pairs: set[tuple[str, str]] = set()
     family_counts = Counter()
     new_family_counts = Counter()
+    new_family_verdicts = Counter()
     rejected = Counter()
     new_samples: list[str] = []
     stop_reason = "exhausted"
@@ -1197,6 +1198,23 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             new_family_counts[family] += 1
             new_targets.add(pushed)
             new_pairs.add((pushed, predecessor))
+            if args.classify_new_family_candidates:
+                verdict = _kernel_verdict_for_target(
+                    pushed,
+                    args.generate_layers,
+                    use_generated_predecessor_evidence=args.use_generated_predecessor_evidence,
+                    predecessor=predecessor,
+                    cheap_prune_only=args.cheap_prune_only,
+                )
+                if verdict[0] == "unknown" and args.classify_residual_full:
+                    verdict = _kernel_verdict_for_target(
+                        pushed,
+                        args.generate_layers,
+                        use_generated_predecessor_evidence=args.use_generated_predecessor_evidence,
+                        predecessor=predecessor,
+                        cheap_prune_only=False,
+                    )
+                new_family_verdicts[verdict] += 1
             if len(new_samples) < args.max_capture:
                 new_samples.append(f"family={family}\tT={pushed}\tA={predecessor}")
         if stop_reason != "exhausted":
@@ -1230,6 +1248,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     print("new_families:")
     for key, count in new_family_counts.most_common(args.top):
         print(f"  {count}\t{key}")
+    if args.classify_new_family_candidates:
+        print("new_family_kernel_verdicts:")
+        for key, count in new_family_verdicts.most_common(args.top):
+            print(f"  {count}\t{key}")
     if new_samples:
         print("new_family_samples:")
         for sample in new_samples:
@@ -1247,6 +1269,18 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         )
         print(f"new_family_pairs_written={args.write_pairs}")
         print(f"new_family_pairs_written_count={len(new_pairs)}")
+    if args.classify_new_family_candidates and args.fail_on_kernel_unknown:
+        unknown = sum(count for (verdict, _reason), count in new_family_verdicts.items() if verdict == "unknown")
+        print(f"new_family_kernel_unknown_failures={unknown}")
+        if unknown:
+            return 1
+    if args.classify_new_family_candidates and args.fail_on_kernel_legacy_fallback:
+        legacy_fallback = sum(
+            count for (_verdict, reason), count in new_family_verdicts.items() if reason.startswith("fallback_legacy_core_")
+        )
+        print(f"new_family_kernel_legacy_fallback_failures={legacy_fallback}")
+        if legacy_fallback:
+            return 1
     return 0
 
 
@@ -1979,6 +2013,7 @@ def main() -> int:
     parser.add_argument("--predecessor-new-family-candidates", action="store_true")
     parser.add_argument("--predecessor-family-summary", action="store_true")
     parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact"), default="coarse")
+    parser.add_argument("--classify-new-family-candidates", action="store_true")
     parser.add_argument("--frontier-base-layers", type=int, default=0)
     parser.add_argument("--frontier-signature-mode", choices=("exact", "classes", "mask_counts", "counts"), default="exact")
     parser.add_argument("--high-layer-pp-smoke", default="", help="Comma-separated generated layer counts, e.g. 20,50,100.")
