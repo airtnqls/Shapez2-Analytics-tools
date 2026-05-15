@@ -1081,6 +1081,152 @@ def predecessor_family_data_profile(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_predecessor_families(data: Path, layers: int) -> set[tuple[object, ...]]:
+    families: set[tuple[object, ...]] = set()
+    for code in sfa.iter_data_codes(data, max_layers=layers):
+        target = sfa.normalize_code(code)
+        if not target or len(target.split(":")) != layers:
+            continue
+        predecessor = _claw_predecessor(target)
+        if not predecessor or sfa.bitmask_push_pin(predecessor, layers) != target:
+            continue
+        families.add(_predecessor_push_family(predecessor, target))
+    return families
+
+
+def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None) -> int:
+    started = time.perf_counter()
+    rng = random.Random(args.seed)
+    base_layers = args.frontier_base_layers or args.train_layers
+    base_families = _load_predecessor_families(args.data, base_layers)
+    if pretrained is None:
+        pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    else:
+        training_time = 0.0
+        sequence_time = 0.0
+        training_cache_hit = False
+    records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    if args.shuffle:
+        rng.shuffle(abstract_sequences)
+
+    tested_raw = 0
+    generated_targets: set[str] = set()
+    generated_predecessors: set[str] = set()
+    new_targets: set[str] = set()
+    new_pairs: set[tuple[str, str]] = set()
+    family_counts = Counter()
+    new_family_counts = Counter()
+    rejected = Counter()
+    new_samples: list[str] = []
+    stop_reason = "exhausted"
+    for abstract_sequence in abstract_sequences:
+        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+            stop_reason = "max_seconds"
+            break
+        raw_sequences = _iter_raw_sequences_for(
+            abstract_sequence,
+            raw_by_abstract,
+            raw_pair_counts,
+            args.max_raw_per_layer,
+            rng,
+        )
+        for raw_sequence in raw_sequences:
+            if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+                stop_reason = "max_seconds"
+                break
+            if args.max_raw_tests and tested_raw >= args.max_raw_tests:
+                stop_reason = "max_raw_tests"
+                break
+            tested_raw += 1
+            predecessor = _predecessor_from_sequence(raw_sequence)
+            if not predecessor:
+                rejected["overlap"] += 1
+                continue
+            if args.dedupe_predecessors_before_push and predecessor in generated_predecessors:
+                rejected["duplicate_predecessor"] += 1
+                continue
+            generated_predecessors.add(predecessor)
+            subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
+            if subtype not in args.selected_generate_subtypes:
+                rejected["subtype"] += 1
+                continue
+            if args.exclude_stackable_predecessors and sfa.bitmask_stackability_witnesses(predecessor):
+                rejected["stackable_predecessor"] += 1
+                continue
+            if not args.allow_non_zero_stack_predecessor and not sfa.top_single_c_zero_stack_candidate(predecessor):
+                rejected["not_zero_stack"] += 1
+                continue
+            pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
+            if not pushed:
+                rejected["empty_push"] += 1
+                continue
+            pushed_parts = pushed.split(":") if pushed else []
+            if args.target_layer_count and len(pushed_parts) != args.target_layer_count:
+                rejected["target_layer_count"] += 1
+                continue
+            if args.dedupe_targets_before_classify and pushed in generated_targets:
+                rejected["duplicate_target"] += 1
+                continue
+            generated_targets.add(pushed)
+            family = _predecessor_push_family(predecessor, pushed)
+            family_counts[family] += 1
+            if family in base_families:
+                continue
+            new_family_counts[family] += 1
+            new_targets.add(pushed)
+            new_pairs.add((pushed, predecessor))
+            if len(new_samples) < args.max_capture:
+                new_samples.append(f"family={family}\tT={pushed}\tA={predecessor}")
+        if stop_reason != "exhausted":
+            break
+
+    print("mode=predecessor_new_family_candidates")
+    print(f"base_layers={base_layers}")
+    print(f"base_families={len(base_families)}")
+    print(f"generate_layers={args.generate_layers}")
+    print(f"records={records}")
+    print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_truncated={abstract_truncated}")
+    print(f"tested_raw={tested_raw}")
+    print(f"generated_predecessors={len(generated_predecessors)}")
+    print(f"generated_targets={len(generated_targets)}")
+    print(f"new_family_count={len(new_family_counts)}")
+    print(f"new_targets={len(new_targets)}")
+    print(f"training_cache_hit={training_cache_hit}")
+    print(f"training_time={training_time:.6f}s")
+    print(f"sequence_time={sequence_time:.6f}s")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print(f"stop_reason={stop_reason}")
+    print("rejected:")
+    for key, count in rejected.most_common(args.top):
+        print(f"  {key}: {count}")
+    print("all_families:")
+    for key, count in family_counts.most_common(args.top):
+        marker = "new" if key in new_family_counts else "old"
+        print(f"  {count}\t{marker}\t{key}")
+    print("new_families:")
+    for key, count in new_family_counts.most_common(args.top):
+        print(f"  {count}\t{key}")
+    if new_samples:
+        print("new_family_samples:")
+        for sample in new_samples:
+            print(sample)
+    if args.write_targets:
+        args.write_targets.parent.mkdir(parents=True, exist_ok=True)
+        args.write_targets.write_text("\n".join(sorted(new_targets)) + "\n", encoding="utf-8")
+        print(f"new_family_targets_written={args.write_targets}")
+        print(f"new_family_targets_written_count={len(new_targets)}")
+    if args.write_pairs:
+        args.write_pairs.parent.mkdir(parents=True, exist_ok=True)
+        args.write_pairs.write_text(
+            "\n".join(f"{target}\t{predecessor}" for target, predecessor in sorted(new_pairs)) + "\n",
+            encoding="utf-8",
+        )
+        print(f"new_family_pairs_written={args.write_pairs}")
+        print(f"new_family_pairs_written_count={len(new_pairs)}")
+    return 0
+
+
 def high_layer_pp_smoke(args: argparse.Namespace) -> int:
     exit_code = 0
     layers = [int(part.strip()) for part in args.high_layer_pp_smoke.split(",") if part.strip()]
@@ -1807,6 +1953,7 @@ def main() -> int:
     parser.add_argument("--frontier-data-profile", action="store_true")
     parser.add_argument("--predecessor-frontier-data-profile", action="store_true")
     parser.add_argument("--predecessor-family-data-profile", action="store_true")
+    parser.add_argument("--predecessor-new-family-candidates", action="store_true")
     parser.add_argument("--predecessor-family-summary", action="store_true")
     parser.add_argument("--frontier-base-layers", type=int, default=0)
     parser.add_argument("--frontier-signature-mode", choices=("exact", "classes", "mask_counts", "counts"), default="exact")
@@ -1843,6 +1990,8 @@ def main() -> int:
         return predecessor_frontier_data_profile(args)
     if args.predecessor_family_data_profile:
         return predecessor_family_data_profile(args)
+    if args.predecessor_new_family_candidates:
+        return predecessor_new_family_candidates(args)
     if args.high_layer_pp_smoke:
         return high_layer_pp_smoke(args)
     if args.seed_count <= 1:
