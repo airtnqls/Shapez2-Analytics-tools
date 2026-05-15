@@ -666,6 +666,8 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
     any_pass_sequences = 0
     sequence_pass_counts: Counter[tuple[str, ...]] = Counter()
     sequence_reject_counts: Counter[tuple[str, ...]] = Counter()
+    zero_layer_pair_counts: Counter[tuple[int, str, str]] = Counter()
+    pass_layer_pair_counts: Counter[tuple[int, str, str]] = Counter()
     raw_reject_counts = Counter()
     raw_pass = 0
     examples: list[str] = []
@@ -732,8 +734,12 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
             if sequence_pass:
                 any_pass_sequences += 1
                 sequence_pass_counts[signature] = sequence_pass
+                for layer_index, (left, right) in enumerate(abstract_sequence):
+                    pass_layer_pair_counts[(layer_index, left, right)] += 1
             else:
                 zero_pass_sequences += 1
+                for layer_index, (left, right) in enumerate(abstract_sequence):
+                    zero_layer_pair_counts[(layer_index, left, right)] += 1
                 if len(examples) < args.max_capture:
                     top_reason = sequence_reject.most_common(1)[0][0] if sequence_reject else "none"
                     examples.append(f"reason={top_reason}\tseq={signature}")
@@ -765,6 +771,16 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
         print("zero_pass_sequence_samples:")
         for sample in examples:
             print(sample)
+    if zero_layer_pair_counts:
+        print("zero_pass_layer_pairs:")
+        for key, count in zero_layer_pair_counts.most_common(args.top):
+            pass_count = pass_layer_pair_counts.get(key, 0)
+            print(f"  {count}\tpass={pass_count}\t{key}")
+    if pass_layer_pair_counts:
+        print("pass_layer_pairs:")
+        for key, count in pass_layer_pair_counts.most_common(args.top):
+            zero_count = zero_layer_pair_counts.get(key, 0)
+            print(f"  {count}\tzero={zero_count}\t{key}")
     return 0
 
 
