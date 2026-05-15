@@ -646,6 +646,128 @@ def estimate_generation_space(args: argparse.Namespace, pretrained=None) -> int:
     return 0
 
 
+def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
+    started = time.perf_counter()
+    rng = random.Random(args.seed)
+    if pretrained is None:
+        pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    else:
+        training_time = 0.0
+        sequence_time = 0.0
+        training_cache_hit = False
+    records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    abstract_sequences = list(abstract_sequences)
+    if args.shuffle:
+        rng.shuffle(abstract_sequences)
+
+    tested_raw = 0
+    sampled_sequences = 0
+    zero_pass_sequences = 0
+    any_pass_sequences = 0
+    sequence_pass_counts: Counter[tuple[str, ...]] = Counter()
+    sequence_reject_counts: Counter[tuple[str, ...]] = Counter()
+    raw_reject_counts = Counter()
+    raw_pass = 0
+    examples: list[str] = []
+    stop_reason = "exhausted"
+
+    for abstract_sequence in abstract_sequences:
+        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+            stop_reason = "max_seconds"
+            break
+        sampled_sequences += 1
+        sequence_total = 0
+        sequence_pass = 0
+        sequence_reject = Counter()
+        raw_sequences = _iter_raw_sequences_for(
+            abstract_sequence,
+            raw_by_abstract,
+            raw_pair_counts,
+            args.max_raw_per_layer,
+            rng,
+        )
+        for raw_sequence in raw_sequences:
+            if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+                stop_reason = "max_seconds"
+                break
+            if args.max_raw_tests and tested_raw >= args.max_raw_tests:
+                stop_reason = "max_raw_tests"
+                break
+            tested_raw += 1
+            sequence_total += 1
+            predecessor = _predecessor_from_sequence(raw_sequence)
+            if not predecessor:
+                reason = "overlap"
+            else:
+                subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
+                if subtype not in args.selected_generate_subtypes:
+                    reason = "subtype"
+                elif not args.allow_non_zero_stack_predecessor and not sfa.top_single_c_zero_stack_candidate(predecessor):
+                    reason = "not_zero_stack"
+                else:
+                    pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
+                    pushed_parts = pushed.split(":") if pushed else []
+                    if not pushed:
+                        reason = "empty_push"
+                    elif args.target_layer_count and len(pushed_parts) != args.target_layer_count:
+                        reason = "target_layer_count"
+                    elif args.target_corner_filter and not sfa.corner_columns_allowed(pushed):
+                        reason = "target_corner"
+                    elif args.target_swap_both_filter and sfa.bitmask_swap_impossibility(pushed) != "swap_both_blocked":
+                        reason = "target_swap"
+                    elif args.target_sorted_claw_notes_filter and not _sorted_claw_notes_target_allowed(pushed):
+                        reason = "target_notes"
+                    elif args.target_claw_common_filter and not _claw_common_target_allowed(pushed):
+                        reason = "target_common"
+                    else:
+                        reason = "pass"
+            if reason == "pass":
+                raw_pass += 1
+                sequence_pass += 1
+            else:
+                raw_reject_counts[reason] += 1
+                sequence_reject[reason] += 1
+        if sequence_total:
+            signature = tuple("|".join(pair) for pair in abstract_sequence)
+            if sequence_pass:
+                any_pass_sequences += 1
+                sequence_pass_counts[signature] = sequence_pass
+            else:
+                zero_pass_sequences += 1
+                if len(examples) < args.max_capture:
+                    top_reason = sequence_reject.most_common(1)[0][0] if sequence_reject else "none"
+                    examples.append(f"reason={top_reason}\tseq={signature}")
+            if sequence_reject:
+                top_reason = sequence_reject.most_common(1)[0][0]
+                sequence_reject_counts[signature + (f"reason={top_reason}",)] = sequence_total
+        if stop_reason != "exhausted":
+            break
+
+    print("mode=abstract_filter_profile")
+    print(f"records={records}")
+    print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_truncated={abstract_truncated}")
+    print(f"sampled_sequences={sampled_sequences}")
+    print(f"tested_raw={tested_raw}")
+    print(f"raw_pass={raw_pass}")
+    print(f"raw_pass_pct={(raw_pass / tested_raw * 100.0) if tested_raw else 0.0:.6f}%")
+    print(f"zero_pass_sequences={zero_pass_sequences}")
+    print(f"any_pass_sequences={any_pass_sequences}")
+    print(f"training_cache_hit={training_cache_hit}")
+    print(f"training_time={training_time:.6f}s")
+    print(f"sequence_time={sequence_time:.6f}s")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print(f"stop_reason={stop_reason}")
+    print("raw_reject_counts:")
+    for key, count in raw_reject_counts.most_common(args.top):
+        print(f"  {key}: {count}")
+    if examples:
+        print("zero_pass_sequence_samples:")
+        for sample in examples:
+            print(sample)
+    return 0
+
+
 def sample_pp_essential_profile(args: argparse.Namespace, pretrained=None) -> int:
     started = time.perf_counter()
     rng = random.Random(args.seed)
@@ -2526,6 +2648,7 @@ def main() -> int:
     parser.add_argument("--replay-captured-glob", action="append", default=[])
     parser.add_argument("--replay-pairs", type=Path, action="append", default=[])
     parser.add_argument("--estimate-generation-space", action="store_true")
+    parser.add_argument("--abstract-filter-profile", action="store_true")
     parser.add_argument("--pp-essential-profile", action="store_true")
     parser.add_argument("--frontier-signature-profile", action="store_true")
     parser.add_argument("--frontier-data-profile", action="store_true")
@@ -2566,6 +2689,8 @@ def main() -> int:
         return replay_pairs(args)
     if args.estimate_generation_space:
         return estimate_generation_space(args)
+    if args.abstract_filter_profile:
+        return abstract_filter_profile(args)
     if args.pp_essential_profile:
         return sample_pp_essential_profile(args)
     if args.frontier_signature_profile:
