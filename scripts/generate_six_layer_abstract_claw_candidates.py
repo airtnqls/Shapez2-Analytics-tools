@@ -1497,6 +1497,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "new_family_count": len(new_family_counts),
             "new_family_counts": Counter(new_family_counts),
             "new_targets": len(new_targets),
+            "new_target_set": set(new_targets),
+            "new_pair_set": set(new_pairs),
             "stop_reason": stop_reason,
             "generated_base_cache_hit": generated_base_cache_hit,
             "generated_base_added_families": generated_base_added_count,
@@ -2380,8 +2382,12 @@ def main() -> int:
             seed_summaries.append(getattr(args, "_last_predecessor_new_family_summary", {}))
         if seed_summaries:
             aggregate_new_families = Counter()
+            aggregate_new_targets = set()
+            aggregate_new_pairs = set()
             for item in seed_summaries:
                 aggregate_new_families.update(item.get("new_family_counts", Counter()))
+                aggregate_new_targets.update(item.get("new_target_set", set()))
+                aggregate_new_pairs.update(item.get("new_pair_set", set()))
             print("seed_count_summary:")
             print(f"  seeds={len(seed_summaries)}")
             print(f"  tested_raw={sum(item.get('tested_raw', 0) for item in seed_summaries)}")
@@ -2389,6 +2395,8 @@ def main() -> int:
             print(f"  max_new_family_count={max(item.get('new_family_count', 0) for item in seed_summaries)}")
             print(f"  unique_new_family_count={len(aggregate_new_families)}")
             print(f"  new_targets={sum(item.get('new_targets', 0) for item in seed_summaries)}")
+            print(f"  unique_new_targets={len(aggregate_new_targets)}")
+            print(f"  unique_new_pairs={len(aggregate_new_pairs)}")
             print(
                 "  generated_base_cache_hits="
                 f"{sum(1 for item in seed_summaries if item.get('generated_base_cache_hit'))}"
@@ -2399,6 +2407,22 @@ def main() -> int:
                 print("seed_count_new_families:")
                 for key, count in aggregate_new_families.most_common(args.top):
                     print(f"  {count}\t{key}")
+            if base_write_targets is not None:
+                base_write_targets.parent.mkdir(parents=True, exist_ok=True)
+                base_write_targets.write_text("\n".join(sorted(aggregate_new_targets)) + "\n", encoding="utf-8")
+                print(f"aggregate_new_family_targets_written={base_write_targets}")
+                print(f"aggregate_new_family_targets_written_count={len(aggregate_new_targets)}")
+            if base_write_pairs is not None:
+                base_write_pairs.parent.mkdir(parents=True, exist_ok=True)
+                base_write_pairs.write_text(
+                    "\n".join(
+                        f"{target}\t{predecessor}" for target, predecessor in sorted(aggregate_new_pairs)
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                print(f"aggregate_new_family_pairs_written={base_write_pairs}")
+                print(f"aggregate_new_family_pairs_written_count={len(aggregate_new_pairs)}")
             if base_write_summary_json is not None:
                 aggregate_summary_path = base_write_summary_json.with_name(
                     f"{base_write_summary_json.stem}_aggregate{base_write_summary_json.suffix}"
@@ -2415,6 +2439,8 @@ def main() -> int:
                     "max_new_family_count": max(item.get("new_family_count", 0) for item in seed_summaries),
                     "unique_new_family_count": len(aggregate_new_families),
                     "new_targets": sum(item.get("new_targets", 0) for item in seed_summaries),
+                    "unique_new_targets": len(aggregate_new_targets),
+                    "unique_new_pairs": len(aggregate_new_pairs),
                     "generated_base_cache_hits": sum(
                         1 for item in seed_summaries if item.get("generated_base_cache_hit")
                     ),
@@ -2424,7 +2450,7 @@ def main() -> int:
                         {
                             key: value
                             for key, value in item.items()
-                            if key != "new_family_counts"
+                            if key not in ("new_family_counts", "new_target_set", "new_pair_set")
                         }
                         for item in seed_summaries
                     ],
