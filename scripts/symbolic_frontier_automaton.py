@@ -5653,6 +5653,14 @@ def stack_input_tree(shape: str, detail: str) -> DecompositionNode:
         return DecompositionNode(kind="input", shape=normalized, detail=detail + "_supported_no_crystal")
     if len(parts) == 1 and "P" not in parts[0]:
         return DecompositionNode(kind="input", shape=normalized, detail=detail + "_single_layer_piece")
+    if bitmask_physics_stable(normalized):
+        swap_tree = swappability_tree(normalized, len(parts))
+        if swap_tree is not None:
+            return DecompositionNode(
+                kind="swap",
+                shape=normalized,
+                detail=detail + "_swappable_input",
+            )
     return DecompositionNode(kind="stack_input", shape=normalized, detail=detail)
 
 
