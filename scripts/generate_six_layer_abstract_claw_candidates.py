@@ -1438,6 +1438,41 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         )
         print(f"new_family_pairs_written={args.write_pairs}")
         print(f"new_family_pairs_written_count={len(new_pairs)}")
+    if args.write_summary_json:
+        summary = {
+            "mode": "predecessor_new_family_candidates",
+            "family_mode": args.predecessor_family_mode,
+            "base_layers": base_layers,
+            "data_base_families": data_base_family_count,
+            "base_families": len(base_families),
+            "generated_base_layers": args.generated_base_layers,
+            "generated_base_raw_tests": args.generated_base_raw_tests or args.max_raw_tests,
+            "generated_base_seed": base_seed if args.generated_base_layers else None,
+            "generated_base_seed_count": max(1, args.generated_base_seed_count),
+            "generated_base_unique_families": len(generated_base_family_union),
+            "generated_base_added_families": generated_base_added_count,
+            "generate_layers": args.generate_layers,
+            "records": records,
+            "abstract_sequences": len(abstract_sequences),
+            "abstract_truncated": abstract_truncated,
+            "tested_raw": tested_raw,
+            "generated_predecessors": len(generated_predecessors),
+            "generated_targets": len(generated_targets),
+            "new_family_count": len(new_family_counts),
+            "new_targets": len(new_targets),
+            "training_cache_hit": training_cache_hit,
+            "training_time": training_time,
+            "sequence_time": sequence_time,
+            "elapsed": time.perf_counter() - started,
+            "stop_reason": stop_reason,
+            "rejected": dict(rejected),
+            "new_families": {repr(key): count for key, count in new_family_counts.items()},
+            "all_families": {repr(key): count for key, count in family_counts.items()},
+            "new_family_kernel_verdicts": {repr(key): count for key, count in new_family_verdicts.items()},
+        }
+        args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
+        args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"new_family_summary_written={args.write_summary_json}")
     if args.classify_new_family_candidates and args.fail_on_kernel_unknown:
         unknown = sum(count for (verdict, _reason), count in new_family_verdicts.items() if verdict == "unknown")
         print(f"new_family_kernel_unknown_failures={unknown}")
@@ -2282,6 +2317,7 @@ def main() -> int:
         base_seed = args.seed
         base_write_targets = args.write_targets
         base_write_pairs = args.write_pairs
+        base_write_summary_json = args.write_summary_json
         pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
         print("shared_training=True")
         print(f"shared_training_cache_hit={training_cache_hit}")
@@ -2297,6 +2333,10 @@ def main() -> int:
             if base_write_pairs is not None:
                 args.write_pairs = base_write_pairs.with_name(
                     f"{base_write_pairs.stem}_seed{args.seed}{base_write_pairs.suffix}"
+                )
+            if base_write_summary_json is not None:
+                args.write_summary_json = base_write_summary_json.with_name(
+                    f"{base_write_summary_json.stem}_seed{args.seed}{base_write_summary_json.suffix}"
                 )
             print(f"=== seed={args.seed} ===")
             exit_code = max(exit_code, predecessor_new_family_candidates(args, pretrained=pretrained))
