@@ -2050,7 +2050,30 @@ def main() -> int:
     if args.predecessor_family_data_profile:
         return predecessor_family_data_profile(args)
     if args.predecessor_new_family_candidates:
-        return predecessor_new_family_candidates(args)
+        if args.seed_count <= 1:
+            return predecessor_new_family_candidates(args)
+        exit_code = 0
+        base_seed = args.seed
+        base_write_targets = args.write_targets
+        base_write_pairs = args.write_pairs
+        pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+        print("shared_training=True")
+        print(f"shared_training_cache_hit={training_cache_hit}")
+        print(f"shared_training_time={training_time:.6f}s")
+        print(f"shared_sequence_time={sequence_time:.6f}s")
+        for offset in range(args.seed_count):
+            args.seed = base_seed + offset
+            if base_write_targets is not None:
+                args.write_targets = base_write_targets.with_name(
+                    f"{base_write_targets.stem}_seed{args.seed}{base_write_targets.suffix}"
+                )
+            if base_write_pairs is not None:
+                args.write_pairs = base_write_pairs.with_name(
+                    f"{base_write_pairs.stem}_seed{args.seed}{base_write_pairs.suffix}"
+                )
+            print(f"=== seed={args.seed} ===")
+            exit_code = max(exit_code, predecessor_new_family_candidates(args, pretrained=pretrained))
+        return exit_code
     if args.high_layer_pp_smoke:
         return high_layer_pp_smoke(args)
     if args.seed_count <= 1:
