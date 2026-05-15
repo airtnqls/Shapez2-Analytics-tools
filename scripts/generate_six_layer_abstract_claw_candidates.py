@@ -1457,9 +1457,16 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
 def high_layer_pp_smoke(args: argparse.Namespace) -> int:
     exit_code = 0
     layers = [int(part.strip()) for part in args.high_layer_pp_smoke.split(",") if part.strip()]
+    started = time.perf_counter()
+    records, abstract_ngrams, raw_by_abstract, raw_pair_counts = _train(args)
+    training_time = time.perf_counter() - started
+    print("shared_training=True")
+    print(f"shared_training_time={training_time:.6f}s")
     for index, layers_value in enumerate(layers):
         smoke_args = copy.copy(args)
         smoke_args.generate_layers = layers_value
+        if args.target_layer_count:
+            smoke_args.target_layer_count = layers_value
         smoke_args.seed = args.seed + index
         smoke_args.max_abstract_sequences = args.smoke_abstract_sequences
         smoke_args.max_raw_tests = args.smoke_raw_tests
@@ -1480,8 +1487,10 @@ def high_layer_pp_smoke(args: argparse.Namespace) -> int:
         smoke_args.read_training_cache = None
         smoke_args.write_training_cache = None
         smoke_args.training_cache = None
+        abstract_sequences, abstract_truncated = _abstract_sequences(smoke_args, abstract_ngrams)
+        pretrained = (records, abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated)
         print(f"=== high_layer_pp_smoke layers={layers_value} seed={smoke_args.seed} ===")
-        exit_code = max(exit_code, generate(smoke_args))
+        exit_code = max(exit_code, generate(smoke_args, pretrained=pretrained))
     return exit_code
 
 
