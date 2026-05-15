@@ -226,6 +226,7 @@ def _load_training_cache(args: argparse.Namespace):
     metadata = payload.get("metadata")
     expected = _training_cache_metadata(args)
     compatible_full_cache = False
+    compatible_training_cache = False
     if isinstance(metadata, dict):
         compatible_full_cache = (
             metadata.get("max_abstract_sequences") == 0
@@ -240,7 +241,19 @@ def _load_training_cache(args: argparse.Namespace):
                 if key != "max_abstract_sequences"
             }
         )
-    if metadata != expected and not compatible_full_cache:
+        compatible_training_cache = (
+            {
+                key: value
+                for key, value in metadata.items()
+                if key not in ("generate_layers", "max_abstract_sequences")
+            }
+            == {
+                key: value
+                for key, value in expected.items()
+                if key not in ("generate_layers", "max_abstract_sequences")
+            }
+        )
+    if metadata != expected and not compatible_full_cache and not compatible_training_cache:
         return None
     required = (
         "records",
@@ -254,7 +267,9 @@ def _load_training_cache(args: argparse.Namespace):
         return None
     abstract_sequences = payload["abstract_sequences"]
     abstract_truncated = payload["abstract_truncated"]
-    if compatible_full_cache and args.max_abstract_sequences and len(abstract_sequences) > args.max_abstract_sequences:
+    if compatible_training_cache and metadata != expected:
+        abstract_sequences, abstract_truncated = _abstract_sequences(args, payload["abstract_ngrams"])
+    elif compatible_full_cache and args.max_abstract_sequences and len(abstract_sequences) > args.max_abstract_sequences:
         abstract_sequences = abstract_sequences[: args.max_abstract_sequences]
         abstract_truncated = True
     return (
@@ -269,8 +284,6 @@ def _load_training_cache(args: argparse.Namespace):
 
 def _write_training_cache(args: argparse.Namespace, pretrained) -> None:
     if args.write_training_cache is None:
-        return
-    if args.max_abstract_sequences:
         return
     records, abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
     payload = {
