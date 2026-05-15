@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import contextlib
 import io
+import itertools
 import json
 import pickle
 import random
 import sys
 import time
 from collections import Counter, defaultdict
+from functools import lru_cache
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -69,6 +72,11 @@ FAST_TERMINAL_REASONS = frozenset(
         "kernel_claw_terminal_s_sc_invalid_mid_support_rot1",
         "kernel_claw_terminal_s_sc_invalid_mid_support_rot2",
         "kernel_claw_terminal_s_sc_invalid_mid_support_rot3",
+        "kernel_claw_terminal_connected_pp_predecessor",
+        "kernel_claw_terminal_connected_pp_predecessor_rot1",
+        "kernel_claw_terminal_connected_pp_predecessor_rot2",
+        "kernel_claw_terminal_connected_pp_predecessor_rot3",
+        "kernel_claw_terminal_scpp_tail_predecessor",
         "kernel_claw_frontier_tail_invalid_predecessor",
         "kernel_claw_frontier_tail_invalid_predecessor_rot1",
         "kernel_claw_frontier_tail_invalid_predecessor_rot2",
@@ -213,7 +221,26 @@ def _load_training_cache(args: argparse.Namespace):
         return None
     with args.read_training_cache.open("rb") as handle:
         payload = pickle.load(handle)
-    if not isinstance(payload, dict) or payload.get("metadata") != _training_cache_metadata(args):
+    if not isinstance(payload, dict):
+        return None
+    metadata = payload.get("metadata")
+    expected = _training_cache_metadata(args)
+    compatible_full_cache = False
+    if isinstance(metadata, dict):
+        compatible_full_cache = (
+            metadata.get("max_abstract_sequences") == 0
+            and {
+                key: value
+                for key, value in metadata.items()
+                if key != "max_abstract_sequences"
+            }
+            == {
+                key: value
+                for key, value in expected.items()
+                if key != "max_abstract_sequences"
+            }
+        )
+    if metadata != expected and not compatible_full_cache:
         return None
     required = (
         "records",
@@ -225,18 +252,25 @@ def _load_training_cache(args: argparse.Namespace):
     )
     if any(key not in payload for key in required):
         return None
+    abstract_sequences = payload["abstract_sequences"]
+    abstract_truncated = payload["abstract_truncated"]
+    if compatible_full_cache and args.max_abstract_sequences and len(abstract_sequences) > args.max_abstract_sequences:
+        abstract_sequences = abstract_sequences[: args.max_abstract_sequences]
+        abstract_truncated = True
     return (
         payload["records"],
         payload["abstract_ngrams"],
         payload["raw_by_abstract"],
         payload["raw_pair_counts"],
-        payload["abstract_sequences"],
-        payload["abstract_truncated"],
+        abstract_sequences,
+        abstract_truncated,
     )
 
 
 def _write_training_cache(args: argparse.Namespace, pretrained) -> None:
     if args.write_training_cache is None:
+        return
+    if args.max_abstract_sequences:
         return
     records, abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
     payload = {
@@ -299,6 +333,46 @@ def _raw_sequences_for(
     return out
 
 
+def _raw_sequence_choices_for(
+    abstract_sequence: tuple[tuple[str, str], ...],
+    raw_by_abstract: dict[tuple[str, str], set[tuple[str, str]]],
+    raw_pair_counts: Counter[tuple[str, str]],
+    max_per_layer: int,
+    rng: random.Random,
+) -> list[list[tuple[str, str]]]:
+    choices: list[list[tuple[str, str]]] = []
+    for abstract in abstract_sequence:
+        raw = sorted(raw_by_abstract.get(abstract, ()), key=lambda item: (-raw_pair_counts[item], item))
+        if not raw:
+            return []
+        if max_per_layer and len(raw) > max_per_layer:
+            head = raw[:max_per_layer]
+            if len(raw) > max_per_layer * 2:
+                raw = head + rng.sample(raw[max_per_layer:], max_per_layer)
+            else:
+                raw = head
+        choices.append(raw)
+    return choices
+
+
+def _iter_raw_sequences_for(
+    abstract_sequence: tuple[tuple[str, str], ...],
+    raw_by_abstract: dict[tuple[str, str], set[tuple[str, str]]],
+    raw_pair_counts: Counter[tuple[str, str]],
+    max_per_layer: int,
+    rng: random.Random,
+):
+    choices = _raw_sequence_choices_for(abstract_sequence, raw_by_abstract, raw_pair_counts, max_per_layer, rng)
+    if not choices:
+        return
+    yielded = 0
+    for raw_sequence in itertools.product(*choices):
+        yield raw_sequence
+        yielded += 1
+        if yielded >= 100_000:
+            return
+
+
 def _predecessor_from_sequence(sequence: tuple[tuple[str, str], ...]) -> str:
     left = sfa.normalize_code(":".join(pair[0] for pair in sequence))
     right = sfa.normalize_code(":".join(pair[1] for pair in sequence))
@@ -312,9 +386,12 @@ def _kernel_verdict_for_target(
     use_generated_predecessor_evidence: bool = False,
     predecessor: str = "",
     use_fast_terminal_rules: bool = True,
+    cheap_prune_only: bool = False,
 ) -> tuple[str, str]:
-    strict, reason = sfa.strict_legacy_verdict_to_symbolic(target)
+    strict_verdict: tuple[str, str] | None = None
     kernel_verdict = sfa.corner_rule_core_verdict(target)
+    if kernel_verdict is None:
+        kernel_verdict = sfa.swap_core_verdict(target)
     if kernel_verdict is None:
         if use_generated_predecessor_evidence and predecessor:
             predecessor = sfa.normalize_code(predecessor)
@@ -333,19 +410,37 @@ def _kernel_verdict_for_target(
             kernel_verdict = sfa.claw_terminal_s_sc_core_verdict(target, layers)
             if kernel_verdict is not None:
                 return kernel_verdict
+            kernel_verdict = sfa.claw_terminal_connected_pp_predecessor_core_verdict(target, layers)
+            if kernel_verdict is not None:
+                return kernel_verdict
+            if sfa.claw_terminal_scpp_tail_predecessor_witness(target, layers) is not None:
+                return "possible", "kernel_claw_terminal_scpp_tail_predecessor"
             kernel_verdict = sfa.claw_terminal_sss_side_invalid_predecessor_core_verdict(target, layers)
             if kernel_verdict is not None:
                 return kernel_verdict
             kernel_verdict = sfa.claw_frontier_tail_invalid_predecessor_core_verdict(target, layers)
             if kernel_verdict is not None:
                 return kernel_verdict
+            if use_generated_predecessor_evidence and predecessor:
+                predecessor = sfa.normalize_code(predecessor)
+                predecessor_physics = sfa.bitmask_apply_physics(predecessor)
+                terminal_pp_verdict = sfa.zero_stack_terminal_crystal_pp_predecessor_core_verdict(target, layers)
+                if terminal_pp_verdict is not None:
+                    return terminal_pp_verdict
+                if (
+                    predecessor_physics != predecessor
+                    and sfa.bitmask_push_pin(predecessor, layers) == sfa.normalize_code(target)
+                ):
+                    return "impossible", "kernel_generated_predecessor_unstable_after_terminal_probe"
+        if cheap_prune_only:
+            return "unknown", "kernel_residual_after_fast_prune"
         for kernel_fn in (
             sfa.swap_core_verdict,
             sfa.zero_stack_terminal_crystal_pp_predecessor_core_verdict,
-            sfa.claw_change_rule_predecessor_core_verdict,
             sfa.zero_stack_terminal_crystal_failure_core_verdict,
             sfa.generic_viable_pin_push_predecessor_core_verdict,
             sfa.claw_unstable_predecessor_core_verdict,
+            sfa.claw_change_rule_predecessor_core_verdict,
         ):
             tick = time.perf_counter()
             kernel_verdict = (
@@ -375,7 +470,646 @@ def _kernel_verdict_for_target(
                     "possible",
                     "kernel_generated_predecessor_explainable_trace",
                 )
-    return kernel_verdict or (strict, reason)
+    if kernel_verdict is not None:
+        return kernel_verdict
+    if strict_verdict is None:
+        strict_verdict = sfa.strict_legacy_verdict_to_symbolic(target)
+    return strict_verdict
+
+
+def _predecessor_feature(code: str):
+    parts = code.split(":") if code else []
+    return (
+        f"layers={len(parts)}",
+        f"top={parts[-1] if parts else '----'}",
+        f"swap={sfa.bitmask_swap_impossibility(code) or 'swappable'}",
+    )
+
+
+def _target_feature(code: str, swap_mode: str | None = None):
+    parts = code.split(":") if code else []
+    return (
+        f"layers={len(parts)}",
+        f"first={parts[0] if parts else '----'}",
+        f"top={parts[-1] if parts else '----'}",
+        f"swap={swap_mode or sfa.bitmask_swap_impossibility(code) or 'swappable'}",
+        f"removal={sfa.bitmask_layer_removal_context(code)[:3]}",
+    )
+
+
+@lru_cache(maxsize=300_000)
+def _canonical_frontier_signature(code: str, mode: str = "exact") -> str:
+    normalized = sfa.normalize_code(code)
+    if not normalized:
+        return ""
+    variants: list[str] = []
+    for flipped in (False, True):
+        source = sfa._flip_code_text(normalized) if flipped else normalized
+        for turns in range(4):
+            variant = sfa.normalize_code(sfa._rotate_code_text(source, turns))
+            if mode != "exact":
+                variant = ":".join(_abstract_layer(layer, mode) for layer in variant.split(":"))
+            variants.append(variant)
+    return min(variant for variant in variants if variant)
+
+
+def _frontier_layer_drop_projections(code: str, base_layers: int) -> tuple[tuple[str, str], ...]:
+    normalized = sfa.normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    projections: list[tuple[str, str]] = []
+    if len(parts) == base_layers:
+        projections.append(("same_depth", normalized))
+    if len(parts) <= base_layers:
+        return tuple(projections)
+    top_removed, _removed = sfa.bitmask_remove_top_nonempty_layer(normalized)
+    if len(top_removed.split(":")) == base_layers:
+        projections.append(("remove_top_nonempty", top_removed))
+    if len(parts) - 1 == base_layers:
+        projections.append(("remove_bottom_layer", sfa.normalize_code(":".join(parts[1:]))))
+        for index in range(len(parts)):
+            projected = sfa.normalize_code(":".join(parts[:index] + parts[index + 1 :]))
+            projections.append((f"remove_layer_{index}", projected))
+    seen: set[str] = set()
+    unique: list[tuple[str, str]] = []
+    for reason, projected in projections:
+        key = f"{reason}\t{projected}"
+        if projected and key not in seen:
+            seen.add(key)
+            unique.append((reason, projected))
+    return tuple(unique)
+
+
+def _load_frontier_base_signatures(data: Path, base_layers: int, mode: str) -> set[str]:
+    signatures: set[str] = set()
+    for code in sfa.iter_data_codes(data, max_layers=base_layers):
+        normalized = sfa.normalize_code(code)
+        if len(normalized.split(":")) != base_layers:
+            continue
+        signatures.add(_canonical_frontier_signature(normalized, mode))
+    return signatures
+
+
+def _frontier_projection_reason(
+    code: str,
+    *,
+    base_layers: int,
+    base_signatures: set[str],
+    signature_mode: str,
+) -> tuple[str, str]:
+    for reason, projected in _frontier_layer_drop_projections(code, base_layers):
+        signature = _canonical_frontier_signature(projected, signature_mode)
+        if signature in base_signatures:
+            return "derived", reason
+    return "new", "no_base_projection"
+
+
+def _predecessor_frontier_projection_reason(
+    predecessor: str,
+    *,
+    base_signatures: set[str],
+    signature_mode: str,
+) -> tuple[str, str]:
+    normalized = sfa.normalize_code(predecessor)
+    parts = normalized.split(":") if normalized else []
+    projections: list[tuple[str, str]] = [("same_pre_depth", normalized)]
+    if len(parts) > 1:
+        top_removed, _removed = sfa.bitmask_remove_top_nonempty_layer(normalized)
+        projections.append(("pre_remove_top_nonempty", top_removed))
+        projections.append(("pre_remove_bottom_layer", sfa.normalize_code(":".join(parts[1:]))))
+        for index in range(len(parts)):
+            projections.append((f"pre_remove_layer_{index}", sfa.normalize_code(":".join(parts[:index] + parts[index + 1 :]))))
+    physics = sfa.bitmask_apply_physics(normalized)
+    if physics != normalized:
+        projections.append(("pre_physics", physics))
+    for reason, projected in projections:
+        signature = _canonical_frontier_signature(projected, signature_mode)
+        if signature in base_signatures:
+            return "derived", reason
+    return "new", "no_pre_projection"
+
+
+def estimate_generation_space(args: argparse.Namespace, pretrained=None) -> int:
+    started = time.perf_counter()
+    if pretrained is None:
+        pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    else:
+        training_time = 0.0
+        sequence_time = 0.0
+        training_cache_hit = False
+    records, _abstract_ngrams, raw_by_abstract, _raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    products: list[int] = []
+    missing = 0
+    for abstract_sequence in abstract_sequences:
+        product = 1
+        for abstract in abstract_sequence:
+            count = len(raw_by_abstract.get(abstract, ()))
+            if not count:
+                missing += 1
+                product = 0
+                break
+            if args.max_raw_per_layer:
+                count = min(count, args.max_raw_per_layer * 2)
+            product *= count
+        products.append(product)
+    raw_choice_sizes = sorted((len(raw) for raw in raw_by_abstract.values()), reverse=True)
+    capped_sum = sum(min(product, 10**18) for product in products)
+    print("mode=estimate_generation_space")
+    print(f"records={records}")
+    print(f"abstract_classes={len(raw_by_abstract)}")
+    print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_truncated={abstract_truncated}")
+    print(f"missing_sequences={missing}")
+    print(f"raw_choice_max={raw_choice_sizes[0] if raw_choice_sizes else 0}")
+    print(f"raw_choice_top10={raw_choice_sizes[:10]}")
+    print(f"raw_product_top10={sorted(products, reverse=True)[:10]}")
+    print(f"raw_product_sum_capped_1e18={capped_sum}")
+    print(f"raw_product_le_1={sum(1 for product in products if product <= 1)}")
+    print(f"raw_product_le_100={sum(1 for product in products if product <= 100)}")
+    print(f"raw_product_gt_100k={sum(1 for product in products if product > 100_000)}")
+    print(f"training_cache_hit={training_cache_hit}")
+    print(f"training_time={training_time:.6f}s")
+    print(f"sequence_time={sequence_time:.6f}s")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    return 0
+
+
+def sample_pp_essential_profile(args: argparse.Namespace, pretrained=None) -> int:
+    started = time.perf_counter()
+    rng = random.Random(args.seed)
+    if pretrained is None:
+        pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    else:
+        training_time = 0.0
+        sequence_time = 0.0
+        training_cache_hit = False
+    records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    if args.shuffle:
+        rng.shuffle(abstract_sequences)
+    tested_raw = 0
+    unique_predecessors: set[str] = set()
+    unique_targets: set[str] = set()
+    pre_profile = Counter()
+    target_profile = Counter()
+    stackable_predecessors = 0
+    stackable_predecessor_push_targets: set[str] = set()
+    stop_reason = "exhausted"
+    for abstract_sequence in abstract_sequences:
+        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+            stop_reason = "max_seconds"
+            break
+        raw_sequences = _iter_raw_sequences_for(
+            abstract_sequence,
+            raw_by_abstract,
+            raw_pair_counts,
+            args.max_raw_per_layer,
+            rng,
+        )
+        for raw_sequence in raw_sequences:
+            if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+                stop_reason = "max_seconds"
+                break
+            if args.max_raw_tests and tested_raw >= args.max_raw_tests:
+                stop_reason = "max_raw_tests"
+                break
+            tested_raw += 1
+            predecessor = _predecessor_from_sequence(raw_sequence)
+            if not predecessor:
+                pre_profile["overlap"] += 1
+                continue
+            subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
+            if subtype not in args.selected_generate_subtypes:
+                pre_profile["subtype_rejected"] += 1
+                continue
+            parts = predecessor.split(":")
+            top = parts[-1] if parts else "----"
+            has_top_crystal = "c" in top
+            has_top_content = any(ch != "-" for ch in top)
+            stackable = bool(sfa.bitmask_stackability_witnesses(predecessor))
+            if args.exclude_stackable_predecessors and stackable:
+                pre_profile["stackable_predecessor"] += 1
+                continue
+            pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
+            if not pushed:
+                pre_profile["empty_push"] += 1
+                continue
+            unique_predecessors.add(predecessor)
+            unique_targets.add(pushed)
+            if stackable:
+                stackable_predecessors += 1
+                stackable_predecessor_push_targets.add(pushed)
+            pre_profile[
+                (
+                    f"subtype={subtype}",
+                    f"stackable={int(stackable)}",
+                    f"top_crystal={int(has_top_crystal)}",
+                    f"top_content={int(has_top_content)}",
+                    f"swap={sfa.bitmask_swap_impossibility(predecessor) or 'swappable'}",
+                )
+            ] += 1
+            target_profile[_target_feature(pushed)] += 1
+        if stop_reason != "exhausted":
+            break
+    print("mode=pp_essential_profile")
+    print(f"records={records}")
+    print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_truncated={abstract_truncated}")
+    print(f"tested_raw={tested_raw}")
+    print(f"unique_predecessors={len(unique_predecessors)}")
+    print(f"unique_targets={len(unique_targets)}")
+    print(f"stackable_predecessors={stackable_predecessors}")
+    print(f"stackable_predecessor_unique_push_targets={len(stackable_predecessor_push_targets)}")
+    print(f"training_cache_hit={training_cache_hit}")
+    print(f"training_time={training_time:.6f}s")
+    print(f"sequence_time={sequence_time:.6f}s")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print(f"stop_reason={stop_reason}")
+    print("predecessor_profile:")
+    for key, count in pre_profile.most_common(args.top):
+        print(f"  {count}\t{key}")
+    print("target_profile:")
+    for key, count in target_profile.most_common(args.top):
+        print(f"  {count}\t{key}")
+    return 0
+
+
+def frontier_signature_profile(args: argparse.Namespace, pretrained=None) -> int:
+    started = time.perf_counter()
+    rng = random.Random(args.seed)
+    base_layers = args.frontier_base_layers or args.train_layers
+    base_signatures = _load_frontier_base_signatures(args.data, base_layers, args.frontier_signature_mode)
+    if pretrained is None:
+        pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    else:
+        training_time = 0.0
+        sequence_time = 0.0
+        training_cache_hit = False
+    records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    if args.shuffle:
+        rng.shuffle(abstract_sequences)
+    tested_raw = 0
+    generated_targets: set[str] = set()
+    frontier_counts = Counter()
+    frontier_features = Counter()
+    new_samples: list[str] = []
+    stop_reason = "exhausted"
+    for abstract_sequence in abstract_sequences:
+        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+            stop_reason = "max_seconds"
+            break
+        raw_sequences = _iter_raw_sequences_for(
+            abstract_sequence,
+            raw_by_abstract,
+            raw_pair_counts,
+            args.max_raw_per_layer,
+            rng,
+        )
+        for raw_sequence in raw_sequences:
+            if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+                stop_reason = "max_seconds"
+                break
+            if args.max_raw_tests and tested_raw >= args.max_raw_tests:
+                stop_reason = "max_raw_tests"
+                break
+            tested_raw += 1
+            predecessor = _predecessor_from_sequence(raw_sequence)
+            if not predecessor:
+                frontier_counts[("rejected", "overlap")] += 1
+                continue
+            subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
+            if subtype not in args.selected_generate_subtypes:
+                frontier_counts[("rejected", "subtype")] += 1
+                continue
+            if args.exclude_stackable_predecessors and sfa.bitmask_stackability_witnesses(predecessor):
+                frontier_counts[("rejected", "stackable_predecessor")] += 1
+                continue
+            pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
+            if not pushed:
+                frontier_counts[("rejected", "empty_push")] += 1
+                continue
+            if args.dedupe_targets_before_classify and pushed in generated_targets:
+                frontier_counts[("rejected", "duplicate_target")] += 1
+                continue
+            generated_targets.add(pushed)
+            status, reason = _frontier_projection_reason(
+                pushed,
+                base_layers=base_layers,
+                base_signatures=base_signatures,
+                signature_mode=args.frontier_signature_mode,
+            )
+            frontier_counts[(status, reason)] += 1
+            if status == "new":
+                frontier_features[_target_feature(pushed)] += 1
+                if len(new_samples) < args.max_capture:
+                    new_samples.append(pushed)
+        if stop_reason != "exhausted":
+            break
+    print("mode=frontier_signature_profile")
+    print(f"signature_mode={args.frontier_signature_mode}")
+    print(f"base_layers={base_layers}")
+    print(f"base_signatures={len(base_signatures)}")
+    print(f"generate_layers={args.generate_layers}")
+    print(f"records={records}")
+    print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_truncated={abstract_truncated}")
+    print(f"tested_raw={tested_raw}")
+    print(f"generated_targets={len(generated_targets)}")
+    print(f"training_cache_hit={training_cache_hit}")
+    print(f"training_time={training_time:.6f}s")
+    print(f"sequence_time={sequence_time:.6f}s")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print(f"stop_reason={stop_reason}")
+    print("frontier_counts:")
+    for key, count in frontier_counts.most_common(args.top):
+        print(f"  {count}\t{key}")
+    if frontier_features:
+        print("new_frontier_features:")
+        for key, count in frontier_features.most_common(args.top):
+            print(f"  {count}\t{key}")
+    if new_samples:
+        print("new_frontier_samples:")
+        for sample in new_samples:
+            print(sample)
+    return 0
+
+
+def frontier_data_profile(args: argparse.Namespace) -> int:
+    started = time.perf_counter()
+    base_layers = args.frontier_base_layers or args.train_layers
+    target_layers = args.generate_layers
+    base_signatures = _load_frontier_base_signatures(args.data, base_layers, args.frontier_signature_mode)
+    counts = Counter()
+    features = Counter()
+    samples: list[str] = []
+    checked = 0
+    for code in sfa.iter_data_codes(args.data, max_layers=target_layers):
+        normalized = sfa.normalize_code(code)
+        if not normalized or len(normalized.split(":")) != target_layers:
+            continue
+        checked += 1
+        status, reason = _frontier_projection_reason(
+            normalized,
+            base_layers=base_layers,
+            base_signatures=base_signatures,
+            signature_mode=args.frontier_signature_mode,
+        )
+        counts[(status, reason)] += 1
+        if status == "new":
+            features[_target_feature(normalized)] += 1
+            if len(samples) < args.max_capture:
+                samples.append(normalized)
+    print("mode=frontier_data_profile")
+    print(f"signature_mode={args.frontier_signature_mode}")
+    print(f"base_layers={base_layers}")
+    print(f"target_layers={target_layers}")
+    print(f"base_signatures={len(base_signatures)}")
+    print(f"checked={checked}")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print("frontier_counts:")
+    for key, count in counts.most_common(args.top):
+        print(f"  {count}\t{key}")
+    if features:
+        print("new_frontier_features:")
+        for key, count in features.most_common(args.top):
+            print(f"  {count}\t{key}")
+    if samples:
+        print("new_frontier_samples:")
+        for sample in samples:
+            print(sample)
+    return 0
+
+
+def predecessor_frontier_data_profile(args: argparse.Namespace) -> int:
+    started = time.perf_counter()
+    base_layers = args.frontier_base_layers or args.train_layers
+    target_layers = args.generate_layers
+    base_signatures: set[str] = set()
+    base_checked = 0
+    for code in sfa.iter_data_codes(args.data, max_layers=base_layers):
+        target = sfa.normalize_code(code)
+        if not target or len(target.split(":")) != base_layers:
+            continue
+        predecessor = _claw_predecessor(target)
+        if not predecessor or sfa.bitmask_push_pin(predecessor, base_layers) != target:
+            continue
+        base_checked += 1
+        base_signatures.add(_canonical_frontier_signature(predecessor, args.frontier_signature_mode))
+    counts = Counter()
+    features = Counter()
+    samples: list[str] = []
+    checked = 0
+    valid_predecessors = 0
+    for code in sfa.iter_data_codes(args.data, max_layers=target_layers):
+        target = sfa.normalize_code(code)
+        if not target or len(target.split(":")) != target_layers:
+            continue
+        checked += 1
+        predecessor = _claw_predecessor(target)
+        if not predecessor or sfa.bitmask_push_pin(predecessor, target_layers) != target:
+            counts[("rejected", "predecessor_push_mismatch")] += 1
+            continue
+        valid_predecessors += 1
+        status, reason = _predecessor_frontier_projection_reason(
+            predecessor,
+            base_signatures=base_signatures,
+            signature_mode=args.frontier_signature_mode,
+        )
+        counts[(status, reason)] += 1
+        if status == "new":
+            features[_target_feature(target)] += 1
+            if len(samples) < args.max_capture:
+                samples.append(f"T={target}\tP={predecessor}")
+    print("mode=predecessor_frontier_data_profile")
+    print(f"signature_mode={args.frontier_signature_mode}")
+    print(f"base_layers={base_layers}")
+    print(f"target_layers={target_layers}")
+    print(f"base_checked={base_checked}")
+    print(f"base_predecessor_signatures={len(base_signatures)}")
+    print(f"checked={checked}")
+    print(f"valid_predecessors={valid_predecessors}")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print("frontier_counts:")
+    for key, count in counts.most_common(args.top):
+        print(f"  {count}\t{key}")
+    if features:
+        print("new_frontier_features:")
+        for key, count in features.most_common(args.top):
+            print(f"  {count}\t{key}")
+    if samples:
+        print("new_frontier_samples:")
+        for sample in samples:
+            print(sample)
+    return 0
+
+
+def _bucket_count(value: int) -> str:
+    if value <= 0:
+        return "0"
+    if value == 1:
+        return "1"
+    if value == 2:
+        return "2"
+    if value <= 4:
+        return "3-4"
+    return "5+"
+
+
+def _relative_depth_bucket(depth: int) -> str:
+    if depth >= 0:
+        return "overflow"
+    if depth == -1:
+        return "-1"
+    if depth == -2:
+        return "-2"
+    if depth == -3:
+        return "-3"
+    return "<=-4"
+
+
+def _predecessor_push_event(predecessor: str, layers: int) -> tuple[list[tuple[int, int]], int, bool]:
+    source_layers = [list(layer) for layer in sfa.normalize_code(predecessor).split(":")]
+    pin_layer = ["P" if ch != "-" else "-" for ch in source_layers[0]]
+    shifted_layers = [pin_layer] + [layer[:] for layer in source_layers]
+    initial_destroyed = {
+        (layer_index, quadrant)
+        for layer_index in range(layers, len(shifted_layers))
+        for quadrant in range(4)
+        if sfa._piece_at(shifted_layers, layer_index, quadrant) != "-"
+    }
+    shattered = sfa._shatter_set(shifted_layers, initial_destroyed)
+    crystal_coords = [
+        (layer_index - layers, quadrant)
+        for layer_index, quadrant in shattered
+        if sfa._piece_at(shifted_layers, layer_index, quadrant) == "c"
+    ]
+    non_crystal_count = sum(
+        1
+        for layer_index, quadrant in shattered
+        if sfa._piece_at(shifted_layers, layer_index, quadrant) not in ("-", "c")
+    )
+    raw_layers = [layer[:] for layer in shifted_layers]
+    for layer_index, quadrant in shattered:
+        if 0 <= layer_index < len(raw_layers):
+            raw_layers[layer_index][quadrant] = "-"
+    raw_code = sfa.normalize_code(":".join("".join(layer) for layer in raw_layers[:layers]))
+    falls_after_shatter = raw_code != sfa.bitmask_apply_physics(raw_code)
+    return crystal_coords, non_crystal_count, falls_after_shatter
+
+
+def _predecessor_push_family(predecessor: str, target: str) -> tuple[object, ...]:
+    layers = len(target.split(":"))
+    crystal_coords, non_crystal_count, falls_after_shatter = _predecessor_push_event(predecessor, layers)
+    by_quadrant: defaultdict[int, list[int]] = defaultdict(list)
+    for relative_depth, quadrant in crystal_coords:
+        by_quadrant[quadrant].append(relative_depth)
+    spans: list[tuple[int, int, int, int, int]] = []
+    for quadrant, depths in by_quadrant.items():
+        spans.append((len(depths), max(depths) - min(depths) + 1, min(depths), max(depths), quadrant))
+    spans.sort(reverse=True)
+    if spans:
+        main = (
+            "main",
+            _bucket_count(spans[0][0]),
+            _bucket_count(spans[0][1]),
+            _relative_depth_bucket(spans[0][2]),
+            _relative_depth_bucket(spans[0][3]),
+        )
+    else:
+        main = ("main", "0", "0", "none", "none")
+    below_cols = sum(1 for depths in by_quadrant.values() if any(depth < 0 for depth in depths))
+    overflow_cols = sum(1 for depths in by_quadrant.values() if any(depth >= 0 for depth in depths))
+    side_cols = max(0, len(by_quadrant) - 1)
+    return (
+        "cols_" + _bucket_count(len(by_quadrant)),
+        "below_cols_" + _bucket_count(below_cols),
+        "overflow_cols_" + _bucket_count(overflow_cols),
+        "side_" + _bucket_count(side_cols),
+        main,
+        "nonc_" + _bucket_count(non_crystal_count),
+        "falls" if falls_after_shatter else "no_fall",
+    )
+
+
+def predecessor_family_data_profile(args: argparse.Namespace) -> int:
+    started = time.perf_counter()
+    max_layers = args.generate_layers
+    layer_families: defaultdict[int, Counter[tuple[object, ...]]] = defaultdict(Counter)
+    examples: defaultdict[int, dict[tuple[object, ...], tuple[str, str]]] = defaultdict(dict)
+    checked = Counter()
+    valid = Counter()
+    rejected = Counter()
+    for code in sfa.iter_data_codes(args.data, max_layers=max_layers):
+        target = sfa.normalize_code(code)
+        if not target:
+            continue
+        layers = len(target.split(":"))
+        if layers > max_layers:
+            continue
+        checked[layers] += 1
+        predecessor = _claw_predecessor(target)
+        if not predecessor or sfa.bitmask_push_pin(predecessor, layers) != target:
+            rejected[layers] += 1
+            continue
+        valid[layers] += 1
+        family = _predecessor_push_family(predecessor, target)
+        layer_families[layers][family] += 1
+        examples[layers].setdefault(family, (target, predecessor))
+    print("mode=predecessor_family_data_profile")
+    print(f"max_layers={max_layers}")
+    print(f"checked_by_layer={dict(sorted(checked.items()))}")
+    print(f"valid_by_layer={dict(sorted(valid.items()))}")
+    print(f"rejected_by_layer={dict(sorted(rejected.items()))}")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    previous_families: set[tuple[object, ...]] = set()
+    for layers in sorted(layer_families):
+        families = layer_families[layers]
+        new_families = set(families) - previous_families
+        print(
+            f"layer={layers} total={sum(families.values())} "
+            f"families={len(families)} new_vs_lower={len(new_families)}"
+        )
+        for family, count in families.most_common(args.top):
+            marker = "new" if family in new_families else "old"
+            print(f"  {count}\t{marker}\t{family}")
+        captured = 0
+        for family in sorted(new_families, key=str):
+            if captured >= args.max_capture:
+                break
+            target, predecessor = examples[layers][family]
+            print(f"  sample\tfamily={family}\tT={target}\tP={predecessor}")
+            captured += 1
+        previous_families.update(families)
+    return 0
+
+
+def high_layer_pp_smoke(args: argparse.Namespace) -> int:
+    exit_code = 0
+    layers = [int(part.strip()) for part in args.high_layer_pp_smoke.split(",") if part.strip()]
+    for index, layers_value in enumerate(layers):
+        smoke_args = copy.copy(args)
+        smoke_args.generate_layers = layers_value
+        smoke_args.seed = args.seed + index
+        smoke_args.max_abstract_sequences = args.smoke_abstract_sequences
+        smoke_args.max_raw_tests = args.smoke_raw_tests
+        smoke_args.classify_targets = True
+        smoke_args.kernel_only_classify = True
+        smoke_args.dedupe_targets_before_classify = True
+        smoke_args.cheap_prune_only = True
+        smoke_args.classify_residual_full = True
+        smoke_args.skip_predecessor_details = True
+        smoke_args.use_generated_predecessor_evidence = True
+        smoke_args.fail_on_kernel_unknown = True
+        smoke_args.fail_on_kernel_legacy_fallback = True
+        smoke_args.write_captured = None
+        smoke_args.write_targets = None
+        smoke_args.write_predecessors = None
+        smoke_args.write_pairs = None
+        smoke_args.write_summary_json = None
+        smoke_args.read_training_cache = None
+        smoke_args.write_training_cache = None
+        smoke_args.training_cache = None
+        print(f"=== high_layer_pp_smoke layers={layers_value} seed={smoke_args.seed} ===")
+        exit_code = max(exit_code, generate(smoke_args))
+    return exit_code
 
 
 def generate(args: argparse.Namespace, pretrained=None) -> int:
@@ -395,13 +1129,19 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
         rng.shuffle(abstract_sequences)
 
     tested_raw = 0
+    seen_predecessors_before_push: set[str] = set()
     generated_predecessors: set[str] = set()
     generated_targets: set[str] = set()
+    seen_targets_for_classification: set[str] = set()
     listed_predecessors: set[str] = set()
     listed_targets: set[str] = set()
     listed_pairs: set[tuple[str, str]] = set()
     rejected = Counter()
     target_features = Counter()
+    residual_target_features = Counter()
+    residual_predecessor_features = Counter()
+    predecessor_push_families = Counter()
+    residual_predecessor_push_families = Counter()
     predecessor_features = Counter()
     target_verdicts = Counter()
     target_kernel_verdicts = Counter()
@@ -419,9 +1159,13 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
         if args.max_seconds and time.perf_counter() - started > args.max_seconds:
             stop_reason = "max_seconds"
             break
-        raw_sequences = _raw_sequences_for(abstract_sequence, raw_by_abstract, raw_pair_counts, args.max_raw_per_layer, rng)
-        if args.shuffle and len(raw_sequences) > 1:
-            rng.shuffle(raw_sequences)
+        raw_sequences = _iter_raw_sequences_for(
+            abstract_sequence,
+            raw_by_abstract,
+            raw_pair_counts,
+            args.max_raw_per_layer,
+            rng,
+        )
         for raw_sequence in raw_sequences:
             if args.max_seconds and time.perf_counter() - started > args.max_seconds:
                 stop_reason = "max_seconds"
@@ -434,9 +1178,17 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
             if not predecessor:
                 rejected["overlap"] += 1
                 continue
+            if args.dedupe_predecessors_before_push:
+                if predecessor in seen_predecessors_before_push:
+                    rejected["duplicate_predecessor_before_push"] += 1
+                    continue
+                seen_predecessors_before_push.add(predecessor)
             predecessor_subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
             if predecessor_subtype not in args.selected_generate_subtypes:
                 rejected["subtype"] += 1
+                continue
+            if args.exclude_stackable_predecessors and sfa.bitmask_stackability_witnesses(predecessor):
+                rejected["stackable_predecessor"] += 1
                 continue
             if not args.allow_non_zero_stack_predecessor and not sfa.top_single_c_zero_stack_candidate(predecessor):
                 rejected["not_zero_stack"] += 1
@@ -474,6 +1226,10 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
             if args.target_removed_crystal_filter and not sfa.bitmask_layer_removal_context(pushed)[1]:
                 rejected["target_removed_crystal"] += 1
                 continue
+            if args.dedupe_targets_before_classify and pushed in seen_targets_for_classification:
+                rejected["duplicate_target_before_classify"] += 1
+                continue
+            seen_targets_for_classification.add(pushed)
             strict_filter_needed = (
                 args.target_strict_verdict != "all"
                 or args.exclude_hybrid_targets
@@ -504,25 +1260,30 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
                 if args.exclude_virtual_corner_targets and "virtual" in reason:
                     rejected["target_virtual_corner"] += 1
                     continue
-            seed = sfa.zero_stack_trace_seed(
-                predecessor,
-                args.generate_layers,
-                allow_terminal_crystal=True,
-            )
-            if seed is None:
-                predecessor_seed_status["missing_zero_stack_seed"] += 1
-                if args.require_seed_stackable:
-                    rejected["missing_zero_stack_seed"] += 1
-                    continue
-            else:
-                seed_current, _seed_base = seed
-                seed_stackable = bool(sfa.bitmask_stackability_witnesses(seed_current))
-                predecessor_seed_status["seed_stackable" if seed_stackable else "seed_nonstackable"] += 1
-                if args.require_seed_stackable and not seed_stackable:
-                    rejected["seed_nonstackable"] += 1
-                    continue
+            if not args.skip_predecessor_details or args.require_seed_stackable:
+                seed = sfa.zero_stack_trace_seed(
+                    predecessor,
+                    args.generate_layers,
+                    allow_terminal_crystal=True,
+                )
+                if seed is None:
+                    predecessor_seed_status["missing_zero_stack_seed"] += 1
+                    if args.require_seed_stackable:
+                        rejected["missing_zero_stack_seed"] += 1
+                        continue
+                else:
+                    seed_current, _seed_base = seed
+                    seed_stackable = bool(sfa.bitmask_stackability_witnesses(seed_current))
+                    predecessor_seed_status["seed_stackable" if seed_stackable else "seed_nonstackable"] += 1
+                    if args.require_seed_stackable and not seed_stackable:
+                        rejected["seed_nonstackable"] += 1
+                        continue
             generated_predecessors.add(predecessor)
             generated_targets.add(pushed)
+            predecessor_push_family = None
+            if args.predecessor_family_summary:
+                predecessor_push_family = _predecessor_push_family(predecessor, pushed)
+                predecessor_push_families[predecessor_push_family] += 1
             if (
                 not args.classify_targets
                 and args.write_list_kernel_verdict == "all"
@@ -532,9 +1293,12 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
                 listed_targets.add(pushed)
                 listed_pairs.add((pushed, predecessor))
             predecessor_subtypes[predecessor_subtype] += 1
-            predecessor_stackability[str(bool(sfa.bitmask_stackability_witnesses(predecessor)))] += 1
+            if not args.skip_predecessor_details:
+                predecessor_stackability[str(bool(sfa.bitmask_stackability_witnesses(predecessor)))] += 1
             if args.classify_targets:
-                if not strict:
+                if args.kernel_only_classify and not strict_filter_needed:
+                    strict, reason = "skipped", "strict_classify_skipped"
+                elif not strict:
                     tick = time.perf_counter()
                     strict, reason = sfa.strict_legacy_verdict_to_symbolic(pushed)
                     timing["strict_classify"] += time.perf_counter() - tick
@@ -553,8 +1317,26 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
                     args.generate_layers,
                     use_generated_predecessor_evidence=args.use_generated_predecessor_evidence,
                     predecessor=predecessor,
+                    cheap_prune_only=args.cheap_prune_only,
                 )
                 timing["kernel_verdict"] += time.perf_counter() - tick
+                if effective_kernel_verdict[0] == "unknown":
+                    residual_target_features[_target_feature(pushed, pushed_swap)] += 1
+                    residual_predecessor_features[_predecessor_feature(predecessor)] += 1
+                    if args.predecessor_family_summary:
+                        residual_predecessor_push_families[
+                            predecessor_push_family or _predecessor_push_family(predecessor, pushed)
+                        ] += 1
+                    if args.classify_residual_full:
+                        tick = time.perf_counter()
+                        effective_kernel_verdict = _kernel_verdict_for_target(
+                            pushed,
+                            args.generate_layers,
+                            use_generated_predecessor_evidence=args.use_generated_predecessor_evidence,
+                            predecessor=predecessor,
+                            cheap_prune_only=False,
+                        )
+                        timing["residual_full_kernel"] += time.perf_counter() - tick
                 predecessor_physics = ""
                 target_kernel_verdicts[effective_kernel_verdict] += 1
                 if (
@@ -568,6 +1350,7 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
                         use_generated_predecessor_evidence=args.use_generated_predecessor_evidence,
                         predecessor=predecessor,
                         use_fast_terminal_rules=False,
+                        cheap_prune_only=args.cheap_prune_only,
                     )
                     timing["fast_terminal_audit"] += time.perf_counter() - tick
                     if slow_kernel_verdict[0] != effective_kernel_verdict[0]:
@@ -586,7 +1369,7 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
                     listed_pairs.add((pushed, predecessor))
                 capture_reasons = set(args.capture_kernel_reason)
                 if strict in set(args.capture_verdict) or effective_kernel_verdict[1] in capture_reasons:
-                    if len(selected_records) < args.max_capture:
+                    if args.write_all_captures or len(selected_records) < args.max_capture:
                         seed = sfa.zero_stack_trace_seed(
                             predecessor,
                             args.generate_layers,
@@ -662,20 +1445,8 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
                             f"kernel={effective_kernel_verdict[0]}/{effective_kernel_verdict[1]}\t"
                             f"T={pushed}\tA={predecessor}"
                         )
-            p_parts = predecessor.split(":") if predecessor else []
-            t_parts = pushed.split(":") if pushed else []
-            predecessor_features[(
-                f"layers={len(p_parts)}",
-                f"top={p_parts[-1] if p_parts else '----'}",
-                f"swap={sfa.bitmask_swap_impossibility(predecessor) or 'swappable'}",
-            )] += 1
-            target_features[(
-                f"layers={len(t_parts)}",
-                f"first={t_parts[0] if t_parts else '----'}",
-                f"top={t_parts[-1] if t_parts else '----'}",
-                f"swap={pushed_swap}",
-                f"removal={sfa.bitmask_layer_removal_context(pushed)[:3]}",
-            )] += 1
+            predecessor_features[_predecessor_feature(predecessor)] += 1
+            target_features[_target_feature(pushed, pushed_swap)] += 1
         if args.max_raw_tests and tested_raw >= args.max_raw_tests:
             break
 
@@ -717,6 +1488,10 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
     print("predecessor_features:")
     for key, count in predecessor_features.most_common(args.top):
         print(f"  {key}: {count}")
+    if args.predecessor_family_summary:
+        print("predecessor_push_families:")
+        for key, count in predecessor_push_families.most_common(args.top):
+            print(f"  {key}: {count}")
     print("predecessor_subtypes:")
     for key, count in predecessor_subtypes.most_common(args.top):
         print(f"  {key}: {count}")
@@ -737,6 +1512,18 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
         print("target_kernel_verdicts:")
         for key, count in target_kernel_verdicts.most_common(args.top):
             print(f"  {key}: {count}")
+        if residual_target_features:
+            print("residual_target_features:")
+            for key, count in residual_target_features.most_common(args.top):
+                print(f"  {key}: {count}")
+        if residual_predecessor_features:
+            print("residual_predecessor_features:")
+            for key, count in residual_predecessor_features.most_common(args.top):
+                print(f"  {key}: {count}")
+        if args.predecessor_family_summary and residual_predecessor_push_families:
+            print("residual_predecessor_push_families:")
+            for key, count in residual_predecessor_push_families.most_common(args.top):
+                print(f"  {key}: {count}")
         if args.audit_fast_terminal_rules:
             print(f"fast_terminal_audit_mismatches={fast_terminal_audit_mismatches}")
             if fast_terminal_audit_samples:
@@ -819,6 +1606,8 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
             "rejected": dict(rejected),
             "target_verdicts": {repr(key): count for key, count in target_verdicts.items()},
             "target_kernel_verdicts": {repr(key): count for key, count in target_kernel_verdicts.items()},
+            "residual_target_features": {repr(key): count for key, count in residual_target_features.items()},
+            "residual_predecessor_features": {repr(key): count for key, count in residual_predecessor_features.items()},
             "candidate_source_hits": dict(candidate_source_hits),
             "predecessor_subtypes": dict(predecessor_subtypes),
             "predecessor_stackability": dict(predecessor_stackability),
@@ -977,8 +1766,15 @@ def main() -> int:
     parser.add_argument("--target-top-layer", default="")
     parser.add_argument("--target-swap-mode", choices=("", "swappable", "swap_12_34_blocked", "swap_14_23_blocked", "swap_both_blocked"), default="")
     parser.add_argument("--require-seed-stackable", action="store_true")
+    parser.add_argument("--exclude-stackable-predecessors", action="store_true")
+    parser.add_argument("--skip-predecessor-details", action="store_true")
     parser.add_argument("--top", type=int, default=16)
     parser.add_argument("--classify-targets", action="store_true")
+    parser.add_argument("--kernel-only-classify", action="store_true")
+    parser.add_argument("--dedupe-predecessors-before-push", action="store_true")
+    parser.add_argument("--dedupe-targets-before-classify", action="store_true")
+    parser.add_argument("--cheap-prune-only", action="store_true")
+    parser.add_argument("--classify-residual-full", action="store_true")
     parser.add_argument("--fail-on-kernel-unknown", action="store_true")
     parser.add_argument("--fail-on-kernel-legacy-fallback", action="store_true")
     parser.add_argument("--fail-on-truncated", action="store_true")
@@ -993,6 +1789,7 @@ def main() -> int:
     parser.add_argument("--max-capture", type=int, default=20)
     parser.add_argument("--max-capture-witnesses", type=int, default=4)
     parser.add_argument("--write-captured", type=Path)
+    parser.add_argument("--write-all-captures", action="store_true")
     parser.add_argument("--write-targets", type=Path)
     parser.add_argument("--write-predecessors", type=Path)
     parser.add_argument("--write-pairs", type=Path)
@@ -1004,6 +1801,18 @@ def main() -> int:
     parser.add_argument("--write-training-cache", type=Path)
     parser.add_argument("--replay-captured", type=Path, action="append", default=[])
     parser.add_argument("--replay-captured-glob", action="append", default=[])
+    parser.add_argument("--estimate-generation-space", action="store_true")
+    parser.add_argument("--pp-essential-profile", action="store_true")
+    parser.add_argument("--frontier-signature-profile", action="store_true")
+    parser.add_argument("--frontier-data-profile", action="store_true")
+    parser.add_argument("--predecessor-frontier-data-profile", action="store_true")
+    parser.add_argument("--predecessor-family-data-profile", action="store_true")
+    parser.add_argument("--predecessor-family-summary", action="store_true")
+    parser.add_argument("--frontier-base-layers", type=int, default=0)
+    parser.add_argument("--frontier-signature-mode", choices=("exact", "classes", "mask_counts", "counts"), default="exact")
+    parser.add_argument("--high-layer-pp-smoke", default="", help="Comma-separated generated layer counts, e.g. 20,50,100.")
+    parser.add_argument("--smoke-abstract-sequences", type=int, default=5)
+    parser.add_argument("--smoke-raw-tests", type=int, default=12)
     args = parser.parse_args()
     args.selected_train_subtypes = _selected_subtypes(args.train_subtypes)
     args.selected_generate_subtypes = _selected_subtypes(args.generate_subtypes or args.train_subtypes)
@@ -1022,6 +1831,20 @@ def main() -> int:
         sfa.bitmask_relative_high_tail_inverse_push_pin_candidates = lambda code, layers: ()
     if args.replay_captured or args.replay_captured_glob:
         return replay_captured(args)
+    if args.estimate_generation_space:
+        return estimate_generation_space(args)
+    if args.pp_essential_profile:
+        return sample_pp_essential_profile(args)
+    if args.frontier_signature_profile:
+        return frontier_signature_profile(args)
+    if args.frontier_data_profile:
+        return frontier_data_profile(args)
+    if args.predecessor_frontier_data_profile:
+        return predecessor_frontier_data_profile(args)
+    if args.predecessor_family_data_profile:
+        return predecessor_family_data_profile(args)
+    if args.high_layer_pp_smoke:
+        return high_layer_pp_smoke(args)
     if args.seed_count <= 1:
         return generate(args)
     exit_code = 0

@@ -4562,6 +4562,50 @@ def claw_obvious_unstable_predecessor_core_verdict(code: str, layers: int) -> tu
             if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
                 suffix = "" if turns == 0 else f"_rot{turns}"
                 return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        if (
+            len(parts) >= 6
+            and parts[0] == "-PPP"
+            and parts[-3] == "--cS"
+            and parts[-2] in {"S--S", "S--c"}
+            and parts[-1] == "--Sc"
+        ):
+            predecessor = normalize_code(":".join(parts[1:-3] + ["-PcS", "Sc-" + parts[-2][3], "-cSc", "-c--"]))
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        if (
+            len(parts) >= 6
+            and parts[0] == "P-PP"
+            and parts[-3] == "--Sc"
+            and parts[-2] == "-Sc-"
+            and parts[-1] == "--cS"
+        ):
+            predecessor = normalize_code(":".join(parts[1:-3] + ["P-Sc", "cSc-", "c-cS", "c---"]))
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        if (
+            len(parts) >= 6
+            and parts[0] == "P-PP"
+            and parts[-3] == "-SSc"
+            and parts[-2] == "Scc-"
+            and parts[-1] == "--cS"
+        ):
+            predecessor = normalize_code(":".join(parts[1:-3] + ["PSSc", "Scc-", "c-cS", "c---"]))
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        if (
+            len(parts) >= 6
+            and parts[0] == "P-PP"
+            and parts[-3] == "-Scc"
+            and parts[-2] == "---c"
+            and parts[-1] == "S-Sc"
+        ):
+            predecessor = normalize_code(":".join(parts[1:-3] + ["PScc", "-c-c", "ScSc", "-c--"]))
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
         rotated = bitmask_rotate_clockwise(rotated)
     return None
 
@@ -4616,6 +4660,88 @@ def claw_terminal_s_sc_core_verdict(code: str, layers: int) -> tuple[str, str] |
     return None
 
 
+CLAW_FRONTIER_INVALID_TAIL_PATTERNS = (
+    (
+        frozenset({"-PPP"}),
+        ((-3, frozenset({"S-Sc", "S-Pc"})), (-2, frozenset({"S--P", "S---"})), (-1, frozenset({"cS--", "cS-S"}))),
+    ),
+    (
+        frozenset({"-PPP"}),
+        ((-4, frozenset({"--Pc", "--Sc"})), (-3, frozenset({"---S"})), (-2, frozenset({"SS-S"})), (-1, frozenset({"cS--", "cP--"}))),
+    ),
+    (
+        frozenset({"-PPP"}),
+        ((-3, frozenset({"S-Pc", "S-Sc"})), (-2, frozenset({"--S-"})), (-1, frozenset({"-ScS", "-PcS"}))),
+    ),
+    (
+        frozenset({"-PPP"}),
+        ((-3, frozenset({"S-Sc", "S-Pc"})), (-2, frozenset({"--c-"})), (-1, frozenset({"--cS", "--cP"}))),
+    ),
+    (
+        frozenset({"-PPP", "-SPP"}),
+        ((-4, frozenset({"--Pc", "--Sc"})), (-3, frozenset({"--PP", "--PS", "--SS"})), (-2, frozenset({"-ScS", "-ScP"})), (-1, frozenset({"Sc--"}))),
+    ),
+)
+
+
+CLAW_TERMINAL_SSS_SIDE_INVALID_TAIL_PATTERNS = (
+    (
+        "reason",
+        frozenset({"P-PP"}),
+        ((-4, frozenset({"--Pc", "--Sc"})), (-3, frozenset({"-SSS", "-SSP"})), (-2, frozenset({"--S-"})), (-1, frozenset({"ScS-"}))),
+    ),
+    (
+        "core",
+        frozenset({"P-PP"}),
+        ((-3, frozenset({"--Sc"})), (-2, frozenset({"-SS-"})), (-1, frozenset({"-ScS", "-PcS"}))),
+    ),
+    (
+        "reason",
+        frozenset({"P-PP"}),
+        ((-3, frozenset({"--Sc"})), (-2, frozenset({"--c-"})), (-1, frozenset({"-ScS", "-PcS"}))),
+    ),
+    (
+        "reason",
+        frozenset({"P-PP"}),
+        ((-3, frozenset({"-ScS", "-ScP"})), (-2, frozenset({"-c-S", "-cPS"})), (-1, frozenset({"ScS-", "Sc--"}))),
+    ),
+    (
+        "reason",
+        frozenset({"P-PP"}),
+        ((-3, frozenset({"--S-"})), (-2, frozenset({"-SS-"})), (-1, frozenset({"-ScS", "-PcS"}))),
+    ),
+    (
+        "reason",
+        frozenset({"P-PP"}),
+        ((-3, frozenset({"--Sc"})), (-2, frozenset({"--S-"})), (-1, frozenset({"-ScS"}))),
+    ),
+    (
+        "reason",
+        frozenset({"P-PP"}),
+        ((-3, frozenset({"--Sc"})), (-2, frozenset({"-ScS", "-ScP"})), (-1, frozenset({"Sc--"}))),
+    ),
+    (
+        "reason",
+        frozenset({"PSPP", "SSPP"}),
+        ((-4, frozenset({"--Pc", "--Sc"})), (-3, frozenset({"--PS"})), (-2, frozenset({"--S-"})), (-1, frozenset({"ScS-"}))),
+    ),
+    (
+        "reason",
+        frozenset({"PPPP"}),
+        ((-3, frozenset({"--Sc"})), (-2, frozenset({"--S-"})), (-1, frozenset({"-ScS", "-PcS"}))),
+    ),
+    (
+        "reason",
+        frozenset({"-SPP"}),
+        ((-3, frozenset({"--PP"})), (-2, frozenset({"--cS", "--cP"})), (-1, frozenset({"ScS-"}))),
+    ),
+)
+
+
+def _matches_tail_pattern(parts: list[str], layers: int, first_layers: frozenset[str], checks) -> bool:
+    return len(parts) == layers and parts[0] in first_layers and all(parts[index] in allowed for index, allowed in checks)
+
+
 @lru_cache(maxsize=100_000)
 def claw_frontier_tail_invalid_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
     normalized = normalize_code(code)
@@ -4624,47 +4750,9 @@ def claw_frontier_tail_invalid_predecessor_core_verdict(code: str, layers: int) 
     rotated = normalized
     for turns in range(4):
         parts = rotated.split(":")
-        if (
-            len(parts) == layers
-            and parts[0] == "-PPP"
-            and parts[-3] in {"S-Sc", "S-Pc"}
-            and parts[-2] in {"S--P", "S---"}
-            and parts[-1] in {"cS--", "cS-S"}
-        ):
-            verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
-            if verdict is not None and verdict[0] == "impossible":
-                suffix = "" if turns == 0 else f"_rot{turns}"
-                return "impossible", f"kernel_claw_frontier_tail_invalid_predecessor{suffix}"
-        if (
-            len(parts) == layers
-            and parts[0] == "-PPP"
-            and parts[-4] in {"--Pc", "--Sc"}
-            and parts[-3] == "---S"
-            and parts[-2] == "SS-S"
-            and parts[-1] in {"cS--", "cP--"}
-        ):
-            verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
-            if verdict is not None and verdict[0] == "impossible":
-                suffix = "" if turns == 0 else f"_rot{turns}"
-                return "impossible", f"kernel_claw_frontier_tail_invalid_predecessor{suffix}"
-        if (
-            len(parts) == layers
-            and parts[0] == "-PPP"
-            and parts[-3] in {"S-Pc", "S-Sc"}
-            and parts[-2] == "--S-"
-            and parts[-1] in {"-ScS", "-PcS"}
-        ):
-            verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
-            if verdict is not None and verdict[0] == "impossible":
-                suffix = "" if turns == 0 else f"_rot{turns}"
-                return "impossible", f"kernel_claw_frontier_tail_invalid_predecessor{suffix}"
-        if (
-            len(parts) == layers
-            and parts[0] == "-PPP"
-            and parts[-3] in {"S-Sc", "S-Pc"}
-            and parts[-2] == "--c-"
-            and parts[-1] in {"--cS", "--cP"}
-        ):
+        for first_layers, checks in CLAW_FRONTIER_INVALID_TAIL_PATTERNS:
+            if not _matches_tail_pattern(parts, layers, first_layers, checks):
+                continue
             verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
             if verdict is not None and verdict[0] == "impossible":
                 suffix = "" if turns == 0 else f"_rot{turns}"
@@ -4696,61 +4784,15 @@ def claw_terminal_sss_side_invalid_predecessor_core_verdict(code: str, layers: i
             if reason is not None:
                 suffix = "" if turns == 0 else f"_rot{turns}"
                 return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
-        if (
-            len(parts) == layers
-            and parts[0] == "P-PP"
-            and parts[-4] in {"--Pc", "--Sc"}
-            and parts[-3] in {"-SSS", "-SSP"}
-            and parts[-2] == "--S-"
-            and parts[-1] == "ScS-"
-        ):
-            reason = claw_unstable_predecessor_candidate_reason(rotated, layers)
-            if reason is not None:
-                suffix = "" if turns == 0 else f"_rot{turns}"
-                return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
-        if (
-            len(parts) == layers
-            and parts[0] == "P-PP"
-            and parts[-3] == "--Sc"
-            and parts[-2] == "-SS-"
-            and parts[-1] in {"-ScS", "-PcS"}
-        ):
-            verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
-            if verdict is not None and verdict[0] == "impossible":
-                suffix = "" if turns == 0 else f"_rot{turns}"
-                return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
-        if (
-            len(parts) == layers
-            and parts[0] == "P-PP"
-            and parts[-3] == "--Sc"
-            and parts[-2] == "--c-"
-            and parts[-1] in {"-ScS", "-PcS"}
-        ):
-            reason = claw_unstable_predecessor_candidate_reason(rotated, layers)
-            if reason is not None:
-                suffix = "" if turns == 0 else f"_rot{turns}"
-                return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
-        if (
-            len(parts) == layers
-            and parts[0] in {"PSPP", "SSPP"}
-            and parts[-4] in {"--Pc", "--Sc"}
-            and parts[-3] == "--PS"
-            and parts[-2] == "--S-"
-            and parts[-1] == "ScS-"
-        ):
-            reason = claw_unstable_predecessor_candidate_reason(rotated, layers)
-            if reason is not None:
-                suffix = "" if turns == 0 else f"_rot{turns}"
-                return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
-        if (
-            len(parts) == layers
-            and parts[0] == "-SPP"
-            and parts[-3] == "--PP"
-            and parts[-2] in {"--cS", "--cP"}
-            and parts[-1] == "ScS-"
-        ):
-            reason = claw_unstable_predecessor_candidate_reason(rotated, layers)
-            if reason is not None:
+        for mode, first_layers, checks in CLAW_TERMINAL_SSS_SIDE_INVALID_TAIL_PATTERNS:
+            if not _matches_tail_pattern(parts, layers, first_layers, checks):
+                continue
+            if mode == "core":
+                verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
+                matched = verdict is not None and verdict[0] == "impossible"
+            else:
+                matched = claw_unstable_predecessor_candidate_reason(rotated, layers) is not None
+            if matched:
                 suffix = "" if turns == 0 else f"_rot{turns}"
                 return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
         rotated = bitmask_rotate_clockwise(rotated)
@@ -4870,6 +4912,41 @@ def claw_terminal_scs_tail_predecessor_witness(code: str, layers: int) -> str | 
 
 
 @lru_cache(maxsize=100_000)
+def claw_terminal_scpp_tail_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    if layers < 6 or not normalized:
+        return None
+    rotated = normalized
+    for turns in range(4):
+        parts = rotated.split(":")
+        if (
+            len(parts) == layers
+            and parts[0] == "--PP"
+            and parts[-3] in {"-ScS", "-ScP"}
+            and parts[-2] in {"ScPP", "ScP-"}
+            and parts[-1] == "-c--"
+        ):
+            tails = []
+            if parts[-2] == "ScPP":
+                tails.append((parts[-3], "ScPP", "-c-c", "---c", True))
+            else:
+                tails.append((parts[-3], "ScPc", "-c-c", "---c", True))
+                tails.append((parts[-3], "Sc-c", "-cPc", "---c", False))
+            for tail0, tail1, tail2, tail3, require_stable in tails:
+                predecessor = normalize_code(":".join(parts[1:-3] + [tail0, tail1, tail2, tail3]))
+                restored = _rotate_code_text(predecessor, -turns) if turns else predecessor
+                if require_stable and not bitmask_physics_stable(restored):
+                    continue
+                if (
+                    bitmask_push_pin(restored, layers) == normalized
+                    and claw_change_rule_predecessor_is_explainable(restored, layers)
+                ):
+                    return restored
+        rotated = bitmask_rotate_clockwise(rotated)
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def claw_change_rule_predecessor_witness(code: str, layers: int) -> str | None:
     normalized = normalize_code(code)
     if not normalized:
@@ -4890,6 +4967,10 @@ def claw_change_rule_predecessor_witness(code: str, layers: int) -> str | None:
     scs_tail = claw_terminal_scs_tail_predecessor_witness(normalized, layers)
     if scs_tail is not None:
         return scs_tail
+
+    scpp_tail = claw_terminal_scpp_tail_predecessor_witness(normalized, layers)
+    if scpp_tail is not None:
+        return scpp_tail
 
     first = bitmask_claw_delta_grammar_first_inverse_push_pin_candidate(normalized, layers)
     if first is not None and claw_change_rule_predecessor_is_explainable(first, layers):
@@ -5038,6 +5119,39 @@ def claw_bottom_pin_stable_predecessor_probe(code: str, layers: int) -> str | No
             continue
         if bitmask_push_pin(predecessor, layers) == normalized:
             return predecessor
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def claw_terminal_connected_pp_predecessor_witness(code: str, layers: int) -> str | None:
+    if layers < 6:
+        return None
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if len(parts) != layers or len(parts) < 6 or parts[0] != "P-PP":
+        return None
+    predecessor: str | None = None
+    if parts[-3:] == ["--S-", "--S-", "-ScS"]:
+        predecessor = normalize_code(":".join(parts[1:-3] + ["P-Sc", "c-Sc", "cScS", "c---"]))
+    elif parts[-3:] == ["--S-", "-SS-", "--cS"]:
+        predecessor = normalize_code(":".join(parts[1:-3] + ["P-Sc", "cSSc", "c-cS", "c---"]))
+    if predecessor is None:
+        return None
+    if bitmask_push_pin(predecessor, layers) != normalized:
+        return None
+    if not claw_change_rule_predecessor_is_explainable(predecessor, layers):
+        return None
+    return predecessor
+
+
+@lru_cache(maxsize=100_000)
+def claw_terminal_connected_pp_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    rotated = normalize_code(code)
+    for turns in range(4):
+        if claw_terminal_connected_pp_predecessor_witness(rotated, layers) is not None:
+            suffix = "" if turns == 0 else f"_rot{turns}"
+            return "possible", f"kernel_claw_terminal_connected_pp_predecessor{suffix}"
+        rotated = bitmask_rotate_clockwise(rotated)
     return None
 
 
