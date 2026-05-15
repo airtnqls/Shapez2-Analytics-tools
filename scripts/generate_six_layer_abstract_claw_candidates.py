@@ -1462,6 +1462,7 @@ def high_layer_pp_smoke(args: argparse.Namespace) -> int:
     training_time = time.perf_counter() - started
     print("shared_training=True")
     print(f"shared_training_time={training_time:.6f}s")
+    smoke_summaries = []
     for index, layers_value in enumerate(layers):
         smoke_args = copy.copy(args)
         smoke_args.generate_layers = layers_value
@@ -1491,6 +1492,16 @@ def high_layer_pp_smoke(args: argparse.Namespace) -> int:
         pretrained = (records, abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated)
         print(f"=== high_layer_pp_smoke layers={layers_value} seed={smoke_args.seed} ===")
         exit_code = max(exit_code, generate(smoke_args, pretrained=pretrained))
+        smoke_summaries.append(getattr(smoke_args, "_last_generate_summary", {}))
+    if smoke_summaries:
+        print("high_layer_pp_smoke_summary:")
+        print(f"  layers={','.join(str(item.get('layers', '?')) for item in smoke_summaries)}")
+        print(f"  tested_raw={sum(item.get('tested_raw', 0) for item in smoke_summaries)}")
+        print(f"  generated_targets={sum(item.get('generated_targets', 0) for item in smoke_summaries)}")
+        print(f"  kernel_unknown={sum(item.get('kernel_unknown', 0) for item in smoke_summaries)}")
+        print(f"  kernel_legacy_fallback={sum(item.get('kernel_legacy_fallback', 0) for item in smoke_summaries)}")
+        stop_reasons = Counter(item.get("stop_reason", "missing") for item in smoke_summaries)
+        print(f"  stop_reasons={dict(sorted(stop_reasons.items()))}")
     return exit_code
 
 
@@ -2001,21 +2012,37 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
         args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
         args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"summary_written={args.write_summary_json}")
-    if args.classify_targets and args.fail_on_kernel_unknown:
+    kernel_unknown = 0
+    kernel_legacy_fallback = 0
+    if args.classify_targets:
         kernel_unknown = sum(
             count
             for (verdict, _reason), count in target_kernel_verdicts.items()
             if verdict == "unknown"
         )
-        print(f"kernel_unknown_failures={kernel_unknown}")
-        if kernel_unknown:
-            return 1
-    if args.classify_targets and args.fail_on_kernel_legacy_fallback:
         kernel_legacy_fallback = sum(
             count
             for (_verdict, reason), count in target_kernel_verdicts.items()
             if reason.startswith("fallback_legacy_core_")
         )
+    setattr(
+        args,
+        "_last_generate_summary",
+        {
+            "layers": args.generate_layers,
+            "tested_raw": tested_raw,
+            "generated_predecessors": len(generated_predecessors),
+            "generated_targets": len(generated_targets),
+            "kernel_unknown": kernel_unknown,
+            "kernel_legacy_fallback": kernel_legacy_fallback,
+            "stop_reason": stop_reason,
+        },
+    )
+    if args.classify_targets and args.fail_on_kernel_unknown:
+        print(f"kernel_unknown_failures={kernel_unknown}")
+        if kernel_unknown:
+            return 1
+    if args.classify_targets and args.fail_on_kernel_legacy_fallback:
         print(f"kernel_legacy_fallback_failures={kernel_legacy_fallback}")
         if kernel_legacy_fallback:
             return 1
