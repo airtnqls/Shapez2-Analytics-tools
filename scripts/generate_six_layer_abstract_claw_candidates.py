@@ -1470,11 +1470,12 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
 def high_layer_pp_smoke(args: argparse.Namespace) -> int:
     exit_code = 0
     layers = [int(part.strip()) for part in args.high_layer_pp_smoke.split(",") if part.strip()]
-    started = time.perf_counter()
-    records, abstract_ngrams, raw_by_abstract, raw_pair_counts = _train(args)
-    training_time = time.perf_counter() - started
+    pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    records, abstract_ngrams, raw_by_abstract, raw_pair_counts, _abstract_sequences_base, _abstract_truncated_base = pretrained
     print("shared_training=True")
+    print(f"shared_training_cache_hit={training_cache_hit}")
     print(f"shared_training_time={training_time:.6f}s")
+    print(f"shared_sequence_time={sequence_time:.6f}s")
     smoke_summaries = []
     for index, layers_value in enumerate(layers):
         smoke_args = copy.copy(args)
