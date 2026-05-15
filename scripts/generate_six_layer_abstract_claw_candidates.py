@@ -1118,17 +1118,88 @@ def _load_predecessor_families(data: Path, layers: int, mode: str) -> set[tuple[
     return families
 
 
+def _sample_generated_predecessor_families(
+    args: argparse.Namespace,
+    pretrained,
+    *,
+    layers: int,
+) -> tuple[set[tuple[object, ...]], Counter[str]]:
+    rng = random.Random(args.seed + 100_003 * layers)
+    _records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, _abstract_truncated = pretrained
+    abstract_sequences = list(abstract_sequences)
+    if args.shuffle:
+        rng.shuffle(abstract_sequences)
+    max_raw_tests = args.generated_base_raw_tests or args.max_raw_tests
+    tested_raw = 0
+    seen_predecessors: set[str] = set()
+    seen_targets: set[str] = set()
+    families: set[tuple[object, ...]] = set()
+    stats = Counter()
+    for abstract_sequence in abstract_sequences:
+        raw_sequences = _iter_raw_sequences_for(
+            abstract_sequence,
+            raw_by_abstract,
+            raw_pair_counts,
+            args.max_raw_per_layer,
+            rng,
+        )
+        for raw_sequence in raw_sequences:
+            if max_raw_tests and tested_raw >= max_raw_tests:
+                stats["max_raw_tests"] += 1
+                return families, stats
+            tested_raw += 1
+            predecessor = _predecessor_from_sequence(raw_sequence)
+            if not predecessor:
+                stats["overlap"] += 1
+                continue
+            if args.dedupe_predecessors_before_push and predecessor in seen_predecessors:
+                stats["duplicate_predecessor"] += 1
+                continue
+            seen_predecessors.add(predecessor)
+            subtype = sfa.pp_subtype_candidate(predecessor, layers).subtype
+            if subtype not in args.selected_generate_subtypes:
+                stats["subtype"] += 1
+                continue
+            if args.exclude_stackable_predecessors and sfa.bitmask_stackability_witnesses(predecessor):
+                stats["stackable_predecessor"] += 1
+                continue
+            if not args.allow_non_zero_stack_predecessor and not sfa.top_single_c_zero_stack_candidate(predecessor):
+                stats["not_zero_stack"] += 1
+                continue
+            pushed = sfa.bitmask_push_pin(predecessor, layers)
+            if not pushed:
+                stats["empty_push"] += 1
+                continue
+            if len(pushed.split(":")) != layers:
+                stats["target_layer_count"] += 1
+                continue
+            if args.dedupe_targets_before_classify and pushed in seen_targets:
+                stats["duplicate_target"] += 1
+                continue
+            seen_targets.add(pushed)
+            families.add(_predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode))
+    return families, stats
+
+
 def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None) -> int:
     started = time.perf_counter()
     rng = random.Random(args.seed)
     base_layers = args.frontier_base_layers or args.train_layers
-    base_families = _load_predecessor_families(args.data, base_layers, args.predecessor_family_mode)
     if pretrained is None:
         pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
     else:
         training_time = 0.0
         sequence_time = 0.0
         training_cache_hit = False
+    base_families = _load_predecessor_families(args.data, base_layers, args.predecessor_family_mode)
+    generated_base_stats = Counter()
+    if args.generated_base_layers:
+        generated_base_families, generated_base_stats = _sample_generated_predecessor_families(
+            args,
+            pretrained,
+            layers=args.generated_base_layers,
+        )
+        base_families.update(generated_base_families)
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
     abstract_sequences = list(abstract_sequences)
     if args.shuffle:
@@ -1227,6 +1298,12 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     print(f"family_mode={args.predecessor_family_mode}")
     print(f"base_layers={base_layers}")
     print(f"base_families={len(base_families)}")
+    if args.generated_base_layers:
+        print(f"generated_base_layers={args.generated_base_layers}")
+        print(f"generated_base_raw_tests={args.generated_base_raw_tests or args.max_raw_tests}")
+        print("generated_base_rejected:")
+        for key, count in generated_base_stats.most_common(args.top):
+            print(f"  {key}: {count}")
     print(f"generate_layers={args.generate_layers}")
     print(f"records={records}")
     print(f"abstract_sequences={len(abstract_sequences)}")
@@ -2018,6 +2095,8 @@ def main() -> int:
     parser.add_argument("--predecessor-family-summary", action="store_true")
     parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact"), default="coarse")
     parser.add_argument("--classify-new-family-candidates", action="store_true")
+    parser.add_argument("--generated-base-layers", type=int, default=0)
+    parser.add_argument("--generated-base-raw-tests", type=int, default=0)
     parser.add_argument("--frontier-base-layers", type=int, default=0)
     parser.add_argument("--frontier-signature-mode", choices=("exact", "classes", "mask_counts", "counts"), default="exact")
     parser.add_argument("--high-layer-pp-smoke", default="", help="Comma-separated generated layer counts, e.g. 20,50,100.")
