@@ -1437,6 +1437,20 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         print(f"new_family_kernel_legacy_fallback_failures={legacy_fallback}")
         if legacy_fallback:
             return 1
+    setattr(
+        args,
+        "_last_predecessor_new_family_summary",
+        {
+            "seed": args.seed,
+            "tested_raw": tested_raw,
+            "generated_targets": len(generated_targets),
+            "new_family_count": len(new_family_counts),
+            "new_targets": len(new_targets),
+            "stop_reason": stop_reason,
+            "generated_base_cache_hit": generated_base_cache_hit,
+            "generated_base_added_families": generated_base_added_count,
+        },
+    )
     return 0
 
 
@@ -2222,6 +2236,7 @@ def main() -> int:
         print(f"shared_training_cache_hit={training_cache_hit}")
         print(f"shared_training_time={training_time:.6f}s")
         print(f"shared_sequence_time={sequence_time:.6f}s")
+        seed_summaries = []
         for offset in range(args.seed_count):
             args.seed = base_seed + offset
             if base_write_targets is not None:
@@ -2234,6 +2249,20 @@ def main() -> int:
                 )
             print(f"=== seed={args.seed} ===")
             exit_code = max(exit_code, predecessor_new_family_candidates(args, pretrained=pretrained))
+            seed_summaries.append(getattr(args, "_last_predecessor_new_family_summary", {}))
+        if seed_summaries:
+            print("seed_count_summary:")
+            print(f"  seeds={len(seed_summaries)}")
+            print(f"  tested_raw={sum(item.get('tested_raw', 0) for item in seed_summaries)}")
+            print(f"  generated_targets={sum(item.get('generated_targets', 0) for item in seed_summaries)}")
+            print(f"  max_new_family_count={max(item.get('new_family_count', 0) for item in seed_summaries)}")
+            print(f"  new_targets={sum(item.get('new_targets', 0) for item in seed_summaries)}")
+            print(
+                "  generated_base_cache_hits="
+                f"{sum(1 for item in seed_summaries if item.get('generated_base_cache_hit'))}"
+            )
+            stop_reasons = Counter(item.get("stop_reason", "missing") for item in seed_summaries)
+            print(f"  stop_reasons={dict(sorted(stop_reasons.items()))}")
         return exit_code
     if args.high_layer_pp_smoke:
         return high_layer_pp_smoke(args)
