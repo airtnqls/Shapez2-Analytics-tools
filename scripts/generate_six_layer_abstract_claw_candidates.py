@@ -671,6 +671,8 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
     zero_ngram_counts: Counter[tuple[int, int, tuple[str, ...]]] = Counter()
     pass_ngram_counts: Counter[tuple[int, int, tuple[str, ...]]] = Counter()
     raw_reject_counts = Counter()
+    reject_predecessor_features: defaultdict[str, Counter[tuple[str, ...]]] = defaultdict(Counter)
+    pass_predecessor_features: Counter[tuple[str, ...]] = Counter()
     raw_pass = 0
     examples: list[str] = []
     stop_reason = "exhausted"
@@ -702,7 +704,9 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
             predecessor = _predecessor_from_sequence(raw_sequence)
             if not predecessor:
                 reason = "overlap"
+                predecessor_feature = ("missing",)
             else:
+                predecessor_feature = _predecessor_feature(predecessor)
                 subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
                 if subtype not in args.selected_generate_subtypes:
                     reason = "subtype"
@@ -728,8 +732,10 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
             if reason == "pass":
                 raw_pass += 1
                 sequence_pass += 1
+                pass_predecessor_features[predecessor_feature] += 1
             else:
                 raw_reject_counts[reason] += 1
+                reject_predecessor_features[reason][predecessor_feature] += 1
                 sequence_reject[reason] += 1
         if sequence_total:
             signature = tuple("|".join(pair) for pair in abstract_sequence)
@@ -774,6 +780,17 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
     print("raw_reject_counts:")
     for key, count in raw_reject_counts.most_common(args.top):
         print(f"  {key}: {count}")
+    if pass_predecessor_features:
+        print("pass_predecessor_features:")
+        for key, count in pass_predecessor_features.most_common(args.top):
+            print(f"  {count}\t{key}")
+    if reject_predecessor_features:
+        print("reject_predecessor_features:")
+        for reason, counter in sorted(reject_predecessor_features.items()):
+            print(f"  reason={reason}")
+            for key, count in counter.most_common(min(args.top, 8)):
+                pass_count = pass_predecessor_features.get(key, 0)
+                print(f"    {count}\tpass={pass_count}\t{key}")
     if examples:
         print("zero_pass_sequence_samples:")
         for sample in examples:
@@ -819,6 +836,13 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
             "zero_pass_sequences": zero_pass_sequences,
             "any_pass_sequences": any_pass_sequences,
             "raw_reject_counts": dict(raw_reject_counts),
+            "pass_predecessor_features": {
+                repr(key): count for key, count in pass_predecessor_features.most_common(args.max_capture)
+            },
+            "reject_predecessor_features": {
+                reason: {repr(key): count for key, count in counter.most_common(args.max_capture)}
+                for reason, counter in reject_predecessor_features.items()
+            },
             "exclusive_zero_ngrams": [
                 {"key": repr(key), "count": count}
                 for key, count in exclusive_zero_ngrams[: args.max_capture]
