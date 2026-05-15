@@ -4652,6 +4652,50 @@ def claw_obvious_unstable_predecessor_core_verdict(code: str, layers: int) -> tu
             if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
                 suffix = "" if turns == 0 else f"_rot{turns}"
                 return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        if (
+            len(parts) >= 6
+            and parts[0] == "SPPP"
+            and parts[1] == "P-cP"
+            and parts[2] == "--SP"
+            and parts[3] == "--cc"
+            and parts[-1] == "Sc--"
+        ):
+            predecessor = normalize_code(
+                ":".join(["--cP", "S-SP", "PPcc"] + parts[4:-1] + ["Sc-c", "---c"])
+            )
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        if (
+            len(parts) >= 6
+            and parts[0] == "SSPP"
+            and parts[2] == "--PP"
+            and parts[3] == "cc-S"
+            and parts[4][0] in {"S", "P"}
+            and parts[4][1:] in {"c-S", "c-P"}
+            and parts[-1] == "-P--"
+        ):
+            predecessor = normalize_code(
+                ":".join([parts[1], "SSPP", "cc-S", parts[4][:2] + "--", "cPc" + parts[4][3]] + parts[5:-1] + ["c---"])
+            )
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        if (
+            len(parts) >= 6
+            and parts[0] == "PSPP"
+            and parts[1] == "-PPc"
+            and parts[2] == "--Pc"
+            and parts[3] == "--P-"
+            and parts[4] == "S-cS"
+            and parts[-1] == "--c-"
+        ):
+            predecessor = normalize_code(
+                ":".join(["--Pc", "PSPc", "ccP-", "S-cS"] + parts[5:-1] + ["cPc-", "c---"])
+            )
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
         rotated = bitmask_rotate_clockwise(rotated)
     return None
 

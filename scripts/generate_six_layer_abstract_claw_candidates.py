@@ -1345,6 +1345,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     new_family_verdicts_by_family: defaultdict[tuple[object, ...], Counter[tuple[str, str]]] = defaultdict(Counter)
     rejected = Counter()
     new_samples: list[str] = []
+    new_unknown_records: list[dict[str, object]] = []
     stop_reason = "exhausted"
     for abstract_sequence in abstract_sequences:
         if args.max_seconds and time.perf_counter() - started > args.max_seconds:
@@ -1420,6 +1421,23 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                     )
                 new_family_verdicts[verdict] += 1
                 new_family_verdicts_by_family[family][verdict] += 1
+                if verdict[0] == "unknown":
+                    predecessor_physics = sfa.bitmask_apply_physics(predecessor)
+                    new_unknown_records.append(
+                        {
+                            "kernel_verdict": verdict[0],
+                            "kernel_reason": verdict[1],
+                            "target": pushed,
+                            "predecessor": predecessor,
+                            "family": repr(family),
+                            "predecessor_subtype": subtype,
+                            "predecessor_stable": predecessor_physics == predecessor,
+                            "predecessor_physics": predecessor_physics,
+                            "predecessor_stackable": bool(sfa.bitmask_stackability_witnesses(predecessor)),
+                            "predecessor_swap": sfa.bitmask_swap_impossibility(predecessor) or "swappable",
+                            "target_swap": sfa.bitmask_swap_impossibility(pushed) or "swappable",
+                        }
+                    )
             if len(new_samples) < args.max_capture:
                 new_samples.append(f"family={family}\tT={pushed}\tA={predecessor}")
         if stop_reason != "exhausted":
@@ -1470,6 +1488,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         print("new_family_kernel_verdicts:")
         for key, count in new_family_verdicts.most_common(args.top):
             print(f"  {count}\t{key}")
+        if new_unknown_records:
+            print("new_family_unknown_samples:")
+            for record in new_unknown_records[: args.max_capture]:
+                print(f"  T={record['target']}\tA={record['predecessor']}\treason={record['kernel_reason']}")
         if new_family_verdicts_by_family:
             print("new_family_kernel_verdicts_by_family:")
             for family, family_count in new_family_counts.most_common(args.top):
@@ -1495,6 +1517,13 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         )
         print(f"new_family_pairs_written={args.write_pairs}")
         print(f"new_family_pairs_written_count={len(new_pairs)}")
+    if args.write_captured and new_unknown_records:
+        args.write_captured.parent.mkdir(parents=True, exist_ok=True)
+        with args.write_captured.open("w", encoding="utf-8") as handle:
+            for record in new_unknown_records:
+                handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+        print(f"new_family_unknown_captured={args.write_captured}")
+        print(f"new_family_unknown_captured_count={len(new_unknown_records)}")
     if args.write_summary_json:
         summary = {
             "mode": "predecessor_new_family_candidates",
@@ -1532,6 +1561,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 repr(family): {repr(verdict): count for verdict, count in verdicts.items()}
                 for family, verdicts in new_family_verdicts_by_family.items()
             },
+            "new_family_unknown_count": len(new_unknown_records),
+            "new_family_unknown_samples": new_unknown_records[: args.max_capture],
         }
         args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
         args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
