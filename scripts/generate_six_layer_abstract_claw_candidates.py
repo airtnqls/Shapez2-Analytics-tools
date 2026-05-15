@@ -1458,6 +1458,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "tested_raw": tested_raw,
             "generated_targets": len(generated_targets),
             "new_family_count": len(new_family_counts),
+            "new_family_counts": Counter(new_family_counts),
             "new_targets": len(new_targets),
             "stop_reason": stop_reason,
             "generated_base_cache_hit": generated_base_cache_hit,
@@ -2301,11 +2302,15 @@ def main() -> int:
             exit_code = max(exit_code, predecessor_new_family_candidates(args, pretrained=pretrained))
             seed_summaries.append(getattr(args, "_last_predecessor_new_family_summary", {}))
         if seed_summaries:
+            aggregate_new_families = Counter()
+            for item in seed_summaries:
+                aggregate_new_families.update(item.get("new_family_counts", Counter()))
             print("seed_count_summary:")
             print(f"  seeds={len(seed_summaries)}")
             print(f"  tested_raw={sum(item.get('tested_raw', 0) for item in seed_summaries)}")
             print(f"  generated_targets={sum(item.get('generated_targets', 0) for item in seed_summaries)}")
             print(f"  max_new_family_count={max(item.get('new_family_count', 0) for item in seed_summaries)}")
+            print(f"  unique_new_family_count={len(aggregate_new_families)}")
             print(f"  new_targets={sum(item.get('new_targets', 0) for item in seed_summaries)}")
             print(
                 "  generated_base_cache_hits="
@@ -2313,6 +2318,10 @@ def main() -> int:
             )
             stop_reasons = Counter(item.get("stop_reason", "missing") for item in seed_summaries)
             print(f"  stop_reasons={dict(sorted(stop_reasons.items()))}")
+            if aggregate_new_families:
+                print("seed_count_new_families:")
+                for key, count in aggregate_new_families.most_common(args.top):
+                    print(f"  {count}\t{key}")
         return exit_code
     if args.high_layer_pp_smoke:
         return high_layer_pp_smoke(args)
