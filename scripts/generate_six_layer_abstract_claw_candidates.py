@@ -1046,9 +1046,27 @@ def _predecessor_push_exact_family(predecessor: str, target: str) -> tuple[objec
     )
 
 
+def _predecessor_push_core_exact_family(predecessor: str, target: str) -> tuple[object, ...]:
+    layers = len(target.split(":"))
+    crystal_coords, non_crystal_count, falls_after_shatter = _predecessor_push_event(predecessor, layers)
+    core_coords = [(relative_depth, quadrant) for relative_depth, quadrant in crystal_coords if relative_depth <= 0]
+    rotated_variants = []
+    for turns in range(4):
+        rotated_variants.append(tuple(sorted((relative_depth, (quadrant + turns) % 4) for relative_depth, quadrant in core_coords)))
+    return (
+        "core_exact",
+        min(rotated_variants) if rotated_variants else (),
+        "nonc",
+        non_crystal_count,
+        "falls" if falls_after_shatter else "no_fall",
+    )
+
+
 def _predecessor_push_signature(predecessor: str, target: str, mode: str) -> tuple[object, ...]:
     if mode == "exact":
         return _predecessor_push_exact_family(predecessor, target)
+    if mode == "core_exact":
+        return _predecessor_push_core_exact_family(predecessor, target)
     return _predecessor_push_family(predecessor, target)
 
 
@@ -2115,7 +2133,7 @@ def main() -> int:
     parser.add_argument("--predecessor-family-data-profile", action="store_true")
     parser.add_argument("--predecessor-new-family-candidates", action="store_true")
     parser.add_argument("--predecessor-family-summary", action="store_true")
-    parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact"), default="coarse")
+    parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact", "core_exact"), default="coarse")
     parser.add_argument("--classify-new-family-candidates", action="store_true")
     parser.add_argument("--generated-base-layers", type=int, default=0)
     parser.add_argument("--generated-base-raw-tests", type=int, default=0)
