@@ -5630,6 +5630,7 @@ def half_empty_stackability_tree(code: str) -> DecompositionNode | None:
 
 def verified_left_predecessor_tree(left: str, layers: int, detail: str = "verified_left") -> DecompositionNode:
     for tree in (
+        basic_symbolic_possible_tree(left, layers),
         claw_verified_tree(left, layers),
         swappability_tree(left, layers),
         bitmask_swap_tree(left),
@@ -6702,6 +6703,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     strict_samples: list[str] = []
     reference_samples: list[str] = []
     decomposition_tree_samples: list[str] = []
+    decomposition_tree_open_samples: list[str] = []
     started = time.perf_counter()
     compare_every = max(1, args.compare_every)
     selected_compare_mode = "none" if args.no_compare_legacy else args.compare_against
@@ -7323,6 +7325,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                     decomposition_tree_open_tree_count += 1
                     decomposition_tree_open_leaf_total += open_leaves.total()
                     decomposition_tree_open_leaf_kinds.update(open_leaves)
+                    if len(decomposition_tree_open_samples) < args.max_mismatches:
+                        decomposition_tree_open_samples.append(
+                            f"{normalize_code(code)}\topen_leaves={dict(open_leaves)}\troot={decomposition_tree_root_key(tree)}\tbucket={sv}/{sb}"
+                        )
         layer_counts[normalized_layer_count] += 1
         lv = strict = lc = lr = ref_verdict = ref_bucket = ""
         needs_legacy_fallback = sv == "unknown" and args.fallback in ("legacy-core", "kernel-core", "kernel-hybrid-core")
@@ -7632,6 +7638,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     if decomposition_tree_samples:
         print("sample_missing_decomposition_trees:")
         for sample in decomposition_tree_samples:
+            print(sample)
+    if decomposition_tree_open_samples:
+        print("sample_open_decomposition_trees:")
+        for sample in decomposition_tree_open_samples:
             print(sample)
     if args.fail_on_unknown and non_unknown != total:
         return 1
