@@ -1554,6 +1554,33 @@ def high_layer_pp_smoke(args: argparse.Namespace) -> int:
         print(f"  kernel_legacy_fallback={sum(item.get('kernel_legacy_fallback', 0) for item in smoke_summaries)}")
         stop_reasons = Counter(item.get("stop_reason", "missing") for item in smoke_summaries)
         print(f"  stop_reasons={dict(sorted(stop_reasons.items()))}")
+        if args.write_summary_json:
+            summary = {
+                "mode": "high_layer_pp_smoke",
+                "argv": sys.argv[1:],
+                "cwd": str(Path.cwd()),
+                "layers": [item.get("layers") for item in smoke_summaries],
+                "seed": args.seed,
+                "tested_raw": sum(item.get("tested_raw", 0) for item in smoke_summaries),
+                "generated_targets": sum(item.get("generated_targets", 0) for item in smoke_summaries),
+                "kernel_unknown": sum(item.get("kernel_unknown", 0) for item in smoke_summaries),
+                "kernel_legacy_fallback": sum(item.get("kernel_legacy_fallback", 0) for item in smoke_summaries),
+                "stop_reasons": dict(sorted(stop_reasons.items())),
+                "shared_training_cache_hit": training_cache_hit,
+                "shared_training_time": training_time,
+                "shared_sequence_time": sequence_time,
+                "smoke": [
+                    {
+                        key: value
+                        for key, value in item.items()
+                        if not key.endswith("_set")
+                    }
+                    for item in smoke_summaries
+                ],
+            }
+            args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
+            args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"high_layer_pp_smoke_summary_written={args.write_summary_json}")
     return exit_code
 
 
