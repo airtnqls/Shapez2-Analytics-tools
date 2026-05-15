@@ -2083,6 +2083,12 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
             "tested_raw": tested_raw,
             "generated_predecessors": len(generated_predecessors),
             "generated_targets": len(generated_targets),
+            "listed_predecessors": len(listed_predecessors),
+            "listed_targets": len(listed_targets),
+            "listed_pairs": len(listed_pairs),
+            "listed_predecessor_set": set(listed_predecessors),
+            "listed_target_set": set(listed_targets),
+            "listed_pair_set": set(listed_pairs),
             "kernel_unknown": kernel_unknown,
             "kernel_legacy_fallback": kernel_legacy_fallback,
             "stop_reason": stop_reason,
@@ -2413,6 +2419,7 @@ def main() -> int:
     print(f"shared_training_cache_hit={training_cache_hit}")
     print(f"shared_training_time={training_time:.6f}s")
     print(f"shared_sequence_time={sequence_time:.6f}s")
+    seed_summaries = []
     for offset in range(args.seed_count):
         args.seed = base_seed + offset
         if base_write_captured is not None:
@@ -2437,6 +2444,78 @@ def main() -> int:
             )
         print(f"=== seed={args.seed} ===")
         exit_code = max(exit_code, generate(args, pretrained=pretrained))
+        seed_summaries.append(getattr(args, "_last_generate_summary", {}))
+    if seed_summaries:
+        aggregate_listed_predecessors = set()
+        aggregate_listed_targets = set()
+        aggregate_listed_pairs = set()
+        for item in seed_summaries:
+            aggregate_listed_predecessors.update(item.get("listed_predecessor_set", set()))
+            aggregate_listed_targets.update(item.get("listed_target_set", set()))
+            aggregate_listed_pairs.update(item.get("listed_pair_set", set()))
+        print("generate_seed_count_summary:")
+        print(f"  seeds={len(seed_summaries)}")
+        print(f"  tested_raw={sum(item.get('tested_raw', 0) for item in seed_summaries)}")
+        print(f"  generated_targets={sum(item.get('generated_targets', 0) for item in seed_summaries)}")
+        print(f"  unique_listed_targets={len(aggregate_listed_targets)}")
+        print(f"  unique_listed_predecessors={len(aggregate_listed_predecessors)}")
+        print(f"  unique_listed_pairs={len(aggregate_listed_pairs)}")
+        print(f"  kernel_unknown={sum(item.get('kernel_unknown', 0) for item in seed_summaries)}")
+        print(f"  kernel_legacy_fallback={sum(item.get('kernel_legacy_fallback', 0) for item in seed_summaries)}")
+        stop_reasons = Counter(item.get("stop_reason", "missing") for item in seed_summaries)
+        print(f"  stop_reasons={dict(sorted(stop_reasons.items()))}")
+        if base_write_targets is not None:
+            base_write_targets.parent.mkdir(parents=True, exist_ok=True)
+            base_write_targets.write_text("\n".join(sorted(aggregate_listed_targets)) + "\n", encoding="utf-8")
+            print(f"aggregate_targets_written={base_write_targets}")
+            print(f"aggregate_targets_written_count={len(aggregate_listed_targets)}")
+        if base_write_predecessors is not None:
+            base_write_predecessors.parent.mkdir(parents=True, exist_ok=True)
+            base_write_predecessors.write_text(
+                "\n".join(sorted(aggregate_listed_predecessors)) + "\n",
+                encoding="utf-8",
+            )
+            print(f"aggregate_predecessors_written={base_write_predecessors}")
+            print(f"aggregate_predecessors_written_count={len(aggregate_listed_predecessors)}")
+        if base_write_pairs is not None:
+            base_write_pairs.parent.mkdir(parents=True, exist_ok=True)
+            base_write_pairs.write_text(
+                "\n".join(f"{target}\t{predecessor}" for target, predecessor in sorted(aggregate_listed_pairs)) + "\n",
+                encoding="utf-8",
+            )
+            print(f"aggregate_pairs_written={base_write_pairs}")
+            print(f"aggregate_pairs_written_count={len(aggregate_listed_pairs)}")
+        if base_write_summary_json is not None:
+            aggregate_summary_path = base_write_summary_json.with_name(
+                f"{base_write_summary_json.stem}_aggregate{base_write_summary_json.suffix}"
+            )
+            aggregate_summary = {
+                "mode": "generate_seed_count",
+                "base_seed": base_seed,
+                "seed_count": len(seed_summaries),
+                "tested_raw": sum(item.get("tested_raw", 0) for item in seed_summaries),
+                "generated_targets": sum(item.get("generated_targets", 0) for item in seed_summaries),
+                "unique_listed_targets": len(aggregate_listed_targets),
+                "unique_listed_predecessors": len(aggregate_listed_predecessors),
+                "unique_listed_pairs": len(aggregate_listed_pairs),
+                "kernel_unknown": sum(item.get("kernel_unknown", 0) for item in seed_summaries),
+                "kernel_legacy_fallback": sum(item.get("kernel_legacy_fallback", 0) for item in seed_summaries),
+                "stop_reasons": dict(sorted(stop_reasons.items())),
+                "seeds": [
+                    {
+                        key: value
+                        for key, value in item.items()
+                        if not key.endswith("_set")
+                    }
+                    for item in seed_summaries
+                ],
+            }
+            aggregate_summary_path.parent.mkdir(parents=True, exist_ok=True)
+            aggregate_summary_path.write_text(
+                json.dumps(aggregate_summary, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            print(f"generate_seed_count_summary_written={aggregate_summary_path}")
     return exit_code
 
 
