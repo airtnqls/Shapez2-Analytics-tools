@@ -1029,6 +1029,27 @@ def _predecessor_push_family(predecessor: str, target: str) -> tuple[object, ...
     )
 
 
+def _predecessor_push_exact_family(predecessor: str, target: str) -> tuple[object, ...]:
+    layers = len(target.split(":"))
+    crystal_coords, non_crystal_count, falls_after_shatter = _predecessor_push_event(predecessor, layers)
+    rotated_variants = []
+    for turns in range(4):
+        rotated_variants.append(tuple(sorted((relative_depth, (quadrant + turns) % 4) for relative_depth, quadrant in crystal_coords)))
+    return (
+        "exact",
+        min(rotated_variants) if rotated_variants else (),
+        "nonc",
+        non_crystal_count,
+        "falls" if falls_after_shatter else "no_fall",
+    )
+
+
+def _predecessor_push_signature(predecessor: str, target: str, mode: str) -> tuple[object, ...]:
+    if mode == "exact":
+        return _predecessor_push_exact_family(predecessor, target)
+    return _predecessor_push_family(predecessor, target)
+
+
 def predecessor_family_data_profile(args: argparse.Namespace) -> int:
     started = time.perf_counter()
     max_layers = args.generate_layers
@@ -1050,10 +1071,11 @@ def predecessor_family_data_profile(args: argparse.Namespace) -> int:
             rejected[layers] += 1
             continue
         valid[layers] += 1
-        family = _predecessor_push_family(predecessor, target)
+        family = _predecessor_push_signature(predecessor, target, args.predecessor_family_mode)
         layer_families[layers][family] += 1
         examples[layers].setdefault(family, (target, predecessor))
     print("mode=predecessor_family_data_profile")
+    print(f"family_mode={args.predecessor_family_mode}")
     print(f"max_layers={max_layers}")
     print(f"checked_by_layer={dict(sorted(checked.items()))}")
     print(f"valid_by_layer={dict(sorted(valid.items()))}")
@@ -1081,7 +1103,7 @@ def predecessor_family_data_profile(args: argparse.Namespace) -> int:
     return 0
 
 
-def _load_predecessor_families(data: Path, layers: int) -> set[tuple[object, ...]]:
+def _load_predecessor_families(data: Path, layers: int, mode: str) -> set[tuple[object, ...]]:
     families: set[tuple[object, ...]] = set()
     for code in sfa.iter_data_codes(data, max_layers=layers):
         target = sfa.normalize_code(code)
@@ -1090,7 +1112,7 @@ def _load_predecessor_families(data: Path, layers: int) -> set[tuple[object, ...
         predecessor = _claw_predecessor(target)
         if not predecessor or sfa.bitmask_push_pin(predecessor, layers) != target:
             continue
-        families.add(_predecessor_push_family(predecessor, target))
+        families.add(_predecessor_push_signature(predecessor, target, mode))
     return families
 
 
@@ -1098,7 +1120,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     started = time.perf_counter()
     rng = random.Random(args.seed)
     base_layers = args.frontier_base_layers or args.train_layers
-    base_families = _load_predecessor_families(args.data, base_layers)
+    base_families = _load_predecessor_families(args.data, base_layers, args.predecessor_family_mode)
     if pretrained is None:
         pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
     else:
@@ -1168,7 +1190,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 rejected["duplicate_target"] += 1
                 continue
             generated_targets.add(pushed)
-            family = _predecessor_push_family(predecessor, pushed)
+            family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
             family_counts[family] += 1
             if family in base_families:
                 continue
@@ -1181,6 +1203,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             break
 
     print("mode=predecessor_new_family_candidates")
+    print(f"family_mode={args.predecessor_family_mode}")
     print(f"base_layers={base_layers}")
     print(f"base_families={len(base_families)}")
     print(f"generate_layers={args.generate_layers}")
@@ -1955,6 +1978,7 @@ def main() -> int:
     parser.add_argument("--predecessor-family-data-profile", action="store_true")
     parser.add_argument("--predecessor-new-family-candidates", action="store_true")
     parser.add_argument("--predecessor-family-summary", action="store_true")
+    parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact"), default="coarse")
     parser.add_argument("--frontier-base-layers", type=int, default=0)
     parser.add_argument("--frontier-signature-mode", choices=("exact", "classes", "mask_counts", "counts"), default="exact")
     parser.add_argument("--high-layer-pp-smoke", default="", help="Comma-separated generated layer counts, e.g. 20,50,100.")
