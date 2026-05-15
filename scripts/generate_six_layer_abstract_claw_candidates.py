@@ -1123,9 +1123,10 @@ def predecessor_family_data_profile(args: argparse.Namespace) -> int:
     return 0
 
 
-def _load_predecessor_families(data: Path, layers: int, mode: str) -> set[tuple[object, ...]]:
+@lru_cache(maxsize=64)
+def _load_predecessor_families_cached(data: str, layers: int, mode: str) -> frozenset[tuple[object, ...]]:
     families: set[tuple[object, ...]] = set()
-    for code in sfa.iter_data_codes(data, max_layers=layers):
+    for code in sfa.iter_data_codes(Path(data), max_layers=layers):
         target = sfa.normalize_code(code)
         if not target or len(target.split(":")) != layers:
             continue
@@ -1133,7 +1134,11 @@ def _load_predecessor_families(data: Path, layers: int, mode: str) -> set[tuple[
         if not predecessor or sfa.bitmask_push_pin(predecessor, layers) != target:
             continue
         families.add(_predecessor_push_signature(predecessor, target, mode))
-    return families
+    return frozenset(families)
+
+
+def _load_predecessor_families(data: Path, layers: int, mode: str) -> set[tuple[object, ...]]:
+    return set(_load_predecessor_families_cached(str(data.resolve()), layers, mode))
 
 
 def _sample_generated_predecessor_families(
