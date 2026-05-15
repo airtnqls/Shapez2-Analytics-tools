@@ -553,6 +553,25 @@ def decomposition_tree_open_leaf_keys(node: DecompositionNode) -> Counter[str]:
     return leaves
 
 
+def decomposition_tree_open_leaf_descriptions(node: DecompositionNode, limit: int = 4) -> tuple[str, ...]:
+    descriptions: list[str] = []
+
+    def visit(current: DecompositionNode) -> None:
+        if len(descriptions) >= limit:
+            return
+        if current.children:
+            for child in current.children:
+                visit(child)
+            return
+        if current.kind in OPEN_DECOMPOSITION_LEAF_KINDS or (current.kind == "pp" and current.detail == "empty_trace"):
+            descriptions.append(
+                f"{decomposition_tree_root_key(current)} shape={current.shape}"
+            )
+
+    visit(node)
+    return tuple(descriptions)
+
+
 @dataclass(frozen=True)
 class HybridRescueWitness:
     mode: str
@@ -7329,8 +7348,9 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                     decomposition_tree_open_leaf_total += open_leaves.total()
                     decomposition_tree_open_leaf_kinds.update(open_leaves)
                     if len(decomposition_tree_open_samples) < args.max_mismatches:
+                        open_descriptions = decomposition_tree_open_leaf_descriptions(tree)
                         decomposition_tree_open_samples.append(
-                            f"{normalize_code(code)}\topen_leaves={dict(open_leaves)}\troot={decomposition_tree_root_key(tree)}\tbucket={sv}/{sb}"
+                            f"{normalize_code(code)}\topen_leaves={dict(open_leaves)}\topen_leaf_shapes={open_descriptions}\troot={decomposition_tree_root_key(tree)}\tbucket={sv}/{sb}"
                         )
         layer_counts[normalized_layer_count] += 1
         lv = strict = lc = lr = ref_verdict = ref_bucket = ""
