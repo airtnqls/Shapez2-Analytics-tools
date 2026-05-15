@@ -4638,6 +4638,20 @@ def claw_obvious_unstable_predecessor_core_verdict(code: str, layers: int) -> tu
             if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
                 suffix = "" if turns == 0 else f"_rot{turns}"
                 return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        if (
+            len(parts) >= 6
+            and parts[0] == "SPPP"
+            and parts[1] == "P-SP"
+            and parts[2] == "--SP"
+            and parts[3] == "--cc"
+            and parts[-1] == "Sc--"
+        ):
+            predecessor = normalize_code(
+                ":".join(["--SP", "SPSP", "P-cc"] + parts[4:-1] + ["Sc-c", "---c"])
+            )
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
         rotated = bitmask_rotate_clockwise(rotated)
     return None
 
