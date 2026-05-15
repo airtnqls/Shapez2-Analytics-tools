@@ -1220,23 +1220,53 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     generated_base_family_union: set[tuple[object, ...]] = set()
     generated_base_stats = Counter()
     generated_base_started = time.perf_counter()
+    generated_base_cache_hit = False
     if args.generated_base_layers:
-        base_args = copy.copy(args)
-        base_args.generate_layers = args.generated_base_layers
-        base_pretrained, _base_training_time, _base_sequence_time, _base_training_cache_hit = _load_or_train(base_args)
         base_seed = args.generated_base_seed or (args.seed + 100_003 * args.generated_base_layers)
-        for offset in range(max(1, args.generated_base_seed_count)):
-            generated_base_families, seed_stats = _sample_generated_predecessor_families(
-                args,
-                base_pretrained,
-                layers=args.generated_base_layers,
-                seed=base_seed + offset,
+        generated_base_key = (
+            str(args.data.resolve()),
+            args.train_layers,
+            args.generated_base_layers,
+            args.generated_base_raw_tests or args.max_raw_tests,
+            base_seed,
+            max(1, args.generated_base_seed_count),
+            args.predecessor_family_mode,
+            tuple(args.selected_generate_subtypes),
+            args.max_abstract_sequences,
+            args.max_raw_per_layer,
+            args.shuffle,
+            args.exclude_stackable_predecessors,
+            args.allow_non_zero_stack_predecessor,
+            args.dedupe_predecessors_before_push,
+            args.dedupe_targets_before_classify,
+        )
+        generated_base_cache = getattr(args, "_generated_base_cache", {})
+        cached_generated_base = generated_base_cache.get(generated_base_key)
+        if cached_generated_base is not None:
+            generated_base_family_union, generated_base_stats = cached_generated_base
+            generated_base_stats = Counter(generated_base_stats)
+            generated_base_cache_hit = True
+        else:
+            base_args = copy.copy(args)
+            base_args.generate_layers = args.generated_base_layers
+            base_pretrained, _base_training_time, _base_sequence_time, _base_training_cache_hit = _load_or_train(base_args)
+            for offset in range(max(1, args.generated_base_seed_count)):
+                generated_base_families, seed_stats = _sample_generated_predecessor_families(
+                    args,
+                    base_pretrained,
+                    layers=args.generated_base_layers,
+                    seed=base_seed + offset,
+                )
+                generated_base_stats.update(seed_stats)
+                generated_base_stats["seed_runs"] += 1
+                generated_base_stats["families_seen"] += len(generated_base_families)
+                generated_base_family_union.update(generated_base_families)
+            generated_base_cache[generated_base_key] = (
+                set(generated_base_family_union),
+                Counter(generated_base_stats),
             )
-            generated_base_stats.update(seed_stats)
-            generated_base_stats["seed_runs"] += 1
-            generated_base_stats["families_seen"] += len(generated_base_families)
-            generated_base_family_union.update(generated_base_families)
-            base_families.update(generated_base_families)
+            setattr(args, "_generated_base_cache", generated_base_cache)
+        base_families.update(generated_base_family_union)
     generated_base_time = time.perf_counter() - generated_base_started
     generated_base_added_count = len(base_families) - data_base_family_count
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
@@ -1346,6 +1376,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         print(f"generated_base_unique_families={len(generated_base_family_union)}")
         print(f"generated_base_added_families={generated_base_added_count}")
         print(f"generated_base_time={generated_base_time:.6f}s")
+        print(f"generated_base_cache_hit={generated_base_cache_hit}")
         print("generated_base_rejected:")
         for key, count in generated_base_stats.most_common(args.top):
             print(f"  {key}: {count}")
