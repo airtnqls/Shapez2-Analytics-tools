@@ -1123,8 +1123,9 @@ def _sample_generated_predecessor_families(
     pretrained,
     *,
     layers: int,
+    seed: int,
 ) -> tuple[set[tuple[object, ...]], Counter[str]]:
-    rng = random.Random(args.seed + 100_003 * layers)
+    rng = random.Random(seed)
     _records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, _abstract_truncated = pretrained
     abstract_sequences = list(abstract_sequences)
     if args.shuffle:
@@ -1194,12 +1195,21 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     base_families = _load_predecessor_families(args.data, base_layers, args.predecessor_family_mode)
     generated_base_stats = Counter()
     if args.generated_base_layers:
-        generated_base_families, generated_base_stats = _sample_generated_predecessor_families(
-            args,
-            pretrained,
-            layers=args.generated_base_layers,
-        )
-        base_families.update(generated_base_families)
+        base_args = copy.copy(args)
+        base_args.generate_layers = args.generated_base_layers
+        base_pretrained, _base_training_time, _base_sequence_time, _base_training_cache_hit = _load_or_train(base_args)
+        base_seed = args.generated_base_seed or (args.seed + 100_003 * args.generated_base_layers)
+        for offset in range(max(1, args.generated_base_seed_count)):
+            generated_base_families, seed_stats = _sample_generated_predecessor_families(
+                args,
+                base_pretrained,
+                layers=args.generated_base_layers,
+                seed=base_seed + offset,
+            )
+            generated_base_stats.update(seed_stats)
+            generated_base_stats["seed_runs"] += 1
+            generated_base_stats["families_seen"] += len(generated_base_families)
+            base_families.update(generated_base_families)
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
     abstract_sequences = list(abstract_sequences)
     if args.shuffle:
@@ -1301,6 +1311,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     if args.generated_base_layers:
         print(f"generated_base_layers={args.generated_base_layers}")
         print(f"generated_base_raw_tests={args.generated_base_raw_tests or args.max_raw_tests}")
+        print(f"generated_base_seed={base_seed}")
+        print(f"generated_base_seed_count={max(1, args.generated_base_seed_count)}")
         print("generated_base_rejected:")
         for key, count in generated_base_stats.most_common(args.top):
             print(f"  {key}: {count}")
@@ -2097,6 +2109,8 @@ def main() -> int:
     parser.add_argument("--classify-new-family-candidates", action="store_true")
     parser.add_argument("--generated-base-layers", type=int, default=0)
     parser.add_argument("--generated-base-raw-tests", type=int, default=0)
+    parser.add_argument("--generated-base-seed", type=int, default=0)
+    parser.add_argument("--generated-base-seed-count", type=int, default=1)
     parser.add_argument("--frontier-base-layers", type=int, default=0)
     parser.add_argument("--frontier-signature-mode", choices=("exact", "classes", "mask_counts", "counts"), default="exact")
     parser.add_argument("--high-layer-pp-smoke", default="", help="Comma-separated generated layer counts, e.g. 20,50,100.")
