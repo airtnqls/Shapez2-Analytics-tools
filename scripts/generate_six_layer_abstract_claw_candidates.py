@@ -1075,11 +1075,58 @@ def _predecessor_push_core_exact_family(predecessor: str, target: str) -> tuple[
     )
 
 
+def _relative_depth_class(depth: int) -> int | str:
+    if depth <= -4:
+        return "deep"
+    return depth
+
+
+def _compress_relative_crystal_runs(coords: list[tuple[int, int]], turns: int) -> tuple[tuple[object, ...], ...]:
+    by_quadrant: defaultdict[int, list[int]] = defaultdict(list)
+    for depth, quadrant in coords:
+        by_quadrant[(quadrant + turns) % 4].append(depth)
+    compressed: set[tuple[object, ...]] = set()
+    for quadrant, depths in by_quadrant.items():
+        unique_depths = sorted(set(depths))
+        if not unique_depths:
+            continue
+        run_start = unique_depths[0]
+        previous = unique_depths[0]
+        for depth in unique_depths[1:] + [10**9]:
+            if depth == previous + 1:
+                previous = depth
+                continue
+            run_length = previous - run_start + 1
+            if run_length >= 3 and previous == 0:
+                compressed.add(("top_spine", _relative_depth_class(run_start), 0, quadrant))
+            else:
+                compressed.update(("point", _relative_depth_class(item), quadrant) for item in range(run_start, previous + 1))
+            run_start = depth
+            previous = depth
+    return tuple(sorted(compressed, key=repr))
+
+
+def _predecessor_push_core_relative_family(predecessor: str, target: str) -> tuple[object, ...]:
+    layers = len(target.split(":"))
+    crystal_coords, non_crystal_count, falls_after_shatter = _predecessor_push_event(predecessor, layers)
+    core_coords = [(relative_depth, quadrant) for relative_depth, quadrant in crystal_coords if relative_depth <= 0]
+    rotated_variants = [_compress_relative_crystal_runs(core_coords, turns) for turns in range(4)]
+    return (
+        "core_relative",
+        min(rotated_variants, key=repr) if rotated_variants else (),
+        "nonc",
+        non_crystal_count,
+        "falls" if falls_after_shatter else "no_fall",
+    )
+
+
 def _predecessor_push_signature(predecessor: str, target: str, mode: str) -> tuple[object, ...]:
     if mode == "exact":
         return _predecessor_push_exact_family(predecessor, target)
     if mode == "core_exact":
         return _predecessor_push_core_exact_family(predecessor, target)
+    if mode == "core_relative":
+        return _predecessor_push_core_relative_family(predecessor, target)
     return _predecessor_push_family(predecessor, target)
 
 
@@ -2430,7 +2477,7 @@ def main() -> int:
     parser.add_argument("--predecessor-family-data-profile", action="store_true")
     parser.add_argument("--predecessor-new-family-candidates", action="store_true")
     parser.add_argument("--predecessor-family-summary", action="store_true")
-    parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact", "core_exact"), default="coarse")
+    parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact", "core_exact", "core_relative"), default="coarse")
     parser.add_argument("--classify-new-family-candidates", action="store_true")
     parser.add_argument("--generated-base-layers", type=int, default=0)
     parser.add_argument("--generated-base-raw-tests", type=int, default=0)
