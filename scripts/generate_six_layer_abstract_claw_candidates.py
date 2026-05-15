@@ -668,6 +668,8 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
     sequence_reject_counts: Counter[tuple[str, ...]] = Counter()
     zero_layer_pair_counts: Counter[tuple[int, str, str]] = Counter()
     pass_layer_pair_counts: Counter[tuple[int, str, str]] = Counter()
+    zero_ngram_counts: Counter[tuple[int, int, tuple[str, ...]]] = Counter()
+    pass_ngram_counts: Counter[tuple[int, int, tuple[str, ...]]] = Counter()
     raw_reject_counts = Counter()
     raw_pass = 0
     examples: list[str] = []
@@ -731,6 +733,11 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
                 sequence_reject[reason] += 1
         if sequence_total:
             signature = tuple("|".join(pair) for pair in abstract_sequence)
+            ngram_target = pass_ngram_counts if sequence_pass else zero_ngram_counts
+            for order in (2, 3):
+                if len(signature) >= order:
+                    for index in range(len(signature) - order + 1):
+                        ngram_target[(order, index, signature[index : index + order])] += 1
             if sequence_pass:
                 any_pass_sequences += 1
                 sequence_pass_counts[signature] = sequence_pass
@@ -781,6 +788,51 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
         for key, count in pass_layer_pair_counts.most_common(args.top):
             zero_count = zero_layer_pair_counts.get(key, 0)
             print(f"  {count}\tzero={zero_count}\t{key}")
+    exclusive_zero_ngrams = [
+        (key, count)
+        for key, count in zero_ngram_counts.most_common()
+        if pass_ngram_counts.get(key, 0) == 0
+    ]
+    exclusive_pass_ngrams = [
+        (key, count)
+        for key, count in pass_ngram_counts.most_common()
+        if zero_ngram_counts.get(key, 0) == 0
+    ]
+    if exclusive_zero_ngrams:
+        print("exclusive_zero_ngrams:")
+        for key, count in exclusive_zero_ngrams[: args.top]:
+            print(f"  {count}\t{key}")
+    if exclusive_pass_ngrams:
+        print("exclusive_pass_ngrams:")
+        for key, count in exclusive_pass_ngrams[: args.top]:
+            print(f"  {count}\t{key}")
+    if args.write_summary_json:
+        summary = {
+            "mode": "abstract_filter_profile",
+            "records": records,
+            "abstract_sequences": len(abstract_sequences),
+            "abstract_truncated": abstract_truncated,
+            "sampled_sequences": sampled_sequences,
+            "tested_raw": tested_raw,
+            "raw_pass": raw_pass,
+            "raw_pass_pct": (raw_pass / tested_raw * 100.0) if tested_raw else 0.0,
+            "zero_pass_sequences": zero_pass_sequences,
+            "any_pass_sequences": any_pass_sequences,
+            "raw_reject_counts": dict(raw_reject_counts),
+            "exclusive_zero_ngrams": [
+                {"key": repr(key), "count": count}
+                for key, count in exclusive_zero_ngrams[: args.max_capture]
+            ],
+            "exclusive_pass_ngrams": [
+                {"key": repr(key), "count": count}
+                for key, count in exclusive_pass_ngrams[: args.max_capture]
+            ],
+            "elapsed": time.perf_counter() - started,
+            "stop_reason": stop_reason,
+        }
+        args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
+        args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"abstract_filter_summary_written={args.write_summary_json}")
     return 0
 
 
