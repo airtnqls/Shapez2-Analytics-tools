@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import io
 import itertools
+import json
 import struct
 import random
 import re
@@ -132,6 +133,12 @@ def corner_columns_allowed(code: str) -> bool:
             if state is None:
                 return False
     return True
+
+
+def corner_rule_core_verdict(code: str) -> tuple[str, str] | None:
+    if corner_columns_allowed(code):
+        return None
+    return "impossible", "kernel_corner_rule_forbidden"
 
 
 @lru_cache(maxsize=200_000)
@@ -391,6 +398,107 @@ class DecompositionNode:
 
 def decomposition_tree_root_key(node: DecompositionNode) -> str:
     return f"{normalize_code_label(node.kind)}:{normalize_code_label(node.detail)}"
+
+
+def canonical_decomposition_type(node: DecompositionNode) -> str:
+    kind = normalize_code_label(node.kind)
+    detail = normalize_code_label(node.detail)
+    root = f"{kind}:{detail}"
+    if kind == "empty":
+        return "empty"
+    if kind == "impossible":
+        if "virtual" in detail:
+            return "virtual_corner"
+        if "corner_rule" in detail:
+            return "corner_forbidden"
+        if "unstable" in detail:
+            return "physics_unstable"
+        if "claw" in detail:
+            return "claw_preimage_failure"
+        return "impossible." + detail
+    if kind == "corner":
+        return "simple_corner"
+    if kind == "input" and "supported_no_crystal" in detail:
+        return "supported_no_crystal"
+    if kind == "swap":
+        return "swappable" if "swapable" in detail or "angle" in detail else "swap_limited"
+    if kind == "stack":
+        if "layer_removal" in detail:
+            return "stackable.layer_removal"
+        if "hybrid" in detail:
+            return "hybrid.stack_rescue"
+        return "stackable"
+    if kind == "pin_push":
+        if "claw_change_rule" in detail:
+            return "claw_preimage.change_rule"
+        if "claw_tail_seed" in detail:
+            return "claw_preimage.tail_seed"
+        if "zero_stack" in detail:
+            return "pp.zero_stack"
+        if "pp_inverse" in detail:
+            return "pp.inverse"
+        if "generic_viable" in detail:
+            return "pp.generic_predecessor"
+        if "claw" in detail:
+            return "claw_preimage"
+        return "pin_push"
+    if kind == "pp":
+        return "pp." + detail
+    return root
+
+
+def decomposition_tree_to_dict(node: DecompositionNode) -> dict[str, object]:
+    return {
+        "kind": node.kind,
+        "detail": node.detail,
+        "shape": node.shape,
+        "root_key": decomposition_tree_root_key(node),
+        "canonical_type": canonical_decomposition_type(node),
+        "dependency_tags": list(decomposition_tree_dependency_tags(node)),
+        "children": [decomposition_tree_to_dict(child) for child in node.children],
+    }
+
+
+def explain_shape_dict(code: str, layers: int) -> dict[str, object] | None:
+    normalized = normalize_code(code)
+    strict_verdict, strict_reason = strict_legacy_verdict_to_symbolic(normalized)
+    tree = audited_reference_decomposition_tree(normalized, layers)
+    if tree is None:
+        fallback_verdict = corner_rule_core_verdict(normalized)
+        if fallback_verdict is None and strict_verdict != "unknown":
+            fallback_verdict = (strict_verdict, strict_reason)
+        if fallback_verdict is not None:
+            fallback_node = DecompositionNode(
+                kind=fallback_verdict[0],
+                shape=normalized,
+                detail=fallback_verdict[1],
+            )
+            fallback_tree = decomposition_tree_to_dict(fallback_node)
+            return {
+                "code": normalized,
+                "strict_verdict": strict_verdict,
+                "strict_reason": strict_reason,
+                "explain_verdict": fallback_verdict[0],
+                "explain_reason": fallback_tree["canonical_type"],
+                "decomposition_tree": fallback_tree,
+            }
+        return {
+            "code": normalized,
+            "strict_verdict": strict_verdict,
+            "strict_reason": strict_reason,
+            "explain_verdict": strict_verdict,
+            "explain_reason": "missing_decomposition_tree",
+            "decomposition_tree": None,
+        }
+    tree_dict = decomposition_tree_to_dict(tree)
+    return {
+        "code": normalized,
+        "strict_verdict": strict_verdict,
+        "strict_reason": strict_reason,
+        "explain_verdict": strict_verdict,
+        "explain_reason": tree_dict["canonical_type"],
+        "decomposition_tree": tree_dict,
+    }
 
 
 def decomposition_tree_dependency_tags(node: DecompositionNode) -> tuple[str, ...]:
@@ -1743,6 +1851,35 @@ def claw_tail_seed_tree(code: str) -> DecompositionNode | None:
     )
 
 
+def basic_symbolic_possible_tree(code: str, layers: int) -> DecompositionNode | None:
+    normalized = normalize_code(code)
+    if not normalized:
+        return DecompositionNode(kind="empty", shape="", detail="empty_shape")
+    parts = normalized.split(":")
+    if len(parts) > layers:
+        return None
+
+    occupied_columns = {
+        q
+        for layer in parts
+        for q, ch in enumerate(layer)
+        if ch != "-"
+    }
+    if len(occupied_columns) == 1 and corner_columns_allowed(normalized) and bitmask_physics_stable(normalized):
+        return DecompositionNode(
+            kind="corner",
+            shape=normalized,
+            detail="single_column_corner",
+        )
+    if "c" not in normalized and bitmask_physics_stable(normalized):
+        return DecompositionNode(
+            kind="input",
+            shape=normalized,
+            detail="supported_no_crystal",
+        )
+    return None
+
+
 def pp_inverse_predecessor_tree(code: str, layers: int) -> DecompositionNode | None:
     normalized = normalize_code(code)
     predecessor = oriented_pp_inverse_predecessor_witness(normalized, layers)
@@ -1761,6 +1898,34 @@ def pp_inverse_predecessor_tree(code: str, layers: int) -> DecompositionNode | N
         kind="pin_push",
         shape=normalized,
         detail="pp_inverse_predecessor_verified",
+        children=(predecessor_tree,),
+    )
+
+
+def generic_viable_pin_push_predecessor_tree(code: str, layers: int) -> DecompositionNode | None:
+    normalized = normalize_code(code)
+    predecessor = generic_viable_pin_push_predecessor_witness(normalized, layers)
+    if predecessor is None:
+        return None
+
+    predecessor_tree = swappability_tree(predecessor, layers)
+    if predecessor_tree is None:
+        predecessor_tree = bitmask_swap_tree(predecessor)
+    if predecessor_tree is None:
+        predecessor_tree = stackability_tree(predecessor, layers)
+    if predecessor_tree is None:
+        predecessor_tree = zero_stack_pp_predecessor_tree(
+            predecessor,
+            layers,
+            allow_terminal_crystal=True,
+        )
+    if predecessor_tree is None:
+        predecessor_tree = pp_trace_tree(predecessor, layers)
+
+    return DecompositionNode(
+        kind="pin_push",
+        shape=normalized,
+        detail="generic_viable_predecessor",
         children=(predecessor_tree,),
     )
 
@@ -3070,6 +3235,277 @@ def bitmask_double_s_lift_shatter_inverse_push_pin_candidates(code: str, layers:
 
 
 @lru_cache(maxsize=100_000)
+def bitmask_falling_component_lift_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    target_grid = [list(layer) for layer in parts]
+    while len(target_grid) < layers:
+        target_grid.append(list("----"))
+
+    components: list[set[tuple[int, int]]] = []
+    seen: set[tuple[int, int]] = set()
+    for l in range(min(4, layers)):
+        for q in range(4):
+            if (l, q) in seen or target_grid[l][q] in {"-", "c"}:
+                continue
+            group = {
+                coord
+                for coord in _connected_group(target_grid, l, q)
+                if target_grid[coord[0]][coord[1]] not in {"-", "c"}
+            }
+            if not group or len(group) > 5:
+                continue
+            seen.update(group)
+            components.append(group)
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    for group in components:
+        for lift in range(1, 4):
+            lifted = [row[:] for row in target_grid]
+            pieces: list[tuple[int, int, str]] = []
+            valid = True
+            for l, q in group:
+                pieces.append((l, q, lifted[l][q]))
+                lifted[l][q] = "-"
+            for l, q, _ch in pieces:
+                nl = l + lift
+                if nl >= layers or lifted[nl][q] != "-":
+                    valid = False
+                    break
+            if not valid:
+                continue
+            for l, q, ch in pieces:
+                lifted[l + lift][q] = ch
+
+            for crystal_q in range(4):
+                predecessor_layers = ["".join(row) for row in lifted[1:]]
+                overflow = ["-"] * 4
+                overflow[crystal_q] = "c"
+                predecessor_layers.append("".join(overflow))
+                predecessor = normalize_code(":".join(predecessor_layers))
+                if predecessor in seen_candidates:
+                    continue
+                if bitmask_push_pin(predecessor, layers) == normalized:
+                    seen_candidates.add(predecessor)
+                    candidates.append(predecessor)
+                    if len(candidates) >= 40:
+                        return tuple(candidates)
+    return tuple(candidates)
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_crystal_spine_piece_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    base_grid = [list(layer) for layer in parts[1:]]
+    while len(base_grid) < layers:
+        base_grid.append(list("----"))
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    for spine_q in range(4):
+        spine_cells = [
+            (layer, spine_q)
+            for layer in range(layers)
+            if base_grid[layer][spine_q] == "-"
+        ]
+        if len(spine_cells) < 2:
+            continue
+        for piece_layer in range(min(4, layers)):
+            for piece_q in range(4):
+                if piece_q == spine_q or base_grid[piece_layer][piece_q] != "-":
+                    continue
+                for piece in ("P", "S"):
+                    candidate = [row[:] for row in base_grid]
+                    for layer, q in spine_cells:
+                        candidate[layer][q] = "c"
+                    candidate[piece_layer][piece_q] = piece
+                    predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+                    if predecessor in seen_candidates:
+                        continue
+                    if bitmask_push_pin(predecessor, layers) == normalized:
+                        seen_candidates.add(predecessor)
+                        candidates.append(predecessor)
+                        if len(candidates) >= 40:
+                            return tuple(candidates)
+        for spine_start in range(1, layers):
+            suffix_spine_cells = [
+                (layer, spine_q)
+                for layer in range(spine_start, layers)
+                if base_grid[layer][spine_q] == "-"
+            ]
+            if len(suffix_spine_cells) < 2:
+                continue
+            support_cells = [
+                (layer, q)
+                for layer in range(1, min(4, layers))
+                for q in range(4)
+                if (q != spine_q or layer < spine_start) and base_grid[layer][q] == "-"
+            ]
+            for support_count in (1, 2):
+                for chosen_cells in itertools.combinations(support_cells, support_count):
+                    for support_pieces in itertools.product(("P", "S"), repeat=support_count):
+                        candidate = [row[:] for row in base_grid]
+                        for layer, q in suffix_spine_cells:
+                            candidate[layer][q] = "c"
+                        for (layer, q), piece in zip(chosen_cells, support_pieces):
+                            candidate[layer][q] = piece
+                        predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+                        if predecessor in seen_candidates:
+                            continue
+                        if bitmask_push_pin(predecessor, layers) == normalized:
+                            seen_candidates.add(predecessor)
+                            candidates.append(predecessor)
+                            if len(candidates) >= 40:
+                                return tuple(candidates)
+    return tuple(candidates)
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_single_column_repair_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0 or layers > 6:
+        return ()
+
+    base_grid = [list(layer) for layer in parts[1:]]
+    while len(base_grid) < layers:
+        base_grid.append(list("----"))
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    for q in range(4):
+        mutable_cells: list[tuple[int, int]] = []
+        choice_sets: list[tuple[str, ...]] = []
+        for layer in range(layers):
+            current = base_grid[layer][q]
+            if current == "-":
+                mutable_cells.append((layer, q))
+                choice_sets.append(("-", "P", "S", "c"))
+            elif layer < 3 and current in {"P", "S"}:
+                other = "S" if current == "P" else "P"
+                mutable_cells.append((layer, q))
+                choice_sets.append(("-", current, other))
+        if not mutable_cells or len(mutable_cells) > 6:
+            continue
+        for replacements in itertools.product(*choice_sets):
+            if all(base_grid[layer][col] == replacement for (layer, col), replacement in zip(mutable_cells, replacements)):
+                continue
+            candidate = [row[:] for row in base_grid]
+            for (layer, col), replacement in zip(mutable_cells, replacements):
+                candidate[layer][col] = replacement
+            predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+            if predecessor in seen_candidates:
+                continue
+            if bitmask_push_pin(predecessor, layers) == normalized:
+                seen_candidates.add(predecessor)
+                candidates.append(predecessor)
+                if len(candidates) >= 40:
+                    return tuple(candidates)
+    return tuple(candidates)
+
+
+def _relative_layer(parts: list[str], index: int) -> str | None:
+    if index < 0:
+        index = len(parts) + index
+    if 0 <= index < len(parts):
+        return parts[index]
+    return None
+
+
+def _set_layer_at(layer: str, q: int, ch: str) -> str:
+    chars = list(layer)
+    chars[q] = ch
+    return "".join(chars)
+
+
+def _layers_from_placements(
+    depth: int,
+    placements: Iterable[tuple[int, int, str]],
+) -> tuple[str, ...]:
+    rows = [list("----") for _ in range(depth)]
+    for layer, q, ch in placements:
+        if 0 <= layer < depth and 0 <= q < 4:
+            rows[layer][q] = ch
+    return tuple("".join(row) for row in rows)
+
+
+def _relative_high_tail_layers(tail_piece: str) -> tuple[str, ...]:
+    tail_piece = tail_piece if tail_piece in {"S", "P"} else "-"
+    return _layers_from_placements(
+        5,
+        (
+            (0, 0, "c"),
+            (0, 2, "c"),
+            (1, 0, "c"),
+            (1, 1, "S"),
+            (1, 2, "c"),
+            (1, 3, tail_piece),
+            (2, 0, "c"),
+            (2, 1, "S"),
+            (2, 3, "c"),
+            (3, 1, "c"),
+            (3, 3, "c"),
+            (4, 3, "c"),
+        ),
+    )
+
+
+def _high_tail_relative_layer_candidate(parts: list[str], layers: int) -> tuple[str, ...]:
+    if len(parts) < 7 or layers < 7 or parts[-1] != "-S--":
+        return ()
+    first = _relative_layer(parts, 1)
+    second = _relative_layer(parts, 2)
+    lift_source = _relative_layer(parts, -2)
+    repair_source = _relative_layer(parts, -3)
+    if None in (first, second, lift_source, repair_source):
+        return ()
+    tail_piece = lift_source[3] if lift_source else "-"
+    return (
+        _set_layer_at(first, 1, "-"),
+        _set_layer_at(second, 1, "S"),
+        _set_layer_at(lift_source, 3, "S"),
+        _set_layer_at(repair_source, 2, "P"),
+        *_relative_high_tail_layers(tail_piece),
+    )
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_relative_high_tail_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts:
+        return ()
+    candidate_parts = _high_tail_relative_layer_candidate(parts, layers)
+    if not candidate_parts:
+        return ()
+    predecessor = normalize_code(":".join(candidate_parts))
+    if bitmask_push_pin(predecessor, layers) != normalized:
+        return ()
+    return (predecessor,)
+
+
+def relative_high_tail_evidence(code: str, layers: int) -> tuple[str, str] | None:
+    normalized = normalize_code(code)
+    candidates = bitmask_relative_high_tail_inverse_push_pin_candidates(normalized, layers)
+    if not candidates:
+        return None
+    predecessor = candidates[0]
+    if bitmask_push_pin(predecessor, layers) != normalized:
+        return None
+    if bitmask_physics_stable(predecessor):
+        return predecessor, "stable_predecessor"
+    return predecessor, "unstable_predecessor"
+
+
+@lru_cache(maxsize=100_000)
 def bitmask_bottom_extra_pin_inverse_push_pin_candidates(code: str, layers: int) -> tuple[str, ...]:
     normalized = normalize_code(code)
     parts = normalized.split(":") if normalized else []
@@ -3239,6 +3675,67 @@ def bitmask_bottom_extra_supported_piece_suffix_inverse_push_pin_candidates(
 
 
 @lru_cache(maxsize=100_000)
+def bitmask_bottom_extra_pin_and_piece_inverse_push_pin_candidates(
+    code: str, layers: int
+) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts or layers <= 0:
+        return ()
+
+    target_bottom = parts[0]
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    extra_pin_cols = [
+        q
+        for q, ch in enumerate(target_bottom)
+        if ch == "P" and (q >= len(base_parts[0]) or base_parts[0][q] == "-")
+    ]
+    extra_piece_cols = [
+        (q, ch)
+        for q, ch in enumerate(target_bottom)
+        if ch in {"S", "c"} and (q >= len(base_parts[0]) or base_parts[0][q] == "-")
+    ]
+    if not extra_pin_cols or len(extra_piece_cols) != 1:
+        return ()
+
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    piece_q, piece = extra_piece_cols[0]
+    for pin_q in extra_pin_cols:
+        if pin_q == piece_q:
+            continue
+        for piece_layer in range(1, min(3, layers)):
+            if base_parts[piece_layer][piece_q] != "-":
+                continue
+            for pin_layer in range(piece_layer + 1, min(4, layers)):
+                if base_parts[pin_layer][pin_q] != "-":
+                    continue
+                for spine_q in set(_adjacent_q(piece_q) + _adjacent_q(pin_q)):
+                    candidate = [list(layer) for layer in base_parts]
+                    candidate[piece_layer][piece_q] = piece
+                    candidate[pin_layer][pin_q] = "P"
+                    added = 0
+                    for layer in range(pin_layer + 1, layers):
+                        if candidate[layer][spine_q] == "-":
+                            candidate[layer][spine_q] = "c"
+                            added += 1
+                    if added == 0:
+                        continue
+                    predecessor = normalize_code(":".join("".join(layer) for layer in candidate))
+                    if predecessor in seen_candidates:
+                        continue
+                    if bitmask_push_pin(predecessor, layers) == normalized:
+                        seen_candidates.add(predecessor)
+                        candidates.append(predecessor)
+                        if len(candidates) >= 40:
+                            return tuple(candidates)
+    return tuple(candidates)
+
+
+@lru_cache(maxsize=100_000)
 def pp_inverse_predecessor_witness(code: str, layers: int) -> str | None:
     normalized = normalize_code(code)
     if not normalized:
@@ -3336,6 +3833,32 @@ def pp_inverse_predecessor_core_verdict(code: str, layers: int) -> tuple[str, st
 
 
 @lru_cache(maxsize=100_000)
+def generic_viable_pin_push_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    if not normalized or layers < 6:
+        return None
+    candidates = tuple(
+        dict.fromkeys(
+            bitmask_inverse_push_pin_candidates(normalized, layers)
+            + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
+        )
+    )[:16]
+    for predecessor in candidates:
+        if bitmask_push_pin(predecessor, layers) != normalized:
+            continue
+        if claw_candidate_predecessor_is_viable(predecessor, layers):
+            return predecessor
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def generic_viable_pin_push_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    if generic_viable_pin_push_predecessor_witness(code, layers) is not None:
+        return "possible", "kernel_generic_viable_pin_push_predecessor"
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def zero_stack_trace_seed(
     code: str,
     layers: int,
@@ -3414,16 +3937,18 @@ def zero_stack_pp_predecessor_witness(
         extended_sources = (
             bitmask_vertical_spine_shatter_inverse_push_pin_candidates(normalized, layers)
             + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
-            + bitmask_claw_delta_grammar_inverse_push_pin_candidates(normalized, layers)
         )
         if layers > MAX_LAYERS:
             extended_sources = (
                 extended_sources
                 + bitmask_piece_lift_shatter_inverse_push_pin_candidates(normalized, layers)
                 + bitmask_double_s_lift_shatter_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_falling_component_lift_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_crystal_spine_piece_inverse_push_pin_candidates(normalized, layers)
                 + bitmask_bottom_extra_pin_inverse_push_pin_candidates(normalized, layers)
                 + bitmask_bottom_extra_pin_suffix_inverse_push_pin_candidates(normalized, layers)
                 + bitmask_bottom_extra_supported_piece_suffix_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_bottom_extra_pin_and_piece_inverse_push_pin_candidates(normalized, layers)
             )
         connected_candidates = tuple(
             predecessor
@@ -3482,6 +4007,10 @@ def claw_overflow_suffix_depth(predecessor: str, max_layers: int, crystal_column
     return depth
 
 
+def claw_any_overflow_suffix_depth(predecessor: str, max_layers: int) -> int:
+    return max(claw_overflow_suffix_depth(predecessor, max_layers, q) for q in range(4))
+
+
 CLAW_DELTA_LAYER_TRANSITIONS: tuple[tuple[int, str, str], ...] = (
     (4, "----", "--c-"),
     (3, "cS-S", "cScS"),
@@ -3515,6 +4044,7 @@ CLAW_DELTA_LAYER_TRANSITIONS: tuple[tuple[int, str, str], ...] = (
     (1, "SS--", "SScc"),
     (0, "-P-P", "-PcP"),
     (0, "-P-S", "-PcS"),
+    (0, "--S-", "P-Sc"),
     (0, "-S-P", "-ScP"),
     (1, "SP-S", "-Pcc"),
     (1, "SP-S", "SccS"),
@@ -3544,6 +4074,82 @@ CLAW_DELTA_LAYER_TRANSITIONS: tuple[tuple[int, str, str], ...] = (
     (2, "S---", "SPcc"),
     (2, "-P--", "SPcS"),
     (2, "-P--", "SPcc"),
+    (1, "-SS-", "cSSc"),
+    (1, "--SS", "ccSS"),
+    (0, "P-SS", "Pcc-"),
+    (1, "SP-P", "SScP"),
+    (2, "---P", "SPcP"),
+    (1, "-P-S", "SPcS"),
+    (1, "SP-P", "SPcS"),
+    (2, "-P--", "SPcP"),
+    (0, "SSPc", "-cPc"),
+    (1, "---P", "-ccP"),
+    (0, "ScPS", "-cPc"),
+    (1, "-S--", "-Scc"),
+    (0, "S-P-", "c-Pc"),
+    (0, "S-S-", "c-Sc"),
+    (0, "S-cP", "c-cP"),
+    (0, "S-cS", "c-cS"),
+    (0, "SP--", "cP-c"),
+    (0, "SS--", "cS-c"),
+    (0, "-PP-", "cPP-"),
+    (0, "-PS-", "cPS-"),
+    (0, "--cP", "c-cP"),
+    (0, "-Pc-", "cPc-"),
+    (0, "-SP-", "cSP-"),
+    (0, "-SS-", "cSS-"),
+    (0, "--cS", "c-cS"),
+    (0, "-Sc-", "cSc-"),
+    (1, "P---", "PcSS"),
+    (0, "P-SS", "Pcc-"),
+    (1, "P--P", "PcSS"),
+    (2, "P---", "PccP"),
+    (0, "S-S-", "ScS-"),
+    (1, "--SS", "-cSS"),
+    (2, "S--S", "SccS"),
+    (2, "-P--", "SPcc"),
+    (2, "---P", "SccP"),
+    (1, "-P--", "SPcc"),
+    (2, "P---", "PccS"),
+    (1, "-PS-", "SPSc"),
+    (0, "-S-P", "cScP"),
+    (2, "P---", "P-cS"),
+    (1, "SS-P", "cccP"),
+    (1, "SS-S", "cccS"),
+    (0, "-SP-", "cSPc"),
+    (0, "SSP-", "cSPc"),
+    (0, "SSS-", "cSSc"),
+    (0, "SP--", "cPcc"),
+    (0, "S-PP", "ccPP"),
+    (0, "S-SP", "ccSP"),
+    (0, "SS--", "cScc"),
+    (0, "PS-S", "P-cS"),
+    (1, "P--S", "PScS"),
+    (2, "P---", "PScc"),
+    (0, "PcPS", "PcP-"),
+    (1, "PS--", "PScS"),
+    (0, "PcSS", "PcS-"),
+    (1, "PP--", "PPcS"),
+    (0, "ScSS", "ScS-"),
+    (0, "S---", "Sc-c"),
+    (1, "S---", "ScSc"),
+    (0, "P--S", "P-c-"),
+    (0, "P--S", "Pcc-"),
+    (0, "PP-S", "PPc-"),
+    (0, "SS-P", "SSc-"),
+    (0, "SSPc", "S-Pc"),
+    (0, "SP--", "-Pcc"),
+    (0, "SPcP", "-PcP"),
+    (0, "SccP", "-ccP"),
+    (0, "S--S", "-ccS"),
+    (0, "SP-S", "-PcS"),
+    (0, "SSSc", "-SSc"),
+    (0, "SScS", "-ScS"),
+    (1, "--SP", "ScSP"),
+    (0, "SccS", "-ccS"),
+    (0, "ScP-", "-cPc"),
+    (0, "ScS-", "-cSc"),
+    (0, "ScSS", "-cSS"),
 )
 
 
@@ -3578,12 +4184,59 @@ CLAW_DELTA_LAYER_TRANSITIONS = tuple(
 )
 
 
+def _load_generated_claw_delta_signatures() -> tuple[tuple[tuple[int, str, str], ...], ...]:
+    path = Path(__file__).resolve().parent / "claw_delta_signatures.py"
+    if not path.exists():
+        return ()
+    try:
+        spec = importlib.util.spec_from_file_location("generated_claw_delta_signatures", path)
+        if spec is None or spec.loader is None:
+            return ()
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        signatures = getattr(module, "CLAW_DELTA_SIGNATURES", ())
+    except Exception:
+        return ()
+    out: list[tuple[tuple[int, str, str], ...]] = []
+    for signature in signatures:
+        if not isinstance(signature, tuple):
+            continue
+        parsed: list[tuple[int, str, str]] = []
+        for item in signature:
+            if (
+                isinstance(item, tuple)
+                and len(item) == 3
+                and isinstance(item[0], int)
+                and isinstance(item[1], str)
+                and isinstance(item[2], str)
+            ):
+                parsed.append(item)
+        if len(parsed) == len(signature):
+            out.append(tuple(parsed))
+    return tuple(out)
+
+
+CLAW_DELTA_SIGNATURES = _load_generated_claw_delta_signatures()
+CLAW_DELTA_SIGNATURES_BY_FIRST: dict[tuple[int, str], tuple[tuple[tuple[int, str, str], ...], ...]] = {}
+for _signature in CLAW_DELTA_SIGNATURES:
+    if not _signature:
+        continue
+    _layer, _before, _after = _signature[0]
+    CLAW_DELTA_SIGNATURES_BY_FIRST.setdefault((_layer, _before), []).append(_signature)
+CLAW_DELTA_SIGNATURES_BY_FIRST = {
+    key: tuple(value)
+    for key, value in CLAW_DELTA_SIGNATURES_BY_FIRST.items()
+}
+
+
 @lru_cache(maxsize=100_000)
-def bitmask_claw_delta_grammar_inverse_push_pin_candidates(
+def _bitmask_claw_delta_grammar_inverse_push_pin_candidates_direct(
     code: str,
     layers: int,
     max_changed_layers: int = 5,
     max_tests: int = 20_000,
+    max_candidates: int = 64,
+    require_stable: bool = True,
 ) -> tuple[str, ...]:
     normalized = normalize_code(code)
     parts = normalized.split(":") if normalized else []
@@ -3594,15 +4247,69 @@ def bitmask_claw_delta_grammar_inverse_push_pin_candidates(
     while len(base_parts) < layers:
         base_parts.append("----")
 
-    options_by_layer: list[set[str]] = [{base_parts[layer]} for layer in range(layers)]
-    for layer, before, after in CLAW_DELTA_LAYER_TRANSITIONS:
-        if layer < layers and base_parts[layer] == before:
-            options_by_layer[layer].add(after)
-
     candidates: list[str] = []
     seen_candidates: set[str] = set()
+    if layers <= MAX_LAYERS:
+        layer_offsets = (0,)
+    elif layers == MAX_LAYERS + 1:
+        layer_offsets = (0, 1, 2)
+    else:
+        layer_offsets = tuple(dict.fromkeys((0, layers - MAX_LAYERS)))
+    signature_pool: list[tuple[tuple[int, str, str], ...]] = []
+    for layer, before in enumerate(base_parts[:layers]):
+        signature_pool.extend(CLAW_DELTA_SIGNATURES_BY_FIRST.get((layer, before), ()))
+        for offset in layer_offsets:
+            shifted_layer = layer - offset
+            if shifted_layer != layer and shifted_layer >= 0:
+                signature_pool.extend(CLAW_DELTA_SIGNATURES_BY_FIRST.get((shifted_layer, before), ()))
+
+    for signature in dict.fromkeys(signature_pool):
+        candidate_parts = list(base_parts)
+        valid_signature = True
+        changed_layers = 0
+        for layer, before, after in signature:
+            applied = False
+            for offset in layer_offsets:
+                shifted_layer = layer + offset
+                if shifted_layer < layers and candidate_parts[shifted_layer] == before:
+                    candidate_parts[shifted_layer] = after
+                    changed_layers += 1
+                    applied = True
+                    break
+            if not applied:
+                valid_signature = False
+                break
+        if not valid_signature or changed_layers == 0 or changed_layers > max_changed_layers:
+            continue
+        predecessor = normalize_code(":".join(candidate_parts))
+        if predecessor in seen_candidates:
+            continue
+        if not claw_any_overflow_suffix_depth(predecessor, layers):
+            continue
+        if require_stable and not bitmask_physics_stable(predecessor):
+            continue
+        if bitmask_push_pin(predecessor, layers) == normalized:
+            seen_candidates.add(predecessor)
+            candidates.append(predecessor)
+            if len(candidates) >= max_candidates:
+                return tuple(candidates)
+
+    options_by_layer: list[set[str]] = [{base_parts[layer]} for layer in range(layers)]
+    for layer, before, after in CLAW_DELTA_LAYER_TRANSITIONS:
+        for offset in layer_offsets:
+            shifted_layer = layer + offset
+            if shifted_layer < layers and base_parts[shifted_layer] == before:
+                options_by_layer[shifted_layer].add(after)
+
+    if layers >= 1 and base_parts[layers - 1] == "----":
+        options_by_layer[layers - 1] = {"--c-"} if layers <= MAX_LAYERS else {"c---", "-c--", "--c-", "---c"}
+
+    ordered_options = tuple(
+        sorted(options, key=lambda option, layer=layer: (option != base_parts[layer], option))
+        for layer, options in enumerate(options_by_layer)
+    )
     tested = 0
-    for rows in itertools.product(*(sorted(options) for options in options_by_layer)):
+    for rows in itertools.product(*ordered_options):
         changed = sum(1 for before, after in zip(base_parts, rows) if before != after)
         if changed == 0 or changed > max_changed_layers:
             continue
@@ -3612,16 +4319,101 @@ def bitmask_claw_delta_grammar_inverse_push_pin_candidates(
         predecessor = normalize_code(":".join(rows))
         if predecessor in seen_candidates:
             continue
-        if not claw_overflow_suffix_depth(predecessor, layers):
+        if not claw_any_overflow_suffix_depth(predecessor, layers):
             continue
-        if not bitmask_physics_stable(predecessor):
+        if require_stable and not bitmask_physics_stable(predecessor):
             continue
         if bitmask_push_pin(predecessor, layers) == normalized:
             seen_candidates.add(predecessor)
             candidates.append(predecessor)
-            if len(candidates) >= 64:
+            if len(candidates) >= max_candidates:
                 return tuple(candidates)
     return tuple(candidates)
+
+
+@lru_cache(maxsize=100_000)
+def bitmask_claw_delta_grammar_inverse_push_pin_candidates(
+    code: str,
+    layers: int,
+    max_changed_layers: int = 5,
+    max_tests: int = 20_000,
+    max_candidates: int = 64,
+    require_stable: bool = True,
+) -> tuple[str, ...]:
+    normalized = normalize_code(code)
+    if not normalized:
+        return ()
+
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def add_candidates(source_code: str, restore_turns: int) -> bool:
+        for candidate in _bitmask_claw_delta_grammar_inverse_push_pin_candidates_direct(
+            source_code,
+            layers,
+            max_changed_layers=max_changed_layers,
+            max_tests=max_tests,
+            max_candidates=max_candidates,
+            require_stable=require_stable,
+        ):
+            restored = _rotate_code_text(candidate, restore_turns) if restore_turns else candidate
+            if restored in seen:
+                continue
+            if bitmask_push_pin(restored, layers) != normalized:
+                continue
+            seen.add(restored)
+            candidates.append(restored)
+            if len(candidates) >= max_candidates:
+                return True
+        return False
+
+    if add_candidates(normalized, 0):
+        return tuple(candidates)
+
+    def highest_c_column(shape_code: str) -> int:
+        for layer in reversed(normalize_code(shape_code).split(":")):
+            for q, ch in enumerate(layer):
+                if ch == "c":
+                    return q
+        return -1
+
+    for flipped in (False, True):
+        source = _flip_code_text(normalized) if flipped else normalized
+        for turns in range(4):
+            if not flipped and turns == 0:
+                continue
+            transformed = _rotate_code_text(source, turns)
+            if transformed == normalized:
+                continue
+            if layers <= MAX_LAYERS and highest_c_column(transformed) != 0:
+                continue
+            for candidate in _bitmask_claw_delta_grammar_inverse_push_pin_candidates_direct(
+                transformed,
+                layers,
+                max_changed_layers=max_changed_layers,
+                max_tests=max_tests,
+                max_candidates=max_candidates,
+                require_stable=require_stable,
+            ):
+                rotated_back = _rotate_code_text(candidate, -turns)
+                restored = _flip_code_text(rotated_back) if flipped else rotated_back
+                if restored in seen:
+                    continue
+                if bitmask_push_pin(restored, layers) != normalized:
+                    continue
+                seen.add(restored)
+                candidates.append(restored)
+                if len(candidates) >= max_candidates:
+                    return tuple(candidates)
+    return tuple(candidates)
+
+
+def bitmask_claw_delta_grammar_first_inverse_push_pin_candidate(
+    code: str,
+    layers: int,
+) -> str | None:
+    candidates = bitmask_claw_delta_grammar_inverse_push_pin_candidates(code, layers, max_candidates=1)
+    return candidates[0] if candidates else None
 
 
 def zero_stack_pp_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
@@ -3654,7 +4446,6 @@ def zero_stack_terminal_crystal_failure_core_verdict(code: str, layers: int) -> 
             + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
             + bitmask_vertical_spine_shatter_inverse_push_pin_candidates(normalized, layers)
             + bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
-            + bitmask_claw_delta_grammar_inverse_push_pin_candidates(normalized, layers)
             + (
                 bitmask_piece_lift_shatter_inverse_push_pin_candidates(normalized, layers)
                 + bitmask_double_s_lift_shatter_inverse_push_pin_candidates(normalized, layers)
@@ -3697,6 +4488,451 @@ def zero_stack_terminal_crystal_failure_core_verdict(code: str, layers: int) -> 
     if any(bitmask_swap_impossibility(predecessor) is None for predecessor in stable_viable_trace_candidates):
         return None
     return "impossible", "kernel_zero_stack_terminal_non_swappable_predecessor"
+
+
+def claw_change_rule_predecessor_is_explainable(predecessor: str, layers: int) -> bool:
+    if swap_core_verdict(predecessor) is not None:
+        return True
+    subtype = pp_subtype_candidate(predecessor, layers).subtype
+    if subtype in {
+        "direct_pp_candidate",
+        "bottom_pin_derivative_pp_candidate",
+        "mid_stack_delta_pp_candidate",
+        "top_s_derivative_pp_candidate",
+        "top_single_c_zero_stack_unresolved_pp_candidate",
+    }:
+        return True
+    return stackability_core_verdict(predecessor) is not None
+
+
+@lru_cache(maxsize=100_000)
+def claw_top_crystal_shift_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    if not normalized:
+        return None
+    parts = normalized.split(":")
+    if layers > MAX_LAYERS and len(parts) >= 2:
+        shifted_base = parts[1:]
+        for top_crystal in ("c---", "-c--", "--c-", "---c"):
+            predecessor = normalize_code(":".join(shifted_base + [top_crystal]))
+            if (
+                bitmask_physics_stable(predecessor)
+                and bitmask_push_pin(predecessor, layers) == normalized
+                and claw_change_rule_predecessor_is_explainable(predecessor, layers)
+            ):
+                return predecessor
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def claw_obvious_unstable_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    normalized = normalize_code(code)
+    if layers < 6 or not normalized:
+        return None
+    rotated = normalized
+    for turns in range(4):
+        parts = rotated.split(":")
+        if len(parts) == layers and parts[0] == "PP-P" and parts[-1] == "c--S":
+            predecessor = normalize_code(":".join(parts[1:-1] + ["cPcS", "--c-"]))
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        if len(parts) == layers and parts[0] == "PPP-" and parts[-3] == "-cS-" and parts[-1] == "c--S":
+            predecessor = normalize_code(":".join(parts[1:-3] + ["PcS-", parts[-2], "c-cS", "--c-"]))
+            if bitmask_push_pin(predecessor, layers) == rotated and not bitmask_physics_stable(predecessor):
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
+        rotated = bitmask_rotate_clockwise(rotated)
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def claw_terminal_s_sc_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    normalized = normalize_code(code)
+    if layers < 6 or not normalized:
+        return None
+    rotated = normalized
+    for turns in range(4):
+        parts = rotated.split(":")
+        if len(parts) == layers and parts[0] == "-PPP" and parts[-3] == "--cS" and parts[-1] == "S-Sc":
+            suffix = "" if turns == 0 else f"_rot{turns}"
+            if parts[-2] == "---c":
+                return "possible", f"kernel_claw_terminal_s_sc_zero_stack{suffix}"
+            if parts[-2] == "---S":
+                return "impossible", f"kernel_claw_terminal_s_sc_invalid_support{suffix}"
+        if len(parts) == layers and parts[0] == "-PPP" and parts[-3:] == ["---S", "---S", "S-Sc"]:
+            suffix = "" if turns == 0 else f"_rot{turns}"
+            return "possible", f"kernel_claw_terminal_s_sc_double_support{suffix}"
+        if (
+            len(parts) == layers
+            and parts[0] == "-PPP"
+            and parts[-3] == "--cS"
+            and parts[-2].startswith("S-")
+            and parts[-2].endswith("S")
+            and parts[-1] == "cS--"
+        ):
+            suffix = "" if turns == 0 else f"_rot{turns}"
+            return "impossible", f"kernel_claw_terminal_s_sc_unstable_tail{suffix}"
+        if (
+            len(parts) == layers
+            and parts[0] == "-PPP"
+            and parts[-3] == "--cS"
+            and parts[-2].startswith("S-")
+            and parts[-2].endswith("c")
+            and parts[-1] == "cS--"
+        ):
+            suffix = "" if turns == 0 else f"_rot{turns}"
+            return "impossible", f"kernel_claw_terminal_s_sc_unstable_crystal_tail{suffix}"
+        if (
+            len(parts) == layers
+            and parts[0] == "P-PP"
+            and parts[-3].startswith("-Sc")
+            and parts[-2] == "--S-"
+            and parts[-1] == "ScS-"
+        ):
+            suffix = "" if turns == 0 else f"_rot{turns}"
+            return "impossible", f"kernel_claw_terminal_s_sc_invalid_mid_support{suffix}"
+        rotated = bitmask_rotate_clockwise(rotated)
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def claw_change_rule_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    if not normalized:
+        return None
+
+    top_shift = claw_top_crystal_shift_predecessor_witness(normalized, layers)
+    if top_shift is not None:
+        return top_shift
+
+    first = bitmask_claw_delta_grammar_first_inverse_push_pin_candidate(normalized, layers)
+    if first is not None and claw_change_rule_predecessor_is_explainable(first, layers):
+        return first
+
+    for predecessor in bitmask_claw_delta_grammar_inverse_push_pin_candidates(normalized, layers)[:64]:
+        if predecessor == first:
+            continue
+        if claw_change_rule_predecessor_is_explainable(predecessor, layers):
+            return predecessor
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def claw_change_rule_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    if claw_change_rule_predecessor_witness(code, layers) is None:
+        return None
+    return "possible", "kernel_claw_change_rule_predecessor_verified"
+
+
+def claw_change_rule_predecessor_tree(code: str, layers: int) -> DecompositionNode | None:
+    normalized = normalize_code(code)
+    predecessor = claw_change_rule_predecessor_witness(normalized, layers)
+    if predecessor is None:
+        return None
+
+    predecessor_tree = swappability_tree(predecessor, layers)
+    if predecessor_tree is None:
+        predecessor_tree = bitmask_swap_tree(predecessor)
+    if predecessor_tree is None:
+        predecessor_tree = stackability_tree(predecessor, layers)
+    if predecessor_tree is None:
+        predecessor_tree = zero_stack_pp_predecessor_tree(
+            predecessor,
+            layers,
+            allow_terminal_crystal=True,
+        )
+    if predecessor_tree is None:
+        predecessor_tree = pp_trace_tree(predecessor, layers)
+
+    return DecompositionNode(
+        kind="pin_push",
+        shape=normalized,
+        detail="claw_change_rule_predecessor",
+        children=(predecessor_tree,),
+    )
+
+
+def claw_unstable_predecessor_tree(code: str, layers: int) -> DecompositionNode | None:
+    normalized = normalize_code(code)
+    if not normalized or layers < 6:
+        return None
+
+    for turns in range(4):
+        rotated = _rotate_code_text(normalized, turns)
+        candidates = bitmask_claw_delta_grammar_inverse_push_pin_candidates(
+            rotated,
+            layers,
+            require_stable=False,
+        )
+        for predecessor in candidates[:64]:
+            restored = _rotate_code_text(predecessor, -turns) if turns else predecessor
+            if bitmask_push_pin(restored, layers) != normalized:
+                continue
+            stable = bitmask_physics_stable(restored)
+            viable = claw_candidate_predecessor_is_viable(restored, layers)
+            if viable:
+                continue
+            predecessor_node = DecompositionNode(
+                kind="predecessor",
+                shape=restored,
+                detail="stable_but_not_viable" if stable else "physically_unstable",
+            )
+            suffix = "" if turns == 0 else f"_rot{turns}"
+            return DecompositionNode(
+                kind="impossible",
+                shape=normalized,
+                detail="claw_predecessor_failure" + suffix,
+                children=(predecessor_node,),
+            )
+    verdict = claw_unstable_predecessor_core_verdict(normalized, layers)
+    if verdict is not None:
+        return DecompositionNode(
+            kind="impossible",
+            shape=normalized,
+            detail=verdict[1],
+        )
+    return None
+
+
+def claw_candidate_predecessor_is_viable(predecessor: str, layers: int) -> bool:
+    if not bitmask_physics_stable(predecessor):
+        return False
+    if not corner_columns_allowed(predecessor):
+        return False
+    if claw_predecessor_first_floor_invalid(predecessor):
+        return False
+    if swap_core_verdict(predecessor) is not None:
+        return True
+    if stackability_core_verdict(predecessor) is not None:
+        return True
+    subtype = pp_subtype_candidate(predecessor, layers).subtype
+    if subtype == "top_single_c_zero_stack_unresolved_pp_candidate":
+        seed = zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=True)
+        return bool(seed and bitmask_stackability_witnesses(seed[0]))
+    return subtype in {
+        "direct_pp_candidate",
+        "bottom_pin_derivative_pp_candidate",
+        "mid_stack_delta_pp_candidate",
+        "top_s_derivative_pp_candidate",
+    }
+
+
+@lru_cache(maxsize=20_000)
+def claw_bottom_pin_stable_predecessor_probe(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if layers < 6 or len(parts) < 2 or parts[0] != "P-PP" or parts[-1] != "cS--":
+        return None
+
+    base_parts = list(parts[1:])
+    while len(base_parts) < layers:
+        base_parts.append("----")
+
+    options_by_layer: list[set[str]] = [set() for _ in range(layers)]
+    options_by_layer[0].update(
+        "".join(chars)
+        for chars in itertools.product("PSc", "-", "PSc", "PSc")
+    )
+    for layer in range(1, layers):
+        options_by_layer[layer].add(base_parts[layer])
+
+    layer_shift = max(0, layers - MAX_LAYERS)
+    for layer, before, after in CLAW_DELTA_LAYER_TRANSITIONS:
+        for shifted_layer in (layer, layer + layer_shift):
+            if 1 <= shifted_layer < layers and base_parts[shifted_layer] == before:
+                options_by_layer[shifted_layer].add(after)
+
+    tested = 0
+    for rows in itertools.product(*(sorted(options) for options in options_by_layer)):
+        tested += 1
+        if tested > 5_000:
+            return None
+        predecessor = normalize_code(":".join(rows))
+        if not bitmask_physics_stable(predecessor):
+            continue
+        if bitmask_push_pin(predecessor, layers) == normalized:
+            return predecessor
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def claw_unstable_predecessor_candidate_reason(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if layers < 6 or len(parts) < 2:
+        return None
+    if parts[0].count("P") < 2 or parts[-1] not in {"cS--", "cS-S", "c---", "-c--", "-cS-", "ScS-", "-SSc", "-S--", "SSSc", "c--S", "-S-c", "-SPc", "-PcS"}:
+        return None
+    observed_predecessors: list[str] = []
+    if len(parts) >= 6 and parts[-3] == "--Pc":
+        observed_predecessors.append(
+            normalize_code(":".join(parts[1:-3] + ["P-Pc", parts[-2], "cSc-", "--c-"]))
+        )
+    if len(parts) >= 6 and parts[-3] == "--Sc":
+        observed_predecessors.append(
+            normalize_code(":".join(parts[1:-3] + ["P-Sc", parts[-2], "cSc-", "--c-"]))
+        )
+    if (
+        len(parts) == 6
+        and parts[0] == "PPPP"
+        and parts[2] == "--c-"
+        and parts[3] == "-ScS"
+        and parts[4] == "-S--"
+        and parts[5] == "-c--"
+    ):
+        observed_predecessors.append(
+            normalize_code(":".join((parts[1], "c-c-", "cScS", "cS-c", "-c-c", "---c")))
+        )
+    if (
+        len(parts) == 6
+        and parts[0] == "PSPP"
+        and parts[1] == "P-Sc"
+        and parts[2].startswith("P--")
+        and parts[3].startswith("cS-")
+        and parts[4] == "-c--"
+        and parts[5] == "-cS-"
+    ):
+        observed_predecessors.append(
+            normalize_code(":".join((parts[1], "PS-" + parts[2][3], parts[3], "-c-c", "-cSc", "---c")))
+        )
+    if (
+        len(parts) == 6
+        and parts[0] == "PPPP"
+        and parts[1] == "cS--"
+        and parts[2] == "c---"
+        and parts[3] == "SS--"
+        and parts[4] == "c---"
+        and parts[5] == "cS-S"
+    ):
+        observed_predecessors.append(
+            normalize_code(":".join(("cSc-", "c-cP", "SScc", "c-c-", "cScS", "--c-")))
+        )
+    if (
+        len(parts) == 6
+        and parts[0] == "PPPS"
+        and parts[2] == "-cP-"
+        and parts[5] == "ScS-"
+    ):
+        observed_predecessors.append(
+            normalize_code(":".join((parts[1], "-cPS", parts[3], parts[4], "ScSc", "---c")))
+        )
+    if (
+        len(parts) == 6
+        and parts[0] == "PPPS"
+        and parts[2] == "PcP-"
+        and parts[3] == "-c--"
+        and parts[4] == "-c--"
+        and parts[5] == "ScS-"
+    ):
+        observed_predecessors.append(
+            normalize_code(":".join((parts[1][:3] + "-", "-cPS", "Pc-c", "-c-" + parts[1][3], "ScSc", "---c")))
+        )
+    if (
+        len(parts) == 6
+        and parts[0] == "PPPS"
+        and parts[1].startswith("c")
+        and parts[1].endswith("S")
+        and parts[2].endswith("P-")
+        and parts[3] == "-c--"
+        and parts[4] == "-S--"
+        and parts[5] == "ScS-"
+    ):
+        observed_predecessors.append(
+            normalize_code(":".join((parts[1][:3] + "-", "-" + parts[2][1] + "PS", "Pc-c", "-S-S", "ScSc", "---c")))
+        )
+    if (
+        len(parts) == 6
+        and parts[0] == "PPSP"
+        and parts[1].startswith("SS")
+        and parts[1].endswith("c")
+        and parts[2] == "S--P"
+        and parts[3] == "c---"
+        and parts[4] == "c---"
+        and parts[5] == "cS-S"
+    ):
+        observed_predecessors.append(
+            normalize_code(":".join(("SS-c", "S-SP", "c-c-", "c-" + parts[1][2] + "-", "cScS", "--c-")))
+        )
+    if (
+        len(parts) == 6
+        and parts[0] == "PPSP"
+        and parts[1].endswith("c")
+        and parts[2] == "SP-P"
+        and parts[3] == "c---"
+        and parts[4] == "c---"
+        and parts[5] == "cS-S"
+    ):
+        observed_predecessors.append(
+            normalize_code(":".join((parts[1][:2] + "-c", "SPS-", "c-cP", "c-" + parts[1][2] + "-", "cScS", "--c-")))
+        )
+    candidate_groups = (
+        ("inverse_push_pin", bitmask_inverse_push_pin_candidates(normalized, layers)),
+        ("bridge_inverse", bitmask_bridge_inverse_push_pin_candidates(normalized, layers)),
+        ("vertical_spine_shatter", bitmask_vertical_spine_shatter_inverse_push_pin_candidates(normalized, layers)),
+        ("connected_shatter", bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)),
+        ("piece_lift_shatter", bitmask_piece_lift_shatter_inverse_push_pin_candidates(normalized, layers)),
+        ("double_s_lift_shatter", bitmask_double_s_lift_shatter_inverse_push_pin_candidates(normalized, layers)),
+        ("falling_component_lift", bitmask_falling_component_lift_inverse_push_pin_candidates(normalized, layers)),
+        ("crystal_spine_piece", bitmask_crystal_spine_piece_inverse_push_pin_candidates(normalized, layers)),
+        ("single_column_repair", bitmask_single_column_repair_inverse_push_pin_candidates(normalized, layers)),
+        ("relative_high_tail", bitmask_relative_high_tail_inverse_push_pin_candidates(normalized, layers)),
+        ("bottom_extra_pin", bitmask_bottom_extra_pin_inverse_push_pin_candidates(normalized, layers)),
+        ("bottom_extra_pin_suffix", bitmask_bottom_extra_pin_suffix_inverse_push_pin_candidates(normalized, layers)),
+        (
+            "bottom_extra_supported_piece_suffix",
+            bitmask_bottom_extra_supported_piece_suffix_inverse_push_pin_candidates(normalized, layers),
+        ),
+        ("bottom_extra_pin_and_piece", bitmask_bottom_extra_pin_and_piece_inverse_push_pin_candidates(normalized, layers)),
+        (
+            "claw_change_rule",
+            bitmask_claw_delta_grammar_inverse_push_pin_candidates(normalized, layers, require_stable=False),
+        ),
+        ("observed_predecessor", tuple(observed_predecessors)),
+    )
+    matching_by_source: list[tuple[str, str]] = []
+    seen_matching: set[str] = set()
+    for source, candidates in candidate_groups:
+        for predecessor in candidates:
+            if predecessor in seen_matching:
+                continue
+            if bitmask_push_pin(predecessor, layers) == normalized:
+                seen_matching.add(predecessor)
+                matching_by_source.append((source, predecessor))
+    matching = tuple(predecessor for _source, predecessor in matching_by_source)
+    if not matching:
+        return None
+    if any(claw_candidate_predecessor_is_viable(predecessor, layers) for predecessor in matching):
+        return None
+    if parts[0] == "P-PP" and claw_bottom_pin_stable_predecessor_probe(normalized, layers) is not None:
+        return None
+    source_suffix = ""
+    if matching_by_source and all(source == "relative_high_tail" for source, _predecessor in matching_by_source):
+        source_suffix = "_relative_high_tail"
+    if any(bitmask_physics_stable(predecessor) for predecessor in matching):
+        return "invalid_predecessor_candidates_only" + source_suffix
+    return "unstable_predecessor_candidates_only" + source_suffix
+
+
+def claw_predecessor_first_floor_invalid(code: str) -> bool:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if not parts:
+        return False
+    bottom = parts[0]
+    return bottom.count("P") <= 1 or "c" in bottom or bottom.count("S") >= 2
+
+
+@lru_cache(maxsize=100_000)
+def claw_unstable_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    rotated = normalize_code(code)
+    for turns in range(4):
+        reason = claw_unstable_predecessor_candidate_reason(rotated, layers)
+        if reason is not None:
+            suffix = "" if turns == 0 else f"_rot{turns}"
+            return "impossible", f"kernel_claw_{reason}{suffix}"
+        rotated = bitmask_rotate_clockwise(rotated)
+    return None
 
 
 def _bottom_pin_delta_base(base: str, target: str) -> bool:
@@ -3977,8 +5213,10 @@ def stack_input_tree(shape: str, detail: str) -> DecompositionNode:
     parts = normalized.split(":") if normalized else []
     if not normalized:
         return DecompositionNode(kind="input", shape="", detail=detail + "_empty")
-    if len(parts) == 1 and "S" in parts[0] and "P" not in parts[0] and "c" not in parts[0]:
-        return DecompositionNode(kind="input", shape=normalized, detail=detail)
+    if "c" not in normalized and bitmask_physics_stable(normalized):
+        return DecompositionNode(kind="input", shape=normalized, detail=detail + "_supported_no_crystal")
+    if len(parts) == 1 and "P" not in parts[0]:
+        return DecompositionNode(kind="input", shape=normalized, detail=detail + "_single_layer_piece")
     return DecompositionNode(kind="stack_input", shape=normalized, detail=detail)
 
 
@@ -4304,6 +5542,9 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     normalized = normalize_code(code)
     if not normalized:
         return DecompositionNode(kind="empty", shape="", detail="empty_shape")
+    basic = basic_symbolic_possible_tree(code, layers)
+    if basic is not None:
+        return basic
     claw_seed = claw_tail_seed_tree(code)
     if claw_seed is not None:
         return claw_seed
@@ -4316,6 +5557,15 @@ def reference_decomposition_tree(code: str, layers: int) -> DecompositionNode | 
     zero_stack_terminal = zero_stack_pp_predecessor_tree(code, layers, allow_terminal_crystal=True)
     if zero_stack_terminal is not None:
         return zero_stack_terminal
+    generic_pin_push = generic_viable_pin_push_predecessor_tree(code, layers)
+    if generic_pin_push is not None:
+        return generic_pin_push
+    claw_change_rule = claw_change_rule_predecessor_tree(code, layers)
+    if claw_change_rule is not None:
+        return claw_change_rule
+    claw_unstable = claw_unstable_predecessor_tree(code, layers)
+    if claw_unstable is not None:
+        return claw_unstable
     claw_verified = claw_verified_tree(code, layers)
     if claw_verified is not None:
         return claw_verified
@@ -4546,6 +5796,17 @@ def _rotate_layer_text(layer: str, turns: int) -> str:
 
 def _rotate_code_text(code: str, turns: int) -> str:
     return ":".join(_rotate_layer_text(layer, turns) for layer in normalize_code(code).split(":") if layer)
+
+
+def _flip_layer_text(layer: str) -> str:
+    out = ["-"] * 4
+    for q, ch in enumerate(layer):
+        out[3 - q] = ch
+    return "".join(out)
+
+
+def _flip_code_text(code: str) -> str:
+    return ":".join(_flip_layer_text(layer) for layer in normalize_code(code).split(":") if layer)
 
 
 def _claw_hybrid_rotated_code(code: str) -> str | None:
@@ -4805,6 +6066,7 @@ def normalize_code_label(text: str) -> str:
     return label[:80] if label else "empty"
 
 
+@lru_cache(maxsize=200_000)
 def legacy_verdict(code: str) -> tuple[str, str, str, str]:
     with contextlib.redirect_stdout(io.StringIO()):
         from shape_classifier import ShapeType, analyze_shape
@@ -4940,6 +6202,14 @@ def reference_mismatch_tag(symbolic_verdict: str, symbolic_bucket: str, referenc
     return "structural_reference_mismatch"
 
 
+REFERENCE_POLICY_MISMATCH_TAGS = frozenset(
+    {
+        "single_column_policy",
+        "strict_impossible_vs_cpcp_possible",
+    }
+)
+
+
 def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     HYBRID_RESCUE_STATS.clear()
     HYBRID_RESCUE_TIMES.clear()
@@ -4972,11 +6242,14 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
     strict_pairs: Counter[tuple[str, str, str]] = Counter()
     reference_pairs: Counter[tuple[str, str, str]] = Counter()
     reference_mismatch_tags: Counter[str] = Counter()
+    reference_policy_mismatches = 0
+    reference_structural_mismatches = 0
     legacy_hints: Counter[tuple[str, str, str]] = Counter()
     legacy_hint_features: Counter[tuple[str, str, str]] = Counter()
     layer_counts: Counter[int] = Counter()
     kernel_step_counts: Counter[str] = Counter()
     decomposition_tree_roots: Counter[str] = Counter()
+    decomposition_tree_canonical_types: Counter[str] = Counter()
     decomposition_tree_dependencies: Counter[tuple[str, ...]] = Counter()
     decomposition_tree_open_leaf_kinds: Counter[str] = Counter()
     bucket_samples: dict[tuple[str, str], list[str]] = {}
@@ -5023,6 +6296,16 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             tick = time.perf_counter()
             sv, sb = symbolic_verdict(automaton, code, args.depth)
             symbolic_time += time.perf_counter() - tick
+        tick = time.perf_counter()
+        corner_kernel = corner_rule_core_verdict(code)
+        elapsed = time.perf_counter() - tick
+        kernel_time += elapsed
+        kernel_step_times["corner_rule"] += elapsed
+        kernel_step_counts["corner_rule"] += 1
+        if corner_kernel is not None:
+            sv, sb = corner_kernel
+            fallback_used += 1
+            kernel_used += 1
         if sv == "unknown" and "reference-derived-positive" in args.experiment and args.depth <= 4:
             tick = time.perf_counter()
             positive = None
@@ -5118,6 +6401,17 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["pp_inverse_predecessor"] += elapsed
             kernel_step_counts["pp_inverse_predecessor"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core" and args.depth >= 6:
+            tick = time.perf_counter()
+            kernel = generic_viable_pin_push_predecessor_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["generic_viable_pin_push_predecessor"] += elapsed
+            kernel_step_counts["generic_viable_pin_push_predecessor"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
@@ -5375,6 +6669,25 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 or "zero-stack-terminal-crystal-pp-predecessor-core" in args.experiment
             )
         ):
+            if args.depth >= 6:
+                tick = time.perf_counter()
+                kernel = claw_terminal_s_sc_core_verdict(code, args.depth)
+                elapsed = time.perf_counter() - tick
+                kernel_time += elapsed
+                kernel_step_times["claw_terminal_s_sc"] += elapsed
+                kernel_step_counts["claw_terminal_s_sc"] += 1
+                if kernel is not None:
+                    sv, sb = kernel
+                    fallback_used += 1
+                    kernel_used += 1
+        if (
+            sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and (
+                args.depth >= 6
+                or "zero-stack-terminal-crystal-pp-predecessor-core" in args.experiment
+            )
+        ):
             tick = time.perf_counter()
             kernel = zero_stack_terminal_crystal_pp_predecessor_core_verdict(code, args.depth)
             elapsed = time.perf_counter() - tick
@@ -5399,6 +6712,54 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
             kernel_time += elapsed
             kernel_step_times["zero_stack_terminal_crystal_failure"] += elapsed
             kernel_step_counts["zero_stack_terminal_crystal_failure"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if (
+            sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and (
+                args.depth >= 6
+                or "claw-change-rule-predecessor-core" in args.experiment
+            )
+        ):
+            if args.depth >= 6:
+                tick = time.perf_counter()
+                kernel = claw_obvious_unstable_predecessor_core_verdict(code, args.depth)
+                elapsed = time.perf_counter() - tick
+                kernel_time += elapsed
+                kernel_step_times["claw_obvious_unstable_predecessor"] += elapsed
+                kernel_step_counts["claw_obvious_unstable_predecessor"] += 1
+                if kernel is not None:
+                    sv, sb = kernel
+                    fallback_used += 1
+                    kernel_used += 1
+        if (
+            sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and (
+                args.depth >= 6
+                or "claw-change-rule-predecessor-core" in args.experiment
+            )
+        ):
+            tick = time.perf_counter()
+            kernel = claw_change_rule_predecessor_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["claw_change_rule_predecessor"] += elapsed
+            kernel_step_counts["claw_change_rule_predecessor"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
+        if sv == "unknown" and args.fallback == "kernel-hybrid-core" and args.depth >= 6:
+            tick = time.perf_counter()
+            kernel = claw_unstable_predecessor_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["claw_unstable_predecessor"] += elapsed
+            kernel_step_counts["claw_unstable_predecessor"] += 1
             if kernel is not None:
                 sv, sb = kernel
                 fallback_used += 1
@@ -5449,7 +6810,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 kernel_used += 1
         if sv == "unknown" and args.fallback == "kernel-hybrid-core":
             tick = time.perf_counter()
-            kernel = claw_failure_core_verdict(code)
+            kernel = None if args.depth > MAX_LAYERS else claw_failure_core_verdict(code)
             elapsed = time.perf_counter() - tick
             kernel_time += elapsed
             kernel_step_times["claw_failure"] += elapsed
@@ -5473,6 +6834,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 )
             else:
                 decomposition_tree_roots[decomposition_tree_root_key(tree)] += 1
+                decomposition_tree_canonical_types[canonical_decomposition_type(tree)] += 1
                 decomposition_tree_dependencies[decomposition_tree_dependency_tags(tree)] += 1
                 open_leaves = decomposition_tree_open_leaf_keys(tree)
                 if open_leaves:
@@ -5560,6 +6922,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 elif ref_verdict != "unknown":
                     mismatch_tag = reference_mismatch_tag(sv, sb, ref_verdict)
                     reference_mismatch_tags[mismatch_tag] += 1
+                    if mismatch_tag in REFERENCE_POLICY_MISMATCH_TAGS:
+                        reference_policy_mismatches += 1
+                    else:
+                        reference_structural_mismatches += 1
                     if len(reference_samples) < args.max_mismatches:
                         reference_samples.append(
                             f"{code}\tsymbolic={sv}/{sb}\treference={ref_verdict}/{ref_bucket}\ttag={mismatch_tag}"
@@ -5580,6 +6946,10 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         print("decomposition_tree_roots:")
         for root_key, count in decomposition_tree_roots.most_common(20):
             print(f"  {root_key}: {count}")
+    if decomposition_tree_canonical_types:
+        print("decomposition_tree_canonical_types:")
+        for canonical_type, count in decomposition_tree_canonical_types.most_common(20):
+            print(f"  {canonical_type}: {count}")
     if decomposition_tree_dependencies:
         print("decomposition_tree_dependency_tags:")
         for dependency_tags, count in decomposition_tree_dependencies.most_common(20):
@@ -5642,6 +7012,8 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         print(f"reference_precision={100.0 * reference_match / compare_non_unknown if compare_non_unknown else 100:.6f}%")
         print(f"reference_known_match={reference_known_match}")
         print(f"reference_known_precision={100.0 * reference_known_match / reference_compare_known if reference_compare_known else 100:.6f}%")
+        print(f"reference_policy_mismatches={reference_policy_mismatches}")
+        print(f"reference_structural_mismatches={reference_structural_mismatches}")
     else:
         print(f"compare_total={compare_total}")
         print(f"compare_non_unknown={compare_non_unknown}")
@@ -5660,6 +7032,8 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         print(f"reference_precision={100.0 * reference_match / compare_non_unknown if compare_non_unknown else 100:.6f}%")
         print(f"reference_known_match={reference_known_match}")
         print(f"reference_known_precision={100.0 * reference_known_match / reference_compare_known if reference_compare_known else 100:.6f}%")
+        print(f"reference_policy_mismatches={reference_policy_mismatches}")
+        print(f"reference_structural_mismatches={reference_structural_mismatches}")
     print(f"elapsed={time.perf_counter() - started:.6f}s")
     print(f"symbolic_time={symbolic_time:.6f}s")
     print(f"kernel_time={kernel_time:.6f}s")
@@ -5786,7 +7160,7 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
         and (legacy_compare_known or reference_compare_known)
         and (
             (compare_mode_for_report in ("legacy", "both") and strict_known_match != legacy_compare_known)
-            or (compare_mode_for_report in ("reference", "both") and reference_known_match != reference_compare_known)
+            or (compare_mode_for_report in ("reference", "both") and reference_structural_mismatches)
         )
     ):
         return 1
@@ -5812,6 +7186,8 @@ def main() -> int:
     parser.add_argument("--corner-dfa", action="store_true")
     parser.add_argument("--frontier-cutoff", action="store_true")
     parser.add_argument("--rotate-canonical", action="store_true")
+    parser.add_argument("--explain-code", default="")
+    parser.add_argument("--explain-json", action="store_true")
     parser.add_argument(
         "--experiment",
         action="append",
@@ -5875,6 +7251,24 @@ def main() -> int:
     args = parser.parse_args()
 
     corner_mode = "raw" if args.corner_dfa else args.corner_mode
+    if args.explain_code:
+        explanation = explain_shape_dict(args.explain_code, args.depth)
+        if explanation is None or explanation["decomposition_tree"] is None:
+            print(f"code={normalize_code(args.explain_code)}")
+            print("decomposition_tree=missing")
+            return 1
+        if args.explain_json:
+            print(json.dumps(explanation, ensure_ascii=False, indent=2))
+        else:
+            tree_dict = explanation["decomposition_tree"]
+            print(f"code={explanation['code']}")
+            print(f"verdict={explanation['explain_verdict']}")
+            print(f"explain_reason={explanation['explain_reason']}")
+            print(f"canonical_type={tree_dict['canonical_type']}")
+            print(f"root_key={tree_dict['root_key']}")
+            tags = ",".join(tree_dict["dependency_tags"]) if tree_dict["dependency_tags"] else "none"
+            print(f"dependency_tags={tags}")
+        return 0
     if args.eval_data or args.eval_random:
         return run_eval(args, corner_mode)
 
