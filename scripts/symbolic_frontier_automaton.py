@@ -4668,8 +4668,10 @@ def claw_obvious_unstable_predecessor_core_verdict(code: str, layers: int) -> tu
                 return "impossible", f"kernel_claw_obvious_unstable_predecessor{suffix}"
         if (
             len(parts) >= 6
-            and parts[0] == "SSPP"
-            and parts[2] == "--PP"
+            and (
+                (parts[0] == "SSPP" and parts[2] == "--PP")
+                or (parts[0] == "P-PP" and parts[2] == "SSP-")
+            )
             and parts[3] == "cc-S"
             and parts[4][0] in {"S", "P"}
             and parts[4][1:] in {"c-S", "c-P"}
