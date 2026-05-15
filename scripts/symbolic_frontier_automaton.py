@@ -4635,6 +4635,18 @@ def claw_frontier_tail_invalid_predecessor_core_verdict(code: str, layers: int) 
             if verdict is not None and verdict[0] == "impossible":
                 suffix = "" if turns == 0 else f"_rot{turns}"
                 return "impossible", f"kernel_claw_frontier_tail_invalid_predecessor{suffix}"
+        if (
+            len(parts) == layers
+            and parts[0] == "-PPP"
+            and parts[-4] in {"--Pc", "--Sc"}
+            and parts[-3] == "---S"
+            and parts[-2] == "SS-S"
+            and parts[-1] in {"cS--", "cP--"}
+        ):
+            verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
+            if verdict is not None and verdict[0] == "impossible":
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_frontier_tail_invalid_predecessor{suffix}"
         rotated = bitmask_rotate_clockwise(rotated)
     return None
 
@@ -4658,6 +4670,18 @@ def claw_terminal_sss_side_invalid_predecessor_core_verdict(code: str, layers: i
             if claw_terminal_sss_tail_predecessor_witness(rotated, layers) is not None:
                 rotated = bitmask_rotate_clockwise(rotated)
                 continue
+            reason = claw_unstable_predecessor_candidate_reason(rotated, layers)
+            if reason is not None:
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
+        if (
+            len(parts) == layers
+            and parts[0] == "P-PP"
+            and parts[-4] in {"--Pc", "--Sc"}
+            and parts[-3] in {"-SSS", "-SSP"}
+            and parts[-2] == "--S-"
+            and parts[-1] == "ScS-"
+        ):
             reason = claw_unstable_predecessor_candidate_reason(rotated, layers)
             if reason is not None:
                 suffix = "" if turns == 0 else f"_rot{turns}"
@@ -4719,6 +4743,36 @@ def claw_terminal_sss_tail_predecessor_witness(code: str, layers: int) -> str | 
 
 
 @lru_cache(maxsize=100_000)
+def claw_mid_sccs_tail_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    if layers < 6 or not normalized:
+        return None
+    rotated = normalized
+    for turns in range(4):
+        parts = rotated.split(":")
+        if (
+            len(parts) == layers
+            and parts[0] == "-PPP"
+            and parts[-4] in {"--Pc", "--Sc"}
+            and parts[-3] == "---S"
+            and parts[-2] == "S--S"
+            and parts[-1] == "cS--"
+        ):
+            predecessor = normalize_code(
+                ":".join(parts[1:-4] + [parts[-4], "-ccS", "SPcS", "cSc-", "--c-"])
+            )
+            restored = _rotate_code_text(predecessor, -turns) if turns else predecessor
+            if (
+                bitmask_physics_stable(restored)
+                and bitmask_push_pin(restored, layers) == normalized
+                and claw_change_rule_predecessor_is_explainable(restored, layers)
+            ):
+                return restored
+        rotated = bitmask_rotate_clockwise(rotated)
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def claw_change_rule_predecessor_witness(code: str, layers: int) -> str | None:
     normalized = normalize_code(code)
     if not normalized:
@@ -4731,6 +4785,10 @@ def claw_change_rule_predecessor_witness(code: str, layers: int) -> str | None:
     sss_tail = claw_terminal_sss_tail_predecessor_witness(normalized, layers)
     if sss_tail is not None:
         return sss_tail
+
+    sccs_tail = claw_mid_sccs_tail_predecessor_witness(normalized, layers)
+    if sccs_tail is not None:
+        return sccs_tail
 
     first = bitmask_claw_delta_grammar_first_inverse_push_pin_candidate(normalized, layers)
     if first is not None and claw_change_rule_predecessor_is_explainable(first, layers):
@@ -4888,7 +4946,7 @@ def claw_unstable_predecessor_candidate_reason(code: str, layers: int) -> str | 
     parts = normalized.split(":") if normalized else []
     if layers < 6 or len(parts) < 2:
         return None
-    if parts[0].count("P") < 2 or parts[-1] not in {"cS--", "cS-S", "c---", "-c--", "-cS-", "ScS-", "-SSc", "-S--", "SSSc", "c--S", "-S-c", "-SPc", "-PcS", "Sc--", "Pc--"}:
+    if parts[0].count("P") < 2 or parts[-1] not in {"cS--", "cP--", "cS-S", "c---", "-c--", "-cS-", "ScS-", "-SSc", "-S--", "SSSc", "c--S", "-S-c", "-SPc", "-PcS", "Sc--", "Pc--"}:
         return None
     observed_predecessors: list[str] = []
     if len(parts) >= 6 and parts[-3] == "--Pc":
@@ -5004,6 +5062,18 @@ def claw_unstable_predecessor_candidate_reason(code: str, layers: int) -> str | 
         top_bridge = parts[-1][:2] + "-c"
         observed_predecessors.append(
             normalize_code(":".join(parts[1:-4] + [bridge, "P-Sc", "SSSc", top_bridge, "---c"]))
+        )
+    if (
+        len(parts) >= 6
+        and parts[0] == "-PPP"
+        and parts[-4] in {"--Pc", "--Sc"}
+        and parts[-3] == "---S"
+        and parts[-2] == "SS-S"
+        and parts[-1] in {"cS--", "cP--"}
+    ):
+        top_bridge = "cSc-" if parts[-1] == "cS--" else "cPc-"
+        observed_predecessors.append(
+            normalize_code(":".join(parts[1:-4] + [parts[-4], "-PcS", "SScS", top_bridge, "--c-"]))
         )
     candidate_groups = (
         ("inverse_push_pin", bitmask_inverse_push_pin_candidates(normalized, layers)),
