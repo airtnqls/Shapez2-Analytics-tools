@@ -1796,6 +1796,7 @@ def physics_core_verdict(code: str) -> tuple[str, str] | None:
     return None
 
 
+@lru_cache(maxsize=200_000)
 def swap_core_verdict(code: str) -> tuple[str, str] | None:
     swap_status = bitmask_swap_impossibility(code)
     if swap_status != "swap_both_blocked":
@@ -4251,8 +4252,6 @@ def _bitmask_claw_delta_grammar_inverse_push_pin_candidates_direct(
     seen_candidates: set[str] = set()
     if layers <= MAX_LAYERS:
         layer_offsets = (0,)
-    elif layers == MAX_LAYERS + 1:
-        layer_offsets = (0, 1, 2)
     else:
         layer_offsets = tuple(dict.fromkeys((0, layers - MAX_LAYERS)))
     signature_pool: list[tuple[tuple[int, str, str], ...]] = []
@@ -4264,35 +4263,55 @@ def _bitmask_claw_delta_grammar_inverse_push_pin_candidates_direct(
                 signature_pool.extend(CLAW_DELTA_SIGNATURES_BY_FIRST.get((shifted_layer, before), ()))
 
     for signature in dict.fromkeys(signature_pool):
-        candidate_parts = list(base_parts)
-        valid_signature = True
-        changed_layers = 0
+        projected_choices: list[list[tuple[int, str, int]]] = []
         for layer, before, after in signature:
-            applied = False
+            choices: list[tuple[int, str, int]] = []
             for offset in layer_offsets:
                 shifted_layer = layer + offset
-                if shifted_layer < layers and candidate_parts[shifted_layer] == before:
-                    candidate_parts[shifted_layer] = after
-                    changed_layers += 1
-                    applied = True
-                    break
-            if not applied:
-                valid_signature = False
+                if shifted_layer < layers and base_parts[shifted_layer] == before:
+                    choices.append((shifted_layer, after, offset))
+            if not choices:
                 break
-        if not valid_signature or changed_layers == 0 or changed_layers > max_changed_layers:
+            projected_choices.append(choices)
+        if len(projected_choices) != len(signature):
             continue
-        predecessor = normalize_code(":".join(candidate_parts))
-        if predecessor in seen_candidates:
-            continue
-        if not claw_any_overflow_suffix_depth(predecessor, layers):
-            continue
-        if require_stable and not bitmask_physics_stable(predecessor):
-            continue
-        if bitmask_push_pin(predecessor, layers) == normalized:
-            seen_candidates.add(predecessor)
-            candidates.append(predecessor)
-            if len(candidates) >= max_candidates:
-                return tuple(candidates)
+
+        projected_variants: list[tuple[tuple[int, str, int], ...]] = [()]
+        for choices in projected_choices:
+            projected_variants = [variant + (choice,) for variant in projected_variants for choice in choices]
+            if len(projected_variants) > max_tests:
+                projected_variants = projected_variants[:max_tests]
+                break
+        if layers > MAX_LAYERS:
+            projected_variants.sort(
+                key=lambda variant: (
+                    -sum(1 for _shifted_layer, _after, offset in variant if offset),
+                    tuple(shifted_layer for shifted_layer, _after, _offset in variant),
+                )
+            )
+
+        for variant in projected_variants:
+            changed_layers = len(variant)
+            if changed_layers == 0 or changed_layers > max_changed_layers:
+                continue
+            projected_layers = [layer for layer, _after, _offset in variant]
+            if len(set(projected_layers)) != len(projected_layers):
+                continue
+            candidate_parts = list(base_parts)
+            for shifted_layer, after, _offset in variant:
+                candidate_parts[shifted_layer] = after
+            predecessor = normalize_code(":".join(candidate_parts))
+            if predecessor in seen_candidates:
+                continue
+            if not claw_any_overflow_suffix_depth(predecessor, layers):
+                continue
+            if require_stable and not bitmask_physics_stable(predecessor):
+                continue
+            if bitmask_push_pin(predecessor, layers) == normalized:
+                seen_candidates.add(predecessor)
+                candidates.append(predecessor)
+                if len(candidates) >= max_candidates:
+                    return tuple(candidates)
 
     options_by_layer: list[set[str]] = [{base_parts[layer]} for layer in range(layers)]
     for layer, before, after in CLAW_DELTA_LAYER_TRANSITIONS:
@@ -4490,6 +4509,7 @@ def zero_stack_terminal_crystal_failure_core_verdict(code: str, layers: int) -> 
     return "impossible", "kernel_zero_stack_terminal_non_swappable_predecessor"
 
 
+@lru_cache(maxsize=200_000)
 def claw_change_rule_predecessor_is_explainable(predecessor: str, layers: int) -> bool:
     if swap_core_verdict(predecessor) is not None:
         return True
@@ -4597,6 +4617,108 @@ def claw_terminal_s_sc_core_verdict(code: str, layers: int) -> tuple[str, str] |
 
 
 @lru_cache(maxsize=100_000)
+def claw_frontier_tail_invalid_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    normalized = normalize_code(code)
+    if layers < 6 or not normalized:
+        return None
+    rotated = normalized
+    for turns in range(4):
+        parts = rotated.split(":")
+        if (
+            len(parts) == layers
+            and parts[0] == "-PPP"
+            and parts[-3] in {"S-Sc", "S-Pc"}
+            and parts[-2] in {"S--P", "S---"}
+            and parts[-1] in {"cS--", "cS-S"}
+        ):
+            verdict = claw_unstable_predecessor_core_verdict(rotated, layers)
+            if verdict is not None and verdict[0] == "impossible":
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_frontier_tail_invalid_predecessor{suffix}"
+        rotated = bitmask_rotate_clockwise(rotated)
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def claw_terminal_sss_side_invalid_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    normalized = normalize_code(code)
+    if layers < 6 or not normalized:
+        return None
+    rotated = normalized
+    for turns in range(4):
+        parts = rotated.split(":")
+        if (
+            len(parts) == layers
+            and parts[0] == "P-PP"
+            and parts[-4] in {"--P-", "--S-"}
+            and parts[-3] == "--S-"
+            and parts[-2] == "SSS-"
+            and parts[-1] == "Pc--"
+        ):
+            if claw_terminal_sss_tail_predecessor_witness(rotated, layers) is not None:
+                rotated = bitmask_rotate_clockwise(rotated)
+                continue
+            reason = claw_unstable_predecessor_candidate_reason(rotated, layers)
+            if reason is not None:
+                suffix = "" if turns == 0 else f"_rot{turns}"
+                return "impossible", f"kernel_claw_terminal_sss_side_invalid_predecessor{suffix}"
+        rotated = bitmask_rotate_clockwise(rotated)
+    return None
+
+
+@lru_cache(maxsize=100_000)
+def claw_terminal_sss_tail_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    if layers < 6 or not normalized:
+        return None
+    rotated = normalized
+    for turns in range(4):
+        parts = rotated.split(":")
+        if (
+            len(parts) == layers
+            and parts[0] == "P-PP"
+            and parts[-3] == "--S-"
+            and parts[-2] == "SSS-"
+            and parts[-1] == "-c--"
+        ):
+            middle = parts[-4]
+            if middle in {"--P-", "--S-"}:
+                bridge = "c-Pc" if middle == "--P-" else "c-Sc"
+                predecessor = normalize_code(
+                    ":".join(parts[1:-4] + [bridge, "P-Sc", "SSSc", "-c-c", "---c"])
+                )
+                restored = _rotate_code_text(predecessor, -turns) if turns else predecessor
+                if (
+                    bitmask_physics_stable(restored)
+                    and bitmask_push_pin(restored, layers) == normalized
+                    and claw_change_rule_predecessor_is_explainable(restored, layers)
+                ):
+                    return restored
+        if (
+            len(parts) == layers
+            and parts[0] == "P-PP"
+            and parts[-4] in {"--P-", "--S-"}
+            and parts[-3] == "--S-"
+            and parts[-2] == "SSS-"
+            and parts[-1] in {"Sc--", "Pc--"}
+        ):
+            bridge = "c" + parts[-4][1:3] + "c"
+            top_bridge = parts[-1][:2] + "-c"
+            predecessor = normalize_code(
+                ":".join(parts[1:-4] + [bridge, "P-Sc", "SSSc", top_bridge, "---c"])
+            )
+            restored = _rotate_code_text(predecessor, -turns) if turns else predecessor
+            if (
+                bitmask_physics_stable(restored)
+                and bitmask_push_pin(restored, layers) == normalized
+                and claw_change_rule_predecessor_is_explainable(restored, layers)
+            ):
+                return restored
+        rotated = bitmask_rotate_clockwise(rotated)
+    return None
+
+
+@lru_cache(maxsize=100_000)
 def claw_change_rule_predecessor_witness(code: str, layers: int) -> str | None:
     normalized = normalize_code(code)
     if not normalized:
@@ -4605,6 +4727,10 @@ def claw_change_rule_predecessor_witness(code: str, layers: int) -> str | None:
     top_shift = claw_top_crystal_shift_predecessor_witness(normalized, layers)
     if top_shift is not None:
         return top_shift
+
+    sss_tail = claw_terminal_sss_tail_predecessor_witness(normalized, layers)
+    if sss_tail is not None:
+        return sss_tail
 
     first = bitmask_claw_delta_grammar_first_inverse_push_pin_candidate(normalized, layers)
     if first is not None and claw_change_rule_predecessor_is_explainable(first, layers):
@@ -4762,7 +4888,7 @@ def claw_unstable_predecessor_candidate_reason(code: str, layers: int) -> str | 
     parts = normalized.split(":") if normalized else []
     if layers < 6 or len(parts) < 2:
         return None
-    if parts[0].count("P") < 2 or parts[-1] not in {"cS--", "cS-S", "c---", "-c--", "-cS-", "ScS-", "-SSc", "-S--", "SSSc", "c--S", "-S-c", "-SPc", "-PcS"}:
+    if parts[0].count("P") < 2 or parts[-1] not in {"cS--", "cS-S", "c---", "-c--", "-cS-", "ScS-", "-SSc", "-S--", "SSSc", "c--S", "-S-c", "-SPc", "-PcS", "Sc--", "Pc--"}:
         return None
     observed_predecessors: list[str] = []
     if len(parts) >= 6 and parts[-3] == "--Pc":
@@ -4865,6 +4991,19 @@ def claw_unstable_predecessor_candidate_reason(code: str, layers: int) -> str | 
     ):
         observed_predecessors.append(
             normalize_code(":".join((parts[1][:2] + "-c", "SPS-", "c-cP", "c-" + parts[1][2] + "-", "cScS", "--c-")))
+        )
+    if (
+        len(parts) >= 6
+        and parts[0] == "P-PP"
+        and parts[-4] in {"--P-", "--S-"}
+        and parts[-3] == "--S-"
+        and parts[-2] == "SSS-"
+        and parts[-1] in {"Sc--", "Pc--"}
+    ):
+        bridge = "c" + parts[-4][1:3] + "c"
+        top_bridge = parts[-1][:2] + "-c"
+        observed_predecessors.append(
+            normalize_code(":".join(parts[1:-4] + [bridge, "P-Sc", "SSSc", top_bridge, "---c"]))
         )
     candidate_groups = (
         ("inverse_push_pin", bitmask_inverse_push_pin_candidates(normalized, layers)),
@@ -5069,6 +5208,7 @@ def top_single_c_zero_stack_candidate(code: str) -> bool:
     return not bitmask_stackability_witnesses(normalized)
 
 
+@lru_cache(maxsize=200_000)
 def pp_subtype_candidate(code: str, layers: int) -> PpSubtypeWitness:
     minimal = pp_minimal_witness(code, layers)
     bottom_pin_base = bottom_pin_delta_base(code)
@@ -6716,6 +6856,44 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                 sv, sb = kernel
                 fallback_used += 1
                 kernel_used += 1
+        if (
+            sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and (
+                args.depth >= 6
+                or "claw-change-rule-predecessor-core" in args.experiment
+            )
+        ):
+            if args.depth >= 6:
+                tick = time.perf_counter()
+                kernel = claw_terminal_sss_side_invalid_predecessor_core_verdict(code, args.depth)
+                elapsed = time.perf_counter() - tick
+                kernel_time += elapsed
+                kernel_step_times["claw_terminal_sss_side_invalid_predecessor"] += elapsed
+                kernel_step_counts["claw_terminal_sss_side_invalid_predecessor"] += 1
+                if kernel is not None:
+                    sv, sb = kernel
+                    fallback_used += 1
+                    kernel_used += 1
+        if (
+            sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and (
+                args.depth >= 6
+                or "claw-change-rule-predecessor-core" in args.experiment
+            )
+        ):
+            if args.depth >= 6:
+                tick = time.perf_counter()
+                kernel = claw_frontier_tail_invalid_predecessor_core_verdict(code, args.depth)
+                elapsed = time.perf_counter() - tick
+                kernel_time += elapsed
+                kernel_step_times["claw_frontier_tail_invalid_predecessor"] += elapsed
+                kernel_step_counts["claw_frontier_tail_invalid_predecessor"] += 1
+                if kernel is not None:
+                    sv, sb = kernel
+                    fallback_used += 1
+                    kernel_used += 1
         if (
             sv == "unknown"
             and args.fallback == "kernel-hybrid-core"

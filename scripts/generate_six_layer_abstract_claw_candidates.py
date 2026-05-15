@@ -69,6 +69,14 @@ FAST_TERMINAL_REASONS = frozenset(
         "kernel_claw_terminal_s_sc_invalid_mid_support_rot1",
         "kernel_claw_terminal_s_sc_invalid_mid_support_rot2",
         "kernel_claw_terminal_s_sc_invalid_mid_support_rot3",
+        "kernel_claw_frontier_tail_invalid_predecessor",
+        "kernel_claw_frontier_tail_invalid_predecessor_rot1",
+        "kernel_claw_frontier_tail_invalid_predecessor_rot2",
+        "kernel_claw_frontier_tail_invalid_predecessor_rot3",
+        "kernel_claw_terminal_sss_side_invalid_predecessor",
+        "kernel_claw_terminal_sss_side_invalid_predecessor_rot1",
+        "kernel_claw_terminal_sss_side_invalid_predecessor_rot2",
+        "kernel_claw_terminal_sss_side_invalid_predecessor_rot3",
     }
 )
 
@@ -325,6 +333,12 @@ def _kernel_verdict_for_target(
             kernel_verdict = sfa.claw_terminal_s_sc_core_verdict(target, layers)
             if kernel_verdict is not None:
                 return kernel_verdict
+            kernel_verdict = sfa.claw_terminal_sss_side_invalid_predecessor_core_verdict(target, layers)
+            if kernel_verdict is not None:
+                return kernel_verdict
+            kernel_verdict = sfa.claw_frontier_tail_invalid_predecessor_core_verdict(target, layers)
+            if kernel_verdict is not None:
+                return kernel_verdict
         for kernel_fn in (
             sfa.swap_core_verdict,
             sfa.zero_stack_terminal_crystal_pp_predecessor_core_verdict,
@@ -385,6 +399,7 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
     generated_targets: set[str] = set()
     listed_predecessors: set[str] = set()
     listed_targets: set[str] = set()
+    listed_pairs: set[tuple[str, str]] = set()
     rejected = Counter()
     target_features = Counter()
     predecessor_features = Counter()
@@ -405,6 +420,8 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
             stop_reason = "max_seconds"
             break
         raw_sequences = _raw_sequences_for(abstract_sequence, raw_by_abstract, raw_pair_counts, args.max_raw_per_layer, rng)
+        if args.shuffle and len(raw_sequences) > 1:
+            rng.shuffle(raw_sequences)
         for raw_sequence in raw_sequences:
             if args.max_seconds and time.perf_counter() - started > args.max_seconds:
                 stop_reason = "max_seconds"
@@ -513,6 +530,7 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
             ):
                 listed_predecessors.add(predecessor)
                 listed_targets.add(pushed)
+                listed_pairs.add((pushed, predecessor))
             predecessor_subtypes[predecessor_subtype] += 1
             predecessor_stackability[str(bool(sfa.bitmask_stackability_witnesses(predecessor)))] += 1
             if args.classify_targets:
@@ -565,6 +583,7 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
                 if list_verdict_ok and list_reason_ok:
                     listed_predecessors.add(predecessor)
                     listed_targets.add(pushed)
+                    listed_pairs.add((pushed, predecessor))
                 capture_reasons = set(args.capture_kernel_reason)
                 if strict in set(args.capture_verdict) or effective_kernel_verdict[1] in capture_reasons:
                     if len(selected_records) < args.max_capture:
@@ -753,6 +772,14 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
         args.write_predecessors.write_text("\n".join(sorted(listed_predecessors)) + "\n", encoding="utf-8")
         print(f"predecessors_written={args.write_predecessors}")
         print(f"predecessors_written_count={len(listed_predecessors)}")
+    if args.write_pairs:
+        args.write_pairs.parent.mkdir(parents=True, exist_ok=True)
+        args.write_pairs.write_text(
+            "\n".join(f"{target}\t{predecessor}" for target, predecessor in sorted(listed_pairs)) + "\n",
+            encoding="utf-8",
+        )
+        print(f"pairs_written={args.write_pairs}")
+        print(f"pairs_written_count={len(listed_pairs)}")
     if args.write_summary_json:
         summary = {
             "input": str(args.data),
@@ -784,6 +811,7 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
             "sequence_time": sequence_time,
             "listed_predecessors": len(listed_predecessors),
             "listed_targets": len(listed_targets),
+            "listed_pairs": len(listed_pairs),
             "write_list_kernel_verdict": args.write_list_kernel_verdict,
             "write_list_kernel_reason": list(args.write_list_kernel_reason),
             "stop_reason": stop_reason,
@@ -967,6 +995,7 @@ def main() -> int:
     parser.add_argument("--write-captured", type=Path)
     parser.add_argument("--write-targets", type=Path)
     parser.add_argument("--write-predecessors", type=Path)
+    parser.add_argument("--write-pairs", type=Path)
     parser.add_argument("--write-list-kernel-verdict", choices=("all", "possible", "impossible", "unknown"), default="all")
     parser.add_argument("--write-list-kernel-reason", action="append", default=[])
     parser.add_argument("--write-summary-json", type=Path)
@@ -1000,6 +1029,7 @@ def main() -> int:
     base_write_captured = args.write_captured
     base_write_targets = args.write_targets
     base_write_predecessors = args.write_predecessors
+    base_write_pairs = args.write_pairs
     base_write_summary_json = args.write_summary_json
     pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
     print("shared_training=True")
@@ -1019,6 +1049,10 @@ def main() -> int:
         if base_write_predecessors is not None:
             args.write_predecessors = base_write_predecessors.with_name(
                 f"{base_write_predecessors.stem}_seed{args.seed}{base_write_predecessors.suffix}"
+            )
+        if base_write_pairs is not None:
+            args.write_pairs = base_write_pairs.with_name(
+                f"{base_write_pairs.stem}_seed{args.seed}{base_write_pairs.suffix}"
             )
         if base_write_summary_json is not None:
             args.write_summary_json = base_write_summary_json.with_name(

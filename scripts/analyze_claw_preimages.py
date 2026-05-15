@@ -123,6 +123,87 @@ def _write_delta_signatures_py(args: argparse.Namespace, signatures: Counter[tup
     args.write_delta_signatures_py.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _anchor_name(layer: int, train_layers: int) -> str:
+    return f"bottom_L{layer}/top_T{train_layers - 1 - layer}"
+
+
+def _project_signature_layers(
+    signature: tuple[tuple[int, str, str], ...],
+    train_layers: int,
+    generate_layers: int,
+) -> set[tuple[int, ...]]:
+    offset = generate_layers - train_layers
+    choices: list[tuple[int, ...]] = []
+    for layer, _before, _after in signature:
+        layer_choices = [layer]
+        shifted = layer + offset
+        if offset and shifted != layer and 0 <= shifted < generate_layers:
+            layer_choices.append(shifted)
+        choices.append(tuple(dict.fromkeys(layer_choices)))
+    out: set[tuple[int, ...]] = set()
+
+    def walk(index: int, current: list[int]) -> None:
+        if index == len(choices):
+            out.add(tuple(sorted(current)))
+            return
+        for projected_layer in choices[index]:
+            current.append(projected_layer)
+            walk(index + 1, current)
+            current.pop()
+
+    walk(0, [])
+    return out
+
+
+def _collision_free_projected_layers(projected: tuple[int, ...]) -> bool:
+    return len(set(projected)) == len(projected)
+
+
+def _print_anchor_generalization_report(
+    signatures: Counter[tuple[tuple[int, str, str], ...]],
+    transitions: Counter[tuple[int, str, str]],
+    train_layers: int,
+    generate_layers_values: tuple[int, ...],
+) -> None:
+    print("anchor_generalization:")
+    print(f"  train_layers={train_layers}")
+    print(f"  unique_signatures={len(signatures)}")
+    print(f"  unique_transitions={len(transitions)}")
+    layer_sets = Counter(tuple(layer for layer, _before, _after in signature) for signature in signatures)
+    print("  signature_layer_sets:")
+    for layers, count in layer_sets.most_common(16):
+        anchors = ",".join(_anchor_name(layer, train_layers) for layer in layers)
+        print(f"    {layers}: {count} ({anchors})")
+    print("  transition_anchor_counts:")
+    anchor_counts = Counter(_anchor_name(layer, train_layers) for layer, _before, _after in transitions)
+    for anchor, count in anchor_counts.most_common():
+        print(f"    {anchor}: {count}")
+    for generate_layers in generate_layers_values:
+        projected_count = 0
+        collision_free_count = 0
+        colliding_count = 0
+        projected_layer_sets: Counter[tuple[int, ...]] = Counter()
+        collision_free_layer_sets: Counter[tuple[int, ...]] = Counter()
+        for signature, count in signatures.items():
+            projected = _project_signature_layers(signature, train_layers, generate_layers)
+            projected_count += len(projected) * count
+            for projected_layers in projected:
+                projected_layer_sets[projected_layers] += count
+                if _collision_free_projected_layers(projected_layers):
+                    collision_free_count += count
+                    collision_free_layer_sets[projected_layers] += count
+                else:
+                    colliding_count += count
+        print(f"  projected_generate_layers={generate_layers}")
+        print(f"    weighted_projected_signature_count={projected_count}")
+        print(f"    collision_free_projected_count={collision_free_count}")
+        print(f"    colliding_projected_count={colliding_count}")
+        print(f"    unique_projected_layer_sets={len(projected_layer_sets)}")
+        print(f"    unique_collision_free_layer_sets={len(collision_free_layer_sets)}")
+        for projected_layers, count in collision_free_layer_sets.most_common(16):
+            print(f"    layer_set {projected_layers}: {count}")
+
+
 def _parse_transition_key(key: str) -> tuple[int, str, str]:
     value = ast.literal_eval(key)
     if not (
@@ -412,6 +493,18 @@ def analyze(args: argparse.Namespace) -> int:
         print("delta_layer_transitions:")
         for (layer, before, after), count in delta_layer_transition_counts.most_common(args.max_delta_transitions):
             print(f"  {count}: L{layer}: {before} -> {after}")
+    if args.anchor_generalization_report:
+        generate_layers_values = tuple(
+            int(value)
+            for value in args.anchor_generate_layers.split(",")
+            if value.strip()
+        )
+        _print_anchor_generalization_report(
+            delta_grammar_counts,
+            delta_layer_transition_counts,
+            args.layers,
+            generate_layers_values,
+        )
     if mismatch_samples:
         print("mismatch_samples:")
         for sample in mismatch_samples:
@@ -441,6 +534,8 @@ def main() -> int:
     parser.add_argument("--zero-stack-seed-report", action="store_true")
     parser.add_argument("--allow-terminal-crystal", action="store_true")
     parser.add_argument("--delta-grammar-report", action="store_true")
+    parser.add_argument("--anchor-generalization-report", action="store_true")
+    parser.add_argument("--anchor-generate-layers", default="6,7")
     parser.add_argument("--max-delta-signatures", type=int, default=24)
     parser.add_argument("--max-delta-transitions", type=int, default=40)
     parser.add_argument("--write-delta-transitions-py", type=Path, default=None)
