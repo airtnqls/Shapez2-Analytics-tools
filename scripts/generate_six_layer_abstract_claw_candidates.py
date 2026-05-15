@@ -643,6 +643,7 @@ def sample_pp_essential_profile(args: argparse.Namespace, pretrained=None) -> in
         sequence_time = 0.0
         training_cache_hit = False
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    abstract_sequences = list(abstract_sequences)
     if args.shuffle:
         rng.shuffle(abstract_sequences)
     tested_raw = 0
@@ -744,6 +745,7 @@ def frontier_signature_profile(args: argparse.Namespace, pretrained=None) -> int
         sequence_time = 0.0
         training_cache_hit = False
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    abstract_sequences = list(abstract_sequences)
     if args.shuffle:
         rng.shuffle(abstract_sequences)
     tested_raw = 0
@@ -1128,6 +1130,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         sequence_time = 0.0
         training_cache_hit = False
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    abstract_sequences = list(abstract_sequences)
     if args.shuffle:
         rng.shuffle(abstract_sequences)
 
@@ -1328,6 +1331,7 @@ def generate(args: argparse.Namespace, pretrained=None) -> int:
         training_time = 0.0
         sequence_time = 0.0
         training_cache_hit = False
+    abstract_sequences = list(abstract_sequences)
     if args.shuffle:
         rng.shuffle(abstract_sequences)
 
