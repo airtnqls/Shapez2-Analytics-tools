@@ -1389,8 +1389,33 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 rejected["empty_push"] += 1
                 continue
             pushed_parts = pushed.split(":") if pushed else []
+            pushed_swap = sfa.bitmask_swap_impossibility(pushed) or "swappable"
             if args.target_layer_count and len(pushed_parts) != args.target_layer_count:
                 rejected["target_layer_count"] += 1
+                continue
+            if args.target_first_layer and (not pushed_parts or pushed_parts[0] != args.target_first_layer):
+                rejected["target_first_layer"] += 1
+                continue
+            if args.target_top_layer and (not pushed_parts or pushed_parts[-1] != args.target_top_layer):
+                rejected["target_top_layer"] += 1
+                continue
+            if args.target_swap_mode and pushed_swap != args.target_swap_mode:
+                rejected["target_swap_mode"] += 1
+                continue
+            if args.target_claw_common_filter and not _claw_common_target_allowed(pushed):
+                rejected["target_common"] += 1
+                continue
+            if args.target_sorted_claw_notes_filter and not _sorted_claw_notes_target_allowed(pushed):
+                rejected["target_notes"] += 1
+                continue
+            if args.target_corner_filter and not sfa.corner_columns_allowed(pushed):
+                rejected["target_corner"] += 1
+                continue
+            if args.target_swap_both_filter and sfa.bitmask_swap_impossibility(pushed) != "swap_both_blocked":
+                rejected["target_swap"] += 1
+                continue
+            if args.target_removed_crystal_filter and not sfa.bitmask_layer_removal_context(pushed)[1]:
+                rejected["target_removed_crystal"] += 1
                 continue
             if args.dedupe_targets_before_classify and pushed in generated_targets:
                 rejected["duplicate_target"] += 1
