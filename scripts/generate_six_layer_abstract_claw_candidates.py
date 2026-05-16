@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import copy
 import contextlib
 import io
@@ -2007,6 +2008,201 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     return 0
 
 
+def _chunk_path(path: Path | None, start: int, end: int) -> Path | None:
+    if path is None:
+        return None
+    return path.with_name(f"{path.stem}_chunk{start}_{end}{path.suffix}")
+
+
+def _literal_counter(raw: dict[str, int]) -> Counter:
+    counter = Counter()
+    for key, count in raw.items():
+        try:
+            counter[ast.literal_eval(key)] += count
+        except (SyntaxError, ValueError):
+            counter[key] += count
+    return counter
+
+
+def _load_existing_chunk_result(summary_path: Path | None, pair_path: Path | None) -> dict[str, object]:
+    if summary_path is None or not summary_path.exists():
+        return {}
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    pairs: set[tuple[str, str]] = set()
+    targets: set[str] = set()
+    if pair_path is not None and pair_path.exists():
+        try:
+            for line in pair_path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                target, predecessor = line.split("\t", 1)
+                pairs.add((target, predecessor))
+                targets.add(target)
+        except (OSError, ValueError):
+            pairs.clear()
+            targets.clear()
+    return {
+        "tested_raw": summary.get("tested_raw", 0),
+        "generated_targets": summary.get("generated_targets", 0),
+        "new_family_count": summary.get("new_family_count", 0),
+        "new_family_counts": _literal_counter(summary.get("new_families", {})),
+        "new_family_kernel_verdicts": _literal_counter(summary.get("new_family_kernel_verdicts", {})),
+        "new_family_verdicts_by_family": {},
+        "new_targets": summary.get("new_targets", len(targets)),
+        "new_target_set": targets,
+        "new_pair_set": pairs,
+        "stop_reason": summary.get("stop_reason", "loaded_existing"),
+        "generated_base_cache_hit": summary.get("generated_base_cache_hit", False),
+        "generated_base_added_families": summary.get("generated_base_added_families", 0),
+    }
+
+
+def predecessor_new_family_chunk_scan(args: argparse.Namespace) -> int:
+    pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    total_abstract = len(pretrained[4])
+    scan_start = max(0, args.abstract_start_index)
+    scan_end = total_abstract
+    if args.abstract_count:
+        scan_end = min(total_abstract, scan_start + args.abstract_count)
+    chunk_size = max(1, args.abstract_chunk_size)
+    base_write_targets = args.write_targets
+    base_write_pairs = args.write_pairs
+    base_write_summary_json = args.write_summary_json
+    print("mode=predecessor_new_family_chunk_scan")
+    print(f"shared_training_cache_hit={training_cache_hit}")
+    print(f"shared_training_time={training_time:.6f}s")
+    print(f"shared_sequence_time={sequence_time:.6f}s")
+    print(f"abstract_sequences_total={total_abstract}")
+    print(f"abstract_scan_start={scan_start}")
+    print(f"abstract_scan_end={scan_end}")
+    print(f"abstract_chunk_size={chunk_size}")
+
+    exit_code = 0
+    chunk_summaries: list[dict[str, object]] = []
+    aggregate_new_families = Counter()
+    aggregate_kernel_verdicts = Counter()
+    aggregate_kernel_verdicts_by_family: defaultdict[tuple[object, ...], Counter[tuple[str, str]]] = defaultdict(Counter)
+    aggregate_new_targets: set[str] = set()
+    aggregate_new_pairs: set[tuple[str, str]] = set()
+    chunks_started = 0
+    chunks_skipped = 0
+    for chunk_start in range(scan_start, scan_end, chunk_size):
+        chunk_end = min(scan_end, chunk_start + chunk_size)
+        if args.abstract_chunk_limit and chunks_started >= args.abstract_chunk_limit:
+            break
+        chunk_summary_path = _chunk_path(base_write_summary_json, chunk_start, chunk_end)
+        chunk_pair_path = _chunk_path(base_write_pairs, chunk_start, chunk_end)
+        if args.skip_existing_chunks and chunk_summary_path is not None and chunk_summary_path.exists():
+            chunks_skipped += 1
+            print(f"=== chunk={chunk_start}:{chunk_end} skipped existing ===")
+            item = _load_existing_chunk_result(chunk_summary_path, chunk_pair_path)
+        else:
+            chunks_started += 1
+            args.abstract_start_index = chunk_start
+            args.abstract_count = chunk_end - chunk_start
+            args.write_targets = _chunk_path(base_write_targets, chunk_start, chunk_end)
+            args.write_pairs = chunk_pair_path
+            args.write_summary_json = chunk_summary_path
+            print(f"=== chunk={chunk_start}:{chunk_end} ===")
+            exit_code = max(exit_code, predecessor_new_family_candidates(args, pretrained=pretrained))
+            item = getattr(args, "_last_predecessor_new_family_summary", {})
+        if not item:
+            continue
+        chunk_summaries.append(
+            {
+                key: value
+                for key, value in item.items()
+                if key
+                not in (
+                    "new_family_counts",
+                    "new_family_kernel_verdicts",
+                    "new_family_verdicts_by_family",
+                    "new_target_set",
+                    "new_pair_set",
+                )
+            }
+            | {
+                "abstract_start_index": chunk_start,
+                "abstract_end_index": chunk_end,
+            }
+        )
+        aggregate_new_families.update(item.get("new_family_counts", Counter()))
+        aggregate_kernel_verdicts.update(item.get("new_family_kernel_verdicts", Counter()))
+        for family, verdicts in item.get("new_family_verdicts_by_family", {}).items():
+            aggregate_kernel_verdicts_by_family[family].update(verdicts)
+        aggregate_new_targets.update(item.get("new_target_set", set()))
+        aggregate_new_pairs.update(item.get("new_pair_set", set()))
+
+    args.abstract_start_index = scan_start
+    args.abstract_count = scan_end - scan_start
+    args.write_targets = base_write_targets
+    args.write_pairs = base_write_pairs
+    args.write_summary_json = base_write_summary_json
+    stop_reasons = Counter(str(item.get("stop_reason", "missing")) for item in chunk_summaries)
+    print("chunk_scan_summary:")
+    print(f"  chunks_started={chunks_started}")
+    print(f"  chunks_skipped={chunks_skipped}")
+    print(f"  tested_raw={sum(int(item.get('tested_raw', 0)) for item in chunk_summaries)}")
+    print(f"  generated_targets={sum(int(item.get('generated_targets', 0)) for item in chunk_summaries)}")
+    print(f"  unique_new_family_count={len(aggregate_new_families)}")
+    print(f"  unique_new_targets={len(aggregate_new_targets)}")
+    print(f"  unique_new_pairs={len(aggregate_new_pairs)}")
+    print(f"  stop_reasons={dict(sorted(stop_reasons.items()))}")
+    if aggregate_new_families:
+        print("chunk_scan_new_families:")
+        for key, count in aggregate_new_families.most_common(args.top):
+            print(f"  {count}\t{key}")
+    if base_write_targets is not None:
+        base_write_targets.parent.mkdir(parents=True, exist_ok=True)
+        base_write_targets.write_text("\n".join(sorted(aggregate_new_targets)) + "\n", encoding="utf-8")
+        print(f"chunk_scan_targets_written={base_write_targets}")
+        print(f"chunk_scan_targets_written_count={len(aggregate_new_targets)}")
+    if base_write_pairs is not None:
+        base_write_pairs.parent.mkdir(parents=True, exist_ok=True)
+        base_write_pairs.write_text(
+            "\n".join(f"{target}\t{predecessor}" for target, predecessor in sorted(aggregate_new_pairs)) + "\n",
+            encoding="utf-8",
+        )
+        print(f"chunk_scan_pairs_written={base_write_pairs}")
+        print(f"chunk_scan_pairs_written_count={len(aggregate_new_pairs)}")
+    if base_write_summary_json is not None:
+        aggregate_summary_path = base_write_summary_json.with_name(
+            f"{base_write_summary_json.stem}_chunks_aggregate{base_write_summary_json.suffix}"
+        )
+        aggregate_summary = {
+            "mode": "predecessor_new_family_chunk_scan",
+            "argv": sys.argv[1:],
+            "cwd": str(Path.cwd()),
+            "family_mode": args.predecessor_family_mode,
+            "abstract_sequences_total": total_abstract,
+            "abstract_scan_start": scan_start,
+            "abstract_scan_end": scan_end,
+            "abstract_chunk_size": chunk_size,
+            "chunks_started": chunks_started,
+            "chunks_skipped": chunks_skipped,
+            "tested_raw": sum(int(item.get("tested_raw", 0)) for item in chunk_summaries),
+            "generated_targets": sum(int(item.get("generated_targets", 0)) for item in chunk_summaries),
+            "unique_new_family_count": len(aggregate_new_families),
+            "unique_new_targets": len(aggregate_new_targets),
+            "unique_new_pairs": len(aggregate_new_pairs),
+            "stop_reasons": dict(sorted(stop_reasons.items())),
+            "new_families": {repr(key): count for key, count in aggregate_new_families.items()},
+            "new_family_kernel_verdicts": {repr(key): count for key, count in aggregate_kernel_verdicts.items()},
+            "new_family_kernel_verdicts_by_family": {
+                repr(family): {repr(verdict): count for verdict, count in verdicts.items()}
+                for family, verdicts in aggregate_kernel_verdicts_by_family.items()
+            },
+            "chunks": chunk_summaries,
+        }
+        aggregate_summary_path.parent.mkdir(parents=True, exist_ok=True)
+        aggregate_summary_path.write_text(json.dumps(aggregate_summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"chunk_scan_summary_written={aggregate_summary_path}")
+    return exit_code
+
+
 def high_layer_pp_smoke(args: argparse.Namespace) -> int:
     exit_code = 0
     layers = [int(part.strip()) for part in args.high_layer_pp_smoke.split(",") if part.strip()]
@@ -2897,6 +3093,9 @@ def main() -> int:
     parser.add_argument("--max-abstract-sequences", type=int, default=50000)
     parser.add_argument("--abstract-start-index", type=int, default=0)
     parser.add_argument("--abstract-count", type=int, default=0)
+    parser.add_argument("--abstract-chunk-size", type=int, default=0)
+    parser.add_argument("--abstract-chunk-limit", type=int, default=0)
+    parser.add_argument("--skip-existing-chunks", action="store_true")
     parser.add_argument("--max-raw-per-layer", type=int, default=3)
     parser.add_argument("--max-raw-tests", type=int, default=100000)
     parser.add_argument("--seed", type=int, default=1)
@@ -3016,6 +3215,8 @@ def main() -> int:
     if args.predecessor_family_data_profile:
         return predecessor_family_data_profile(args)
     if args.predecessor_new_family_candidates:
+        if args.abstract_chunk_size:
+            return predecessor_new_family_chunk_scan(args)
         if args.seed_count <= 1:
             return predecessor_new_family_candidates(args)
         exit_code = 0
