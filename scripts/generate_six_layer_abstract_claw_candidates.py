@@ -1673,6 +1673,22 @@ def _load_proof_certificates(
     return certificates, False
 
 
+def _load_extra_proof_certificates(paths: tuple[Path, ...] | list[Path]) -> set[tuple[object, ...]]:
+    certificates: set[tuple[object, ...]] = set()
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            with path.open("rb") as handle:
+                payload = pickle.load(handle)
+        except (OSError, pickle.PickleError, EOFError):
+            continue
+        values = payload.get("certificates") if isinstance(payload, dict) else None
+        if isinstance(values, (set, frozenset, list, tuple)):
+            certificates.update(values)
+    return certificates
+
+
 def _sample_generated_predecessor_families(
     args: argparse.Namespace,
     pretrained,
@@ -1764,6 +1780,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             read_cache=args.read_base_proof_cache,
             write_cache=args.write_base_proof_cache,
         )
+        if args.extra_proof_cache:
+            base_proof_certificates.update(_load_extra_proof_certificates(args.extra_proof_cache))
     data_base_family_count = len(base_families)
     generated_base_family_union: set[tuple[object, ...]] = set()
     generated_base_stats = Counter()
@@ -3395,6 +3413,7 @@ def main() -> int:
     parser.add_argument("--write-base-family-cache", type=Path)
     parser.add_argument("--read-base-proof-cache", type=Path)
     parser.add_argument("--write-base-proof-cache", type=Path)
+    parser.add_argument("--extra-proof-cache", type=Path, action="append", default=[])
     parser.add_argument("--replay-captured", type=Path, action="append", default=[])
     parser.add_argument("--replay-captured-glob", action="append", default=[])
     parser.add_argument("--replay-pairs", type=Path, action="append", default=[])
