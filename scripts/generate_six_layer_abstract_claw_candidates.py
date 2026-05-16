@@ -1684,23 +1684,6 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 rejected["duplicate_predecessor"] += 1
                 continue
             generated_predecessors.add(predecessor)
-            if args.require_stable_predecessor:
-                tick = time.perf_counter()
-                predecessor_stable = sfa.bitmask_physics_stable(predecessor)
-                timing["predecessor_stable_filter"] += time.perf_counter() - tick
-                if not predecessor_stable:
-                    rejected["unstable_predecessor"] += 1
-                    continue
-            if args.require_explainable_predecessor:
-                tick = time.perf_counter()
-                predecessor_explainable = sfa.claw_change_rule_predecessor_is_explainable(
-                    predecessor,
-                    args.generate_layers,
-                )
-                timing["predecessor_explainable_filter"] += time.perf_counter() - tick
-                if not predecessor_explainable:
-                    rejected["unexplainable_predecessor"] += 1
-                    continue
             tick = time.perf_counter()
             pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
             timing["push_pin"] += time.perf_counter() - tick
@@ -1770,6 +1753,23 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 timing["target_removed_crystal_filter"] += time.perf_counter() - tick
                 if not target_removed_crystal:
                     rejected["target_removed_crystal"] += 1
+                    continue
+            if args.require_stable_predecessor:
+                tick = time.perf_counter()
+                predecessor_stable = sfa.bitmask_physics_stable(predecessor)
+                timing["predecessor_stable_filter"] += time.perf_counter() - tick
+                if not predecessor_stable:
+                    rejected["unstable_predecessor"] += 1
+                    continue
+            if args.require_explainable_predecessor:
+                tick = time.perf_counter()
+                predecessor_explainable = sfa.claw_change_rule_predecessor_is_explainable(
+                    predecessor,
+                    args.generate_layers,
+                )
+                timing["predecessor_explainable_filter"] += time.perf_counter() - tick
+                if not predecessor_explainable:
+                    rejected["unexplainable_predecessor"] += 1
                     continue
             tick = time.perf_counter()
             subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
