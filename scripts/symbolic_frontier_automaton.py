@@ -3861,8 +3861,15 @@ def generic_viable_pin_push_predecessor_witness(code: str, layers: int) -> str |
         dict.fromkeys(
             bitmask_inverse_push_pin_candidates(normalized, layers)
             + bitmask_bridge_inverse_push_pin_candidates(normalized, layers)
+            + (
+                bitmask_connected_shatter_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_piece_lift_shatter_inverse_push_pin_candidates(normalized, layers)
+                + bitmask_crystal_spine_piece_inverse_push_pin_candidates(normalized, layers)
+                if layers >= 6
+                else ()
+            )
         )
-    )[:16]
+    )[:64]
     for predecessor in candidates:
         if bitmask_push_pin(predecessor, layers) != normalized:
             continue
@@ -5156,14 +5163,14 @@ def claw_unstable_predecessor_tree(code: str, layers: int) -> DecompositionNode 
 def claw_candidate_predecessor_is_viable(predecessor: str, layers: int) -> bool:
     if not bitmask_physics_stable(predecessor):
         return False
-    if not corner_columns_allowed(predecessor):
-        return False
-    if claw_predecessor_first_floor_invalid(predecessor):
-        return False
     if swap_core_verdict(predecessor) is not None:
         return True
     if stackability_core_verdict(predecessor) is not None:
         return True
+    if not corner_columns_allowed(predecessor):
+        return False
+    if claw_predecessor_first_floor_invalid(predecessor):
+        return False
     subtype = pp_subtype_candidate(predecessor, layers).subtype
     if subtype == "top_single_c_zero_stack_unresolved_pp_candidate":
         seed = zero_stack_trace_seed(predecessor, layers, allow_terminal_crystal=True)
