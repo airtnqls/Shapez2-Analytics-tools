@@ -2616,8 +2616,11 @@ def replay_captured(args: argparse.Namespace) -> int:
 
 def replay_pairs(args: argparse.Namespace) -> int:
     pair_counts: Counter[tuple[str, str]] = Counter()
+    baseline_counts: Counter[tuple[str, str]] = Counter()
     family_counts: Counter[tuple[object, ...]] = Counter()
     family_verdicts: defaultdict[tuple[object, ...], Counter[tuple[str, str]]] = defaultdict(Counter)
+    comparison_counts: Counter[tuple[tuple[str, str], tuple[str, str]]] = Counter()
+    comparison_mismatch_samples: list[str] = []
     unknown_samples: list[str] = []
     total = 0
     push_mismatches = 0
@@ -2635,6 +2638,23 @@ def replay_pairs(args: argparse.Namespace) -> int:
             if sfa.bitmask_push_pin(predecessor, replay_layers) != target:
                 push_mismatches += 1
             family = _predecessor_push_signature(predecessor, target, args.predecessor_family_mode)
+            baseline_verdict: tuple[str, str] | None = None
+            if args.compare_generated_predecessor_evidence:
+                baseline_verdict = _kernel_verdict_for_target(
+                    target,
+                    replay_layers,
+                    use_generated_predecessor_evidence=False,
+                    predecessor=predecessor,
+                    cheap_prune_only=args.cheap_prune_only,
+                )
+                if baseline_verdict[0] == "unknown" and args.classify_residual_full:
+                    baseline_verdict = _kernel_verdict_for_target(
+                        target,
+                        replay_layers,
+                        use_generated_predecessor_evidence=False,
+                        predecessor=predecessor,
+                        cheap_prune_only=False,
+                    )
             verdict = _kernel_verdict_for_target(
                 target,
                 replay_layers,
@@ -2652,6 +2672,13 @@ def replay_pairs(args: argparse.Namespace) -> int:
                 )
             total += 1
             pair_counts[verdict] += 1
+            if baseline_verdict is not None:
+                baseline_counts[baseline_verdict] += 1
+                comparison_counts[(baseline_verdict, verdict)] += 1
+                if baseline_verdict[0] != verdict[0] and len(comparison_mismatch_samples) < args.max_capture:
+                    comparison_mismatch_samples.append(
+                        f"{replay_path}\tT={target}\tA={predecessor}\tbaseline={baseline_verdict}\tevidence={verdict}"
+                    )
             family_counts[family] += 1
             family_verdicts[family][verdict] += 1
             if verdict[0] == "unknown" and len(unknown_samples) < args.max_capture:
@@ -2672,6 +2699,17 @@ def replay_pairs(args: argparse.Namespace) -> int:
     print("replay_pairs_kernel_verdicts:")
     for key, count in pair_counts.most_common(args.top):
         print(f"  {count}\t{key}")
+    if args.compare_generated_predecessor_evidence:
+        print("replay_pairs_baseline_kernel_verdicts:")
+        for key, count in baseline_counts.most_common(args.top):
+            print(f"  {count}\t{key}")
+        print("replay_pairs_evidence_comparison:")
+        for key, count in comparison_counts.most_common(args.top):
+            print(f"  {count}\tbaseline={key[0]}\tevidence={key[1]}")
+        if comparison_mismatch_samples:
+            print("replay_pairs_evidence_verdict_mismatch_samples:")
+            for sample in comparison_mismatch_samples:
+                print(sample)
     print("replay_pairs_families:")
     for family, count in family_counts.most_common(args.top):
         print(f"  {count}\t{family}")
@@ -2698,6 +2736,9 @@ def replay_pairs(args: argparse.Namespace) -> int:
             "legacy_fallback": legacy_fallback,
             "unique_families": len(family_counts),
             "kernel_verdicts": {repr(key): count for key, count in pair_counts.items()},
+            "baseline_kernel_verdicts": {repr(key): count for key, count in baseline_counts.items()},
+            "evidence_comparison": {repr(key): count for key, count in comparison_counts.items()},
+            "evidence_verdict_mismatch_samples": comparison_mismatch_samples,
             "families": {repr(key): count for key, count in family_counts.items()},
             "kernel_verdicts_by_family": {
                 repr(family): {repr(verdict): count for verdict, count in verdicts.items()}
@@ -2784,6 +2825,7 @@ def main() -> int:
     parser.add_argument("--replay-captured", type=Path, action="append", default=[])
     parser.add_argument("--replay-captured-glob", action="append", default=[])
     parser.add_argument("--replay-pairs", type=Path, action="append", default=[])
+    parser.add_argument("--compare-generated-predecessor-evidence", action="store_true")
     parser.add_argument("--estimate-generation-space", action="store_true")
     parser.add_argument("--abstract-filter-profile", action="store_true")
     parser.add_argument("--pp-essential-profile", action="store_true")
