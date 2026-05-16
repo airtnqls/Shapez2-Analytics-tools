@@ -1684,6 +1684,23 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 rejected["duplicate_predecessor"] += 1
                 continue
             generated_predecessors.add(predecessor)
+            if args.require_stable_predecessor:
+                tick = time.perf_counter()
+                predecessor_stable = sfa.bitmask_physics_stable(predecessor)
+                timing["predecessor_stable_filter"] += time.perf_counter() - tick
+                if not predecessor_stable:
+                    rejected["unstable_predecessor"] += 1
+                    continue
+            if args.require_explainable_predecessor:
+                tick = time.perf_counter()
+                predecessor_explainable = sfa.claw_change_rule_predecessor_is_explainable(
+                    predecessor,
+                    args.generate_layers,
+                )
+                timing["predecessor_explainable_filter"] += time.perf_counter() - tick
+                if not predecessor_explainable:
+                    rejected["unexplainable_predecessor"] += 1
+                    continue
             tick = time.perf_counter()
             pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
             timing["push_pin"] += time.perf_counter() - tick
@@ -2947,6 +2964,8 @@ def replay_pairs(args: argparse.Namespace) -> int:
     replay_paths = list(args.replay_pairs or ())
     for replay_path in replay_paths:
         for line in replay_path.read_text(encoding="utf-8").splitlines():
+            if args.replay_limit and total >= args.replay_limit:
+                break
             if not line.strip():
                 continue
             target_raw, predecessor_raw = line.split("\t", 1)
@@ -3003,6 +3022,8 @@ def replay_pairs(args: argparse.Namespace) -> int:
             family_verdicts[family][verdict] += 1
             if verdict[0] == "unknown" and len(unknown_samples) < args.max_capture:
                 unknown_samples.append(f"{replay_path}\tT={target}\tA={predecessor}\treason={verdict[1]}")
+        if args.replay_limit and total >= args.replay_limit:
+            break
 
     unknown = sum(count for (verdict, _reason), count in pair_counts.items() if verdict == "unknown")
     legacy_fallback = sum(
@@ -3114,6 +3135,8 @@ def main() -> int:
     parser.add_argument("--target-top-layer", default="")
     parser.add_argument("--target-swap-mode", choices=("", "swappable", "swap_12_34_blocked", "swap_14_23_blocked", "swap_both_blocked"), default="")
     parser.add_argument("--require-seed-stackable", action="store_true")
+    parser.add_argument("--require-stable-predecessor", action="store_true")
+    parser.add_argument("--require-explainable-predecessor", action="store_true")
     parser.add_argument("--exclude-stackable-predecessors", action="store_true")
     parser.add_argument("--skip-predecessor-details", action="store_true")
     parser.add_argument("--top", type=int, default=16)
@@ -3153,6 +3176,7 @@ def main() -> int:
     parser.add_argument("--replay-captured", type=Path, action="append", default=[])
     parser.add_argument("--replay-captured-glob", action="append", default=[])
     parser.add_argument("--replay-pairs", type=Path, action="append", default=[])
+    parser.add_argument("--replay-limit", type=int, default=0)
     parser.add_argument("--compare-generated-predecessor-evidence", action="store_true")
     parser.add_argument("--estimate-generation-space", action="store_true")
     parser.add_argument("--abstract-filter-profile", action="store_true")
