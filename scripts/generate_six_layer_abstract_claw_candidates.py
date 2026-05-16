@@ -318,6 +318,17 @@ def _load_or_train(args: argparse.Namespace):
     return pretrained, trained_at - started, sequenced_at - trained_at, False
 
 
+def _slice_abstract_sequences(args: argparse.Namespace, abstract_sequences):
+    sequences = list(abstract_sequences)
+    total = len(sequences)
+    start = max(0, args.abstract_start_index)
+    if args.abstract_count:
+        end = min(total, start + args.abstract_count)
+    else:
+        end = total
+    return sequences[start:end], total, start, end
+
+
 def _raw_sequences_for(
     abstract_sequence: tuple[tuple[str, str], ...],
     raw_by_abstract: dict[tuple[str, str], set[tuple[str, str]]],
@@ -656,7 +667,10 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
         sequence_time = 0.0
         training_cache_hit = False
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
-    abstract_sequences = list(abstract_sequences)
+    abstract_sequences, total_abstract_sequences, abstract_start, abstract_end = _slice_abstract_sequences(
+        args,
+        abstract_sequences,
+    )
     if args.shuffle:
         rng.shuffle(abstract_sequences)
 
@@ -765,6 +779,9 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
     print("mode=abstract_filter_profile")
     print(f"records={records}")
     print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_sequences_total={total_abstract_sequences}")
+    print(f"abstract_start_index={abstract_start}")
+    print(f"abstract_end_index={abstract_end}")
     print(f"abstract_truncated={abstract_truncated}")
     print(f"sampled_sequences={sampled_sequences}")
     print(f"tested_raw={tested_raw}")
@@ -828,6 +845,9 @@ def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
             "mode": "abstract_filter_profile",
             "records": records,
             "abstract_sequences": len(abstract_sequences),
+            "abstract_sequences_total": total_abstract_sequences,
+            "abstract_start_index": abstract_start,
+            "abstract_end_index": abstract_end,
             "abstract_truncated": abstract_truncated,
             "sampled_sequences": sampled_sequences,
             "tested_raw": tested_raw,
@@ -870,7 +890,10 @@ def sample_pp_essential_profile(args: argparse.Namespace, pretrained=None) -> in
         sequence_time = 0.0
         training_cache_hit = False
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
-    abstract_sequences = list(abstract_sequences)
+    abstract_sequences, total_abstract_sequences, abstract_start, abstract_end = _slice_abstract_sequences(
+        args,
+        abstract_sequences,
+    )
     if args.shuffle:
         rng.shuffle(abstract_sequences)
     tested_raw = 0
@@ -940,6 +963,9 @@ def sample_pp_essential_profile(args: argparse.Namespace, pretrained=None) -> in
     print("mode=pp_essential_profile")
     print(f"records={records}")
     print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_sequences_total={total_abstract_sequences}")
+    print(f"abstract_start_index={abstract_start}")
+    print(f"abstract_end_index={abstract_end}")
     print(f"abstract_truncated={abstract_truncated}")
     print(f"tested_raw={tested_raw}")
     print(f"unique_predecessors={len(unique_predecessors)}")
@@ -972,7 +998,10 @@ def frontier_signature_profile(args: argparse.Namespace, pretrained=None) -> int
         sequence_time = 0.0
         training_cache_hit = False
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
-    abstract_sequences = list(abstract_sequences)
+    abstract_sequences, total_abstract_sequences, abstract_start, abstract_end = _slice_abstract_sequences(
+        args,
+        abstract_sequences,
+    )
     if args.shuffle:
         rng.shuffle(abstract_sequences)
     tested_raw = 0
@@ -1039,6 +1068,9 @@ def frontier_signature_profile(args: argparse.Namespace, pretrained=None) -> int
     print(f"generate_layers={args.generate_layers}")
     print(f"records={records}")
     print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_sequences_total={total_abstract_sequences}")
+    print(f"abstract_start_index={abstract_start}")
+    print(f"abstract_end_index={abstract_end}")
     print(f"abstract_truncated={abstract_truncated}")
     print(f"tested_raw={tested_raw}")
     print(f"generated_targets={len(generated_targets)}")
@@ -1411,8 +1443,61 @@ def _load_predecessor_families_cached(data: str, layers: int, mode: str) -> froz
     return frozenset(families)
 
 
-def _load_predecessor_families(data: Path, layers: int, mode: str) -> set[tuple[object, ...]]:
-    return set(_load_predecessor_families_cached(str(data.resolve()), layers, mode))
+def _load_base_family_cache(path: Path | None, data: Path, layers: int, mode: str) -> set[tuple[object, ...]] | None:
+    if path is None or not path.exists():
+        return None
+    try:
+        with path.open("rb") as handle:
+            payload = pickle.load(handle)
+    except (OSError, pickle.PickleError, EOFError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("data") != str(data.resolve()) or payload.get("layers") != layers or payload.get("mode") != mode:
+        return None
+    families = payload.get("families")
+    if not isinstance(families, (set, frozenset, list, tuple)):
+        return None
+    return set(families)
+
+
+def _write_base_family_cache(
+    path: Path | None,
+    data: Path,
+    layers: int,
+    mode: str,
+    families: set[tuple[object, ...]],
+) -> None:
+    if path is None:
+        return
+    payload = {
+        "data": str(data.resolve()),
+        "layers": layers,
+        "mode": mode,
+        "families": frozenset(families),
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as handle:
+            pickle.dump(payload, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    except OSError as exc:
+        print(f"base_family_cache_write_failed={path} reason={exc}")
+
+
+def _load_predecessor_families(
+    data: Path,
+    layers: int,
+    mode: str,
+    *,
+    read_cache: Path | None = None,
+    write_cache: Path | None = None,
+) -> tuple[set[tuple[object, ...]], bool]:
+    cached = _load_base_family_cache(read_cache, data, layers, mode)
+    if cached is not None:
+        return cached, True
+    families = set(_load_predecessor_families_cached(str(data.resolve()), layers, mode))
+    _write_base_family_cache(write_cache, data, layers, mode, families)
+    return families, False
 
 
 def _sample_generated_predecessor_families(
@@ -1489,7 +1574,13 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         training_time = 0.0
         sequence_time = 0.0
         training_cache_hit = False
-    base_families = _load_predecessor_families(args.data, base_layers, args.predecessor_family_mode)
+    base_families, base_family_cache_hit = _load_predecessor_families(
+        args.data,
+        base_layers,
+        args.predecessor_family_mode,
+        read_cache=args.read_base_family_cache,
+        write_cache=args.write_base_family_cache,
+    )
     data_base_family_count = len(base_families)
     generated_base_family_union: set[tuple[object, ...]] = set()
     generated_base_stats = Counter()
@@ -1544,7 +1635,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     generated_base_time = time.perf_counter() - generated_base_started
     generated_base_added_count = len(base_families) - data_base_family_count
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
-    abstract_sequences = list(abstract_sequences)
+    abstract_sequences, total_abstract_sequences, abstract_start, abstract_end = _slice_abstract_sequences(
+        args,
+        abstract_sequences,
+    )
     if args.shuffle:
         rng.shuffle(abstract_sequences)
 
@@ -1722,6 +1816,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     print(f"base_layers={base_layers}")
     print(f"data_base_families={data_base_family_count}")
     print(f"base_families={len(base_families)}")
+    print(f"base_family_cache_hit={base_family_cache_hit}")
     if args.generated_base_layers:
         print(f"generated_base_layers={args.generated_base_layers}")
         print(f"generated_base_raw_tests={args.generated_base_raw_tests or args.max_raw_tests}")
@@ -1737,6 +1832,9 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     print(f"generate_layers={args.generate_layers}")
     print(f"records={records}")
     print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_sequences_total={total_abstract_sequences}")
+    print(f"abstract_start_index={abstract_start}")
+    print(f"abstract_end_index={abstract_end}")
     print(f"abstract_truncated={abstract_truncated}")
     print(f"tested_raw={tested_raw}")
     print(f"generated_predecessors={len(generated_predecessors)}")
@@ -1811,6 +1909,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "base_layers": base_layers,
             "data_base_families": data_base_family_count,
             "base_families": len(base_families),
+            "base_family_cache_hit": base_family_cache_hit,
             "generated_base_layers": args.generated_base_layers,
             "generated_base_raw_tests": args.generated_base_raw_tests or args.max_raw_tests,
             "generated_base_seed": base_seed if args.generated_base_layers else None,
@@ -1820,6 +1919,9 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "generate_layers": args.generate_layers,
             "records": records,
             "abstract_sequences": len(abstract_sequences),
+            "abstract_sequences_total": total_abstract_sequences,
+            "abstract_start_index": abstract_start,
+            "abstract_end_index": abstract_end,
             "abstract_truncated": abstract_truncated,
             "tested_raw": tested_raw,
             "generated_predecessors": len(generated_predecessors),
@@ -2771,6 +2873,8 @@ def main() -> int:
     parser.add_argument("--max-seconds", type=float, default=120.0)
     parser.add_argument("--max-train-seconds", type=float, default=0.0)
     parser.add_argument("--max-abstract-sequences", type=int, default=50000)
+    parser.add_argument("--abstract-start-index", type=int, default=0)
+    parser.add_argument("--abstract-count", type=int, default=0)
     parser.add_argument("--max-raw-per-layer", type=int, default=3)
     parser.add_argument("--max-raw-tests", type=int, default=100000)
     parser.add_argument("--seed", type=int, default=1)
@@ -2822,6 +2926,9 @@ def main() -> int:
     parser.add_argument("--training-cache", type=Path, help="Read this cache when valid, otherwise write it after training.")
     parser.add_argument("--read-training-cache", type=Path)
     parser.add_argument("--write-training-cache", type=Path)
+    parser.add_argument("--base-family-cache", type=Path, help="Read this base-family cache when valid, otherwise write it.")
+    parser.add_argument("--read-base-family-cache", type=Path)
+    parser.add_argument("--write-base-family-cache", type=Path)
     parser.add_argument("--replay-captured", type=Path, action="append", default=[])
     parser.add_argument("--replay-captured-glob", action="append", default=[])
     parser.add_argument("--replay-pairs", type=Path, action="append", default=[])
@@ -2854,6 +2961,11 @@ def main() -> int:
             args.read_training_cache = args.training_cache
         if args.write_training_cache is None:
             args.write_training_cache = args.training_cache
+    if args.base_family_cache is not None:
+        if args.read_base_family_cache is None:
+            args.read_base_family_cache = args.base_family_cache
+        if args.write_base_family_cache is None:
+            args.write_base_family_cache = args.base_family_cache
     if args.disable_high_tail_candidates or args.disable_legacy_high_tail_candidates:
         legacy_high_tail = getattr(sfa, "bitmask_high_claw_tail_inverse_push_pin_candidates", None)
         if legacy_high_tail is not None:
