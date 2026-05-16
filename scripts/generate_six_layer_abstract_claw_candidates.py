@@ -1683,16 +1683,6 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 rejected["duplicate_predecessor"] += 1
                 continue
             generated_predecessors.add(predecessor)
-            subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
-            if subtype not in args.selected_generate_subtypes:
-                rejected["subtype"] += 1
-                continue
-            if args.exclude_stackable_predecessors and sfa.bitmask_stackability_witnesses(predecessor):
-                rejected["stackable_predecessor"] += 1
-                continue
-            if not args.allow_non_zero_stack_predecessor and not sfa.top_single_c_zero_stack_candidate(predecessor):
-                rejected["not_zero_stack"] += 1
-                continue
             tick = time.perf_counter()
             pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
             timing["push_pin"] += time.perf_counter() - tick
@@ -1702,6 +1692,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             tick = time.perf_counter()
             pushed_parts = pushed.split(":") if pushed else []
             pushed_swap = ""
+            pending_family = None
             if args.target_layer_count and len(pushed_parts) != args.target_layer_count:
                 timing["target_layer_filters"] += time.perf_counter() - tick
                 rejected["target_layer_count"] += 1
@@ -1715,6 +1706,14 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 rejected["target_top_layer"] += 1
                 continue
             timing["target_layer_filters"] += time.perf_counter() - tick
+            if args.skip_old_families_before_target_filters:
+                tick = time.perf_counter()
+                pending_family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
+                timing["family_signature"] += time.perf_counter() - tick
+                family_counts[pending_family] += 1
+                if pending_family in base_families:
+                    rejected["old_family_fast_path"] += 1
+                    continue
             if args.target_swap_mode:
                 tick = time.perf_counter()
                 pushed_swap = sfa.bitmask_swap_impossibility(pushed) or "swappable"
@@ -1754,14 +1753,37 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 if not target_removed_crystal:
                     rejected["target_removed_crystal"] += 1
                     continue
+            tick = time.perf_counter()
+            subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
+            timing["predecessor_subtype_filter"] += time.perf_counter() - tick
+            if subtype not in args.selected_generate_subtypes:
+                rejected["subtype"] += 1
+                continue
+            if args.exclude_stackable_predecessors:
+                tick = time.perf_counter()
+                predecessor_stackable = sfa.bitmask_stackability_witnesses(predecessor)
+                timing["predecessor_stackable_filter"] += time.perf_counter() - tick
+                if predecessor_stackable:
+                    rejected["stackable_predecessor"] += 1
+                    continue
+            if not args.allow_non_zero_stack_predecessor:
+                tick = time.perf_counter()
+                zero_stack = sfa.top_single_c_zero_stack_candidate(predecessor)
+                timing["predecessor_zero_stack_filter"] += time.perf_counter() - tick
+                if not zero_stack:
+                    rejected["not_zero_stack"] += 1
+                    continue
             if args.dedupe_targets_before_classify and pushed in generated_targets:
                 rejected["duplicate_target"] += 1
                 continue
             generated_targets.add(pushed)
-            tick = time.perf_counter()
-            family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
-            timing["family_signature"] += time.perf_counter() - tick
-            family_counts[family] += 1
+            if pending_family is None:
+                tick = time.perf_counter()
+                family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
+                timing["family_signature"] += time.perf_counter() - tick
+                family_counts[family] += 1
+            else:
+                family = pending_family
             if family in base_families:
                 continue
             new_family_counts[family] += 1
@@ -2944,6 +2966,7 @@ def main() -> int:
     parser.add_argument("--predecessor-family-summary", action="store_true")
     parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact", "core_exact", "core_relative"), default="coarse")
     parser.add_argument("--classify-new-family-candidates", action="store_true")
+    parser.add_argument("--skip-old-families-before-target-filters", action="store_true")
     parser.add_argument("--generated-base-layers", type=int, default=0)
     parser.add_argument("--generated-base-raw-tests", type=int, default=0)
     parser.add_argument("--generated-base-seed", type=int, default=0)
