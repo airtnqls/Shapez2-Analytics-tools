@@ -7938,7 +7938,7 @@ def main() -> int:
     parser.add_argument("--bucket-samples", type=int, default=0)
     parser.add_argument("--compare-limit", type=int, default=0)
     parser.add_argument("--compare-every", type=int, default=1)
-    parser.add_argument("--compare-against", choices=("legacy", "reference", "both", "none"), default="legacy")
+    parser.add_argument("--compare-against", choices=("legacy", "reference", "both", "none"), default="none")
     parser.add_argument("--ignore-legacy-unknown", action="store_true")
     parser.add_argument("--fail-on-unknown", action="store_true")
     parser.add_argument("--fail-on-legacy-fallback", action="store_true")
