@@ -475,7 +475,6 @@ def _kernel_verdict_for_target(
             sfa.claw_side_bridge_predecessor_core_verdict,
             sfa.claw_change_rule_predecessor_core_verdict,
             sfa.zero_stack_terminal_crystal_failure_core_verdict,
-            sfa.claw_unstable_predecessor_core_verdict,
         ):
             tick = time.perf_counter()
             kernel_verdict = (
