@@ -1412,6 +1412,26 @@ def _same_family_reduction_witness(
     return None
 
 
+def _proof_certificate(predecessor: str, target: str, layers: int, mode: str) -> tuple[object, ...]:
+    normalized_predecessor = sfa.normalize_code(predecessor)
+    normalized_target = sfa.normalize_code(target)
+    if (
+        normalized_predecessor
+        and sfa.bitmask_physics_stable(normalized_predecessor)
+        and sfa.bitmask_push_pin(normalized_predecessor, layers) == normalized_target
+        and sfa.claw_change_rule_predecessor_is_explainable(normalized_predecessor, layers)
+    ):
+        verdict, reason = "possible", "kernel_claw_change_rule_predecessor_verified"
+    else:
+        verdict, reason = _kernel_verdict_for_target(target, layers)
+    return (
+        "proof",
+        verdict,
+        reason,
+        _predecessor_push_signature(predecessor, target, mode),
+    )
+
+
 def predecessor_family_data_profile(args: argparse.Namespace) -> int:
     started = time.perf_counter()
     max_layers = args.generate_layers
@@ -1479,6 +1499,20 @@ def _load_predecessor_families_cached(data: str, layers: int, mode: str) -> froz
     return frozenset(families)
 
 
+@lru_cache(maxsize=32)
+def _load_proof_certificates_cached(data: str, layers: int, mode: str) -> frozenset[tuple[object, ...]]:
+    certificates: set[tuple[object, ...]] = set()
+    for code in sfa.iter_data_codes(Path(data), max_layers=layers):
+        target = sfa.normalize_code(code)
+        if not target or len(target.split(":")) != layers:
+            continue
+        predecessor = _claw_predecessor(target)
+        if not predecessor or sfa.bitmask_push_pin(predecessor, layers) != target:
+            continue
+        certificates.add(_proof_certificate(predecessor, target, layers, mode))
+    return frozenset(certificates)
+
+
 def _load_base_family_cache(path: Path | None, data: Path, layers: int, mode: str) -> set[tuple[object, ...]] | None:
     if path is None or not path.exists():
         return None
@@ -1495,6 +1529,47 @@ def _load_base_family_cache(path: Path | None, data: Path, layers: int, mode: st
     if not isinstance(families, (set, frozenset, list, tuple)):
         return None
     return set(families)
+
+
+def _load_base_proof_cache(path: Path | None, data: Path, layers: int, mode: str) -> set[tuple[object, ...]] | None:
+    if path is None or not path.exists():
+        return None
+    try:
+        with path.open("rb") as handle:
+            payload = pickle.load(handle)
+    except (OSError, pickle.PickleError, EOFError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("data") != str(data.resolve()) or payload.get("layers") != layers or payload.get("mode") != mode:
+        return None
+    certificates = payload.get("certificates")
+    if not isinstance(certificates, (set, frozenset, list, tuple)):
+        return None
+    return set(certificates)
+
+
+def _write_base_proof_cache(
+    path: Path | None,
+    data: Path,
+    layers: int,
+    mode: str,
+    certificates: set[tuple[object, ...]],
+) -> None:
+    if path is None:
+        return
+    payload = {
+        "data": str(data.resolve()),
+        "layers": layers,
+        "mode": mode,
+        "certificates": frozenset(certificates),
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as handle:
+            pickle.dump(payload, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    except OSError as exc:
+        print(f"base_proof_cache_write_failed={path} reason={exc}")
 
 
 def _write_base_family_cache(
@@ -1534,6 +1609,22 @@ def _load_predecessor_families(
     families = set(_load_predecessor_families_cached(str(data.resolve()), layers, mode))
     _write_base_family_cache(write_cache, data, layers, mode, families)
     return families, False
+
+
+def _load_proof_certificates(
+    data: Path,
+    layers: int,
+    mode: str,
+    *,
+    read_cache: Path | None = None,
+    write_cache: Path | None = None,
+) -> tuple[set[tuple[object, ...]], bool]:
+    cached = _load_base_proof_cache(read_cache, data, layers, mode)
+    if cached is not None:
+        return cached, True
+    certificates = set(_load_proof_certificates_cached(str(data.resolve()), layers, mode))
+    _write_base_proof_cache(write_cache, data, layers, mode, certificates)
+    return certificates, False
 
 
 def _sample_generated_predecessor_families(
@@ -1617,6 +1708,16 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         read_cache=args.read_base_family_cache,
         write_cache=args.write_base_family_cache,
     )
+    base_proof_certificates: set[tuple[object, ...]] = set()
+    base_proof_cache_hit = False
+    if args.novelty_mode == "proof":
+        base_proof_certificates, base_proof_cache_hit = _load_proof_certificates(
+            args.data,
+            base_layers,
+            args.predecessor_family_mode,
+            read_cache=args.read_base_proof_cache,
+            write_cache=args.write_base_proof_cache,
+        )
     data_base_family_count = len(base_families)
     generated_base_family_union: set[tuple[object, ...]] = set()
     generated_base_stats = Counter()
@@ -1747,7 +1848,11 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 pending_family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
                 timing["family_signature"] += time.perf_counter() - tick
                 family_counts[pending_family] += 1
-                if pending_family in base_families and not args.require_family_reduction_witness:
+                if (
+                    args.novelty_mode == "family"
+                    and pending_family in base_families
+                    and not args.require_family_reduction_witness
+                ):
                     rejected["old_family_fast_path"] += 1
                     continue
             if args.target_swap_mode:
@@ -1837,8 +1942,21 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 family_counts[family] += 1
             else:
                 family = pending_family
-            if family in base_families:
-                if args.require_family_reduction_witness:
+            if args.novelty_mode == "proof":
+                tick = time.perf_counter()
+                certificate = _proof_certificate(
+                    predecessor,
+                    pushed,
+                    args.generate_layers,
+                    args.predecessor_family_mode,
+                )
+                timing["proof_certificate"] += time.perf_counter() - tick
+                if certificate in base_proof_certificates:
+                    rejected["old_proof_certificate"] += 1
+                    continue
+                family = ("new_proof_certificate", certificate)
+            elif family in base_families:
+                if args.novelty_mode == "reduction" or args.require_family_reduction_witness:
                     tick = time.perf_counter()
                     reduction_index = _same_family_reduction_witness(
                         predecessor,
@@ -1908,6 +2026,9 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     print(f"data_base_families={data_base_family_count}")
     print(f"base_families={len(base_families)}")
     print(f"base_family_cache_hit={base_family_cache_hit}")
+    if args.novelty_mode == "proof":
+        print(f"base_proof_certificates={len(base_proof_certificates)}")
+        print(f"base_proof_cache_hit={base_proof_cache_hit}")
     if args.generated_base_layers:
         print(f"generated_base_layers={args.generated_base_layers}")
         print(f"generated_base_raw_tests={args.generated_base_raw_tests or args.max_raw_tests}")
@@ -3222,8 +3343,11 @@ def main() -> int:
     parser.add_argument("--read-training-cache", type=Path)
     parser.add_argument("--write-training-cache", type=Path)
     parser.add_argument("--base-family-cache", type=Path, help="Read this base-family cache when valid, otherwise write it.")
+    parser.add_argument("--base-proof-cache", type=Path, help="Read this proof-certificate cache when valid, otherwise write it.")
     parser.add_argument("--read-base-family-cache", type=Path)
     parser.add_argument("--write-base-family-cache", type=Path)
+    parser.add_argument("--read-base-proof-cache", type=Path)
+    parser.add_argument("--write-base-proof-cache", type=Path)
     parser.add_argument("--replay-captured", type=Path, action="append", default=[])
     parser.add_argument("--replay-captured-glob", action="append", default=[])
     parser.add_argument("--replay-pairs", type=Path, action="append", default=[])
@@ -3239,6 +3363,7 @@ def main() -> int:
     parser.add_argument("--predecessor-new-family-candidates", action="store_true")
     parser.add_argument("--predecessor-family-summary", action="store_true")
     parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact", "core_exact", "core_relative"), default="coarse")
+    parser.add_argument("--novelty-mode", choices=("family", "reduction", "proof"), default="family")
     parser.add_argument("--classify-new-family-candidates", action="store_true")
     parser.add_argument("--require-family-reduction-witness", action="store_true")
     parser.add_argument("--skip-old-families-before-target-filters", action="store_true")
@@ -3264,6 +3389,11 @@ def main() -> int:
             args.read_base_family_cache = args.base_family_cache
         if args.write_base_family_cache is None:
             args.write_base_family_cache = args.base_family_cache
+    if args.base_proof_cache is not None:
+        if args.read_base_proof_cache is None:
+            args.read_base_proof_cache = args.base_proof_cache
+        if args.write_base_proof_cache is None:
+            args.write_base_proof_cache = args.base_proof_cache
     if args.disable_high_tail_candidates or args.disable_legacy_high_tail_candidates:
         legacy_high_tail = getattr(sfa, "bitmask_high_claw_tail_inverse_push_pin_candidates", None)
         if legacy_high_tail is not None:
