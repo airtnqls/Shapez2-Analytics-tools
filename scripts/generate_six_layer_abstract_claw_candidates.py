@@ -1377,6 +1377,41 @@ def _predecessor_push_signature(predecessor: str, target: str, mode: str) -> tup
     return _predecessor_push_family(predecessor, target)
 
 
+def _remove_layer(code: str, index: int) -> str:
+    parts = sfa.normalize_code(code).split(":") if code else []
+    if index < 0 or index >= len(parts):
+        return ""
+    return sfa.normalize_code(":".join(parts[:index] + parts[index + 1 :]))
+
+
+def _same_family_reduction_witness(
+    predecessor: str,
+    target: str,
+    mode: str,
+    base_families: set[tuple[object, ...]],
+) -> int | None:
+    target_parts = sfa.normalize_code(target).split(":") if target else []
+    predecessor_parts = sfa.normalize_code(predecessor).split(":") if predecessor else []
+    if len(target_parts) <= 1 or len(predecessor_parts) != len(target_parts):
+        return None
+    reduced_layers = len(target_parts) - 1
+    for index in range(len(target_parts)):
+        reduced_target = _remove_layer(target, index)
+        reduced_predecessor = _remove_layer(predecessor, index)
+        if not reduced_target or not reduced_predecessor:
+            continue
+        if len(reduced_target.split(":")) != reduced_layers:
+            continue
+        if len(reduced_predecessor.split(":")) != reduced_layers:
+            continue
+        if sfa.bitmask_push_pin(reduced_predecessor, reduced_layers) != reduced_target:
+            continue
+        reduced_family = _predecessor_push_signature(reduced_predecessor, reduced_target, mode)
+        if reduced_family in base_families:
+            return index
+    return None
+
+
 def predecessor_family_data_profile(args: argparse.Namespace) -> int:
     started = time.perf_counter()
     max_layers = args.generate_layers
@@ -1712,7 +1747,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 pending_family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
                 timing["family_signature"] += time.perf_counter() - tick
                 family_counts[pending_family] += 1
-                if pending_family in base_families:
+                if pending_family in base_families and not args.require_family_reduction_witness:
                     rejected["old_family_fast_path"] += 1
                     continue
             if args.target_swap_mode:
@@ -1803,7 +1838,23 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             else:
                 family = pending_family
             if family in base_families:
-                continue
+                if args.require_family_reduction_witness:
+                    tick = time.perf_counter()
+                    reduction_index = _same_family_reduction_witness(
+                        predecessor,
+                        pushed,
+                        args.predecessor_family_mode,
+                        base_families,
+                    )
+                    timing["family_reduction_witness"] += time.perf_counter() - tick
+                    if reduction_index is None:
+                        rejected["old_family_reduction_missing"] += 1
+                        family = ("uncertified_lift", family)
+                    else:
+                        rejected["old_family_reduction_verified"] += 1
+                        continue
+                else:
+                    continue
             new_family_counts[family] += 1
             new_targets.add(pushed)
             new_pairs.add((pushed, predecessor))
@@ -3189,6 +3240,7 @@ def main() -> int:
     parser.add_argument("--predecessor-family-summary", action="store_true")
     parser.add_argument("--predecessor-family-mode", choices=("coarse", "exact", "core_exact", "core_relative"), default="coarse")
     parser.add_argument("--classify-new-family-candidates", action="store_true")
+    parser.add_argument("--require-family-reduction-witness", action="store_true")
     parser.add_argument("--skip-old-families-before-target-filters", action="store_true")
     parser.add_argument("--generated-base-layers", type=int, default=0)
     parser.add_argument("--generated-base-raw-tests", type=int, default=0)
