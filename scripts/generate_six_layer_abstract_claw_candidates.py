@@ -322,6 +322,12 @@ def _load_or_train(args: argparse.Namespace):
 def _slice_abstract_sequences(args: argparse.Namespace, abstract_sequences):
     sequences = list(abstract_sequences)
     total = len(sequences)
+    random_count = getattr(args, "abstract_random_count", 0)
+    if random_count:
+        rng = random.Random(args.seed)
+        sample_count = min(total, max(0, random_count))
+        indexes = sorted(rng.sample(range(total), sample_count))
+        return [sequences[index] for index in indexes], total, 0, total
     start = max(0, args.abstract_start_index)
     if args.abstract_count:
         end = min(total, start + args.abstract_count)
@@ -3307,6 +3313,7 @@ def main() -> int:
     parser.add_argument("--max-abstract-sequences", type=int, default=50000)
     parser.add_argument("--abstract-start-index", type=int, default=0)
     parser.add_argument("--abstract-count", type=int, default=0)
+    parser.add_argument("--abstract-random-count", type=int, default=0)
     parser.add_argument("--abstract-chunk-size", type=int, default=0)
     parser.add_argument("--abstract-chunk-limit", type=int, default=0)
     parser.add_argument("--skip-existing-chunks", action="store_true")
