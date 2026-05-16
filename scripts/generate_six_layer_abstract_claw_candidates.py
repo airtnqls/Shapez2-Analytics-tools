@@ -1560,6 +1560,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     rejected = Counter()
     new_samples: list[str] = []
     new_unknown_records: list[dict[str, object]] = []
+    timing = Counter()
     stop_reason = "exhausted"
     for abstract_sequence in abstract_sequences:
         if args.max_seconds and time.perf_counter() - started > args.max_seconds:
@@ -1598,49 +1599,74 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             if not args.allow_non_zero_stack_predecessor and not sfa.top_single_c_zero_stack_candidate(predecessor):
                 rejected["not_zero_stack"] += 1
                 continue
+            tick = time.perf_counter()
             pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
+            timing["push_pin"] += time.perf_counter() - tick
             if not pushed:
                 rejected["empty_push"] += 1
                 continue
+            tick = time.perf_counter()
             pushed_parts = pushed.split(":") if pushed else []
             pushed_swap = ""
             if args.target_layer_count and len(pushed_parts) != args.target_layer_count:
+                timing["target_layer_filters"] += time.perf_counter() - tick
                 rejected["target_layer_count"] += 1
                 continue
             if args.target_first_layer and (not pushed_parts or pushed_parts[0] != args.target_first_layer):
+                timing["target_layer_filters"] += time.perf_counter() - tick
                 rejected["target_first_layer"] += 1
                 continue
             if args.target_top_layer and (not pushed_parts or pushed_parts[-1] != args.target_top_layer):
+                timing["target_layer_filters"] += time.perf_counter() - tick
                 rejected["target_top_layer"] += 1
                 continue
+            timing["target_layer_filters"] += time.perf_counter() - tick
             if args.target_swap_mode:
+                tick = time.perf_counter()
                 pushed_swap = sfa.bitmask_swap_impossibility(pushed) or "swappable"
+                timing["target_swap_mode_filter"] += time.perf_counter() - tick
                 if pushed_swap != args.target_swap_mode:
                     rejected["target_swap_mode"] += 1
                     continue
             if args.target_claw_common_filter and not _claw_common_target_allowed(pushed):
                 rejected["target_common"] += 1
                 continue
-            if args.target_sorted_claw_notes_filter and not _sorted_claw_notes_target_allowed(pushed):
-                rejected["target_notes"] += 1
-                continue
-            if args.target_corner_filter and not sfa.corner_columns_allowed(pushed):
-                rejected["target_corner"] += 1
-                continue
+            if args.target_sorted_claw_notes_filter:
+                tick = time.perf_counter()
+                target_notes_allowed = _sorted_claw_notes_target_allowed(pushed)
+                timing["target_notes_filter"] += time.perf_counter() - tick
+                if not target_notes_allowed:
+                    rejected["target_notes"] += 1
+                    continue
+            if args.target_corner_filter:
+                tick = time.perf_counter()
+                target_corner_allowed = sfa.corner_columns_allowed(pushed)
+                timing["target_corner_filter"] += time.perf_counter() - tick
+                if not target_corner_allowed:
+                    rejected["target_corner"] += 1
+                    continue
             if args.target_swap_both_filter:
                 if not pushed_swap:
+                    tick = time.perf_counter()
                     pushed_swap = sfa.bitmask_swap_impossibility(pushed) or "swappable"
+                    timing["target_swap_filter"] += time.perf_counter() - tick
                 if pushed_swap != "swap_both_blocked":
                     rejected["target_swap"] += 1
                     continue
-            if args.target_removed_crystal_filter and not sfa.bitmask_layer_removal_context(pushed)[1]:
-                rejected["target_removed_crystal"] += 1
-                continue
+            if args.target_removed_crystal_filter:
+                tick = time.perf_counter()
+                target_removed_crystal = sfa.bitmask_layer_removal_context(pushed)[1]
+                timing["target_removed_crystal_filter"] += time.perf_counter() - tick
+                if not target_removed_crystal:
+                    rejected["target_removed_crystal"] += 1
+                    continue
             if args.dedupe_targets_before_classify and pushed in generated_targets:
                 rejected["duplicate_target"] += 1
                 continue
             generated_targets.add(pushed)
+            tick = time.perf_counter()
             family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
+            timing["family_signature"] += time.perf_counter() - tick
             family_counts[family] += 1
             if family in base_families:
                 continue
@@ -1648,6 +1674,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             new_targets.add(pushed)
             new_pairs.add((pushed, predecessor))
             if args.classify_new_family_candidates:
+                tick = time.perf_counter()
                 verdict = _kernel_verdict_for_target(
                     pushed,
                     args.generate_layers,
@@ -1655,7 +1682,9 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                     predecessor=predecessor,
                     cheap_prune_only=args.cheap_prune_only,
                 )
+                timing["new_family_classify"] += time.perf_counter() - tick
                 if verdict[0] == "unknown" and args.classify_residual_full:
+                    tick = time.perf_counter()
                     verdict = _kernel_verdict_for_target(
                         pushed,
                         args.generate_layers,
@@ -1663,6 +1692,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                         predecessor=predecessor,
                         cheap_prune_only=False,
                     )
+                    timing["new_family_residual_classify"] += time.perf_counter() - tick
                 new_family_verdicts[verdict] += 1
                 new_family_verdicts_by_family[family][verdict] += 1
                 if verdict[0] == "unknown":
@@ -1721,6 +1751,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     print("rejected:")
     for key, count in rejected.most_common(args.top):
         print(f"  {key}: {count}")
+    if timing:
+        print("timing:")
+        for key, seconds in timing.most_common():
+            print(f"  {key}: {seconds:.6f}s")
     print("all_families:")
     for key, count in family_counts.most_common(args.top):
         marker = "new" if key in new_family_counts else "old"
@@ -1798,6 +1832,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "elapsed": time.perf_counter() - started,
             "stop_reason": stop_reason,
             "rejected": dict(rejected),
+            "timing": dict(timing),
             "new_families": {repr(key): count for key, count in new_family_counts.items()},
             "all_families": {repr(key): count for key, count in family_counts.items()},
             "new_family_kernel_verdicts": {repr(key): count for key, count in new_family_verdicts.items()},
