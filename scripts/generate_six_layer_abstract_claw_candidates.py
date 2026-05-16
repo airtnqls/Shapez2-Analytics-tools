@@ -1391,6 +1391,24 @@ def _predecessor_push_core_lift_family(predecessor: str, target: str) -> tuple[o
     return (head, tuple(sorted(set(lifted), key=repr)), nonc, count, fall)
 
 
+def _predecessor_push_core_lift_tail3_family(predecessor: str, target: str) -> tuple[object, ...]:
+    head, coords, nonc, count, fall = _predecessor_push_core_relative_family(predecessor, target)
+    lifted = []
+    for item in coords:
+        if len(item) >= 3 and item[0] == "point" and isinstance(item[1], int) and item[1] <= -3:
+            continue
+        if len(item) >= 4 and item[0] == "top_spine" and isinstance(item[1], int) and item[1] <= -3:
+            lifted.append(("top_spine", "deep", 0, "any"))
+            continue
+        if len(item) >= 3 and item[0] == "point" and item[1] == "deep":
+            continue
+        if len(item) >= 4 and item[0] == "top_spine" and item[1] == "deep":
+            lifted.append(("top_spine", "deep", 0, "any"))
+            continue
+        lifted.append(item)
+    return (head, tuple(sorted(set(lifted), key=repr)), nonc, count, fall)
+
+
 def _predecessor_push_signature(predecessor: str, target: str, mode: str) -> tuple[object, ...]:
     if mode == "exact":
         return _predecessor_push_exact_family(predecessor, target)
@@ -1400,6 +1418,8 @@ def _predecessor_push_signature(predecessor: str, target: str, mode: str) -> tup
         return _predecessor_push_core_relative_family(predecessor, target)
     if mode == "core_lift":
         return _predecessor_push_core_lift_family(predecessor, target)
+    if mode == "core_lift_tail3":
+        return _predecessor_push_core_lift_tail3_family(predecessor, target)
     return _predecessor_push_family(predecessor, target)
 
 
@@ -3391,7 +3411,7 @@ def main() -> int:
     parser.add_argument("--predecessor-family-summary", action="store_true")
     parser.add_argument(
         "--predecessor-family-mode",
-        choices=("coarse", "exact", "core_exact", "core_relative", "core_lift"),
+        choices=("coarse", "exact", "core_exact", "core_relative", "core_lift", "core_lift_tail3"),
         default="coarse",
     )
     parser.add_argument("--novelty-mode", choices=("family", "reduction", "proof"), default="family")
