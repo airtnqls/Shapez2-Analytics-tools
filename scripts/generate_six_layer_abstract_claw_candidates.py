@@ -440,6 +440,9 @@ def _kernel_verdict_for_target(
                 return kernel_verdict
             if sfa.claw_terminal_scpp_tail_predecessor_witness(target, layers) is not None:
                 return "possible", "kernel_claw_terminal_scpp_tail_predecessor"
+            kernel_verdict = sfa.claw_side_bridge_predecessor_core_verdict(target, layers)
+            if kernel_verdict is not None:
+                return kernel_verdict
             kernel_verdict = sfa.claw_terminal_sss_side_invalid_predecessor_core_verdict(target, layers)
             if kernel_verdict is not None:
                 return kernel_verdict
@@ -464,13 +467,16 @@ def _kernel_verdict_for_target(
             sfa.zero_stack_terminal_crystal_pp_predecessor_core_verdict,
             sfa.zero_stack_terminal_crystal_failure_core_verdict,
             sfa.generic_viable_pin_push_predecessor_core_verdict,
+            sfa.claw_side_bridge_predecessor_core_verdict,
             sfa.claw_unstable_predecessor_core_verdict,
             sfa.claw_change_rule_predecessor_core_verdict,
         ):
             tick = time.perf_counter()
             kernel_verdict = (
                 kernel_fn(target, layers)
-                if kernel_fn.__name__.startswith(("zero_stack", "claw_change_rule", "claw_unstable", "generic_viable"))
+                if kernel_fn.__name__.startswith(
+                    ("zero_stack", "claw_change_rule", "claw_unstable", "generic_viable", "claw_side_bridge")
+                )
                 else kernel_fn(target)
             )
             step_name = kernel_fn.__name__.removesuffix("_core_verdict")

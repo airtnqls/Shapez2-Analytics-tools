@@ -5254,6 +5254,96 @@ def claw_terminal_connected_pp_predecessor_core_verdict(code: str, layers: int) 
     return None
 
 
+def claw_side_bridge_predecessor_witness(code: str, layers: int) -> str | None:
+    normalized = normalize_code(code)
+    parts = normalized.split(":") if normalized else []
+    if layers < 6 or len(parts) < 6:
+        return None
+    if parts[0] == "SSPP":
+        if parts[2][:2] != "--" or parts[2][3] not in {"S", "P"}:
+            return None
+        if parts[-3][:3] != "---" or parts[-3][3] not in {"S", "P"}:
+            return None
+        if parts[-1][3] != "c":
+            return None
+        if len(parts[-2]) == 4 and parts[-2][1:] == "-SS":
+            bridge_body = "ccSS"
+        elif len(parts[-2]) == 4 and parts[-2][:3] == "---" and parts[-2][3] in {"S", "P"}:
+            if parts[2][2] not in {"S", "P"}:
+                return None
+            bridge_body = "cc" + parts[2][2] + parts[-2][3]
+        else:
+            return None
+        tail_piece = parts[-1][2] if parts[-1][2] != "-" else parts[2][2]
+        bridge_tail = parts[-1][0] + "c" + tail_piece + "c"
+        predecessor = normalize_code(
+            ":".join(parts[1:-4] + ["-Sc" + parts[2][3], "Scc" + parts[-3][3], bridge_body, bridge_tail, "-c--"])
+        )
+        if bitmask_push_pin(predecessor, layers) != normalized:
+            return None
+        if not claw_change_rule_predecessor_is_explainable(predecessor, layers):
+            return None
+        return predecessor
+    if parts[0] != "-SPP":
+        return None
+    if parts[-3] != "S--S":
+        return None
+    if parts[2][:2] != "--" or parts[2][2] not in {"-", "S", "P"} or parts[2][3] not in {"S", "P"}:
+        return None
+    if parts[-2] == "SS--":
+        if parts[-1][1] != "c":
+            return None
+        bridge_body = "SScc"
+        tail_piece = parts[-1][2] if parts[-1][2] != "-" else parts[2][2]
+        bridge_tail = parts[-1][:2] + tail_piece + "c"
+        top_crystal = "---c"
+    elif len(parts[-2]) == 4 and parts[-2][0] in {"S", "P"} and parts[-2][1:] == "---":
+        if parts[-1][1] != "c":
+            return None
+        bridge_body = parts[-2][0] + "Scc"
+        tail_piece = parts[-1][2] if parts[-1][2] != "-" else parts[2][2]
+        bridge_tail = parts[-1][:2] + tail_piece + "c"
+        top_crystal = "---c"
+    elif len(parts[-2]) == 4 and parts[-2][1:] == "-SS":
+        if parts[-1][3] != "c":
+            return None
+        bridge_body = "ccSS"
+        tail_piece = parts[-1][0] if parts[-1][0] != "-" else parts[-2][0]
+        bridge_tail = tail_piece + "c" + parts[-1][2] + "c"
+        top_crystal = "-c--"
+    elif len(parts[-2]) == 4 and parts[-2][3] == "S" and parts[2][2] in {"S", "P"}:
+        if parts[-1][3] != "c":
+            return None
+        bridge_body = "cc" + parts[2][2] + "S"
+        tail_piece = parts[-1][0] if parts[-1][0] != "-" else parts[-2][0]
+        bridge_tail = tail_piece + "c" + parts[-1][2] + "c"
+        top_crystal = "-c--"
+    else:
+        return None
+    prefix = list(parts[1:-4])
+    if prefix and prefix[-1].startswith("-S"):
+        prefix[-1] = "--" + prefix[-1][2:]
+    predecessor = normalize_code(
+        ":".join(prefix + ["-Sc" + parts[2][3], "SccS", bridge_body, bridge_tail, top_crystal])
+    )
+    if bitmask_push_pin(predecessor, layers) != normalized:
+        return None
+    if not claw_change_rule_predecessor_is_explainable(predecessor, layers):
+        return None
+    return predecessor
+
+
+@lru_cache(maxsize=100_000)
+def claw_side_bridge_predecessor_core_verdict(code: str, layers: int) -> tuple[str, str] | None:
+    rotated = normalize_code(code)
+    for turns in range(4):
+        if claw_side_bridge_predecessor_witness(rotated, layers) is not None:
+            suffix = "" if turns == 0 else f"_rot{turns}"
+            return "possible", f"kernel_claw_side_bridge_predecessor{suffix}"
+        rotated = bitmask_rotate_clockwise(rotated)
+    return None
+
+
 @lru_cache(maxsize=100_000)
 def claw_unstable_predecessor_candidate_reason(code: str, layers: int) -> str | None:
     normalized = normalize_code(code)
@@ -7321,6 +7411,24 @@ def run_eval(args: argparse.Namespace, corner_mode: str) -> int:
                     sv, sb = kernel
                     fallback_used += 1
                     kernel_used += 1
+        if (
+            sv == "unknown"
+            and args.fallback == "kernel-hybrid-core"
+            and (
+                args.depth >= 6
+                or "claw-change-rule-predecessor-core" in args.experiment
+            )
+        ):
+            tick = time.perf_counter()
+            kernel = claw_side_bridge_predecessor_core_verdict(code, args.depth)
+            elapsed = time.perf_counter() - tick
+            kernel_time += elapsed
+            kernel_step_times["claw_side_bridge_predecessor"] += elapsed
+            kernel_step_counts["claw_side_bridge_predecessor"] += 1
+            if kernel is not None:
+                sv, sb = kernel
+                fallback_used += 1
+                kernel_used += 1
         if (
             sv == "unknown"
             and args.fallback == "kernel-hybrid-core"
