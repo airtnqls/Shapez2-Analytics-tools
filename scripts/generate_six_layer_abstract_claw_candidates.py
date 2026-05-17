@@ -1761,11 +1761,15 @@ def _has_delete_lift(
     pattern: tuple[str, ...],
     lower_patterns: set[tuple[str, ...]],
     mode: str,
+    delete_count: int = 1,
 ) -> bool:
     if not pattern:
         return False
-    for index in _delete_lift_indexes(len(pattern), mode):
-        reduced = pattern[:index] + pattern[index + 1 :]
+    delete_count = max(1, delete_count)
+    indexes = tuple(_delete_lift_indexes(len(pattern), mode))
+    for delete_indexes in itertools.combinations(indexes, delete_count):
+        delete_set = set(delete_indexes)
+        reduced = tuple(layer for index, layer in enumerate(pattern) if index not in delete_set)
         if reduced in lower_patterns:
             return True
     return False
@@ -1775,6 +1779,7 @@ def predecessor_abstract_lift_profile(args: argparse.Namespace, pretrained=None)
     started = time.perf_counter()
     lower_layers = args.lower_abstract_layers or args.train_layers
     lower_patterns = _load_data_predecessor_abstract_patterns(args, lower_layers)
+    delete_count_override = args.lower_abstract_delete_count
     if pretrained is None:
         pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
     else:
@@ -1809,10 +1814,13 @@ def predecessor_abstract_lift_profile(args: argparse.Namespace, pretrained=None)
             exact_old += 1
             continue
         matched_index = None
-        for index in _delete_lift_indexes(len(pattern), args.lower_abstract_delete_mode):
-            reduced = pattern[:index] + pattern[index + 1 :]
+        delete_count = delete_count_override or max(1, len(pattern) - lower_layers)
+        indexes = tuple(_delete_lift_indexes(len(pattern), args.lower_abstract_delete_mode))
+        for delete_indexes in itertools.combinations(indexes, delete_count):
+            delete_set = set(delete_indexes)
+            reduced = tuple(layer for index, layer in enumerate(pattern) if index not in delete_set)
             if reduced in lower_patterns:
-                matched_index = index
+                matched_index = delete_indexes[0] if len(delete_indexes) == 1 else tuple(delete_indexes)
                 break
         if matched_index is not None:
             delete_lift_old += 1
@@ -1829,6 +1837,7 @@ def predecessor_abstract_lift_profile(args: argparse.Namespace, pretrained=None)
     print(f"lower_layers={lower_layers}")
     print(f"lower_patterns={len(lower_patterns)}")
     print(f"delete_mode={args.lower_abstract_delete_mode}")
+    print(f"delete_count={delete_count_override or 'auto'}")
     print(f"abstract_sequences_total={total_abstract_sequences}")
     print(f"abstract_start_index={abstract_start}")
     print(f"abstract_end_index={abstract_end}")
@@ -1859,6 +1868,7 @@ def predecessor_abstract_lift_profile(args: argparse.Namespace, pretrained=None)
             "lower_layers": lower_layers,
             "lower_patterns": len(lower_patterns),
             "delete_mode": args.lower_abstract_delete_mode,
+            "delete_count": delete_count_override or "auto",
             "abstract_sequences_total": total_abstract_sequences,
             "abstract_start_index": abstract_start,
             "abstract_end_index": abstract_end,
@@ -1867,7 +1877,7 @@ def predecessor_abstract_lift_profile(args: argparse.Namespace, pretrained=None)
             "exact_old": exact_old,
             "delete_lift_old": delete_lift_old,
             "novel": novel,
-            "delete_hit_indexes": dict(sorted(delete_hit_indexes.items())),
+            "delete_hit_indexes": {repr(key): count for key, count in sorted(delete_hit_indexes.items(), key=lambda item: repr(item[0]))},
             "elapsed": time.perf_counter() - started,
             "stop_reason": stop_reason,
             "lift_samples": lift_samples,
@@ -2199,6 +2209,9 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     if args.exclude_lower_predecessor_abstract_lift:
         lower_layers = args.lower_abstract_layers or args.train_layers
         lower_abstract_patterns = _load_data_predecessor_abstract_patterns(args, lower_layers)
+        lower_abstract_delete_count = args.lower_abstract_delete_count or max(1, args.generate_layers - lower_layers)
+    else:
+        lower_abstract_delete_count = 0
 
     tested_raw = 0
     generated_targets: set[str] = set()
@@ -2227,7 +2240,12 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         if lower_abstract_patterns:
             if not abstract_key:
                 abstract_key = _predecessor_from_abstract_sequence(abstract_sequence)
-            if _has_delete_lift(abstract_key, lower_abstract_patterns, args.lower_abstract_delete_mode):
+            if _has_delete_lift(
+                abstract_key,
+                lower_abstract_patterns,
+                args.lower_abstract_delete_mode,
+                lower_abstract_delete_count,
+            ):
                 rejected["lower_abstract_lift"] += 1
                 continue
         raw_sequences = _iter_raw_sequences_for(
@@ -2490,6 +2508,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     if args.exclude_lower_predecessor_abstract_lift:
         print(f"lower_abstract_patterns={len(lower_abstract_patterns)}")
         print(f"lower_abstract_delete_mode={args.lower_abstract_delete_mode}")
+        print(f"lower_abstract_delete_count={lower_abstract_delete_count}")
     if args.generated_base_layers:
         print(f"generated_base_layers={args.generated_base_layers}")
         print(f"generated_base_raw_tests={args.generated_base_raw_tests or args.max_raw_tests}")
@@ -2588,6 +2607,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "abstract_prefilter_pair_paths": [str(path) for path in prefilter_pair_paths],
             "lower_abstract_patterns": len(lower_abstract_patterns),
             "lower_abstract_delete_mode": args.lower_abstract_delete_mode,
+            "lower_abstract_delete_count": lower_abstract_delete_count,
             "generated_base_layers": args.generated_base_layers,
             "generated_base_raw_tests": args.generated_base_raw_tests or args.max_raw_tests,
             "generated_base_seed": base_seed if args.generated_base_layers else None,
@@ -3832,6 +3852,7 @@ def main() -> int:
     parser.add_argument("--predecessor-abstract-lift-profile", action="store_true")
     parser.add_argument("--lower-abstract-layers", type=int, default=0)
     parser.add_argument("--lower-abstract-delete-mode", choices=("any", "bottom", "top", "interior"), default="any")
+    parser.add_argument("--lower-abstract-delete-count", type=int, default=0)
     parser.add_argument("--lower-abstract-pattern-cache", type=Path)
     parser.add_argument("--prefilter-pairs", type=Path, action="append", default=[])
     parser.add_argument("--prefilter-pairs-glob", action="append", default=[])
