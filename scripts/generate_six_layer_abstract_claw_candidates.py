@@ -654,6 +654,30 @@ def _predecessor_frontier_projection_reason(
     return "new", "no_pre_projection"
 
 
+def _raw_choice_count_for_estimate(count: int, max_per_layer: int) -> int:
+    if not max_per_layer or count <= max_per_layer:
+        return count
+    if count > max_per_layer * 2:
+        return max_per_layer * 2
+    return max_per_layer
+
+
+def _product_band(product: int) -> str:
+    if product <= 100:
+        return "0-100"
+    if product <= 512:
+        return "101-512"
+    if product <= 1_024:
+        return "513-1024"
+    if product <= 4_096:
+        return "1025-4096"
+    if product <= 16_384:
+        return "4097-16384"
+    if product <= 100_000:
+        return "16385-100000"
+    return ">100000"
+
+
 def estimate_generation_space(args: argparse.Namespace, pretrained=None) -> int:
     started = time.perf_counter()
     if pretrained is None:
@@ -663,9 +687,34 @@ def estimate_generation_space(args: argparse.Namespace, pretrained=None) -> int:
         sequence_time = 0.0
         training_cache_hit = False
     records, _abstract_ngrams, raw_by_abstract, _raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    abstract_sequences, total_abstract_sequences, abstract_start, abstract_end = _slice_abstract_sequences(
+        args,
+        abstract_sequences,
+    )
+    lower_abstract_patterns: set[tuple[str, ...]] = set()
+    lower_abstract_delete_count = 0
+    if args.exclude_lower_predecessor_abstract_lift:
+        lower_layers = args.lower_abstract_layers or args.train_layers
+        lower_abstract_patterns = _load_data_predecessor_abstract_patterns(args, lower_layers)
+        lower_abstract_delete_count = args.lower_abstract_delete_count or max(1, args.generate_layers - lower_layers)
     products: list[int] = []
+    sequence_stats = Counter()
+    product_counts = Counter()
+    product_bands = Counter()
     missing = 0
     for abstract_sequence in abstract_sequences:
+        abstract_key = _predecessor_from_abstract_sequence(abstract_sequence)
+        if not abstract_key:
+            sequence_stats["invalid_abstract_predecessor"] += 1
+            continue
+        if lower_abstract_patterns and _has_delete_lift(
+            abstract_key,
+            lower_abstract_patterns,
+            args.lower_abstract_delete_mode,
+            lower_abstract_delete_count,
+        ):
+            sequence_stats["lower_abstract_lift"] += 1
+            continue
         product = 1
         for abstract in abstract_sequence:
             count = len(raw_by_abstract.get(abstract, ()))
@@ -673,16 +722,21 @@ def estimate_generation_space(args: argparse.Namespace, pretrained=None) -> int:
                 missing += 1
                 product = 0
                 break
-            if args.max_raw_per_layer:
-                count = min(count, args.max_raw_per_layer * 2)
+            count = _raw_choice_count_for_estimate(count, args.max_raw_per_layer)
             product *= count
+        sequence_stats["estimated_sequences"] += 1
         products.append(product)
+        product_counts[min(product, 100_000)] += 1
+        product_bands[_product_band(product)] += 1
     raw_choice_sizes = sorted((len(raw) for raw in raw_by_abstract.values()), reverse=True)
     capped_sum = sum(min(product, 10**18) for product in products)
     print("mode=estimate_generation_space")
     print(f"records={records}")
     print(f"abstract_classes={len(raw_by_abstract)}")
     print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_sequences_total={total_abstract_sequences}")
+    print(f"abstract_start_index={abstract_start}")
+    print(f"abstract_end_index={abstract_end}")
     print(f"abstract_truncated={abstract_truncated}")
     print(f"missing_sequences={missing}")
     print(f"raw_choice_max={raw_choice_sizes[0] if raw_choice_sizes else 0}")
@@ -692,10 +746,50 @@ def estimate_generation_space(args: argparse.Namespace, pretrained=None) -> int:
     print(f"raw_product_le_1={sum(1 for product in products if product <= 1)}")
     print(f"raw_product_le_100={sum(1 for product in products if product <= 100)}")
     print(f"raw_product_gt_100k={sum(1 for product in products if product > 100_000)}")
+    print("sequence_stats:")
+    for key, count in sequence_stats.most_common(args.top):
+        print(f"  {key}: {count}")
+    print("product_bands:")
+    for key, count in sorted(product_bands.items()):
+        print(f"  {key}: {count}")
+    print("product_counts:")
+    for key, count in sorted(product_counts.items())[: args.top]:
+        print(f"  {key}: {count}")
     print(f"training_cache_hit={training_cache_hit}")
     print(f"training_time={training_time:.6f}s")
     print(f"sequence_time={sequence_time:.6f}s")
     print(f"elapsed={time.perf_counter() - started:.6f}s")
+    if args.write_summary_json is not None:
+        summary = {
+            "mode": "estimate_generation_space",
+            "argv": sys.argv[1:],
+            "cwd": str(Path.cwd()),
+            "records": records,
+            "abstract_classes": len(raw_by_abstract),
+            "abstract_sequences": len(abstract_sequences),
+            "abstract_sequences_total": total_abstract_sequences,
+            "abstract_start_index": abstract_start,
+            "abstract_end_index": abstract_end,
+            "abstract_truncated": abstract_truncated,
+            "missing_sequences": missing,
+            "raw_choice_max": raw_choice_sizes[0] if raw_choice_sizes else 0,
+            "raw_choice_top10": raw_choice_sizes[:10],
+            "raw_product_top10": sorted(products, reverse=True)[:10],
+            "raw_product_sum_capped_1e18": capped_sum,
+            "raw_product_le_1": sum(1 for product in products if product <= 1),
+            "raw_product_le_100": sum(1 for product in products if product <= 100),
+            "raw_product_gt_100k": sum(1 for product in products if product > 100_000),
+            "sequence_stats": dict(sequence_stats),
+            "product_bands": dict(sorted(product_bands.items())),
+            "product_counts": {str(key): count for key, count in sorted(product_counts.items())},
+            "training_cache_hit": training_cache_hit,
+            "training_time": training_time,
+            "sequence_time": sequence_time,
+            "elapsed": time.perf_counter() - started,
+        }
+        args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
+        args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"estimate_generation_space_summary_written={args.write_summary_json}")
     return 0
 
 
