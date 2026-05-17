@@ -793,6 +793,15 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             if args.target_layer_count and len(pushed_parts) != args.target_layer_count:
                 raw_stats["target_layer_count"] += 1
                 continue
+            family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
+            if family in base_families:
+                family_counts[family] += 1
+                raw_stats["old_family"] += 1
+                continue
+            if args.ignore_fall_variant_in_base_family and _ignore_fall_family(family) in base_ignore_fall_families:
+                family_counts[family] += 1
+                raw_stats["old_family_fall_variant"] += 1
+                continue
             subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
             if subtype not in args.selected_generate_subtypes:
                 raw_stats["subtype"] += 1
@@ -803,14 +812,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             if not args.allow_non_zero_stack_predecessor and not sfa.top_single_c_zero_stack_candidate(predecessor):
                 raw_stats["not_zero_stack"] += 1
                 continue
-            family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
             family_counts[family] += 1
-            if family in base_families:
-                raw_stats["old_family"] += 1
-                continue
-            if args.ignore_fall_variant_in_base_family and _ignore_fall_family(family) in base_ignore_fall_families:
-                raw_stats["old_family_fall_variant"] += 1
-                continue
             new_family_counts[family] += 1
             raw_stats["new_family"] += 1
             if len(new_samples) < args.max_capture:
