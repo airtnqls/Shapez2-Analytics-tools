@@ -315,6 +315,8 @@ def _load_or_train(args: argparse.Namespace):
     cached = _load_training_cache(args)
     if cached is not None:
         return cached, 0.0, 0.0, True
+    if getattr(args, "require_training_cache_hit", False):
+        raise SystemExit(f"training_cache_required_miss={args.read_training_cache}")
 
     records, abstract_ngrams, raw_by_abstract, raw_pair_counts = _train(args)
     trained_at = time.perf_counter()
@@ -1720,6 +1722,10 @@ def _lower_abstract_pattern_cache_metadata(args: argparse.Namespace, layers: int
 
 
 def _load_data_predecessor_abstract_patterns(args: argparse.Namespace, layers: int) -> set[tuple[str, ...]]:
+    loaded_cache = getattr(args, "_loaded_lower_abstract_patterns", {})
+    cache_key = (layers, args.abstract_mode, args.lower_abstract_pattern_cache)
+    if cache_key in loaded_cache:
+        return loaded_cache[cache_key]
     cache_path: Path | None = args.lower_abstract_pattern_cache
     expected_metadata = _lower_abstract_pattern_cache_metadata(args, layers)
     if cache_path is not None and cache_path.exists():
@@ -1727,7 +1733,10 @@ def _load_data_predecessor_abstract_patterns(args: argparse.Namespace, layers: i
             with cache_path.open("rb") as handle:
                 payload = pickle.load(handle)
             if payload.get("metadata") == expected_metadata:
-                return set(payload.get("patterns", ()))
+                patterns = set(payload.get("patterns", ()))
+                loaded_cache[cache_key] = patterns
+                setattr(args, "_loaded_lower_abstract_patterns", loaded_cache)
+                return patterns
         except (OSError, pickle.PickleError, AttributeError):
             pass
     patterns = set(
@@ -1748,6 +1757,8 @@ def _load_data_predecessor_abstract_patterns(args: argparse.Namespace, layers: i
                 )
         except OSError as exc:
             print(f"lower_abstract_pattern_cache_write_failed={cache_path} reason={exc}")
+    loaded_cache[cache_key] = patterns
+    setattr(args, "_loaded_lower_abstract_patterns", loaded_cache)
     return patterns
 
 
@@ -2252,8 +2263,9 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     new_unknown_records: list[dict[str, object]] = []
     timing = Counter()
     stop_reason = "exhausted"
+    scan_started = time.perf_counter()
     for abstract_sequence in abstract_sequences:
-        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+        if args.max_seconds and time.perf_counter() - scan_started > args.max_seconds:
             stop_reason = "max_seconds"
             break
         abstract_key: tuple[str, ...] = ()
@@ -2281,7 +2293,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             rng,
         )
         for raw_sequence in raw_sequences:
-            if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+            if args.max_seconds and time.perf_counter() - scan_started > args.max_seconds:
                 stop_reason = "max_seconds"
                 break
             if args.max_raw_tests and tested_raw >= args.max_raw_tests:
@@ -3862,6 +3874,7 @@ def main() -> int:
     parser.add_argument("--read-training-cache", type=Path)
     parser.add_argument("--write-training-cache", type=Path)
     parser.add_argument("--omit-training-cache-sequences", action="store_true")
+    parser.add_argument("--require-training-cache-hit", action="store_true")
     parser.add_argument("--base-family-cache", type=Path, help="Read this base-family cache when valid, otherwise write it.")
     parser.add_argument("--base-proof-cache", type=Path, help="Read this proof-certificate cache when valid, otherwise write it.")
     parser.add_argument("--read-base-family-cache", type=Path)
