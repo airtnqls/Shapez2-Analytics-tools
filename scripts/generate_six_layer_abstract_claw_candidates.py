@@ -3821,6 +3821,7 @@ def main() -> int:
     parser.add_argument("--exclude-hybrid-targets", action="store_true")
     parser.add_argument("--exclude-virtual-corner-targets", action="store_true")
     parser.add_argument("--target-layer-count", type=int, default=0)
+    parser.add_argument("--require-generated-target-layer-count", action="store_true")
     parser.add_argument("--target-first-layer", default="")
     parser.add_argument("--target-top-layer", default="")
     parser.add_argument("--target-swap-mode", choices=("", "swappable", "swap_12_34_blocked", "swap_14_23_blocked", "swap_both_blocked"), default="")
@@ -3915,6 +3916,8 @@ def main() -> int:
     args = parser.parse_args()
     args.selected_train_subtypes = _selected_subtypes(args.train_subtypes)
     args.selected_generate_subtypes = _selected_subtypes(args.generate_subtypes or args.train_subtypes)
+    if args.require_generated_target_layer_count:
+        args.target_layer_count = args.generate_layers
     if args.training_cache is not None:
         if args.read_training_cache is None:
             args.read_training_cache = args.training_cache
