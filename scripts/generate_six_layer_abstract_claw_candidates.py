@@ -4,11 +4,13 @@ import argparse
 import ast
 import copy
 import contextlib
+import glob
 import io
 import itertools
 import json
 import pickle
 import random
+import re
 import sys
 import time
 from collections import Counter, defaultdict
@@ -3175,6 +3177,127 @@ def _load_existing_raw_collapse_chunk(summary_path: Path | None) -> dict[str, ob
     }
 
 
+def _raw_collapse_band_from_summary(path: Path, summary: dict[str, object]) -> tuple[int, int]:
+    minimum = int(summary.get("raw_collapse_min_product", 0) or 0)
+    maximum = int(summary.get("raw_collapse_max_product", 0) or 0)
+    if minimum or maximum:
+        return minimum, maximum
+    p_range = re.search(r"_p(\d+)_(\d+)(?:_|\.|$)", path.stem)
+    if p_range:
+        return int(p_range.group(1)), int(p_range.group(2))
+    p_max = re.search(r"_p(\d+)(?:_|\.|$)", path.stem)
+    if p_max:
+        return 0, int(p_max.group(1))
+    if "fullproduct" in path.stem:
+        return 0, 8192
+    return 0, 0
+
+
+def raw_family_collapse_aggregate(args: argparse.Namespace) -> int:
+    paths: list[Path] = []
+    for pattern in args.raw_collapse_aggregate_glob:
+        matches = sorted(Path(item) for item in glob.glob(pattern))
+        if matches:
+            paths.extend(matches)
+            continue
+        path = Path(pattern)
+        if path.exists():
+            paths.append(path)
+    unique_paths = list(dict.fromkeys(paths))
+    summaries = []
+    errors = 0
+    for path in unique_paths:
+        try:
+            summary = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"raw_collapse_aggregate_read_error={path}\t{exc}")
+            errors += 1
+            continue
+        summaries.append((path, summary))
+
+    by_band: defaultdict[tuple[int, int], list[tuple[Path, dict[str, object]]]] = defaultdict(list)
+    for path, summary in summaries:
+        by_band[_raw_collapse_band_from_summary(path, summary)].append((path, summary))
+
+    print("mode=raw_family_collapse_aggregate")
+    print(f"input_paths={len(unique_paths)}")
+    print(f"loaded_summaries={len(summaries)}")
+    print(f"read_errors={errors}")
+    any_new = False
+    aggregate_rows = []
+    for (minimum, maximum), items in sorted(by_band.items()):
+        intervals = []
+        tested_raw = 0
+        enumerated = 0
+        unique_new_family_sum = 0
+        stop_reasons = Counter()
+        new_families = Counter()
+        for _path, summary in items:
+            start = int(summary.get("abstract_scan_start", summary.get("abstract_start_index", 0)) or 0)
+            end = int(summary.get("abstract_scan_end", summary.get("abstract_end_index", start)) or start)
+            intervals.append((start, end))
+            tested_raw += int(summary.get("tested_raw", 0) or 0)
+            enumerated += int(summary.get("enumerated_abstract_sequences", 0) or 0)
+            unique_new_family_sum += int(summary.get("unique_new_family_count", summary.get("new_family_count", 0)) or 0)
+            stop_reasons.update({str(key): int(value) for key, value in summary.get("stop_reasons", {}).items()})
+            new_families.update(_literal_counter(summary.get("new_families", {})))
+        intervals.sort()
+        merged: list[list[int]] = []
+        overlap_count = 0
+        covered = 0
+        for start, end in intervals:
+            if not merged or start >= merged[-1][1]:
+                merged.append([start, end])
+                covered += max(0, end - start)
+                continue
+            overlap_count += 1
+            if end > merged[-1][1]:
+                covered += end - merged[-1][1]
+                merged[-1][1] = end
+        any_new = any_new or bool(new_families)
+        row = {
+            "raw_collapse_min_product": minimum,
+            "raw_collapse_max_product": maximum,
+            "summary_count": len(items),
+            "covered_abstract_span": covered,
+            "merged_intervals": [tuple(item) for item in merged],
+            "overlap_count": overlap_count,
+            "tested_raw": tested_raw,
+            "enumerated_abstract_sequences": enumerated,
+            "unique_new_family_count": len(new_families),
+            "unique_new_family_count_sum": unique_new_family_sum,
+            "stop_reasons": dict(sorted(stop_reasons.items())),
+            "new_families": {repr(key): count for key, count in new_families.items()},
+        }
+        aggregate_rows.append(row)
+        print(
+            "band="
+            f"{minimum}-{maximum} summaries={len(items)} covered={covered} "
+            f"tested_raw={tested_raw} enumerated={enumerated} "
+            f"unique_new={len(new_families)} new_sum={unique_new_family_sum} "
+            f"overlaps={overlap_count} stops={dict(sorted(stop_reasons.items()))}"
+        )
+        if new_families:
+            print("band_new_families:")
+            for family, count in new_families.most_common(args.top):
+                print(f"  {count}\t{family}")
+    if args.write_summary_json:
+        output = {
+            "mode": "raw_family_collapse_aggregate",
+            "argv": sys.argv[1:],
+            "cwd": str(Path.cwd()),
+            "input_paths": [str(path) for path in unique_paths],
+            "loaded_summaries": len(summaries),
+            "read_errors": errors,
+            "any_new_families": any_new,
+            "bands": aggregate_rows,
+        }
+        args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
+        args.write_summary_json.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"raw_collapse_aggregate_summary_written={args.write_summary_json}")
+    return 1 if errors else 0
+
+
 def raw_family_collapse_chunk_scan(args: argparse.Namespace) -> int:
     pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
     total_abstract = len(pretrained[4])
@@ -4401,6 +4524,7 @@ def main() -> int:
     parser.add_argument("--compare-generated-predecessor-evidence", action="store_true")
     parser.add_argument("--estimate-generation-space", action="store_true")
     parser.add_argument("--raw-family-collapse-profile", action="store_true")
+    parser.add_argument("--raw-collapse-aggregate-glob", action="append", default=[])
     parser.add_argument("--raw-collapse-min-product", type=int, default=0)
     parser.add_argument("--raw-collapse-max-product", type=int, default=10000)
     parser.add_argument("--abstract-filter-profile", action="store_true")
@@ -4475,6 +4599,8 @@ def main() -> int:
         return replay_pairs(args)
     if args.estimate_generation_space:
         return estimate_generation_space(args)
+    if args.raw_collapse_aggregate_glob:
+        return raw_family_collapse_aggregate(args)
     if args.raw_family_collapse_profile:
         if args.abstract_chunk_size:
             return raw_family_collapse_chunk_scan(args)
