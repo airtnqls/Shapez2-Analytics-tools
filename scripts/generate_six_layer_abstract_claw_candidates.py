@@ -2441,6 +2441,15 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             else:
                 family = pending_family
             if args.novelty_mode == "proof":
+                if args.ignore_proof_variant_in_base_family and family in base_families:
+                    rejected["old_proof_family_variant"] += 1
+                    continue
+                if (
+                    args.ignore_fall_variant_in_base_family
+                    and _ignore_fall_family(family) in base_ignore_fall_families
+                ):
+                    rejected["old_proof_fall_variant"] += 1
+                    continue
                 tick = time.perf_counter()
                 certificate = _proof_certificate(
                     predecessor,
