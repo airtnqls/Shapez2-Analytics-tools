@@ -697,6 +697,199 @@ def estimate_generation_space(args: argparse.Namespace, pretrained=None) -> int:
     return 0
 
 
+def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> int:
+    started = time.perf_counter()
+    rng = random.Random(args.seed)
+    if pretrained is None:
+        pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    else:
+        training_time = 0.0
+        sequence_time = 0.0
+        training_cache_hit = False
+    records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
+    abstract_sequences, total_abstract_sequences, abstract_start, abstract_end = _slice_abstract_sequences(
+        args,
+        abstract_sequences,
+    )
+    if args.shuffle:
+        rng.shuffle(abstract_sequences)
+
+    base_layers = args.frontier_base_layers or args.train_layers
+    base_families, base_family_cache_hit = _load_predecessor_families(
+        args.data,
+        base_layers,
+        args.predecessor_family_mode,
+        read_cache=args.read_base_family_cache,
+        write_cache=args.write_base_family_cache,
+    )
+    base_ignore_fall_families = {_ignore_fall_family(family) for family in base_families}
+    lower_abstract_patterns: set[tuple[str, ...]] = set()
+    lower_abstract_delete_count = 0
+    if args.exclude_lower_predecessor_abstract_lift:
+        lower_layers = args.lower_abstract_layers or args.train_layers
+        lower_abstract_patterns = _load_data_predecessor_abstract_patterns(args, lower_layers)
+        lower_abstract_delete_count = args.lower_abstract_delete_count or max(1, args.generate_layers - lower_layers)
+
+    sequence_stats = Counter()
+    raw_stats = Counter()
+    family_counts = Counter()
+    new_family_counts = Counter()
+    max_product_seen = 0
+    product_counts = Counter()
+    new_samples: list[str] = []
+    for abstract_sequence in abstract_sequences:
+        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+            sequence_stats["max_seconds"] += 1
+            break
+        abstract_key = _predecessor_from_abstract_sequence(abstract_sequence)
+        if not abstract_key:
+            sequence_stats["invalid_abstract_predecessor"] += 1
+            continue
+        if lower_abstract_patterns and _has_delete_lift(
+            abstract_key,
+            lower_abstract_patterns,
+            args.lower_abstract_delete_mode,
+            lower_abstract_delete_count,
+        ):
+            sequence_stats["lower_abstract_lift"] += 1
+            continue
+        choices = _raw_sequence_choices_for(
+            abstract_sequence,
+            raw_by_abstract,
+            raw_pair_counts,
+            0,
+            rng,
+        )
+        if not choices:
+            sequence_stats["missing_raw_choices"] += 1
+            continue
+        product = 1
+        for choice in choices:
+            product *= len(choice)
+        max_product_seen = max(max_product_seen, product)
+        product_counts[min(product, 100_000)] += 1
+        if args.raw_collapse_max_product and product > args.raw_collapse_max_product:
+            sequence_stats["product_too_large"] += 1
+            continue
+        sequence_stats["enumerated_sequences"] += 1
+        for raw_sequence in itertools.product(*choices):
+            if args.max_raw_tests and raw_stats["tested_raw"] >= args.max_raw_tests:
+                raw_stats["max_raw_tests"] += 1
+                break
+            raw_stats["tested_raw"] += 1
+            predecessor = _predecessor_from_sequence(raw_sequence)
+            if not predecessor:
+                raw_stats["overlap"] += 1
+                continue
+            pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
+            if not pushed:
+                raw_stats["empty_push"] += 1
+                continue
+            pushed_parts = pushed.split(":")
+            if args.target_layer_count and len(pushed_parts) != args.target_layer_count:
+                raw_stats["target_layer_count"] += 1
+                continue
+            subtype = sfa.pp_subtype_candidate(predecessor, args.generate_layers).subtype
+            if subtype not in args.selected_generate_subtypes:
+                raw_stats["subtype"] += 1
+                continue
+            if args.exclude_stackable_predecessors and sfa.bitmask_stackability_witnesses(predecessor):
+                raw_stats["stackable_predecessor"] += 1
+                continue
+            if not args.allow_non_zero_stack_predecessor and not sfa.top_single_c_zero_stack_candidate(predecessor):
+                raw_stats["not_zero_stack"] += 1
+                continue
+            family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
+            family_counts[family] += 1
+            if family in base_families:
+                raw_stats["old_family"] += 1
+                continue
+            if args.ignore_fall_variant_in_base_family and _ignore_fall_family(family) in base_ignore_fall_families:
+                raw_stats["old_family_fall_variant"] += 1
+                continue
+            new_family_counts[family] += 1
+            raw_stats["new_family"] += 1
+            if len(new_samples) < args.max_capture:
+                new_samples.append(f"family={family}\tT={pushed}\tA={predecessor}")
+        if raw_stats.get("max_raw_tests"):
+            break
+
+    print("mode=raw_family_collapse_profile")
+    print(f"family_mode={args.predecessor_family_mode}")
+    print(f"base_layers={base_layers}")
+    print(f"base_families={len(base_families)}")
+    print(f"base_family_cache_hit={base_family_cache_hit}")
+    print(f"generate_layers={args.generate_layers}")
+    print(f"records={records}")
+    print(f"abstract_sequences={len(abstract_sequences)}")
+    print(f"abstract_sequences_total={total_abstract_sequences}")
+    print(f"abstract_start_index={abstract_start}")
+    print(f"abstract_end_index={abstract_end}")
+    print(f"abstract_truncated={abstract_truncated}")
+    print(f"raw_collapse_max_product={args.raw_collapse_max_product}")
+    print(f"max_product_seen={max_product_seen}")
+    print(f"enumerated_abstract_sequences={sequence_stats['enumerated_sequences']}")
+    print(f"tested_raw={raw_stats['tested_raw']}")
+    print(f"unique_family_count={len(family_counts)}")
+    print(f"new_family_count={len(new_family_counts)}")
+    print(f"training_cache_hit={training_cache_hit}")
+    print(f"training_time={training_time:.6f}s")
+    print(f"sequence_time={sequence_time:.6f}s")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print("sequence_stats:")
+    for key, count in sequence_stats.most_common(args.top):
+        print(f"  {key}: {count}")
+    print("raw_stats:")
+    for key, count in raw_stats.most_common(args.top):
+        print(f"  {key}: {count}")
+    print("families:")
+    for key, count in family_counts.most_common(args.top):
+        marker = "new" if key in new_family_counts else "old"
+        print(f"  {count}\t{marker}\t{key}")
+    if new_family_counts:
+        print("new_families:")
+        for key, count in new_family_counts.most_common(args.top):
+            print(f"  {count}\t{key}")
+    if new_samples:
+        print("new_family_samples:")
+        for sample in new_samples:
+            print(sample)
+    if args.write_summary_json:
+        summary = {
+            "mode": "raw_family_collapse_profile",
+            "argv": sys.argv[1:],
+            "cwd": str(Path.cwd()),
+            "family_mode": args.predecessor_family_mode,
+            "base_layers": base_layers,
+            "base_families": len(base_families),
+            "base_family_cache_hit": base_family_cache_hit,
+            "generate_layers": args.generate_layers,
+            "records": records,
+            "abstract_sequences": len(abstract_sequences),
+            "abstract_sequences_total": total_abstract_sequences,
+            "abstract_start_index": abstract_start,
+            "abstract_end_index": abstract_end,
+            "abstract_truncated": abstract_truncated,
+            "raw_collapse_max_product": args.raw_collapse_max_product,
+            "max_product_seen": max_product_seen,
+            "enumerated_abstract_sequences": sequence_stats["enumerated_sequences"],
+            "tested_raw": raw_stats["tested_raw"],
+            "unique_family_count": len(family_counts),
+            "new_family_count": len(new_family_counts),
+            "training_cache_hit": training_cache_hit,
+            "sequence_stats": dict(sequence_stats),
+            "raw_stats": dict(raw_stats),
+            "families": {repr(key): count for key, count in family_counts.items()},
+            "new_families": {repr(key): count for key, count in new_family_counts.items()},
+            "new_family_samples": new_samples,
+            "elapsed": time.perf_counter() - started,
+        }
+        args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
+        args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"raw_family_collapse_summary_written={args.write_summary_json}")
+    return 0
+
+
 def abstract_filter_profile(args: argparse.Namespace, pretrained=None) -> int:
     started = time.perf_counter()
     rng = random.Random(args.seed)
@@ -3906,6 +4099,8 @@ def main() -> int:
     parser.add_argument("--replay-limit", type=int, default=0)
     parser.add_argument("--compare-generated-predecessor-evidence", action="store_true")
     parser.add_argument("--estimate-generation-space", action="store_true")
+    parser.add_argument("--raw-family-collapse-profile", action="store_true")
+    parser.add_argument("--raw-collapse-max-product", type=int, default=10000)
     parser.add_argument("--abstract-filter-profile", action="store_true")
     parser.add_argument("--pp-essential-profile", action="store_true")
     parser.add_argument("--frontier-signature-profile", action="store_true")
@@ -3978,6 +4173,8 @@ def main() -> int:
         return replay_pairs(args)
     if args.estimate_generation_space:
         return estimate_generation_space(args)
+    if args.raw_family_collapse_profile:
+        return raw_family_collapse_profile(args)
     if args.abstract_filter_profile:
         return abstract_filter_profile(args)
     if args.pp_essential_profile:
