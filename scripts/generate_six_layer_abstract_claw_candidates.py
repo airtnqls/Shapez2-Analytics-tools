@@ -771,6 +771,9 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             product *= len(choice)
         max_product_seen = max(max_product_seen, product)
         product_counts[min(product, 100_000)] += 1
+        if args.raw_collapse_min_product and product < args.raw_collapse_min_product:
+            sequence_stats["product_too_small"] += 1
+            continue
         if args.raw_collapse_max_product and product > args.raw_collapse_max_product:
             sequence_stats["product_too_large"] += 1
             continue
@@ -832,6 +835,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
     print(f"abstract_start_index={abstract_start}")
     print(f"abstract_end_index={abstract_end}")
     print(f"abstract_truncated={abstract_truncated}")
+    print(f"raw_collapse_min_product={args.raw_collapse_min_product}")
     print(f"raw_collapse_max_product={args.raw_collapse_max_product}")
     print(f"max_product_seen={max_product_seen}")
     print(f"enumerated_abstract_sequences={sequence_stats['enumerated_sequences']}")
@@ -881,6 +885,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             "abstract_start_index": abstract_start,
             "abstract_end_index": abstract_end,
             "abstract_truncated": abstract_truncated,
+            "raw_collapse_min_product": args.raw_collapse_min_product,
             "raw_collapse_max_product": args.raw_collapse_max_product,
             "max_product_seen": max_product_seen,
             "enumerated_abstract_sequences": sequence_stats["enumerated_sequences"],
@@ -3134,6 +3139,8 @@ def raw_family_collapse_chunk_scan(args: argparse.Namespace) -> int:
             "abstract_scan_start": scan_start,
             "abstract_scan_end": scan_end,
             "abstract_chunk_size": chunk_size,
+            "raw_collapse_min_product": args.raw_collapse_min_product,
+            "raw_collapse_max_product": args.raw_collapse_max_product,
             "chunks_started": chunks_started,
             "chunks_skipped": chunks_skipped,
             "tested_raw": aggregate_raw_stats["tested_raw"],
@@ -4266,6 +4273,7 @@ def main() -> int:
     parser.add_argument("--compare-generated-predecessor-evidence", action="store_true")
     parser.add_argument("--estimate-generation-space", action="store_true")
     parser.add_argument("--raw-family-collapse-profile", action="store_true")
+    parser.add_argument("--raw-collapse-min-product", type=int, default=0)
     parser.add_argument("--raw-collapse-max-product", type=int, default=10000)
     parser.add_argument("--abstract-filter-profile", action="store_true")
     parser.add_argument("--pp-essential-profile", action="store_true")
