@@ -3352,6 +3352,10 @@ def raw_family_collapse_aggregate(args: argparse.Namespace) -> int:
         enumerated = 0
         unique_new_family_sum = 0
         stop_reasons = Counter()
+        sequence_stats = Counter()
+        raw_stats = Counter()
+        product_counts = Counter()
+        families = Counter()
         new_families = Counter()
         for _path, summary in items:
             start = int(summary.get("abstract_scan_start", summary.get("abstract_start_index", 0)) or 0)
@@ -3361,6 +3365,10 @@ def raw_family_collapse_aggregate(args: argparse.Namespace) -> int:
             enumerated += int(summary.get("enumerated_abstract_sequences", 0) or 0)
             unique_new_family_sum += int(summary.get("unique_new_family_count", summary.get("new_family_count", 0)) or 0)
             stop_reasons.update({str(key): int(value) for key, value in summary.get("stop_reasons", {}).items()})
+            sequence_stats.update({str(key): int(value) for key, value in summary.get("sequence_stats", {}).items()})
+            raw_stats.update({str(key): int(value) for key, value in summary.get("raw_stats", {}).items()})
+            product_counts.update({int(key): int(value) for key, value in summary.get("product_counts", {}).items()})
+            families.update(_literal_counter(summary.get("families", {})))
             new_families.update(_literal_counter(summary.get("new_families", {})))
         intervals.sort()
         merged: list[list[int]] = []
@@ -3388,6 +3396,11 @@ def raw_family_collapse_aggregate(args: argparse.Namespace) -> int:
             "unique_new_family_count": len(new_families),
             "unique_new_family_count_sum": unique_new_family_sum,
             "stop_reasons": dict(sorted(stop_reasons.items())),
+            "sequence_stats": dict(sorted(sequence_stats.items())),
+            "raw_stats": dict(sorted(raw_stats.items())),
+            "product_counts": {str(key): count for key, count in sorted(product_counts.items())},
+            "unique_family_count": len(families),
+            "families": {repr(key): count for key, count in families.items()},
             "new_families": {repr(key): count for key, count in new_families.items()},
         }
         aggregate_rows.append(row)
@@ -3402,6 +3415,9 @@ def raw_family_collapse_aggregate(args: argparse.Namespace) -> int:
             print("band_new_families:")
             for family, count in new_families.most_common(args.top):
                 print(f"  {count}\t{family}")
+        print("band_family_cover:")
+        for family, count in families.most_common(args.top):
+            print(f"  {count}\t{family}")
     if args.write_summary_json:
         output = {
             "mode": "raw_family_collapse_aggregate",
