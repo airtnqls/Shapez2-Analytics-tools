@@ -790,12 +790,18 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             if not predecessor:
                 raw_stats["overlap"] += 1
                 continue
-            pushed, push_event = _predecessor_push_result_and_event(predecessor, args.generate_layers)
+            pushed, push_event, physics_skipped = _predecessor_push_result_and_event(
+                predecessor,
+                args.generate_layers,
+                skip_physics_below_layers=args.target_layer_count or None,
+            )
             if not pushed:
                 raw_stats["empty_push"] += 1
                 continue
             pushed_parts = pushed.split(":")
             if args.target_layer_count and len(pushed_parts) != args.target_layer_count:
+                if physics_skipped:
+                    raw_stats["target_layer_count_fast_path"] += 1
                 raw_stats["target_layer_count"] += 1
                 continue
             family = _predecessor_push_signature_from_event(push_event, args.predecessor_family_mode)
@@ -1530,10 +1536,12 @@ def _predecessor_push_event(predecessor: str, layers: int) -> tuple[list[tuple[i
 def _predecessor_push_result_and_event(
     predecessor: str,
     layers: int,
-) -> tuple[str, tuple[list[tuple[int, int]], int, bool]]:
+    *,
+    skip_physics_below_layers: int | None = None,
+) -> tuple[str, tuple[list[tuple[int, int]], int, bool], bool]:
     source_layers = [list(layer) for layer in sfa.normalize_code(predecessor).split(":")]
     if not source_layers:
-        return "", ([], 0, False)
+        return "", ([], 0, False), False
     pin_layer = ["P" if ch != "-" else "-" for ch in source_layers[0]]
     shifted_layers = [pin_layer] + [layer[:] for layer in source_layers]
     initial_destroyed = {
@@ -1560,8 +1568,15 @@ def _predecessor_push_result_and_event(
     raw_layers = raw_layers[:layers]
     sfa._trim_layers(raw_layers)
     raw_code = sfa.normalize_code(":".join("".join(layer) for layer in raw_layers))
+    # Physics can only drop or trim pieces here, so it cannot recreate a missing top layer.
+    if (
+        skip_physics_below_layers is not None
+        and raw_code
+        and len(raw_code.split(":")) < skip_physics_below_layers
+    ):
+        return raw_code, (crystal_coords, non_crystal_count, False), True
     pushed = sfa.bitmask_apply_physics(raw_code)
-    return pushed, (crystal_coords, non_crystal_count, raw_code != pushed)
+    return pushed, (crystal_coords, non_crystal_count, raw_code != pushed), False
 
 
 def _predecessor_push_signature_from_event(
