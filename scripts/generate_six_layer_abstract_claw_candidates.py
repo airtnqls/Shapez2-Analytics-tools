@@ -730,6 +730,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
         lower_abstract_patterns = _load_data_predecessor_abstract_patterns(args, lower_layers)
         lower_abstract_delete_count = args.lower_abstract_delete_count or max(1, args.generate_layers - lower_layers)
 
+    scan_started = time.perf_counter()
     sequence_stats = Counter()
     raw_stats = Counter()
     family_counts = Counter()
@@ -738,7 +739,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
     product_counts = Counter()
     new_samples: list[str] = []
     for abstract_sequence in abstract_sequences:
-        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+        if args.max_seconds and time.perf_counter() - scan_started > args.max_seconds:
             sequence_stats["max_seconds"] += 1
             break
         abstract_key = _predecessor_from_abstract_sequence(abstract_sequence)
@@ -835,12 +836,16 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
     print(f"training_cache_hit={training_cache_hit}")
     print(f"training_time={training_time:.6f}s")
     print(f"sequence_time={sequence_time:.6f}s")
+    print(f"scan_elapsed={time.perf_counter() - scan_started:.6f}s")
     print(f"elapsed={time.perf_counter() - started:.6f}s")
     print("sequence_stats:")
     for key, count in sequence_stats.most_common(args.top):
         print(f"  {key}: {count}")
     print("raw_stats:")
     for key, count in raw_stats.most_common(args.top):
+        print(f"  {key}: {count}")
+    print("product_counts:")
+    for key, count in sorted(product_counts.items())[: args.top]:
         print(f"  {key}: {count}")
     print("families:")
     for key, count in family_counts.most_common(args.top):
@@ -879,9 +884,11 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             "training_cache_hit": training_cache_hit,
             "sequence_stats": dict(sequence_stats),
             "raw_stats": dict(raw_stats),
+            "product_counts": {str(key): count for key, count in sorted(product_counts.items())},
             "families": {repr(key): count for key, count in family_counts.items()},
             "new_families": {repr(key): count for key, count in new_family_counts.items()},
             "new_family_samples": new_samples,
+            "scan_elapsed": time.perf_counter() - scan_started,
             "elapsed": time.perf_counter() - started,
         }
         args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
