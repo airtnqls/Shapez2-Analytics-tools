@@ -410,6 +410,25 @@ def _predecessor_from_sequence(sequence: tuple[tuple[str, str], ...]) -> str:
     return _or_shape(left, _rotate_180(right))
 
 
+def _rotate_180_abstract_layer(layer: str) -> str:
+    if len(layer) != 4:
+        return layer
+    return layer[2] + layer[3] + layer[0] + layer[1]
+
+
+def _predecessor_from_abstract_sequence(sequence: tuple[tuple[str, str], ...]) -> tuple[str, ...]:
+    out: list[str] = []
+    for left, right in sequence:
+        rotated_right = _rotate_180_abstract_layer(right)
+        chars: list[str] = []
+        for ca, cb in zip(left, rotated_right):
+            if ca != "-" and cb != "-" and ca != cb:
+                return ()
+            chars.append(ca if ca != "-" else cb)
+        out.append("".join(chars))
+    return tuple(out)
+
+
 def _kernel_verdict_for_target(
     target: str,
     layers: int,
@@ -1531,6 +1550,133 @@ def predecessor_family_data_profile(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_prefilter_patterns(args: argparse.Namespace) -> tuple[set[tuple[str, ...]], list[Path]]:
+    pair_paths: list[Path] = list(args.prefilter_pairs or ())
+    for pattern in args.prefilter_pairs_glob:
+        pair_paths.extend(sorted(Path().glob(pattern)))
+    patterns: set[tuple[str, ...]] = set()
+    for path in pair_paths:
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                _target, predecessor = line.split("\t", 1)
+            except ValueError:
+                continue
+            predecessor = sfa.normalize_code(predecessor)
+            if predecessor:
+                patterns.add(tuple(_abstract_layer(layer, "classes") for layer in predecessor.split(":")))
+    return patterns, pair_paths
+
+
+def predecessor_abstract_prefilter_profile(args: argparse.Namespace, pretrained=None) -> int:
+    started = time.perf_counter()
+    rng = random.Random(args.seed)
+    patterns, pair_paths = _load_prefilter_patterns(args)
+    if pretrained is None:
+        pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    else:
+        training_time = 0.0
+        sequence_time = 0.0
+        training_cache_hit = False
+    _records, _ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, _truncated = pretrained
+    abstract_sequences, total_abstract_sequences, abstract_start, abstract_end = _slice_abstract_sequences(
+        args,
+        abstract_sequences,
+    )
+    tested_sequences = 0
+    tested_raw = 0
+    prefilter_sequences = 0
+    hit_sequences: set[int] = set()
+    raw_confirmed_sequences: set[int] = set()
+    hit_raw = 0
+    hit_samples: list[str] = []
+    stop_reason = "exhausted"
+    for offset, abstract_sequence in enumerate(abstract_sequences):
+        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+            stop_reason = "max_seconds"
+            break
+        sequence_index = abstract_start + offset
+        tested_sequences += 1
+        abstract_key = _predecessor_from_abstract_sequence(abstract_sequence)
+        if abstract_key not in patterns:
+            continue
+        prefilter_sequences += 1
+        hit_sequences.add(sequence_index)
+        for raw_sequence in _iter_raw_sequences_for(
+            abstract_sequence,
+            raw_by_abstract,
+            raw_pair_counts,
+            args.max_raw_per_layer,
+            rng,
+        ):
+            if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+                stop_reason = "max_seconds"
+                break
+            if args.max_raw_tests and tested_raw >= args.max_raw_tests:
+                stop_reason = "max_raw_tests"
+                break
+            tested_raw += 1
+            predecessor = _predecessor_from_sequence(raw_sequence)
+            if not predecessor:
+                continue
+            key = tuple(_abstract_layer(layer, "classes") for layer in predecessor.split(":"))
+            if key in patterns:
+                raw_confirmed_sequences.add(sequence_index)
+                hit_raw += 1
+                if len(hit_samples) < args.max_capture:
+                    hit_samples.append(f"index={sequence_index}\tpattern={key}\tpredecessor={predecessor}")
+                break
+        if stop_reason != "exhausted":
+            break
+    print("mode=predecessor_abstract_prefilter_profile")
+    print(f"pattern_count={len(patterns)}")
+    print(f"pair_paths={len(pair_paths)}")
+    print(f"abstract_sequences_total={total_abstract_sequences}")
+    print(f"abstract_start_index={abstract_start}")
+    print(f"abstract_end_index={abstract_end}")
+    print(f"tested_sequences={tested_sequences}")
+    print(f"tested_raw={tested_raw}")
+    print(f"prefilter_sequences={prefilter_sequences}")
+    print(f"hit_sequences={len(hit_sequences)}")
+    print(f"raw_confirmed_sequences={len(raw_confirmed_sequences)}")
+    print(f"hit_raw={hit_raw}")
+    print(f"training_cache_hit={training_cache_hit}")
+    print(f"training_time={training_time:.6f}s")
+    print(f"sequence_time={sequence_time:.6f}s")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print(f"stop_reason={stop_reason}")
+    if hit_samples:
+        print("hit_samples:")
+        for sample in hit_samples:
+            print(sample)
+    if args.write_summary_json:
+        args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
+        summary = {
+            "mode": "predecessor_abstract_prefilter_profile",
+            "pattern_count": len(patterns),
+            "pair_paths": [str(path) for path in pair_paths],
+            "abstract_sequences_total": total_abstract_sequences,
+            "abstract_start_index": abstract_start,
+            "abstract_end_index": abstract_end,
+            "tested_sequences": tested_sequences,
+            "tested_raw": tested_raw,
+            "prefilter_sequences": prefilter_sequences,
+            "hit_sequences": len(hit_sequences),
+            "hit_indexes": sorted(hit_sequences),
+            "raw_confirmed_sequences": len(raw_confirmed_sequences),
+            "raw_confirmed_indexes": sorted(raw_confirmed_sequences),
+            "hit_raw": hit_raw,
+            "elapsed": time.perf_counter() - started,
+            "stop_reason": stop_reason,
+        }
+        args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"prefilter_summary_written={args.write_summary_json}")
+    return 0
+
+
 @lru_cache(maxsize=64)
 def _load_predecessor_families_cached(data: str, layers: int, mode: str) -> frozenset[tuple[object, ...]]:
     families: set[tuple[object, ...]] = set()
@@ -1842,6 +1988,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     )
     if args.shuffle:
         rng.shuffle(abstract_sequences)
+    prefilter_patterns: set[tuple[str, ...]] = set()
+    prefilter_pair_paths: list[Path] = []
+    if args.use_predecessor_abstract_prefilter:
+        prefilter_patterns, prefilter_pair_paths = _load_prefilter_patterns(args)
 
     tested_raw = 0
     generated_targets: set[str] = set()
@@ -1861,6 +2011,11 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         if args.max_seconds and time.perf_counter() - started > args.max_seconds:
             stop_reason = "max_seconds"
             break
+        if prefilter_patterns:
+            abstract_key = _predecessor_from_abstract_sequence(abstract_sequence)
+            if abstract_key not in prefilter_patterns:
+                rejected["abstract_prefilter"] += 1
+                continue
         raw_sequences = _iter_raw_sequences_for(
             abstract_sequence,
             raw_by_abstract,
@@ -2093,6 +2248,9 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     if args.novelty_mode == "proof":
         print(f"base_proof_certificates={len(base_proof_certificates)}")
         print(f"base_proof_cache_hit={base_proof_cache_hit}")
+    if args.use_predecessor_abstract_prefilter:
+        print(f"abstract_prefilter_patterns={len(prefilter_patterns)}")
+        print(f"abstract_prefilter_pair_paths={len(prefilter_pair_paths)}")
     if args.generated_base_layers:
         print(f"generated_base_layers={args.generated_base_layers}")
         print(f"generated_base_raw_tests={args.generated_base_raw_tests or args.max_raw_tests}")
@@ -2186,6 +2344,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "data_base_families": data_base_family_count,
             "base_families": len(base_families),
             "base_family_cache_hit": base_family_cache_hit,
+            "abstract_prefilter_patterns": len(prefilter_patterns),
+            "abstract_prefilter_pair_paths": [str(path) for path in prefilter_pair_paths],
             "generated_base_layers": args.generated_base_layers,
             "generated_base_raw_tests": args.generated_base_raw_tests or args.max_raw_tests,
             "generated_base_seed": base_seed if args.generated_base_layers else None,
@@ -3426,6 +3586,10 @@ def main() -> int:
     parser.add_argument("--frontier-data-profile", action="store_true")
     parser.add_argument("--predecessor-frontier-data-profile", action="store_true")
     parser.add_argument("--predecessor-family-data-profile", action="store_true")
+    parser.add_argument("--predecessor-abstract-prefilter-profile", action="store_true")
+    parser.add_argument("--prefilter-pairs", type=Path, action="append", default=[])
+    parser.add_argument("--prefilter-pairs-glob", action="append", default=[])
+    parser.add_argument("--use-predecessor-abstract-prefilter", action="store_true")
     parser.add_argument("--predecessor-new-family-candidates", action="store_true")
     parser.add_argument("--predecessor-family-summary", action="store_true")
     parser.add_argument(
@@ -3490,6 +3654,8 @@ def main() -> int:
         return predecessor_frontier_data_profile(args)
     if args.predecessor_family_data_profile:
         return predecessor_family_data_profile(args)
+    if args.predecessor_abstract_prefilter_profile:
+        return predecessor_abstract_prefilter_profile(args)
     if args.predecessor_new_family_candidates:
         if args.abstract_chunk_size:
             return predecessor_new_family_chunk_scan(args)
