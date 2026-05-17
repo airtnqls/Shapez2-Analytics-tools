@@ -738,9 +738,11 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
     max_product_seen = 0
     product_counts = Counter()
     new_samples: list[str] = []
+    stop_reason = "exhausted"
     for abstract_sequence in abstract_sequences:
         if args.max_seconds and time.perf_counter() - scan_started > args.max_seconds:
             sequence_stats["max_seconds"] += 1
+            stop_reason = "max_seconds"
             break
         abstract_key = _predecessor_from_abstract_sequence(abstract_sequence)
         if not abstract_key:
@@ -776,6 +778,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
         for raw_sequence in itertools.product(*choices):
             if args.max_raw_tests and raw_stats["tested_raw"] >= args.max_raw_tests:
                 raw_stats["max_raw_tests"] += 1
+                stop_reason = "max_raw_tests"
                 break
             raw_stats["tested_raw"] += 1
             predecessor = _predecessor_from_sequence(raw_sequence)
@@ -833,6 +836,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
     print(f"tested_raw={raw_stats['tested_raw']}")
     print(f"unique_family_count={len(family_counts)}")
     print(f"new_family_count={len(new_family_counts)}")
+    print(f"stop_reason={stop_reason}")
     print(f"training_cache_hit={training_cache_hit}")
     print(f"training_time={training_time:.6f}s")
     print(f"sequence_time={sequence_time:.6f}s")
@@ -882,6 +886,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             "unique_family_count": len(family_counts),
             "new_family_count": len(new_family_counts),
             "training_cache_hit": training_cache_hit,
+            "stop_reason": stop_reason,
             "sequence_stats": dict(sequence_stats),
             "raw_stats": dict(raw_stats),
             "product_counts": {str(key): count for key, count in sorted(product_counts.items())},
@@ -894,6 +899,23 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
         args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
         args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"raw_family_collapse_summary_written={args.write_summary_json}")
+    setattr(
+        args,
+        "_last_raw_family_collapse_summary",
+        {
+            "tested_raw": raw_stats["tested_raw"],
+            "enumerated_abstract_sequences": sequence_stats["enumerated_sequences"],
+            "unique_family_count": len(family_counts),
+            "new_family_count": len(new_family_counts),
+            "max_product_seen": max_product_seen,
+            "stop_reason": stop_reason,
+            "sequence_stats": Counter(sequence_stats),
+            "raw_stats": Counter(raw_stats),
+            "product_counts": Counter(product_counts),
+            "family_counts": Counter(family_counts),
+            "new_family_counts": Counter(new_family_counts),
+        },
+    )
     return 0
 
 
@@ -2996,6 +3018,141 @@ def _load_existing_chunk_result(summary_path: Path | None, pair_path: Path | Non
     }
 
 
+def _load_existing_raw_collapse_chunk(summary_path: Path | None) -> dict[str, object]:
+    if summary_path is None or not summary_path.exists():
+        return {}
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return {
+        "tested_raw": summary.get("tested_raw", 0),
+        "enumerated_abstract_sequences": summary.get("enumerated_abstract_sequences", 0),
+        "unique_family_count": summary.get("unique_family_count", 0),
+        "new_family_count": summary.get("new_family_count", 0),
+        "max_product_seen": summary.get("max_product_seen", 0),
+        "stop_reason": summary.get("stop_reason", "loaded_existing"),
+        "sequence_stats": Counter(summary.get("sequence_stats", {})),
+        "raw_stats": Counter(summary.get("raw_stats", {})),
+        "product_counts": Counter({int(key): count for key, count in summary.get("product_counts", {}).items()}),
+        "family_counts": _literal_counter(summary.get("families", {})),
+        "new_family_counts": _literal_counter(summary.get("new_families", {})),
+    }
+
+
+def raw_family_collapse_chunk_scan(args: argparse.Namespace) -> int:
+    pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    total_abstract = len(pretrained[4])
+    scan_start = max(0, args.abstract_start_index)
+    scan_end = total_abstract
+    if args.abstract_count:
+        scan_end = min(total_abstract, scan_start + args.abstract_count)
+    chunk_size = max(1, args.abstract_chunk_size)
+    base_write_summary_json = args.write_summary_json
+    print("mode=raw_family_collapse_chunk_scan")
+    print(f"shared_training_cache_hit={training_cache_hit}")
+    print(f"shared_training_time={training_time:.6f}s")
+    print(f"shared_sequence_time={sequence_time:.6f}s")
+    print(f"abstract_sequences_total={total_abstract}")
+    print(f"abstract_scan_start={scan_start}")
+    print(f"abstract_scan_end={scan_end}")
+    print(f"abstract_chunk_size={chunk_size}")
+
+    exit_code = 0
+    chunk_summaries: list[dict[str, object]] = []
+    aggregate_sequence_stats = Counter()
+    aggregate_raw_stats = Counter()
+    aggregate_product_counts = Counter()
+    aggregate_families = Counter()
+    aggregate_new_families = Counter()
+    chunks_started = 0
+    chunks_skipped = 0
+    for chunk_start in range(scan_start, scan_end, chunk_size):
+        chunk_end = min(scan_end, chunk_start + chunk_size)
+        if args.abstract_chunk_limit and chunks_started >= args.abstract_chunk_limit:
+            break
+        chunk_summary_path = _chunk_path(base_write_summary_json, chunk_start, chunk_end)
+        if args.skip_existing_chunks and chunk_summary_path is not None and chunk_summary_path.exists():
+            chunks_skipped += 1
+            print(f"=== raw_chunk={chunk_start}:{chunk_end} skipped existing ===")
+            item = _load_existing_raw_collapse_chunk(chunk_summary_path)
+        else:
+            chunks_started += 1
+            args.abstract_start_index = chunk_start
+            args.abstract_count = chunk_end - chunk_start
+            args.write_summary_json = chunk_summary_path
+            print(f"=== raw_chunk={chunk_start}:{chunk_end} ===")
+            exit_code = max(exit_code, raw_family_collapse_profile(args, pretrained=pretrained))
+            item = getattr(args, "_last_raw_family_collapse_summary", {})
+        if not item:
+            continue
+        chunk_summaries.append(
+            {
+                key: value
+                for key, value in item.items()
+                if key not in ("sequence_stats", "raw_stats", "product_counts", "family_counts", "new_family_counts")
+            }
+            | {
+                "abstract_start_index": chunk_start,
+                "abstract_end_index": chunk_end,
+            }
+        )
+        aggregate_sequence_stats.update(item.get("sequence_stats", Counter()))
+        aggregate_raw_stats.update(item.get("raw_stats", Counter()))
+        aggregate_product_counts.update(item.get("product_counts", Counter()))
+        aggregate_families.update(item.get("family_counts", Counter()))
+        aggregate_new_families.update(item.get("new_family_counts", Counter()))
+
+    args.abstract_start_index = scan_start
+    args.abstract_count = scan_end - scan_start
+    args.write_summary_json = base_write_summary_json
+    stop_reasons = Counter(str(item.get("stop_reason", "missing")) for item in chunk_summaries)
+    print("raw_chunk_scan_summary:")
+    print(f"  chunks_started={chunks_started}")
+    print(f"  chunks_skipped={chunks_skipped}")
+    print(f"  tested_raw={aggregate_raw_stats['tested_raw']}")
+    print(f"  enumerated_abstract_sequences={aggregate_sequence_stats['enumerated_sequences']}")
+    print(f"  unique_family_count={len(aggregate_families)}")
+    print(f"  unique_new_family_count={len(aggregate_new_families)}")
+    print(f"  stop_reasons={dict(sorted(stop_reasons.items()))}")
+    if aggregate_new_families:
+        print("raw_chunk_scan_new_families:")
+        for key, count in aggregate_new_families.most_common(args.top):
+            print(f"  {count}\t{key}")
+    if base_write_summary_json is not None:
+        aggregate_summary_path = base_write_summary_json.with_name(
+            f"{base_write_summary_json.stem}_chunks_aggregate{base_write_summary_json.suffix}"
+        )
+        aggregate_summary = {
+            "mode": "raw_family_collapse_chunk_scan",
+            "argv": sys.argv[1:],
+            "cwd": str(Path.cwd()),
+            "family_mode": args.predecessor_family_mode,
+            "abstract_sequences_total": total_abstract,
+            "abstract_scan_start": scan_start,
+            "abstract_scan_end": scan_end,
+            "abstract_chunk_size": chunk_size,
+            "chunks_started": chunks_started,
+            "chunks_skipped": chunks_skipped,
+            "tested_raw": aggregate_raw_stats["tested_raw"],
+            "enumerated_abstract_sequences": aggregate_sequence_stats["enumerated_sequences"],
+            "unique_family_count": len(aggregate_families),
+            "unique_new_family_count": len(aggregate_new_families),
+            "max_product_seen": max((int(item.get("max_product_seen", 0)) for item in chunk_summaries), default=0),
+            "stop_reasons": dict(sorted(stop_reasons.items())),
+            "sequence_stats": dict(aggregate_sequence_stats),
+            "raw_stats": dict(aggregate_raw_stats),
+            "product_counts": {str(key): count for key, count in sorted(aggregate_product_counts.items())},
+            "families": {repr(key): count for key, count in aggregate_families.items()},
+            "new_families": {repr(key): count for key, count in aggregate_new_families.items()},
+            "chunks": chunk_summaries,
+        }
+        aggregate_summary_path.parent.mkdir(parents=True, exist_ok=True)
+        aggregate_summary_path.write_text(json.dumps(aggregate_summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"raw_chunk_scan_summary_written={aggregate_summary_path}")
+    return exit_code
+
+
 def predecessor_new_family_chunk_scan(args: argparse.Namespace) -> int:
     pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
     total_abstract = len(pretrained[4])
@@ -4181,6 +4338,8 @@ def main() -> int:
     if args.estimate_generation_space:
         return estimate_generation_space(args)
     if args.raw_family_collapse_profile:
+        if args.abstract_chunk_size:
+            return raw_family_collapse_chunk_scan(args)
         return raw_family_collapse_profile(args)
     if args.abstract_filter_profile:
         return abstract_filter_profile(args)
