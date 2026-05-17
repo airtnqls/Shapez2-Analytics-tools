@@ -833,6 +833,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
     new_family_counts = Counter()
     max_product_seen = 0
     product_counts = Counter()
+    push_cache: dict[tuple[str, int, int], tuple[str, tuple[list[tuple[int, int]], int, bool], bool]] = {}
     new_samples: list[str] = []
     stop_reason = "exhausted"
     for abstract_sequence in abstract_sequences:
@@ -884,11 +885,22 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             if not predecessor:
                 raw_stats["overlap"] += 1
                 continue
-            pushed, push_event, physics_skipped = _predecessor_push_result_and_event(
-                predecessor,
-                args.generate_layers,
-                skip_physics_below_layers=args.target_layer_count or None,
-            )
+            push_cache_key = (predecessor, args.generate_layers, args.target_layer_count or 0)
+            if args.raw_collapse_push_cache and push_cache_key in push_cache:
+                pushed, push_event, physics_skipped = push_cache[push_cache_key]
+                raw_stats["push_cache_hit"] += 1
+            else:
+                pushed, push_event, physics_skipped = _predecessor_push_result_and_event(
+                    predecessor,
+                    args.generate_layers,
+                    skip_physics_below_layers=args.target_layer_count or None,
+                )
+                if args.raw_collapse_push_cache:
+                    raw_stats["push_cache_miss"] += 1
+                    if args.raw_collapse_push_cache_size and len(push_cache) >= args.raw_collapse_push_cache_size:
+                        push_cache.clear()
+                        raw_stats["push_cache_clear"] += 1
+                    push_cache[push_cache_key] = (pushed, push_event, physics_skipped)
             if not pushed:
                 raw_stats["empty_push"] += 1
                 continue
@@ -4636,6 +4648,8 @@ def main() -> int:
     parser.add_argument("--raw-collapse-aggregate-glob", action="append", default=[])
     parser.add_argument("--raw-collapse-min-product", type=int, default=0)
     parser.add_argument("--raw-collapse-max-product", type=int, default=10000)
+    parser.add_argument("--raw-collapse-push-cache", action="store_true")
+    parser.add_argument("--raw-collapse-push-cache-size", type=int, default=500000)
     parser.add_argument("--abstract-filter-profile", action="store_true")
     parser.add_argument("--pp-essential-profile", action="store_true")
     parser.add_argument("--frontier-signature-profile", action="store_true")
