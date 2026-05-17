@@ -1677,6 +1677,201 @@ def predecessor_abstract_prefilter_profile(args: argparse.Namespace, pretrained=
     return 0
 
 
+@lru_cache(maxsize=32)
+def _load_data_predecessor_abstract_patterns_cached(
+    data: str,
+    layers: int,
+    mode: str,
+) -> frozenset[tuple[str, ...]]:
+    patterns: set[tuple[str, ...]] = set()
+    for code in sfa.iter_data_codes(Path(data), max_layers=layers):
+        target = sfa.normalize_code(code)
+        if not target or len(target.split(":")) != layers:
+            continue
+        predecessor = _claw_predecessor(target)
+        if not predecessor or sfa.bitmask_push_pin(predecessor, layers) != target:
+            continue
+        patterns.add(tuple(_abstract_layer(layer, mode) for layer in predecessor.split(":")))
+    return frozenset(patterns)
+
+
+def _lower_abstract_pattern_cache_metadata(args: argparse.Namespace, layers: int) -> dict[str, object]:
+    data_path = args.data.resolve()
+    stat = data_path.stat() if data_path.exists() else None
+    return {
+        "data": str(data_path),
+        "data_mtime_ns": stat.st_mtime_ns if stat else None,
+        "data_size": stat.st_size if stat else None,
+        "layers": layers,
+        "abstract_mode": args.abstract_mode,
+    }
+
+
+def _load_data_predecessor_abstract_patterns(args: argparse.Namespace, layers: int) -> set[tuple[str, ...]]:
+    cache_path: Path | None = args.lower_abstract_pattern_cache
+    expected_metadata = _lower_abstract_pattern_cache_metadata(args, layers)
+    if cache_path is not None and cache_path.exists():
+        try:
+            with cache_path.open("rb") as handle:
+                payload = pickle.load(handle)
+            if payload.get("metadata") == expected_metadata:
+                return set(payload.get("patterns", ()))
+        except (OSError, pickle.PickleError, AttributeError):
+            pass
+    patterns = set(
+        _load_data_predecessor_abstract_patterns_cached(
+            str(args.data.resolve()),
+            layers,
+            args.abstract_mode,
+        )
+    )
+    if cache_path is not None:
+        try:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with cache_path.open("wb") as handle:
+                pickle.dump(
+                    {"metadata": expected_metadata, "patterns": sorted(patterns)},
+                    handle,
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                )
+        except OSError as exc:
+            print(f"lower_abstract_pattern_cache_write_failed={cache_path} reason={exc}")
+    return patterns
+
+
+def _delete_lift_indexes(length: int, mode: str) -> range | tuple[int, ...]:
+    if mode == "any":
+        return range(length)
+    if mode == "bottom":
+        return (0,)
+    if mode == "top":
+        return (length - 1,)
+    if mode == "interior":
+        return tuple(range(1, max(1, length - 1)))
+    raise ValueError(mode)
+
+
+def _has_delete_lift(
+    pattern: tuple[str, ...],
+    lower_patterns: set[tuple[str, ...]],
+    mode: str,
+) -> bool:
+    if not pattern:
+        return False
+    for index in _delete_lift_indexes(len(pattern), mode):
+        reduced = pattern[:index] + pattern[index + 1 :]
+        if reduced in lower_patterns:
+            return True
+    return False
+
+
+def predecessor_abstract_lift_profile(args: argparse.Namespace, pretrained=None) -> int:
+    started = time.perf_counter()
+    lower_layers = args.lower_abstract_layers or args.train_layers
+    lower_patterns = _load_data_predecessor_abstract_patterns(args, lower_layers)
+    if pretrained is None:
+        pretrained, training_time, sequence_time, training_cache_hit = _load_or_train(args)
+    else:
+        training_time = 0.0
+        sequence_time = 0.0
+        training_cache_hit = False
+    _records, _ngrams, _raw_by_abstract, _raw_pair_counts, abstract_sequences, _truncated = pretrained
+    abstract_sequences, total_abstract_sequences, abstract_start, abstract_end = _slice_abstract_sequences(
+        args,
+        abstract_sequences,
+    )
+    tested_sequences = 0
+    invalid_sequences = 0
+    exact_old = 0
+    delete_lift_old = 0
+    novel = 0
+    delete_hit_indexes: Counter[int] = Counter()
+    novel_samples: list[str] = []
+    lift_samples: list[str] = []
+    stop_reason = "exhausted"
+    for offset, abstract_sequence in enumerate(abstract_sequences):
+        if args.max_seconds and time.perf_counter() - started > args.max_seconds:
+            stop_reason = "max_seconds"
+            break
+        sequence_index = abstract_start + offset
+        tested_sequences += 1
+        pattern = _predecessor_from_abstract_sequence(abstract_sequence)
+        if not pattern:
+            invalid_sequences += 1
+            continue
+        if pattern in lower_patterns:
+            exact_old += 1
+            continue
+        matched_index = None
+        for index in _delete_lift_indexes(len(pattern), args.lower_abstract_delete_mode):
+            reduced = pattern[:index] + pattern[index + 1 :]
+            if reduced in lower_patterns:
+                matched_index = index
+                break
+        if matched_index is not None:
+            delete_lift_old += 1
+            delete_hit_indexes[matched_index] += 1
+            if len(lift_samples) < args.max_capture:
+                lift_samples.append(f"index={sequence_index}\tdelete={matched_index}\tpattern={pattern}")
+            continue
+        novel += 1
+        if len(novel_samples) < args.max_capture:
+            novel_samples.append(f"index={sequence_index}\tpattern={pattern}")
+
+    print("mode=predecessor_abstract_lift_profile")
+    print(f"abstract_mode={args.abstract_mode}")
+    print(f"lower_layers={lower_layers}")
+    print(f"lower_patterns={len(lower_patterns)}")
+    print(f"delete_mode={args.lower_abstract_delete_mode}")
+    print(f"abstract_sequences_total={total_abstract_sequences}")
+    print(f"abstract_start_index={abstract_start}")
+    print(f"abstract_end_index={abstract_end}")
+    print(f"tested_sequences={tested_sequences}")
+    print(f"invalid_sequences={invalid_sequences}")
+    print(f"exact_old={exact_old}")
+    print(f"delete_lift_old={delete_lift_old}")
+    print(f"novel={novel}")
+    print(f"delete_hit_indexes={dict(sorted(delete_hit_indexes.items()))}")
+    print(f"training_cache_hit={training_cache_hit}")
+    print(f"training_time={training_time:.6f}s")
+    print(f"sequence_time={sequence_time:.6f}s")
+    print(f"elapsed={time.perf_counter() - started:.6f}s")
+    print(f"stop_reason={stop_reason}")
+    if lift_samples:
+        print("lift_samples:")
+        for sample in lift_samples:
+            print(sample)
+    if novel_samples:
+        print("novel_samples:")
+        for sample in novel_samples:
+            print(sample)
+    if args.write_summary_json:
+        args.write_summary_json.parent.mkdir(parents=True, exist_ok=True)
+        summary = {
+            "mode": "predecessor_abstract_lift_profile",
+            "abstract_mode": args.abstract_mode,
+            "lower_layers": lower_layers,
+            "lower_patterns": len(lower_patterns),
+            "delete_mode": args.lower_abstract_delete_mode,
+            "abstract_sequences_total": total_abstract_sequences,
+            "abstract_start_index": abstract_start,
+            "abstract_end_index": abstract_end,
+            "tested_sequences": tested_sequences,
+            "invalid_sequences": invalid_sequences,
+            "exact_old": exact_old,
+            "delete_lift_old": delete_lift_old,
+            "novel": novel,
+            "delete_hit_indexes": dict(sorted(delete_hit_indexes.items())),
+            "elapsed": time.perf_counter() - started,
+            "stop_reason": stop_reason,
+            "lift_samples": lift_samples,
+            "novel_samples": novel_samples,
+        }
+        args.write_summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"lift_profile_summary_written={args.write_summary_json}")
+    return 0
+
+
 @lru_cache(maxsize=64)
 def _load_predecessor_families_cached(data: str, layers: int, mode: str) -> frozenset[tuple[object, ...]]:
     families: set[tuple[object, ...]] = set()
@@ -1992,6 +2187,10 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     prefilter_pair_paths: list[Path] = []
     if args.use_predecessor_abstract_prefilter:
         prefilter_patterns, prefilter_pair_paths = _load_prefilter_patterns(args)
+    lower_abstract_patterns: set[tuple[str, ...]] = set()
+    if args.exclude_lower_predecessor_abstract_lift:
+        lower_layers = args.lower_abstract_layers or args.train_layers
+        lower_abstract_patterns = _load_data_predecessor_abstract_patterns(args, lower_layers)
 
     tested_raw = 0
     generated_targets: set[str] = set()
@@ -2011,10 +2210,17 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         if args.max_seconds and time.perf_counter() - started > args.max_seconds:
             stop_reason = "max_seconds"
             break
+        abstract_key: tuple[str, ...] = ()
         if prefilter_patterns:
             abstract_key = _predecessor_from_abstract_sequence(abstract_sequence)
             if abstract_key not in prefilter_patterns:
                 rejected["abstract_prefilter"] += 1
+                continue
+        if lower_abstract_patterns:
+            if not abstract_key:
+                abstract_key = _predecessor_from_abstract_sequence(abstract_sequence)
+            if _has_delete_lift(abstract_key, lower_abstract_patterns, args.lower_abstract_delete_mode):
+                rejected["lower_abstract_lift"] += 1
                 continue
         raw_sequences = _iter_raw_sequences_for(
             abstract_sequence,
@@ -2251,6 +2457,9 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     if args.use_predecessor_abstract_prefilter:
         print(f"abstract_prefilter_patterns={len(prefilter_patterns)}")
         print(f"abstract_prefilter_pair_paths={len(prefilter_pair_paths)}")
+    if args.exclude_lower_predecessor_abstract_lift:
+        print(f"lower_abstract_patterns={len(lower_abstract_patterns)}")
+        print(f"lower_abstract_delete_mode={args.lower_abstract_delete_mode}")
     if args.generated_base_layers:
         print(f"generated_base_layers={args.generated_base_layers}")
         print(f"generated_base_raw_tests={args.generated_base_raw_tests or args.max_raw_tests}")
@@ -2346,6 +2555,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "base_family_cache_hit": base_family_cache_hit,
             "abstract_prefilter_patterns": len(prefilter_patterns),
             "abstract_prefilter_pair_paths": [str(path) for path in prefilter_pair_paths],
+            "lower_abstract_patterns": len(lower_abstract_patterns),
+            "lower_abstract_delete_mode": args.lower_abstract_delete_mode,
             "generated_base_layers": args.generated_base_layers,
             "generated_base_raw_tests": args.generated_base_raw_tests or args.max_raw_tests,
             "generated_base_seed": base_seed if args.generated_base_layers else None,
@@ -3587,9 +3798,14 @@ def main() -> int:
     parser.add_argument("--predecessor-frontier-data-profile", action="store_true")
     parser.add_argument("--predecessor-family-data-profile", action="store_true")
     parser.add_argument("--predecessor-abstract-prefilter-profile", action="store_true")
+    parser.add_argument("--predecessor-abstract-lift-profile", action="store_true")
+    parser.add_argument("--lower-abstract-layers", type=int, default=0)
+    parser.add_argument("--lower-abstract-delete-mode", choices=("any", "bottom", "top", "interior"), default="any")
+    parser.add_argument("--lower-abstract-pattern-cache", type=Path)
     parser.add_argument("--prefilter-pairs", type=Path, action="append", default=[])
     parser.add_argument("--prefilter-pairs-glob", action="append", default=[])
     parser.add_argument("--use-predecessor-abstract-prefilter", action="store_true")
+    parser.add_argument("--exclude-lower-predecessor-abstract-lift", action="store_true")
     parser.add_argument("--predecessor-new-family-candidates", action="store_true")
     parser.add_argument("--predecessor-family-summary", action="store_true")
     parser.add_argument(
@@ -3656,6 +3872,8 @@ def main() -> int:
         return predecessor_family_data_profile(args)
     if args.predecessor_abstract_prefilter_profile:
         return predecessor_abstract_prefilter_profile(args)
+    if args.predecessor_abstract_lift_profile:
+        return predecessor_abstract_lift_profile(args)
     if args.predecessor_new_family_candidates:
         if args.abstract_chunk_size:
             return predecessor_new_family_chunk_scan(args)
