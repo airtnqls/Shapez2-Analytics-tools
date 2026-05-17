@@ -788,7 +788,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             if not predecessor:
                 raw_stats["overlap"] += 1
                 continue
-            pushed = sfa.bitmask_push_pin(predecessor, args.generate_layers)
+            pushed, push_event = _predecessor_push_result_and_event(predecessor, args.generate_layers)
             if not pushed:
                 raw_stats["empty_push"] += 1
                 continue
@@ -796,7 +796,7 @@ def raw_family_collapse_profile(args: argparse.Namespace, pretrained=None) -> in
             if args.target_layer_count and len(pushed_parts) != args.target_layer_count:
                 raw_stats["target_layer_count"] += 1
                 continue
-            family = _predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode)
+            family = _predecessor_push_signature_from_event(push_event, args.predecessor_family_mode)
             if family in base_families:
                 family_counts[family] += 1
                 raw_stats["old_family"] += 1
@@ -1523,6 +1523,134 @@ def _predecessor_push_event(predecessor: str, layers: int) -> tuple[list[tuple[i
     raw_code = sfa.normalize_code(":".join("".join(layer) for layer in raw_layers[:layers]))
     falls_after_shatter = raw_code != sfa.bitmask_apply_physics(raw_code)
     return crystal_coords, non_crystal_count, falls_after_shatter
+
+
+def _predecessor_push_result_and_event(
+    predecessor: str,
+    layers: int,
+) -> tuple[str, tuple[list[tuple[int, int]], int, bool]]:
+    source_layers = [list(layer) for layer in sfa.normalize_code(predecessor).split(":")]
+    if not source_layers:
+        return "", ([], 0, False)
+    pin_layer = ["P" if ch != "-" else "-" for ch in source_layers[0]]
+    shifted_layers = [pin_layer] + [layer[:] for layer in source_layers]
+    initial_destroyed = {
+        (layer_index, quadrant)
+        for layer_index in range(layers, len(shifted_layers))
+        for quadrant in range(4)
+        if sfa._piece_at(shifted_layers, layer_index, quadrant) != "-"
+    }
+    shattered = sfa._shatter_set(shifted_layers, initial_destroyed)
+    crystal_coords = [
+        (layer_index - layers, quadrant)
+        for layer_index, quadrant in shattered
+        if sfa._piece_at(shifted_layers, layer_index, quadrant) == "c"
+    ]
+    non_crystal_count = sum(
+        1
+        for layer_index, quadrant in shattered
+        if sfa._piece_at(shifted_layers, layer_index, quadrant) not in ("-", "c")
+    )
+    raw_layers = [layer[:] for layer in shifted_layers]
+    for layer_index, quadrant in shattered:
+        if 0 <= layer_index < len(raw_layers):
+            raw_layers[layer_index][quadrant] = "-"
+    raw_layers = raw_layers[:layers]
+    sfa._trim_layers(raw_layers)
+    raw_code = sfa.normalize_code(":".join("".join(layer) for layer in raw_layers))
+    pushed = sfa.bitmask_apply_physics(raw_code)
+    return pushed, (crystal_coords, non_crystal_count, raw_code != pushed)
+
+
+def _predecessor_push_signature_from_event(
+    event: tuple[list[tuple[int, int]], int, bool],
+    mode: str,
+) -> tuple[object, ...]:
+    crystal_coords, non_crystal_count, falls_after_shatter = event
+    fall = "falls" if falls_after_shatter else "no_fall"
+    if mode == "exact":
+        rotated_variants = []
+        for turns in range(4):
+            rotated_variants.append(
+                tuple(sorted((relative_depth, (quadrant + turns) % 4) for relative_depth, quadrant in crystal_coords))
+            )
+        return ("exact", min(rotated_variants) if rotated_variants else (), "nonc", non_crystal_count, fall)
+    if mode == "core_exact":
+        core_coords = [(relative_depth, quadrant) for relative_depth, quadrant in crystal_coords if relative_depth <= 0]
+        rotated_variants = []
+        for turns in range(4):
+            rotated_variants.append(
+                tuple(sorted((relative_depth, (quadrant + turns) % 4) for relative_depth, quadrant in core_coords))
+            )
+        return ("core_exact", min(rotated_variants) if rotated_variants else (), "nonc", non_crystal_count, fall)
+    if mode in {"core_relative", "core_lift", "core_lift_tail3"}:
+        core_coords = [(relative_depth, quadrant) for relative_depth, quadrant in crystal_coords if relative_depth <= 0]
+        rotated_variants = [_compress_relative_crystal_runs(core_coords, turns) for turns in range(4)]
+        relative = (
+            "core_relative",
+            min(rotated_variants, key=repr) if rotated_variants else (),
+            "nonc",
+            non_crystal_count,
+            fall,
+        )
+        if mode == "core_relative":
+            return relative
+        _head, coords, nonc, count, _fall = relative
+        lifted = []
+        for item in coords:
+            if (
+                mode == "core_lift_tail3"
+                and len(item) >= 3
+                and item[0] == "point"
+                and isinstance(item[1], int)
+                and item[1] <= -3
+            ):
+                continue
+            if (
+                mode == "core_lift_tail3"
+                and len(item) >= 4
+                and item[0] == "top_spine"
+                and isinstance(item[1], int)
+                and item[1] <= -3
+            ):
+                lifted.append(("top_spine", "deep", 0, "any"))
+                continue
+            if len(item) >= 3 and item[0] == "point" and item[1] == "deep":
+                continue
+            if len(item) >= 4 and item[0] == "top_spine" and item[1] == "deep":
+                lifted.append(("top_spine", "deep", 0, "any"))
+                continue
+            lifted.append(item)
+        return ("core_relative", tuple(sorted(set(lifted), key=repr)), nonc, count, fall)
+    by_quadrant: defaultdict[int, list[int]] = defaultdict(list)
+    for relative_depth, quadrant in crystal_coords:
+        by_quadrant[quadrant].append(relative_depth)
+    spans: list[tuple[int, int, int, int, int]] = []
+    for quadrant, depths in by_quadrant.items():
+        spans.append((len(depths), max(depths) - min(depths) + 1, min(depths), max(depths), quadrant))
+    spans.sort(reverse=True)
+    if spans:
+        main = (
+            "main",
+            _bucket_count(spans[0][0]),
+            _bucket_count(spans[0][1]),
+            _relative_depth_bucket(spans[0][2]),
+            _relative_depth_bucket(spans[0][3]),
+        )
+    else:
+        main = ("main", "0", "0", "none", "none")
+    below_cols = sum(1 for depths in by_quadrant.values() if any(depth < 0 for depth in depths))
+    overflow_cols = sum(1 for depths in by_quadrant.values() if any(depth >= 0 for depth in depths))
+    side_cols = max(0, len(by_quadrant) - 1)
+    return (
+        "cols_" + _bucket_count(len(by_quadrant)),
+        "below_cols_" + _bucket_count(below_cols),
+        "overflow_cols_" + _bucket_count(overflow_cols),
+        "side_" + _bucket_count(side_cols),
+        main,
+        "nonc_" + _bucket_count(non_crystal_count),
+        fall,
+    )
 
 
 def _predecessor_push_family(predecessor: str, target: str) -> tuple[object, ...]:
