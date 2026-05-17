@@ -1442,6 +1442,12 @@ def _predecessor_push_signature(predecessor: str, target: str, mode: str) -> tup
     return _predecessor_push_family(predecessor, target)
 
 
+def _ignore_fall_family(family: tuple[object, ...]) -> tuple[object, ...]:
+    if family and family[-1] in {"falls", "no_fall"}:
+        return family[:-1] + ("fall_any",)
+    return family
+
+
 def _remove_layer(code: str, index: int) -> str:
     parts = sfa.normalize_code(code).split(":") if code else []
     if index < 0 or index >= len(parts):
@@ -2124,6 +2130,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         if args.extra_proof_cache:
             base_proof_certificates.update(_load_extra_proof_certificates(args.extra_proof_cache))
     data_base_family_count = len(base_families)
+    base_ignore_fall_families = {_ignore_fall_family(family) for family in base_families}
     generated_base_family_union: set[tuple[object, ...]] = set()
     generated_base_stats = Counter()
     generated_base_started = time.perf_counter()
@@ -2174,6 +2181,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             )
             setattr(args, "_generated_base_cache", generated_base_cache)
         base_families.update(generated_base_family_union)
+        base_ignore_fall_families = {_ignore_fall_family(family) for family in base_families}
     generated_base_time = time.perf_counter() - generated_base_started
     generated_base_added_count = len(base_families) - data_base_family_count
     records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, abstract_truncated = pretrained
@@ -2280,6 +2288,14 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 ):
                     rejected["old_family_fast_path"] += 1
                     continue
+                if (
+                    args.ignore_fall_variant_in_base_family
+                    and args.novelty_mode == "family"
+                    and _ignore_fall_family(pending_family) in base_ignore_fall_families
+                    and not args.require_family_reduction_witness
+                ):
+                    rejected["old_family_fall_variant_fast_path"] += 1
+                    continue
             if args.target_swap_mode:
                 tick = time.perf_counter()
                 pushed_swap = sfa.bitmask_swap_impossibility(pushed) or "swappable"
@@ -2379,8 +2395,20 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 if certificate in base_proof_certificates:
                     rejected["old_proof_certificate"] += 1
                     continue
+                if (
+                    args.ignore_fall_variant_in_base_family
+                    and _ignore_fall_family(certificate[-1]) in base_ignore_fall_families
+                ):
+                    rejected["old_proof_fall_variant"] += 1
+                    continue
                 family = ("new_proof_certificate", certificate)
-            elif family in base_families:
+            elif family in base_families or (
+                args.ignore_fall_variant_in_base_family
+                and _ignore_fall_family(family) in base_ignore_fall_families
+            ):
+                if family not in base_families:
+                    rejected["old_family_fall_variant"] += 1
+                    continue
                 if args.novelty_mode == "reduction" or args.require_family_reduction_witness:
                     tick = time.perf_counter()
                     reduction_index = _same_family_reduction_witness(
@@ -2451,6 +2479,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     print(f"data_base_families={data_base_family_count}")
     print(f"base_families={len(base_families)}")
     print(f"base_family_cache_hit={base_family_cache_hit}")
+    if args.ignore_fall_variant_in_base_family:
+        print(f"base_ignore_fall_families={len(base_ignore_fall_families)}")
     if args.novelty_mode == "proof":
         print(f"base_proof_certificates={len(base_proof_certificates)}")
         print(f"base_proof_cache_hit={base_proof_cache_hit}")
@@ -2553,6 +2583,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "data_base_families": data_base_family_count,
             "base_families": len(base_families),
             "base_family_cache_hit": base_family_cache_hit,
+            "base_ignore_fall_families": len(base_ignore_fall_families),
             "abstract_prefilter_patterns": len(prefilter_patterns),
             "abstract_prefilter_pair_paths": [str(path) for path in prefilter_pair_paths],
             "lower_abstract_patterns": len(lower_abstract_patterns),
@@ -3816,6 +3847,7 @@ def main() -> int:
     parser.add_argument("--novelty-mode", choices=("family", "reduction", "proof"), default="family")
     parser.add_argument("--classify-new-family-candidates", action="store_true")
     parser.add_argument("--require-family-reduction-witness", action="store_true")
+    parser.add_argument("--ignore-fall-variant-in-base-family", action="store_true")
     parser.add_argument("--skip-old-families-before-target-filters", action="store_true")
     parser.add_argument("--generated-base-layers", type=int, default=0)
     parser.add_argument("--generated-base-raw-tests", type=int, default=0)
