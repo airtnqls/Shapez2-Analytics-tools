@@ -261,16 +261,18 @@ def _load_training_cache(args: argparse.Namespace):
         "abstract_ngrams",
         "raw_by_abstract",
         "raw_pair_counts",
-        "abstract_sequences",
-        "abstract_truncated",
     )
     if any(key not in payload for key in required):
         return None
-    abstract_sequences = payload["abstract_sequences"]
-    abstract_truncated = payload["abstract_truncated"]
-    if compatible_training_cache and metadata != expected:
+    has_cached_sequences = "abstract_sequences" in payload and "abstract_truncated" in payload
+    if not has_cached_sequences:
         abstract_sequences, abstract_truncated = _abstract_sequences(args, payload["abstract_ngrams"])
-    elif compatible_full_cache and args.max_abstract_sequences and len(abstract_sequences) > args.max_abstract_sequences:
+    else:
+        abstract_sequences = payload["abstract_sequences"]
+        abstract_truncated = payload["abstract_truncated"]
+    if has_cached_sequences and compatible_training_cache and metadata != expected:
+        abstract_sequences, abstract_truncated = _abstract_sequences(args, payload["abstract_ngrams"])
+    elif has_cached_sequences and compatible_full_cache and args.max_abstract_sequences and len(abstract_sequences) > args.max_abstract_sequences:
         abstract_sequences = abstract_sequences[: args.max_abstract_sequences]
         abstract_truncated = True
     return (
@@ -293,9 +295,13 @@ def _write_training_cache(args: argparse.Namespace, pretrained) -> None:
         "abstract_ngrams": abstract_ngrams,
         "raw_by_abstract": raw_by_abstract,
         "raw_pair_counts": raw_pair_counts,
-        "abstract_sequences": abstract_sequences,
-        "abstract_truncated": abstract_truncated,
     }
+    if getattr(args, "omit_training_cache_sequences", False):
+        payload["sequence_storage"] = "omitted"
+    else:
+        payload["sequence_storage"] = "included"
+        payload["abstract_sequences"] = abstract_sequences
+        payload["abstract_truncated"] = abstract_truncated
     try:
         args.write_training_cache.parent.mkdir(parents=True, exist_ok=True)
         with args.write_training_cache.open("wb") as handle:
@@ -2052,7 +2058,7 @@ def _sample_generated_predecessor_families(
     *,
     layers: int,
     seed: int,
-) -> tuple[set[tuple[object, ...]], Counter[str]]:
+) -> tuple[set[tuple[object, ...]], set[tuple[object, ...]], Counter[str]]:
     rng = random.Random(seed)
     _records, _abstract_ngrams, raw_by_abstract, raw_pair_counts, abstract_sequences, _abstract_truncated = pretrained
     abstract_sequences = list(abstract_sequences)
@@ -2063,6 +2069,7 @@ def _sample_generated_predecessor_families(
     seen_predecessors: set[str] = set()
     seen_targets: set[str] = set()
     families: set[tuple[object, ...]] = set()
+    proof_certificates: set[tuple[object, ...]] = set()
     stats = Counter()
     for abstract_sequence in abstract_sequences:
         raw_sequences = _iter_raw_sequences_for(
@@ -2075,7 +2082,7 @@ def _sample_generated_predecessor_families(
         for raw_sequence in raw_sequences:
             if max_raw_tests and tested_raw >= max_raw_tests:
                 stats["max_raw_tests"] += 1
-                return families, stats
+                return families, proof_certificates, stats
             tested_raw += 1
             predecessor = _predecessor_from_sequence(raw_sequence)
             if not predecessor:
@@ -2107,7 +2114,16 @@ def _sample_generated_predecessor_families(
                 continue
             seen_targets.add(pushed)
             families.add(_predecessor_push_signature(predecessor, pushed, args.predecessor_family_mode))
-    return families, stats
+            if args.novelty_mode == "proof":
+                proof_certificates.add(
+                    _proof_certificate(
+                        predecessor,
+                        pushed,
+                        layers,
+                        args.predecessor_family_mode,
+                    )
+                )
+    return families, proof_certificates, stats
 
 
 def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None) -> int:
@@ -2142,6 +2158,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     data_base_family_count = len(base_families)
     base_ignore_fall_families = {_ignore_fall_family(family) for family in base_families}
     generated_base_family_union: set[tuple[object, ...]] = set()
+    generated_base_proof_union: set[tuple[object, ...]] = set()
     generated_base_stats = Counter()
     generated_base_started = time.perf_counter()
     generated_base_cache_hit = False
@@ -2167,7 +2184,11 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         generated_base_cache = getattr(args, "_generated_base_cache", {})
         cached_generated_base = generated_base_cache.get(generated_base_key)
         if cached_generated_base is not None:
-            generated_base_family_union, generated_base_stats = cached_generated_base
+            if len(cached_generated_base) == 2:
+                generated_base_family_union, generated_base_stats = cached_generated_base
+                generated_base_proof_union = set()
+            else:
+                generated_base_family_union, generated_base_proof_union, generated_base_stats = cached_generated_base
             generated_base_stats = Counter(generated_base_stats)
             generated_base_cache_hit = True
         else:
@@ -2175,7 +2196,7 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             base_args.generate_layers = args.generated_base_layers
             base_pretrained, _base_training_time, _base_sequence_time, _base_training_cache_hit = _load_or_train(base_args)
             for offset in range(max(1, args.generated_base_seed_count)):
-                generated_base_families, seed_stats = _sample_generated_predecessor_families(
+                generated_base_families, generated_base_proofs, seed_stats = _sample_generated_predecessor_families(
                     args,
                     base_pretrained,
                     layers=args.generated_base_layers,
@@ -2185,12 +2206,16 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 generated_base_stats["seed_runs"] += 1
                 generated_base_stats["families_seen"] += len(generated_base_families)
                 generated_base_family_union.update(generated_base_families)
+                generated_base_stats["proofs_seen"] += len(generated_base_proofs)
+                generated_base_proof_union.update(generated_base_proofs)
             generated_base_cache[generated_base_key] = (
                 set(generated_base_family_union),
+                set(generated_base_proof_union),
                 Counter(generated_base_stats),
             )
             setattr(args, "_generated_base_cache", generated_base_cache)
         base_families.update(generated_base_family_union)
+        base_proof_certificates.update(generated_base_proof_union)
         base_ignore_fall_families = {_ignore_fall_family(family) for family in base_families}
     generated_base_time = time.perf_counter() - generated_base_started
     generated_base_added_count = len(base_families) - data_base_family_count
@@ -2413,9 +2438,13 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
                 if certificate in base_proof_certificates:
                     rejected["old_proof_certificate"] += 1
                     continue
+                certificate_family = certificate[-1]
+                if args.ignore_proof_variant_in_base_family and certificate_family in base_families:
+                    rejected["old_proof_family_variant"] += 1
+                    continue
                 if (
                     args.ignore_fall_variant_in_base_family
-                    and _ignore_fall_family(certificate[-1]) in base_ignore_fall_families
+                    and _ignore_fall_family(certificate_family) in base_ignore_fall_families
                 ):
                     rejected["old_proof_fall_variant"] += 1
                     continue
@@ -2515,6 +2544,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
         print(f"generated_base_seed={base_seed}")
         print(f"generated_base_seed_count={max(1, args.generated_base_seed_count)}")
         print(f"generated_base_unique_families={len(generated_base_family_union)}")
+        if args.novelty_mode == "proof":
+            print(f"generated_base_unique_proofs={len(generated_base_proof_union)}")
         print(f"generated_base_added_families={generated_base_added_count}")
         print(f"generated_base_time={generated_base_time:.6f}s")
         print(f"generated_base_cache_hit={generated_base_cache_hit}")
@@ -3829,6 +3860,7 @@ def main() -> int:
     parser.add_argument("--training-cache", type=Path, help="Read this cache when valid, otherwise write it after training.")
     parser.add_argument("--read-training-cache", type=Path)
     parser.add_argument("--write-training-cache", type=Path)
+    parser.add_argument("--omit-training-cache-sequences", action="store_true")
     parser.add_argument("--base-family-cache", type=Path, help="Read this base-family cache when valid, otherwise write it.")
     parser.add_argument("--base-proof-cache", type=Path, help="Read this proof-certificate cache when valid, otherwise write it.")
     parser.add_argument("--read-base-family-cache", type=Path)
@@ -3869,6 +3901,7 @@ def main() -> int:
     parser.add_argument("--classify-new-family-candidates", action="store_true")
     parser.add_argument("--require-family-reduction-witness", action="store_true")
     parser.add_argument("--ignore-fall-variant-in-base-family", action="store_true")
+    parser.add_argument("--ignore-proof-variant-in-base-family", action="store_true")
     parser.add_argument("--skip-old-families-before-target-filters", action="store_true")
     parser.add_argument("--generated-base-layers", type=int, default=0)
     parser.add_argument("--generated-base-raw-tests", type=int, default=0)
