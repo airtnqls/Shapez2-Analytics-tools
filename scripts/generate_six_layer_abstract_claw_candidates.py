@@ -437,6 +437,7 @@ def _predecessor_from_abstract_sequence(sequence: tuple[tuple[str, str], ...]) -
     return tuple(out)
 
 
+@lru_cache(maxsize=300_000)
 def _kernel_verdict_for_target(
     target: str,
     layers: int,
@@ -1491,6 +1492,7 @@ def _same_family_reduction_witness(
     return None
 
 
+@lru_cache(maxsize=500_000)
 def _proof_certificate(predecessor: str, target: str, layers: int, mode: str) -> tuple[object, ...]:
     normalized_predecessor = sfa.normalize_code(predecessor)
     normalized_target = sfa.normalize_code(target)
@@ -2581,6 +2583,11 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
     print(f"sequence_time={sequence_time:.6f}s")
     print(f"elapsed={time.perf_counter() - started:.6f}s")
     print(f"stop_reason={stop_reason}")
+    proof_cache_info = _proof_certificate.cache_info()
+    kernel_cache_info = _kernel_verdict_for_target.cache_info()
+    if args.novelty_mode == "proof":
+        print(f"proof_certificate_cache={proof_cache_info}")
+        print(f"kernel_verdict_cache={kernel_cache_info}")
     print("rejected:")
     for key, count in rejected.most_common(args.top):
         print(f"  {key}: {count}")
@@ -2676,6 +2683,8 @@ def predecessor_new_family_candidates(args: argparse.Namespace, pretrained=None)
             "stop_reason": stop_reason,
             "rejected": dict(rejected),
             "timing": dict(timing),
+            "proof_certificate_cache": proof_cache_info._asdict(),
+            "kernel_verdict_cache": kernel_cache_info._asdict(),
             "new_families": {repr(key): count for key, count in new_family_counts.items()},
             "all_families": {repr(key): count for key, count in family_counts.items()},
             "new_family_kernel_verdicts": {repr(key): count for key, count in new_family_verdicts.items()},
