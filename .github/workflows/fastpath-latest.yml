@@ -1,0 +1,38 @@
+name: Latest fastpath optimization
+
+on:
+  push:
+    branches:
+      - optimization/latest-fastpath-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: npm ci
+      - name: Build worker
+        run: npm run build:worker
+      - name: Run latest baseline audit
+        run: python scripts/fastpath-latest-baseline.py
+      - name: Run unit and type checks
+        run: npm run test:unit && npm run typecheck
+      - name: Upload baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastpath-latest-baseline
+          path: reports/FASTPATH_LATEST_BASELINE.json
+          if-no-files-found: error
