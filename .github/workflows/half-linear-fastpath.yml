@@ -31,12 +31,14 @@ jobs:
         working-directory: experiments/half_fastpath
         run: python optimizer_suite.py > optimizer-benchmark.json
 
-      - name: Run legacy project-physics replay tests
+      - name: Generate legacy project-physics diagnostics
         working-directory: experiments/legacy_recipe
         run: |
-          PYTHONPATH=../.. python -m unittest -v test_legacy_corner_recipe.py
           PYTHONPATH=../.. python legacy_corner_recipe.py > legacy-recipe.json
           cat legacy-recipe.json
+      - name: Run legacy project-physics replay tests
+        working-directory: experiments/legacy_recipe
+        run: PYTHONPATH=../.. python -m unittest -v test_legacy_corner_recipe.py
 
       - name: Run TypeScript-shaped regression tests
         working-directory: experiments/tmam_fastpath_ts
