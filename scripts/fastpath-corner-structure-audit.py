@@ -19,6 +19,16 @@ HALF = "SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--"
 CAP = 11
 
 
+def rle(values: list[str]) -> list[tuple[str, int]]:
+    out: list[tuple[str, int]] = []
+    for value in values:
+        if out and out[-1][0] == value:
+            out[-1] = (value, out[-1][1] + 1)
+        else:
+            out.append((value, 1))
+    return out
+
+
 def main() -> None:
     ir = compile_corner_ir(LEFT, CAP)
     full = replay_corner_full(LEFT, CAP, False)
@@ -27,7 +37,7 @@ def main() -> None:
     left_audit = verify_proof(left_proof)
     half_audit = verify_proof(half_proof)
     report = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "leftColumn": LEFT,
         "rightColumn": RIGHT,
         "half": HALF,
@@ -57,6 +67,7 @@ def main() -> None:
             for index, step in enumerate(full.operations)
         ],
         "fullReplayHistogram": dict(sorted(Counter(step.operation for step in full.operations).items())),
+        "fullReplayRunLength": rle([step.operation for step in full.operations]),
         "leftProofAudit": left_audit.__dict__,
         "halfProofAudit": half_audit.__dict__,
     }
@@ -72,9 +83,20 @@ def main() -> None:
         f"- Full replay top-level operations: **{len(full.operations)}**",
         f"- Left raw proof: **{left_audit.unique_nodes} nodes / {left_audit.operation_nodes} operations / depth {left_audit.max_depth}**",
         f"- Half raw proof: **{half_audit.unique_nodes} nodes / {half_audit.operation_nodes} operations / depth {half_audit.max_depth}**",
-        f"- IR sequence: `{' → '.join(step.rule.value for step in ir.steps)}`",
         "",
+        "### IR transitions",
     ]
+    lines.extend(
+        f"- {index + 1}. `{step.rule.value}` layer={step.layer} · `{step.before or '<empty>'}` → `{step.after or '<empty>'}` · helper=`{step.helper}`"
+        for index, step in enumerate(ir.steps)
+    )
+    lines.extend([
+        "",
+        "### Full replay operation RLE",
+        "",
+        "`" + " → ".join(f"{name}×{count}" if count > 1 else name for name, count in report["fullReplayRunLength"]) + "`",
+        "",
+    ])
     (reports / "FASTPATH_CORNER_STRUCTURE.md").write_text("\n".join(lines), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
