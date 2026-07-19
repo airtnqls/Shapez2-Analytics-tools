@@ -84,6 +84,30 @@ def timed(label: str, fn):
     return {"label": label, "wallMs": elapsed, "metrics": metrics(result), "result": result}
 
 
+def markdown_summary(report: dict) -> str:
+    lines = [
+        "<!-- fastpath-latest-baseline -->",
+        "## 최신 ZIP solver 기준선",
+        "",
+        f"Target: `{report['target']}`",
+        "",
+        "| 경로 | wall ms | nodes | edges | operations | shape nodes | code chars | replay |",
+        "|---|---:|---:|---:|---:|---:|---:|---|",
+    ]
+    for run in report["runs"]:
+        m = run["metrics"]
+        lines.append(
+            f"| {run['label']} | {run['wallMs']:.3f} | {m['nodes']} | {m['edges']} | "
+            f"{m['operationNodesIncludingRaw']} | {m['shapeNodes']} | {m['materializedCodeChars']} | {m['replayStatus']} |"
+        )
+    lines.extend(["", "### Operation histogram"])
+    for run in report["runs"]:
+        histogram = ", ".join(f"{name}={count}" for name, count in run["metrics"]["operationHistogram"].items())
+        lines.append(f"- **{run['label']}**: {histogram}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def main() -> None:
     raw = timed("zip-worker-before-backend-expansion", lambda: worker_client.analyze(TARGET, CAP, "proof"))
     expanded = timed("backend-expanded-and-optimized", lambda: analyze(TARGET, CAP, "proof"))
@@ -98,6 +122,7 @@ def main() -> None:
     (reports / "FASTPATH_LATEST_BASELINE.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    (reports / "FASTPATH_LATEST_SUMMARY.md").write_text(markdown_summary(report), encoding="utf-8")
     graph_payload = {
         "target": TARGET,
         "cap": CAP,
