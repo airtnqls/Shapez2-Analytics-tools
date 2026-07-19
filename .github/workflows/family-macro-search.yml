@@ -4,9 +4,21 @@ on:
   push:
     branches:
       - experiment/half-linear-fastpath
+    paths:
+      - 'experiments/legacy_recipe/search_family_macro.py'
+      - 'experiments/legacy_recipe/search_family_macro_v2.py'
+      - 'experiments/legacy_recipe/legacy_corner_recipe.py'
+      - 'shape.py'
+      - '.github/workflows/family-macro-search.yml'
   pull_request:
     branches:
       - master
+    paths:
+      - 'experiments/legacy_recipe/search_family_macro.py'
+      - 'experiments/legacy_recipe/search_family_macro_v2.py'
+      - 'experiments/legacy_recipe/legacy_corner_recipe.py'
+      - 'shape.py'
+      - '.github/workflows/family-macro-search.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +28,6 @@ permissions:
 
 jobs:
   search:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
@@ -26,60 +37,81 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Search F1 to F2 macro
+      - name: Search F1 to F2 macro with indexed streaming expansion
         working-directory: experiments/legacy_recipe
         run: |
-          PYTHONPATH=../.. python - <<'PY' > family-macro-search.json
+          PYTHONPATH=../.. python - <<'PY' > family-macro-search-v2.json
           import json
-          from search_family_macro import search_macro
-          result = search_macro(
+          from search_family_macro_v2 import search_macro_v2
+          result = search_macro_v2(
               repeats=1,
-              max_depth=6,
+              max_depth=7,
               beam_width=80,
-              helper_limit=140,
+              helper_limit_per_state=12,
               max_seconds=115.0,
-              state_limit=25000,
+              state_limit=40000,
           )
           print(json.dumps(result, ensure_ascii=False, indent=2))
           PY
           python - <<'PY'
           import json
           from pathlib import Path
-          data = json.loads(Path('family-macro-search.json').read_text(encoding='utf-8'))
+          data = json.loads(Path('family-macro-search-v2.json').read_text(encoding='utf-8'))
           summary = {
+              'schema_version': data['schema_version'],
               'family': data['family'],
               'repeats': data['repeats'],
               'start': data['start'],
               'goal': data['goal'],
-              'helper_pool_total': data['helper_pool_total'],
-              'helpers_used': data['helpers_used'],
+              'helper_pool': data['helper_pool'],
+              'rotated_helper_index': data['rotated_helper_index'],
+              'helper_limit_per_state': data['helper_limit_per_state'],
               'stop_reason': data['stop_reason'],
               'elapsed_seconds': data['elapsed_seconds'],
               'expanded': data['expanded'],
               'generated': data['generated'],
               'seen': data['seen'],
+              'helper_selection_total': data['helper_selection_total'],
+              'symmetry_prunes': data['symmetry_prunes'],
+              'no_op_prunes': data['no_op_prunes'],
               'hit': data['hit'],
-              'closest': data['closest'][:3],
+              'closest': data['closest'][:5],
           }
           text = json.dumps(summary, ensure_ascii=False, indent=2) + '\n'
-          Path('family-macro-summary.json').write_text(text, encoding='utf-8')
-          result = Path('../results/family-macro-summary.json')
-          result.parent.mkdir(parents=True, exist_ok=True)
-          result.write_text(text, encoding='utf-8')
+          Path('family-macro-summary-v2.json').write_text(text, encoding='utf-8')
           print(text)
           PY
-      - name: Commit macro summary
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git pull --rebase origin experiment/half-linear-fastpath
-          git add experiments/results/family-macro-summary.json
-          if git diff --cached --quiet; then
-            echo 'summary unchanged'
-          else
-            git commit -m 'Record periodic Half macro search result [skip ci]'
-            git push origin HEAD:experiment/half-linear-fastpath
-          fi
+      - name: Persist reproducible summary through GitHub API
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'experiments/results/family-macro-summary-v2.json';
+            const local = 'experiments/legacy_recipe/family-macro-summary-v2.json';
+            if (!fs.existsSync(local)) return;
+            const content = fs.readFileSync(local, 'utf8');
+            let sha;
+            try {
+              const existing = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path,
+                ref: 'experiment/half-linear-fastpath',
+              });
+              sha = existing.data.sha;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            await github.rest.repos.createOrUpdateFileContents({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path,
+              branch: 'experiment/half-linear-fastpath',
+              message: 'Record indexed family macro search result [skip ci]',
+              content: Buffer.from(content).toString('base64'),
+              ...(sha ? { sha } : {}),
+            });
       - name: Publish compact macro result
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -87,18 +119,19 @@ jobs:
           script: |
             const fs = require('fs');
             const marker = '<!-- tmam-family-macro-search -->';
-            const path = 'experiments/legacy_recipe/family-macro-summary.json';
+            const path = 'experiments/legacy_recipe/family-macro-summary-v2.json';
             const data = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path, 'utf8')) : null;
             const closest = data?.closest?.[0] ?? null;
-            const body = `${marker}\n### Periodic Half F₁ → F₂ macro search\n\n` +
-              `- actual-physics helper pool: \`${data?.helper_pool_total ?? 'missing'}\`\n` +
-              `- helpers used: \`${data?.helpers_used ?? 'missing'}\`\n` +
+            const body = `${marker}\n### Indexed periodic Half F₁ → F₂ macro search\n\n` +
+              `- helper pool/index: \`${data?.helper_pool ?? 'missing'} / ${data?.rotated_helper_index ?? 'missing'}\`\n` +
+              `- helper cap per state: \`${data?.helper_limit_per_state ?? 'missing'}\`\n` +
               `- exact hit: \`${data?.hit ? 'yes' : 'no'}\`\n` +
               `- stop: \`${data?.stop_reason ?? 'missing'}\`\n` +
               `- expanded/generated: \`${data?.expanded ?? 'missing'} / ${data?.generated ?? 'missing'}\`\n` +
+              `- symmetry/no-op prunes: \`${data?.symmetry_prunes ?? 'missing'} / ${data?.no_op_prunes ?? 'missing'}\`\n` +
               `- closest mismatch: \`${closest?.distance?.mismatch ?? 'missing'}\`\n` +
               `- closest code: \`${closest?.code ?? 'missing'}\`\n` +
-              `- exact path, including helper proofs, is stored in \`experiments/results/family-macro-summary.json\`.`;
+              `- exact path is persisted at \`experiments/results/family-macro-summary-v2.json\`.`;
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -114,8 +147,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: family-macro-search
+          name: family-macro-search-v2
           path: |
-            experiments/legacy_recipe/family-macro-search.json
-            experiments/legacy_recipe/family-macro-summary.json
+            experiments/legacy_recipe/family-macro-search-v2.json
+            experiments/legacy_recipe/family-macro-summary-v2.json
           if-no-files-found: warn
