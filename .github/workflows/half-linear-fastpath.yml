@@ -41,6 +41,7 @@ jobs:
         working-directory: experiments/legacy_recipe
         run: |
           PYTHONPATH=../.. python legacy_corner_recipe.py > legacy-recipe.json
+          PYTHONPATH=../.. python actual_corner_process.py > actual-corner-process.json
           PYTHONPATH=../.. python - <<'PY' > legacy-search.json
           import json
           from search_legacy_recipe import search
@@ -82,9 +83,10 @@ jobs:
             const marker = '<!-- tmam-legacy-recipe-diagnostic -->';
             const read = (path, fallback) => fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : fallback;
             const recipe = read('experiments/legacy_recipe/legacy-recipe.json', '{"error":"recipe diagnostic missing"}');
+            const actual = read('experiments/legacy_recipe/actual-corner-process.json', '{"error":"actual Corner audit missing"}');
             const search = read('experiments/legacy_recipe/legacy-search.json', '{"error":"restricted search missing"}');
             const best = read('experiments/legacy_recipe/best-first-summary.json', '{"error":"best-first summary missing"}');
-            const body = `${marker}\n### Legacy project-physics recipe diagnostic\n\n#### Direct legacy constructor\n\`\`\`json\n${recipe}\n\`\`\`\n\n#### Restricted exact Swap search\n\`\`\`json\n${search}\n\`\`\`\n\n#### Actual-physics best-first search\n\`\`\`json\n${best}\n\`\`\``;
+            const body = `${marker}\n### Legacy project-physics recipe diagnostic\n\n#### Direct legacy constructor\n\`\`\`json\n${recipe}\n\`\`\`\n\n#### Actual legacy Corner subtype/replay audit\n\`\`\`json\n${actual}\n\`\`\`\n\n#### Restricted exact Swap search\n\`\`\`json\n${search}\n\`\`\`\n\n#### Actual-physics best-first search\n\`\`\`json\n${best}\n\`\`\``;
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -119,6 +121,7 @@ jobs:
         run: |
           cat experiments/half_fastpath/benchmark.json
           cat experiments/half_fastpath/optimizer-benchmark.json
+          cat experiments/legacy_recipe/actual-corner-process.json
           cat experiments/legacy_recipe/best-first-summary.json
           cat experiments/tmam_fastpath_ts/benchmark-ts.json
       - uses: actions/upload-artifact@v4
@@ -129,6 +132,7 @@ jobs:
             experiments/half_fastpath/benchmark.json
             experiments/half_fastpath/optimizer-benchmark.json
             experiments/legacy_recipe/legacy-recipe.json
+            experiments/legacy_recipe/actual-corner-process.json
             experiments/legacy_recipe/legacy-search.json
             experiments/legacy_recipe/best-first-recipe.json
             experiments/legacy_recipe/best-first-summary.json
