@@ -165,6 +165,10 @@ export interface ProofGraph {
   primitiveComplete: boolean;
   omittedReasons: string[];
   replayStatus: "passed" | "partial" | "failed" | "not-applicable";
+  /** Optional small, sequential semantic view backed by this verified primitive graph. */
+  overview?: ProofGraph;
+  viewKind?: "semantic-overview" | "primitive-detail" | string;
+  detailOperationCount?: number;
 }
 
 /** A deterministic CPCP-style backpointer view of the proof DAG. */
@@ -183,90 +187,13 @@ export interface ProcessRecipeStep {
   operationNodeId: string;
   operation: string;
   label: string;
-  primitive: boolean;
-  depth: number;
-  dependencyStepIds: string[];
   inputs: ProcessRecipePort[];
   outputs: ProcessRecipePort[];
-  selectedOutputNodeIds: string[];
-  metadata?: Record<string, string | number | boolean | string[]>;
+  selectedOutputIds: string[];
+  unusedOutputIds: string[];
 }
 
 export interface ProcessRecipe {
-  version: 1;
-  finalShapeNodeId: string;
-  finalCode?: string;
+  rootId: string;
   steps: ProcessRecipeStep[];
-  sharedShapeNodeIds: string[];
-  primitiveComplete: boolean;
-  replayStatus: ProofGraph["replayStatus"];
-  warnings: string[];
-}
-
-export interface ProgressMessage {
-  type: "progress";
-  jobId: string;
-  phase: string;
-  current: number;
-  total: number;
-  message: string;
-  statesVisited?: number;
-  queued?: number;
-  elapsedMs?: number;
-}
-
-export interface ResultMessage {
-  type: "result";
-  jobId: string;
-  result: AnalysisResult;
-}
-
-export interface ErrorMessage {
-  type: "error";
-  jobId: string;
-  error: string;
-}
-
-export interface CancelledMessage {
-  type: "cancelled";
-  jobId: string;
-}
-
-export interface OperationResultMessage {
-  type: "operation-result";
-  jobId: string;
-  result: OperationResult;
-}
-
-export type WorkerOutbound = ProgressMessage | ResultMessage | OperationResultMessage | ErrorMessage | CancelledMessage;
-
-export type WorkerInbound =
-  | { type: "analyze"; jobId: string; mode: AnalyzeMode; code: string; cap: number }
-  | { type: "operate"; jobId: string; operation: OperationName; inputA: string; inputB?: string; inputBPresent?: boolean; cap: number; paintColor?: string; crystalColor?: string }
-  | { type: "cancel"; jobId: string }
-  | { type: "warmup"; jobId: string; tables?: ("targets" | "samples")[] };
-
-export interface BatchRow {
-  index: number;
-  raw: string;
-  code: string;
-  cap: number;
-  status: "pending" | "running" | "done" | "error" | "cancelled";
-  result?: AnalysisResult;
-  error?: string;
-}
-
-export interface HistoryRecord {
-  id?: number;
-  createdAt: number;
-  code: string;
-  normalizedCode: string;
-  cap: number;
-  verdict: Verdict;
-  shapeType: ShapeType;
-  route: string;
-  elapsedMs: number;
-  favorite: boolean;
-  note?: string;
-  result: AnalysisResult;
 }
