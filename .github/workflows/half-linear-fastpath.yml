@@ -1,0 +1,29 @@
+name: Half linear fast-path experiment
+
+on:
+  push:
+    branches:
+      - experiment/half-linear-fastpath
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: experiments/half_fastpath
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run regression tests
+        run: python -m unittest -v test_half_linear_fastpath.py
+      - name: Generate benchmark report
+        run: python half_linear_fastpath.py > benchmark.json
+      - name: Print benchmark
+        run: cat benchmark.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: half-linear-fastpath-benchmark
+          path: experiments/half_fastpath/benchmark.json
