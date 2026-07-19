@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.corner_half.corner_full_replay import replay_corner_full
 from backend.corner_half.corner_ir import compile_corner_ir
+from backend.corner_half.proof_compactor import compact_proof
 from backend.corner_half.proof_dag import corner_raw_proof, half_raw_proof, verify_proof
 
 LEFT = "SS-S-cS-S-c"
@@ -34,10 +35,14 @@ def main() -> None:
     full = replay_corner_full(LEFT, CAP, False)
     left_proof = corner_raw_proof(LEFT, CAP)
     half_proof = half_raw_proof(HALF, CAP)
+    compact_left = compact_proof(left_proof)
+    compact_half = compact_proof(half_proof)
     left_audit = verify_proof(left_proof)
     half_audit = verify_proof(half_proof)
+    compact_left_audit = verify_proof(compact_left)
+    compact_half_audit = verify_proof(compact_half)
     report = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "leftColumn": LEFT,
         "rightColumn": RIGHT,
         "half": HALF,
@@ -70,6 +75,8 @@ def main() -> None:
         "fullReplayRunLength": rle([step.operation for step in full.operations]),
         "leftProofAudit": left_audit.__dict__,
         "halfProofAudit": half_audit.__dict__,
+        "compactLeftProofAudit": compact_left_audit.__dict__,
+        "compactHalfProofAudit": compact_half_audit.__dict__,
     }
     reports = PROJECT_ROOT / "reports"
     reports.mkdir(parents=True, exist_ok=True)
@@ -82,7 +89,9 @@ def main() -> None:
         f"- Corner IR steps: **{len(ir.steps)}**",
         f"- Full replay top-level operations: **{len(full.operations)}**",
         f"- Left raw proof: **{left_audit.unique_nodes} nodes / {left_audit.operation_nodes} operations / depth {left_audit.max_depth}**",
+        f"- Left compact proof: **{compact_left_audit.unique_nodes} nodes / {compact_left_audit.operation_nodes} operations / depth {compact_left_audit.max_depth}**",
         f"- Half raw proof: **{half_audit.unique_nodes} nodes / {half_audit.operation_nodes} operations / depth {half_audit.max_depth}**",
+        f"- Half compact proof: **{compact_half_audit.unique_nodes} nodes / {compact_half_audit.operation_nodes} operations / depth {compact_half_audit.max_depth}**",
         "",
         "### IR transitions",
     ]
