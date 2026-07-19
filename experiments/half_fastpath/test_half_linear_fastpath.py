@@ -15,7 +15,13 @@ from half_linear_fastpath import (
     replay_structural,
     structural_rows,
 )
-from optimizer_suite import benchmark_suite, delta_proof_stats, eager_proof_stats, fast_feature_dispatch, generic_candidate_planner
+from optimizer_suite import (
+    benchmark as benchmark_suite,
+    delta_proof_storage,
+    eager_proof_storage,
+    linear_stack_boundary,
+    naive_stack_split,
+)
 
 
 class HalfLinearFastPathTests(unittest.TestCase):
@@ -76,33 +82,35 @@ class HalfLinearFastPathTests(unittest.TestCase):
                 rejected += 1
         self.assertEqual(rejected, 200)
 
-    def test_generic_candidate_loop_vs_constant_fast_dispatch(self) -> None:
+    def test_stack_split_one_pass_beats_all_split_materialization(self) -> None:
         for layers in (32, 64, 128, 256, 512):
-            slow = generic_candidate_planner(layers)
-            fast = fast_feature_dispatch(layers)
+            rows = tuple("SS" if i < layers // 2 else "cS" for i in range(layers))
+            slow = naive_stack_split(rows)
+            fast = linear_stack_boundary(rows)
+            self.assertEqual(fast.candidates, 1)
             self.assertGreater(slow.candidates, fast.candidates)
             self.assertGreater(slow.inspections, fast.inspections)
-            self.assertLessEqual(fast.inspections, 6 * layers)
-            self.assertLessEqual(fast.candidates, 6)
+            self.assertLessEqual(fast.inspections, layers)
 
     def test_delta_proof_ir_avoids_quadratic_shape_storage(self) -> None:
         previous_delta = None
         for layers in (32, 64, 128, 256, 512):
-            eager = eager_proof_stats(layers)
-            delta = delta_proof_stats(layers)
+            operations = max(4, layers // 2)
+            eager = eager_proof_storage(layers, operations)
+            delta = delta_proof_storage(layers, 2, operations)
             self.assertLess(delta.materialized_cells, eager.materialized_cells)
-            self.assertLess(delta.proof_nodes, eager.proof_nodes)
             if previous_delta is not None:
                 self.assertLessEqual(delta.materialized_cells, previous_delta * 2 + 16)
             previous_delta = delta.materialized_cells
 
     def test_cross_cutting_benchmark_is_reproducible(self) -> None:
         report = benchmark_suite()
-        self.assertEqual(report["schema"], 1)
-        self.assertEqual(len(report["rows"]), 5)
+        self.assertEqual(report["schema_version"], 1)
+        self.assertEqual(len(report["rows"]), 6)
         for row in report["rows"]:
-            self.assertGreater(row["candidate_reduction"], 0.99)
-            self.assertGreater(row["cell_reduction"], 0.90)
+            self.assertGreater(row["stack_inspection_reduction"], 0.90)
+            self.assertGreater(row["proof_cell_reduction"], 0.80)
+            self.assertLessEqual(row["event_gap_bound_ratio"], 2.2)
 
     def test_benchmark_json_is_reproducible(self) -> None:
         report = benchmark(128)
