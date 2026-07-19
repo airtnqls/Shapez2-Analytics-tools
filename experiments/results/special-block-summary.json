@@ -1,0 +1,12 @@
+{
+  "special_pillar": "S-S-c",
+  "legacy_predecessor": "-PcS:SPcc:SPcS:cSc-:--c-",
+  "push_result": "SPPP:-P-S:SP-S:-P--:cS--",
+  "corner_target": "S---:S---",
+  "push_corner_distance": 12,
+  "push_corner_exact": false,
+  "half_target": "SS--:-S--:SS--:-S--:cS--",
+  "helper_pool": 700,
+  "stack_predecessor_decompositions": [],
+  "swap_half_decompositions": []
+}
