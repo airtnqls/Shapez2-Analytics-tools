@@ -1,0 +1,86 @@
+name: Exact Pin Push predecessor search
+
+on:
+  push:
+    branches:
+      - experiment/half-linear-fastpath
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Search stable project-physics predecessor
+        working-directory: experiments/legacy_recipe
+        run: |
+          PYTHONPATH=../.. python - <<'PY' > pin-predecessor-search.json
+          import json
+          from evolve_pin_predecessor import search
+          result = search(
+              seed=20260719,
+              beam_width=64,
+              elite_count=10,
+              max_generations=250,
+              max_seconds=105.0,
+              max_evaluations=70000,
+          )
+          print(json.dumps(result, ensure_ascii=False, indent=2))
+          PY
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('pin-predecessor-search.json').read_text(encoding='utf-8'))
+          summary = {
+              'stop_reason': data['stop_reason'],
+              'elapsed_seconds': data['elapsed_seconds'],
+              'evaluations': data['evaluations'],
+              'hit': data['hit'],
+              'best': data['best'],
+              'history_tail': data['history'][-5:],
+          }
+          Path('pin-predecessor-summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(json.dumps(summary, ensure_ascii=False, indent=2))
+          PY
+      - name: Publish predecessor result
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- tmam-pin-predecessor-search -->';
+            const path = 'experiments/legacy_recipe/pin-predecessor-summary.json';
+            const data = fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : '{"error":"summary missing"}';
+            const body = `${marker}\n### Exact project-physics Pin Push predecessor search\n\n\`\`\`json\n${data}\n\`\`\``;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+            }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pin-predecessor-search
+          path: |
+            experiments/legacy_recipe/pin-predecessor-search.json
+            experiments/legacy_recipe/pin-predecessor-summary.json
+          if-no-files-found: warn
