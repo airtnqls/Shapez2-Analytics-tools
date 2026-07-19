@@ -1,0 +1,732 @@
+{
+  "schema_version": 2,
+  "family": "F_n = SS-- + (SS--,-S--,SS--,-S--,cS--)^n",
+  "repeats": 1,
+  "start": "SS--:SS--:-S--:SS--:-S--:cS--",
+  "goal": "SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+  "helper_pool": 1200,
+  "rotated_helper_index": 4722,
+  "helper_limit_per_state": 12,
+  "stop_reason": "time-limit",
+  "elapsed_seconds": 115.060337362,
+  "expanded": 342,
+  "generated": 87903,
+  "seen": 21478,
+  "helper_selection_total": 5130,
+  "symmetry_prunes": 186824,
+  "no_op_prunes": 5366,
+  "hit": null,
+  "closest": [
+    {
+      "score": [
+        38,
+        1,
+        1,
+        0,
+        54
+      ],
+      "distance": {
+        "mismatch": 1,
+        "unwanted_p": 0,
+        "missing_c": 1,
+        "unwanted_c": 0,
+        "missing_s": 0,
+        "extra": 0
+      },
+      "code": "SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:-S--",
+      "depth": 5,
+      "path": [
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        }
+      ]
+    },
+    {
+      "score": [
+        38,
+        1,
+        1,
+        0,
+        54
+      ],
+      "distance": {
+        "mismatch": 1,
+        "unwanted_p": 0,
+        "missing_c": 1,
+        "unwanted_c": 0,
+        "missing_s": 0,
+        "extra": 0
+      },
+      "code": "SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:SS--",
+      "depth": 5,
+      "path": [
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        }
+      ]
+    },
+    {
+      "score": [
+        52,
+        2,
+        1,
+        0,
+        49
+      ],
+      "distance": {
+        "mismatch": 2,
+        "unwanted_p": 0,
+        "missing_c": 1,
+        "unwanted_c": 0,
+        "missing_s": 1,
+        "extra": 0
+      },
+      "code": "SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--",
+      "depth": 4,
+      "path": [
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        }
+      ]
+    },
+    {
+      "score": [
+        53,
+        2,
+        1,
+        0,
+        54
+      ],
+      "distance": {
+        "mismatch": 2,
+        "unwanted_p": 0,
+        "missing_c": 1,
+        "unwanted_c": 0,
+        "missing_s": 1,
+        "extra": 0
+      },
+      "code": "SS--:SS--:-S--:SS--:-S--:cS--:-S--:-S--:SS--:-S--:-S--",
+      "depth": 5,
+      "path": [
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        }
+      ]
+    },
+    {
+      "score": [
+        53,
+        2,
+        1,
+        0,
+        54
+      ],
+      "distance": {
+        "mismatch": 2,
+        "unwanted_p": 0,
+        "missing_c": 1,
+        "unwanted_c": 0,
+        "missing_s": 1,
+        "extra": 0
+      },
+      "code": "SS--:SS--:-S--:SS--:-S--:cS--:-S--:-S--:SS--:-S--:SS--",
+      "depth": 5,
+      "path": [
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "RAW_01_GEN_SC0",
+          "helper_code": "--Sc",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 0
+            },
+            {
+              "op": "SC",
+              "pre_turns": 2,
+              "output": 0
+            }
+          ],
+          "helper_turns": 3,
+          "final_turns": 0
+        },
+        {
+          "op": "STACK",
+          "order": "CURRENT_BOTTOM",
+          "current_turns": 0,
+          "helper": "SWAP_RAW_01_RAW_05_GEN_0",
+          "helper_code": "S-cS",
+          "helper_proof": [
+            {
+              "op": "RAW_INPUT",
+              "mask": 1
+            },
+            {
+              "op": "RAW_INPUT",
+              "mask": 5
+            },
+            {
+              "op": "CRYSTAL_GENERATOR",
+              "pre_turns": 1
+            },
+            {
+              "op": "SWAP",
+              "output": 0
+            }
+          ],
+          "helper_turns": 1,
+          "final_turns": 0
+        }
+      ]
+    }
+  ]
+}
