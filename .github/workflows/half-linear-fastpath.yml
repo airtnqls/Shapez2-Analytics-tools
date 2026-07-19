@@ -22,11 +22,17 @@ jobs:
           python-version: '3.12'
       - name: Run regression tests
         run: python -m unittest -v test_half_linear_fastpath.py
-      - name: Generate benchmark report
+      - name: Generate Half benchmark
         run: python half_linear_fastpath.py > benchmark.json
-      - name: Print benchmark
-        run: cat benchmark.json
+      - name: Generate cross-cutting optimizer benchmark
+        run: python optimizer_suite.py > optimizer-benchmark.json
+      - name: Print reports
+        run: |
+          cat benchmark.json
+          cat optimizer-benchmark.json
       - uses: actions/upload-artifact@v4
         with:
           name: half-linear-fastpath-benchmark
-          path: experiments/half_fastpath/benchmark.json
+          path: |
+            experiments/half_fastpath/benchmark.json
+            experiments/half_fastpath/optimizer-benchmark.json
