@@ -37,5 +37,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fastpath-latest-baseline
-          path: reports/FASTPATH_LATEST_BASELINE.json
+          path: |
+            reports/FASTPATH_LATEST_BASELINE.json
+            reports/FASTPATH_LATEST_GRAPHS.json.gz
           if-no-files-found: error
