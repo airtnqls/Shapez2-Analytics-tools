@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-import contextlib
-import io
 import json
-import sys
 from dataclasses import asdict, dataclass
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from legacy_corner_recipe import Shape, rotate, structural, cell_distance  # noqa: E402
-from search_family_macro import build_helper_pool, from_struct, stable, unique_rotations  # noqa: E402
+from legacy_corner_recipe import Shape, structural, cell_distance
+from search_family_macro import build_helper_pool, from_struct, stable, unique_rotations
 
 SPECIAL_PREDECESSOR = "-PcS:SPcc:SPcS:cSc-:--c-"
 SPECIAL_CORNER_TARGET = "S---:----:S---:----:c---"
@@ -33,68 +25,139 @@ class Decomposition:
     result: str
 
 
-def exact_stack_decompositions(target_code: str, helpers) -> list[Decomposition]:
-    target = structural(stable(from_struct(target_code, CAP), CAP))
-    results = []
-    for i, left in enumerate(helpers):
-        a = from_struct(left.code, CAP)
-        for right in helpers:
-            b = from_struct(right.code, CAP)
-            for order, output in (("LR", Shape.stack(a, b)), ("RL", Shape.stack(b, a))):
-                code = structural(stable(output, CAP))
-                if code == target:
-                    results.append(
-                        Decomposition(
-                            kind="STACK",
-                            left_name=left.name,
-                            left_code=left.code,
-                            left_proof=left.proof,
-                            right_name=right.name,
-                            right_code=right.code,
-                            right_proof=right.proof,
-                            order_or_output=order,
-                            result=code,
-                        )
-                    )
-                    if len(results) >= 20:
-                        return results
-    return results
+def top_skeleton(code: str) -> str:
+    """Stack removes every crystal from the top input before physics.
+
+    Helpers with the same post-removal structure are therefore equivalent as
+    top operands and must be evaluated once.
+    """
+    return ":".join("".join("-" if ch == "c" else ch for ch in row) for row in code.split(":"))
 
 
-def exact_swap_decompositions(target_code: str, helpers) -> list[Decomposition]:
+def exact_stack_decompositions(target_code: str, helpers) -> tuple[list[Decomposition], dict[str, int]]:
     target = structural(stable(from_struct(target_code, CAP), CAP))
-    results = []
-    pair_seen = set()
-    for left in helpers:
-        a0 = from_struct(left.code, CAP)
-        for right in helpers:
-            pair = tuple(sorted((left.code, right.code)))
-            if pair in pair_seen:
+    results: list[Decomposition] = []
+
+    unique_tops = {}
+    for helper in helpers:
+        unique_tops.setdefault(top_skeleton(helper.code), helper)
+    top_helpers = list(unique_tops.values())
+
+    checked = 0
+    output_cache = set()
+    for bottom in helpers:
+        bottom_shape = from_struct(bottom.code, CAP)
+        for top in top_helpers:
+            checked += 1
+            output = Shape.stack(bottom_shape, from_struct(top.code, CAP))
+            code = structural(stable(output, CAP))
+            cache_key = (bottom.code, top_skeleton(top.code), code)
+            if cache_key in output_cache:
                 continue
-            pair_seen.add(pair)
-            b0 = from_struct(right.code, CAP)
-            for lt, a in unique_rotations(a0):
-                for rt, b in unique_rotations(b0):
-                    for index, output in enumerate(Shape.swap(a, b)):
-                        for ft, candidate in unique_rotations(output):
-                            code = structural(stable(candidate, CAP))
-                            if code == target:
-                                results.append(
-                                    Decomposition(
-                                        kind=f"SWAP_R{lt}_R{rt}_F{ft}",
-                                        left_name=left.name,
-                                        left_code=left.code,
-                                        left_proof=left.proof,
-                                        right_name=right.name,
-                                        right_code=right.code,
-                                        right_proof=right.proof,
-                                        order_or_output=index,
-                                        result=code,
-                                    )
+            output_cache.add(cache_key)
+            if code == target:
+                results.append(
+                    Decomposition(
+                        kind="STACK",
+                        left_name=bottom.name,
+                        left_code=bottom.code,
+                        left_proof=bottom.proof,
+                        right_name=top.name,
+                        right_code=top.code,
+                        right_proof=top.proof,
+                        order_or_output="BOTTOM_TOP",
+                        result=code,
+                    )
+                )
+                if len(results) >= 20:
+                    return results, {
+                        "bottom_helpers": len(helpers),
+                        "unique_top_skeletons": len(top_helpers),
+                        "checked": checked,
+                    }
+
+    # Also check the reverse order explicitly. The outer loop again represents
+    # the actual bottom; this is not a symmetric duplicate.
+    for bottom in top_helpers:
+        bottom_shape = from_struct(bottom.code, CAP)
+        for top in helpers:
+            checked += 1
+            output = Shape.stack(bottom_shape, from_struct(top.code, CAP))
+            code = structural(stable(output, CAP))
+            cache_key = (bottom.code, top_skeleton(top.code), code)
+            if cache_key in output_cache:
+                continue
+            output_cache.add(cache_key)
+            if code == target:
+                results.append(
+                    Decomposition(
+                        kind="STACK",
+                        left_name=bottom.name,
+                        left_code=bottom.code,
+                        left_proof=bottom.proof,
+                        right_name=top.name,
+                        right_code=top.code,
+                        right_proof=top.proof,
+                        order_or_output="BOTTOM_TOP",
+                        result=code,
+                    )
+                )
+                if len(results) >= 20:
+                    break
+        if len(results) >= 20:
+            break
+
+    return results, {
+        "bottom_helpers": len(helpers),
+        "unique_top_skeletons": len(top_helpers),
+        "checked": checked,
+    }
+
+
+def exact_special_swap_to_half(pushed_code: str, helpers) -> tuple[list[Decomposition], int]:
+    """Keep one Swap input fixed to the certified special Push result."""
+    target = structural(stable(from_struct(SPECIAL_HALF_TARGET, CAP), CAP))
+    special = from_struct(pushed_code, CAP)
+    results: list[Decomposition] = []
+    checked = 0
+    seen_invocations = set()
+    seen_outputs = set()
+
+    for helper in helpers:
+        helper_shape = from_struct(helper.code, CAP)
+        for special_turns, a in unique_rotations(special):
+            for helper_turns, b in unique_rotations(helper_shape):
+                invocation = (structural(a), structural(b))
+                if invocation in seen_invocations:
+                    continue
+                seen_invocations.add(invocation)
+                checked += 1
+                for index, output in enumerate(Shape.swap(a, b)):
+                    for final_turns, candidate in unique_rotations(output):
+                        code = structural(stable(candidate, CAP))
+                        if code in seen_outputs:
+                            continue
+                        seen_outputs.add(code)
+                        if code == target:
+                            results.append(
+                                Decomposition(
+                                    kind=f"SWAP_SPECIAL_R{special_turns}_HELPER_R{helper_turns}_F{final_turns}",
+                                    left_name="SPECIAL_STACK_PIN_RESULT",
+                                    left_code=pushed_code,
+                                    left_proof=(
+                                        {"op": "SPECIAL_STACK_DECOMPOSITION"},
+                                        {"op": "PIN_PUSH"},
+                                    ),
+                                    right_name=helper.name,
+                                    right_code=helper.code,
+                                    right_proof=helper.proof,
+                                    order_or_output=index,
+                                    result=code,
                                 )
-                                if len(results) >= 20:
-                                    return results
-    return results
+                            )
+                            if len(results) >= 20:
+                                return results, checked
+    return results, checked
 
 
 def audit(helper_limit: int = 1400) -> dict:
@@ -106,31 +169,11 @@ def audit(helper_limit: int = 1400) -> dict:
     half_target = structural(stable(from_struct(SPECIAL_HALF_TARGET, CAP), CAP))
 
     helpers = build_helper_pool(CAP, max_depth=2, max_helpers=helper_limit)
-    # The hardcoded predecessor is itself allowed as a target of decomposition,
-    # never as an input helper.
-    stack_predecessor = exact_stack_decompositions(SPECIAL_PREDECESSOR, helpers)
-
-    # If the hardcoded predecessor replays, expose its pushed result as a
-    # certified helper and ask whether one Swap with an ordinary/helper shape
-    # produces the full two-column event block.
-    pushed_helper_type = type(helpers[0]) if helpers else None
-    augmented = list(helpers)
-    if pushed_helper_type is not None:
-        augmented.append(
-            pushed_helper_type(
-                name="SPECIAL_STACK_PIN_RESULT",
-                code=pushed_code,
-                proof=(
-                    {"op": "SPECIAL_STACK_DECOMPOSITION", "available": bool(stack_predecessor)},
-                    {"op": "PIN_PUSH"},
-                ),
-                depth=3,
-            )
-        )
-    swap_half = exact_swap_decompositions(SPECIAL_HALF_TARGET, augmented)
+    stack_predecessor, stack_metrics = exact_stack_decompositions(SPECIAL_PREDECESSOR, helpers)
+    swap_half, swap_checked = exact_special_swap_to_half(pushed_code, helpers)
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "special_pillar": "S-S-c",
         "legacy_predecessor": structural(predecessor),
         "push_result": pushed_code,
@@ -139,6 +182,8 @@ def audit(helper_limit: int = 1400) -> dict:
         "push_corner_exact": pushed_code == corner_target,
         "half_target": half_target,
         "helper_pool": len(helpers),
+        "stack_metrics": stack_metrics,
+        "special_swap_checked": swap_checked,
         "stack_predecessor_decompositions": [asdict(x) for x in stack_predecessor],
         "swap_half_decompositions": [asdict(x) for x in swap_half],
     }
