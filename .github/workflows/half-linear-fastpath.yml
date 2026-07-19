@@ -117,10 +117,12 @@ jobs:
           status=$?
           cat test-ts.log
           exit $status
-      - name: Generate TypeScript-shaped benchmark
+      - name: Generate TypeScript-shaped benchmarks
         if: success()
         working-directory: experiments/tmam_fastpath_ts
-        run: npm run bench > benchmark-ts.json
+        run: |
+          npm run bench > benchmark-ts.json
+          node src/frontierBenchmark.mjs > frontier-fallback-benchmark.json
 
       - name: Print reports
         if: success()
@@ -129,6 +131,7 @@ jobs:
           cat experiments/half_fastpath/optimizer-benchmark.json
           cat experiments/legacy_recipe/best-first-summary.json
           cat experiments/tmam_fastpath_ts/benchmark-ts.json
+          cat experiments/tmam_fastpath_ts/frontier-fallback-benchmark.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -142,5 +145,6 @@ jobs:
             experiments/legacy_recipe/best-first-recipe.json
             experiments/legacy_recipe/best-first-summary.json
             experiments/tmam_fastpath_ts/benchmark-ts.json
+            experiments/tmam_fastpath_ts/frontier-fallback-benchmark.json
             experiments/tmam_fastpath_ts/test-ts.log
           if-no-files-found: warn
