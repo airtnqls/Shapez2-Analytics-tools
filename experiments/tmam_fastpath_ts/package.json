@@ -1,0 +1,9 @@
+{
+  "name": "tmam-fastpath-ts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "bench": "node src/benchmark.mjs"
+  }
+}
