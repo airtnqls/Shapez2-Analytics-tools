@@ -17,7 +17,7 @@ permissions:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -47,13 +47,13 @@ jobs:
           from search_legacy_recipe import search
           print(json.dumps(search(max_swap_depth=1, state_limit=5000), ensure_ascii=False, indent=2))
           PY
-      - name: Run actual-physics best-first recipe search
+      - name: Run short actual-physics search regression
         working-directory: experiments/legacy_recipe
         run: |
           PYTHONPATH=../.. python - <<'PY' > best-first-recipe.json
           import json
           from best_first_recipe import best_first_search
-          result = best_first_search(max_depth=4, beam_width=80, auxiliary_limit=30, state_limit=12000, max_seconds=65.0)
+          result = best_first_search(max_depth=3, beam_width=32, auxiliary_limit=20, state_limit=2500, max_seconds=8.0)
           print(json.dumps(result, ensure_ascii=False, indent=2))
           PY
           python - <<'PY'
@@ -66,27 +66,33 @@ jobs:
               'expanded': data['expanded'],
               'generated': data['generated'],
               'seen': data['seen'],
-              'depth_histogram': data['depth_histogram'],
               'hit': data['hit'],
-              'closest': data['closest'][:5],
+              'closest': data['closest'][:1],
           }
           Path('best-first-summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(json.dumps(summary, ensure_ascii=False, indent=2))
           PY
 
-      - name: Publish legacy diagnostic comment
+      - name: Publish compact legacy diagnostic
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const marker = '<!-- tmam-legacy-recipe-diagnostic -->';
-            const read = (path, fallback) => fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : fallback;
-            const recipe = read('experiments/legacy_recipe/legacy-recipe.json', '{"error":"recipe diagnostic missing"}');
-            const actual = read('experiments/legacy_recipe/actual-corner-process.json', '{"error":"actual Corner audit missing"}');
-            const search = read('experiments/legacy_recipe/legacy-search.json', '{"error":"restricted search missing"}');
-            const best = read('experiments/legacy_recipe/best-first-summary.json', '{"error":"best-first summary missing"}');
-            const body = `${marker}\n### Legacy project-physics recipe diagnostic\n\n#### Direct legacy constructor\n\`\`\`json\n${recipe}\n\`\`\`\n\n#### Actual legacy Corner subtype/replay audit\n\`\`\`json\n${actual}\n\`\`\`\n\n#### Restricted exact Swap search\n\`\`\`json\n${search}\n\`\`\`\n\n#### Actual-physics best-first search\n\`\`\`json\n${best}\n\`\`\``;
+            const load = (path) => fs.existsSync(path) ? JSON.parse(fs.readFileSync(path, 'utf8')) : null;
+            const recipe = load('experiments/legacy_recipe/legacy-recipe.json');
+            const actual = load('experiments/legacy_recipe/actual-corner-process.json');
+            const restricted = load('experiments/legacy_recipe/legacy-search.json');
+            const best = load('experiments/legacy_recipe/best-first-summary.json');
+            const closest = best?.closest?.[0] ?? null;
+            const body = `${marker}\n### Legacy/project-physics fast-path summary\n\n` +
+              `- 11-layer legacy classification: \`${actual?.classification ?? 'missing'}\`\n` +
+              `- selected legacy operation: \`${actual?.selected_operation ?? 'missing'}\`\n` +
+              `- q0 above-bottom replay: \`${recipe?.q0_matches_above_bottom ?? false}\`; bottom: \`${recipe?.q0_bottom_transition ?? 'missing'}\`\n` +
+              `- one-Swap search hit: \`${restricted?.hit ? 'yes' : 'no'}\`; closest distance: \`${restricted?.closest?.[0]?.distance ?? 'missing'}\`\n` +
+              `- short best-first hit: \`${best?.hit ? 'yes' : 'no'}\`; closest mismatch: \`${closest?.distance?.mismatch ?? 'missing'}\`\n` +
+              `- closest code: \`${closest?.code ?? 'missing'}\`\n` +
+              `- exhaustive diagnostics remain in workflow artifacts.`;
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -121,7 +127,6 @@ jobs:
         run: |
           cat experiments/half_fastpath/benchmark.json
           cat experiments/half_fastpath/optimizer-benchmark.json
-          cat experiments/legacy_recipe/actual-corner-process.json
           cat experiments/legacy_recipe/best-first-summary.json
           cat experiments/tmam_fastpath_ts/benchmark-ts.json
       - uses: actions/upload-artifact@v4
