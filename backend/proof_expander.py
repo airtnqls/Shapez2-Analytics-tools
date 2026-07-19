@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
+from .corner_half.proof_compactor import compact_proof
 from .corner_half.proof_dag import ProofDagError, ProofNode, shape_raw_proof, verify_proof
 
 
@@ -113,7 +114,7 @@ def expand_certified_macros(graph: dict[str, Any], cap: int) -> dict[str, Any]:
         output = node_by_id.get(output_id, {})
         code = str(output.get("code", ""))
         try:
-            root = shape_raw_proof(code, cap)
+            root = compact_proof(shape_raw_proof(code, cap))
             audit = verify_proof(root)
             if not audit.replay_ok or audit.result != code:
                 raise ProofExpansionError(f"replay mismatch: {audit.result!r} != {code!r}")
