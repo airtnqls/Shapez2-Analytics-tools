@@ -1,0 +1,38 @@
+--- a/shape.py
++++ b/shape.py
+@@ -1,9 +1,28 @@
+     def crystal_generator(self, color_str: str) -> Shape:
++        """Apply the Crystal Generator using the global occupied height.
++
++        Empty/pin cells strictly below the input height become crystals.
++        Existing normal pieces and crystals are preserved.  The empty shape
++        stays empty, trailing internal empty layers are ignored, and the full
++        result needs no gravity pass.
++        """
+         s = self.copy()
+-        if not s.layers:
+-            s.layers.append(Layer([None,None,None,None]))
+-        for layer in s.layers:
+-            for i in range(4):
+-                if layer.quadrants[i] is None or layer.quadrants[i].shape == 'P':
+-                    layer.quadrants[i] = Quadrant('c', color_str)
+-        return s.apply_physics()
++
++        height = 0
++        for l, layer in enumerate(s.layers):
++            if any(piece is not None for piece in layer.quadrants):
++                height = l + 1
++
++        if height == 0:
++            s.layers = []
++            return s
++
++        s.layers = s.layers[:height]
++        for l in range(height):
++            layer = s.layers[l]
++            for q in range(4):
++                piece = layer.quadrants[q]
++                if piece is None or piece.shape == 'P':
++                    layer.quadrants[q] = Quadrant('c', color_str)
++
++        return s

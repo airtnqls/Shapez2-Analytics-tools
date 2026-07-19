@@ -1,0 +1,35 @@
+{
+  "corner_cap7_all": {
+    "roots": 4320,
+    "build_seconds": 11.667842216998906,
+    "verify_seconds": 12.168770966000011,
+    "unique_nodes": 196908,
+    "operation_nodes": 196907,
+    "edges": 299688,
+    "max_depth": 120,
+    "replay_ok": true,
+    "raw_leaves": 1
+  },
+  "half_cap4_all": {
+    "roots": 16193,
+    "build_seconds": 3.1091873870009294,
+    "verify_seconds": 3.9739794170000096,
+    "unique_nodes": 115551,
+    "operation_nodes": 115550,
+    "edges": 132858,
+    "max_depth": 65,
+    "replay_ok": true,
+    "raw_leaves": 1
+  },
+  "corner_high_189": {
+    "layers": 189,
+    "build_seconds": 22.36717092300023,
+    "verify_seconds": 6.43292712100083,
+    "unique_nodes": 4991,
+    "operation_nodes": 4990,
+    "max_depth": 998,
+    "replay_ok": true,
+    "raw_leaves": 1
+  },
+  "note": "Final v2.1.0 acceptance rerun. Modes run as separate processes to release large proof forests between audits."
+}

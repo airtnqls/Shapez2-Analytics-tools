@@ -1,0 +1,1 @@
+cap=7 columns=4320 halves=7905398

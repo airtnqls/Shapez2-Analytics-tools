@@ -1,163 +1,43 @@
-name: Build and Release
+name: Web CI
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [master]
+  pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest]
-        python-version: ['3.11']
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-
-    - name: Build with PyInstaller
-      run: pyinstaller --noconfirm gui.spec
-
-    - name: Create Windows ZIP (Windows only)
-      if: matrix.os == 'windows-latest'
-      run: |
-        cd dist
-        powershell Compress-Archive -Path "Shapez2" -DestinationPath "Shapez2Analyzer-Windows.zip"
-        cd ..
-
-    - name: Create macOS TAR.GZ (macOS only)
-      if: matrix.os == 'macos-latest'
-      run: |
-        cd dist
-        tar -czf "Shapez2Analyzer-macOS.tar.gz" "Shapez2"
-        cd ..
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Shapez2Analyzer-${{ matrix.os }}-${{ matrix.python-version }}
-        path: |
-          dist/
-          dist/*.zip
-        retention-days: 30
-
-  release:
-    needs: [build, build-corners-rule-search]
+  verify:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-
+    timeout-minutes: 30
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
-    - name: Create release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          Shapez2Analyzer-windows-latest-*/*.zip
-          Shapez2Analyzer-macos-latest-*/*.tar.gz
-          Shapez2CornersRuleSearch-windows-latest-*/*.zip
-          Shapez2CornersRuleSearch-macos-latest-*/*.tar.gz
-        draft: false
-        prerelease: false
-        tag_name: ${{ github.ref_name }}
-        name: Release ${{ github.ref_name }}
-        body: |
-          ## Shapez2 Analyzer ${{ github.ref_name }}
-          
-          ### Windows
-          - **Shapez2Analyzer-Windows.zip**: Windows application
-          
-          ### macOS
-          - **Shapez2Analyzer-macOS.tar.gz**: macOS application
-          
-          ### Security Notice
-          Security warnings may appear when running.
-          This is normal for unsigned applications and not a security risk.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-          ### Corners Rule Search
-          - **Shapez2CornersRuleSearch-Windows.zip**: Windows build for `corner_rule_test/main.py`
-          - **Shapez2CornersRuleSearch-macOS.tar.gz**: macOS build for `corner_rule_test/main.py`
-          
-          ### Changes
-          See detailed changes on [GitHub](https://github.com/${{ github.repository }}/compare).
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install dependencies
+        run: npm ci
 
-  build-corners-rule-search:
-    name: Build Corners Rule Search (${{ matrix.os }})
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest]
-        python-version: ['3.11']
+      - name: Verify client solver and production export
+        run: npm run check
 
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
-    - name: Build Corners Rule Search with PyInstaller
-      run: >
-        pyinstaller
-        --noconfirm
-        --clean
-        --onefile
-        --windowed
-        --name Shapez2CornersRuleSearch
-        --hidden-import PyQt6.QtSvg
-        corner_rule_test/main.py
-
-    - name: Package Windows app
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        New-Item -ItemType Directory -Force -Path release
-        Compress-Archive -Path "dist/Shapez2CornersRuleSearch.exe" -DestinationPath "release/Shapez2CornersRuleSearch-Windows.zip"
-
-    - name: Package macOS app
-      if: matrix.os == 'macos-latest'
-      run: |
-        mkdir -p release
-        if [ -d "dist/Shapez2CornersRuleSearch.app" ]; then
-          tar -czf "release/Shapez2CornersRuleSearch-macOS.tar.gz" -C dist "Shapez2CornersRuleSearch.app"
-        else
-          tar -czf "release/Shapez2CornersRuleSearch-macOS.tar.gz" -C dist "Shapez2CornersRuleSearch"
-        fi
-
-    - name: Upload Corners Rule Search artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Shapez2CornersRuleSearch-${{ matrix.os }}-${{ matrix.python-version }}
-        path: release/*
-        retention-days: 30
+      - name: Upload static web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: shapez2-tmam-web
+          path: out/
+          if-no-files-found: error
+          retention-days: 14

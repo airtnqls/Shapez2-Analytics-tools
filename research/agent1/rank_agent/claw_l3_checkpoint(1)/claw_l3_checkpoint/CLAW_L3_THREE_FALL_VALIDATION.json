@@ -1,0 +1,24 @@
+{
+  "status": "structural_O_L3_proof_complete_with_TMAM_factor_buildability_caveat",
+  "theorem": "For a cut-stable predecessor, 3+ active columns and a surviving crystal force a noncrystal above the global highest surviving crystal.",
+  "half_checks": {
+    "top_payload_mechanism": {
+      "L2": {"stable": 87, "active_with_crystal": 0, "counterexamples": 0},
+      "L3": {"stable": 1035, "active_with_crystal": 0, "counterexamples": 0},
+      "L4": {"stable": 12255, "active_with_crystal": 112, "counterexamples": 0},
+      "L5": {"stable": 145095, "active_with_crystal": 3760, "counterexamples": 0},
+      "L6": {"stable": 1717935, "active_with_crystal": 71144, "counterexamples": 0},
+      "L7": {"stable": 20340555, "active_with_crystal": 1063110, "counterexamples": 0}
+    },
+    "no_secondary_U_L7": {"stable_top_crystal": 20340555, "counterexamples": 0},
+    "no_top_crystal_no_fall_L6": {"stable_no_top_crystal": 2072277, "counterexamples": 0}
+  },
+  "pair_checks": {
+    "L5_exhaustive": {"compatible_relevant_pairs": 23760, "three_active_crystal": 4608, "topmost_crystal_counterexamples": 0},
+    "L6_exhaustive": {"compatible_relevant_pairs": 4428138, "three_active_crystal": 1404878, "topmost_crystal_counterexamples": 0},
+    "L7_random": {"samples": 100000000, "compatible": 1628039, "three_active_crystal": 662657, "topmost_crystal_counterexamples": 0}
+  },
+  "authoritative_5_layer": {"targets": 40171, "fixed_eager_pair_counterexamples": 0},
+  "complexity": "O(L^3) states for first-preimage decision/reconstruction; plain inverse O(L)",
+  "caveat": "If Stacker requires both factors to be independently TMAM-craftable, bottom-factor craftability remains a separate lemma."
+}

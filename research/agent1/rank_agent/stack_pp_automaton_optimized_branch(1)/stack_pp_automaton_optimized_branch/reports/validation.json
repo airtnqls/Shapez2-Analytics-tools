@@ -1,0 +1,88 @@
+{
+  "artifact": "stack-pp-family-constrained-stack-and-pp-rank",
+  "date": "2026-07-17",
+  "completed": {
+    "family_constrained_stack_relation": true,
+    "stack_support_bottom_family_product": true,
+    "finite_base_stack_closure_regular_construction": true,
+    "layer_family_boolean_algebra": true,
+    "abstract_cpcp_pp_batch_engine": true,
+    "typed_parent_certificates": true,
+    "top_piece_sequence_witnesses": true
+  },
+  "blocked_or_open": {
+    "compact_shape_adapter": "core-kernel dependency",
+    "half_family_automaton": "corner-half dependency",
+    "pinpush_regular_image": "open research",
+    "all_layer_pp_fixed_point": "open research"
+  },
+  "tests": {
+    "unittest_cases": 26,
+    "failures": 0,
+    "errors": 0,
+    "stack_product_exhaustive_L1_targets": 256,
+    "stack_product_random_L2_L3_targets": 1000,
+    "stack_product_family_filter_random_targets": 500,
+    "stack_closure_random_comparisons": 2100,
+    "support_transducer": {
+      "row_pairs": 65536,
+      "mismatches": 0,
+      "sample_mismatches": [],
+      "seconds": 0.9386466549999568
+    },
+    "stack_closure_exhaustive_L2": {
+      "targets_L2": 65536,
+      "accepted_target_dag": 41500,
+      "accepted_closure_automaton": 41500,
+      "mismatches": 0,
+      "sample_mismatches": [],
+      "transition_cache_entries": 65792,
+      "seconds": 11.814920427999823
+    },
+    "provided_5_layer_hybrid": {
+      "samples": 367,
+      "zero_raw_stack_paths": 0,
+      "zero_examples": [],
+      "path_count": {
+        "min": 1,
+        "max": 18,
+        "mean": 5.8283378746594,
+        "median": 5,
+        "total": 2139
+      },
+      "reachable_nodes_max": 82,
+      "viable_edges_max": 27,
+      "seconds": 0.2289137969996773
+    },
+    "stack_closure_state_growth": {
+      "base_family": "all-stable-base",
+      "alphabet_rows": 256,
+      "max_depth": 2,
+      "reachable_states_per_exact_depth": [
+        1,
+        256,
+        4019
+      ],
+      "accepting_states_per_exact_depth": [
+        0,
+        232,
+        1609
+      ],
+      "max_product_subset_size_per_depth": [
+        1,
+        16,
+        17
+      ],
+      "transition_cache_entries": 65792,
+      "seconds": 4.6580168529999355,
+      "interpretation": "Finite powerset closure is proved; these counts measure only reachable-state growth for the universal base family and are not a proof that rank iteration stays small."
+    }
+  },
+  "safety_contract": {
+    "unknown_is_result": false,
+    "timeout_means_unsat": false,
+    "unrestricted_recursive_stack_inverse": false,
+    "fixed_layer_tests_claim_all_layer_proof": false,
+    "max_batches_claims_fixed_point": false
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "cap": 2,
+  "stable_predecessors": 44113,
+  "distinct_images": 467,
+  "frontier_sat": 467,
+  "mismatches": [],
+  "replay_bad": []
+}

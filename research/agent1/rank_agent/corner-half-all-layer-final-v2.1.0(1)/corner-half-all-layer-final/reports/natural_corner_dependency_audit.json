@@ -1,0 +1,40 @@
+{
+  "natural_roots": 3212,
+  "half_dependent_roots": 1139,
+  "dependency_edges": 2438,
+  "unique_child_columns": 20,
+  "max_children_per_root": 4,
+  "cycles": 0,
+  "maximum_dependency_depth": 1,
+  "all_children_solid": true,
+  "strict_gap_decrease": true,
+  "unclassified_operands": 0,
+  "edge_certificate_sha256": "dfbde4ca3e9ea8a49968bb993e84f368a1a602b4d71e96c20d0db8ea5ce6a27a",
+  "child_columns": [
+    "SSS",
+    "SSSS",
+    "SSSSS",
+    "SSSSSS",
+    "SSSSSSS",
+    "SSSScSS",
+    "SSScSS",
+    "SSScSSS",
+    "SScSS",
+    "SScSSS",
+    "SScSSSS",
+    "ScSS",
+    "ScSSS",
+    "ScSSSS",
+    "ScSSSSS",
+    "cSS",
+    "cSSS",
+    "cSSSS",
+    "cSSSSS",
+    "cSSSSSS"
+  ],
+  "out_degree_histogram": {
+    "2": 983,
+    "3": 152,
+    "4": 4
+  }
+}

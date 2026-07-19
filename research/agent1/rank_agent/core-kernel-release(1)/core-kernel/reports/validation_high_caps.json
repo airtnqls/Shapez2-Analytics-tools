@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "seed": 20260718,
+  "cases": 1000,
+  "cap_range": [
+    41,
+    512
+  ],
+  "max_cap_seen": 512,
+  "checks": [
+    "gravity_idempotence",
+    "rotation_order_4",
+    "mirror_involution",
+    "pin_push_output_stable",
+    "compact_stack_equivalence"
+  ],
+  "elapsed_seconds": 6.998831684000379
+}

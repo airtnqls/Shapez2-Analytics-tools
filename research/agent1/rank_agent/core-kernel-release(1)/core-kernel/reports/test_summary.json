@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "pytest": {
+    "tests": 15,
+    "failed": 0,
+    "command": "PYTHONPATH=src pytest"
+  },
+  "package_install_smoke": "PASS",
+  "compileall": "PASS",
+  "legacy_repository_differential": "NOT_RUN_IN_CONTAINER; script provided"
+}

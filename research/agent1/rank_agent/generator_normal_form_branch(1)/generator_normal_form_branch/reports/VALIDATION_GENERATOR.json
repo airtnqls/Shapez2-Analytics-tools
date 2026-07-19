@@ -1,0 +1,45 @@
+{
+  "status": "generator_relation_complete_pending_external_family_integration",
+  "reference_semantics": {
+    "empty_stays_empty": true,
+    "uses_global_occupied_height": true,
+    "empty_and_pin_become_selected_color_crystal": true,
+    "normal_and_existing_crystal_preserved": true,
+    "gravity_after_generation": false
+  },
+  "unit_tests": {
+    "tests": 29,
+    "failures": 0
+  },
+  "exhaustive_structural_L2": {
+    "raw_predecessors": 65536,
+    "distinct_targets": 273,
+    "inverse_pairs_checked": 65536,
+    "productive_inverse_pairs": 65263,
+    "missing_pairs": 0,
+    "extra_pairs": 0
+  },
+  "family_intersection": {
+    "random_explicit_trie_families": 80,
+    "count_mismatches": 0,
+    "witness_mismatches": 0
+  },
+  "exact_color_reference_cases": {
+    "cpcp_cases": 4,
+    "mismatches": 0
+  },
+  "project_adapter": {
+    "empty_shape_case": "pass",
+    "trailing_empty_layer_case": "pass",
+    "existing_other_color_crystal_preservation": "pass"
+  },
+  "high_layer_property": "see PROPERTY_GENERATOR_10000.json",
+  "performance": "see BENCHMARK_GENERATOR.json",
+  "operation_laws_exhaustive_L2": {
+    "height_and_full_output_cases": 65536,
+    "idempotence_cases": 65536,
+    "rotation_commutation_cases": 65536,
+    "mirror_commutation_cases": 65536,
+    "mismatches": 0
+  }
+}

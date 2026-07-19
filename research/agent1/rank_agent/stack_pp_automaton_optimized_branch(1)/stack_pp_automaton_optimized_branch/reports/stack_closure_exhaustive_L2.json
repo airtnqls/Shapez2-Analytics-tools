@@ -1,0 +1,9 @@
+{
+  "targets_L2": 65536,
+  "accepted_target_dag": 41500,
+  "accepted_closure_automaton": 41500,
+  "mismatches": 0,
+  "sample_mismatches": [],
+  "transition_cache_entries": 65792,
+  "seconds": 11.880621452000014
+}

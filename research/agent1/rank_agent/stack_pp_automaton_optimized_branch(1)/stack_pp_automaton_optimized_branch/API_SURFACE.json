@@ -1,0 +1,43 @@
+{
+  "package_version": "0.3.0",
+  "primary": {
+    "StackClosureAutomaton": [
+      "start_state",
+      "advance",
+      "accepts",
+      "accepts_state",
+      "transition",
+      "transition_groups",
+      "accepts_rows",
+      "accepts_shape",
+      "witness",
+      "metrics",
+      "explore",
+      "release_build_caches"
+    ],
+    "MinimizedStackClosureDFA": [
+      "start_state",
+      "advance",
+      "transition",
+      "accepts",
+      "accepts_rows",
+      "accepts_shape",
+      "witness",
+      "transition_groups",
+      "metrics"
+    ],
+    "compile_complete_minimized": {
+      "guard_exception": "AutomatonBuildLimitExceeded",
+      "guard_semantics": "diagnostic only; never rejection"
+    }
+  },
+  "compatibility": {
+    "legacy_class": "LegacyStackClosureAutomaton",
+    "legacy_state": "StackClosureState"
+  },
+  "proof_hooks": {
+    "canonical_state": "optional residual-language equality quotient",
+    "state_includes": "optional residual-language inclusion"
+  },
+  "pp_boundary": "general symbolic PP fixed point remains open"
+}

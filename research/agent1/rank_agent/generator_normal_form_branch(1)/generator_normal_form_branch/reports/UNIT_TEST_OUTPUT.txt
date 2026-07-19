@@ -1,0 +1,34 @@
+test_height_preservation_and_full_output_L2 (test_generator_laws.TestGeneratorLaws.test_height_preservation_and_full_output_L2) ... ok
+test_mirror_commutation_L2 (test_generator_laws.TestGeneratorLaws.test_mirror_commutation_L2) ... ok
+test_rotation_commutation_L2 (test_generator_laws.TestGeneratorLaws.test_rotation_commutation_L2) ... ok
+test_structural_idempotence_L2 (test_generator_laws.TestGeneratorLaws.test_structural_idempotence_L2) ... ok
+test_roundtrip_rows (test_generator_normal_form.TestEncoding.test_roundtrip_rows) ... ok
+test_shape_roundtrip (test_generator_normal_form.TestEncoding.test_shape_roundtrip) ... ok
+test_reference_cases_from_cpcp (test_generator_normal_form.TestExactCode.test_reference_cases_from_cpcp) ... ok
+test_roundtrip (test_generator_normal_form.TestExactCode.test_roundtrip) ... ok
+test_best_color_family_solution (test_generator_normal_form.TestExactColorConstraint.test_best_color_family_solution) ... ok
+test_exact_materialization_and_replay (test_generator_normal_form.TestExactColorConstraint.test_exact_materialization_and_replay) ... ok
+test_only_selected_color_is_eligible (test_generator_normal_form.TestExactColorConstraint.test_only_selected_color_is_eligible) ... ok
+test_possible_productive_colors (test_generator_normal_form.TestExactColorConstraint.test_possible_productive_colors) ... ok
+test_complete_inverse_relation (test_generator_normal_form.TestExhaustiveL2.test_complete_inverse_relation) ... ok
+test_complete_productive_inverse_relation (test_generator_normal_form.TestExhaustiveL2.test_complete_productive_inverse_relation) ... ok
+test_family_intersection_against_bruteforce (test_generator_normal_form.TestExhaustiveL2.test_family_intersection_against_bruteforce) ... ok
+test_empty_stays_empty (test_generator_normal_form.TestForwardSemantics.test_empty_stays_empty) ... ok
+test_exact_color_semantics (test_generator_normal_form.TestForwardSemantics.test_exact_color_semantics) ... ok
+test_fills_gaps_and_replaces_pins (test_generator_normal_form.TestForwardSemantics.test_fills_gaps_and_replaces_pins) ... ok
+test_preserves_normals_and_crystals (test_generator_normal_form.TestForwardSemantics.test_preserves_normals_and_crystals) ... ok
+test_canonical_raw_witness_is_productive_and_decreases_crystals (test_generator_normal_form.TestImageAndNormalForm.test_canonical_raw_witness_is_productive_and_decreases_crystals) ... ok
+test_nonproductive_crystal_free_output_has_identity_only (test_generator_normal_form.TestImageAndNormalForm.test_nonproductive_crystal_free_output_has_identity_only) ... ok
+test_rejects_gap_output (test_generator_normal_form.TestImageAndNormalForm.test_rejects_gap_output) ... ok
+test_rejects_pin_output (test_generator_normal_form.TestImageAndNormalForm.test_rejects_pin_output) ... ok
+test_rejects_productive_crystal_free_output (test_generator_normal_form.TestImageAndNormalForm.test_rejects_productive_crystal_free_output) ... ok
+test_stable_single_pin_normal_form_is_full (test_generator_normal_form.TestImageAndNormalForm.test_stable_single_pin_normal_form_is_full) ... ok
+test_top_layer_height_is_preserved (test_generator_normal_form.TestImageAndNormalForm.test_top_layer_height_is_preserved) ... ok
+test_unconstrained_count_closed_form (test_generator_normal_form.TestImageAndNormalForm.test_unconstrained_count_closed_form) ... ok
+test_empty_shape_stays_empty (test_generator_normal_form.TestProjectAdapter.test_empty_shape_stays_empty) ... ok
+test_trailing_empty_internal_layers_are_not_filled (test_generator_normal_form.TestProjectAdapter.test_trailing_empty_internal_layers_are_not_filled) ... ok
+
+----------------------------------------------------------------------
+Ran 29 tests in 3.411s
+
+OK

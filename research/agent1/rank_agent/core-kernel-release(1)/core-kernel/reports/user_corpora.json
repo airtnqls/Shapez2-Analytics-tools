@@ -1,0 +1,45 @@
+{
+  "status": "PASS",
+  "corpora": [
+    {
+      "path": "/mnt/data/40171.txt",
+      "requested": 40171,
+      "parsed": 40171,
+      "stable": 39802,
+      "roundtrip": 40171,
+      "height_histogram": {
+        "5": 39667,
+        "4": 497,
+        "3": 7
+      },
+      "errors": [],
+      "elapsed_seconds": 2.052931567000087
+    },
+    {
+      "path": "/mnt/data/all40171clawsnohybrid.txt",
+      "requested": 40171,
+      "parsed": 40171,
+      "stable": 40171,
+      "roundtrip": 40171,
+      "height_histogram": {
+        "5": 39667,
+        "4": 497,
+        "3": 7
+      },
+      "errors": [],
+      "elapsed_seconds": 1.993261185999927
+    },
+    {
+      "path": "/mnt/data/all40171clawsnohybrid_정렬됨_claw_complex_hybrid.txt",
+      "requested": 367,
+      "parsed": 367,
+      "stable": 367,
+      "roundtrip": 367,
+      "height_histogram": {
+        "5": 367
+      },
+      "errors": [],
+      "elapsed_seconds": 0.018437433000144665
+    }
+  ]
+}

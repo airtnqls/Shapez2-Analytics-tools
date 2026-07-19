@@ -1,0 +1,68 @@
+{
+  "corner_dfa_states": 19,
+  "interpretation": "Independent craftable Corner columns strictly overapproximate the buildable Half family.",
+  "rows": [
+    {
+      "layers": 1,
+      "craftable_columns": 4,
+      "ordered_corner_pairs": 16,
+      "unordered_corner_pairs": 10
+    },
+    {
+      "layers": 2,
+      "craftable_columns": 14,
+      "ordered_corner_pairs": 196,
+      "unordered_corner_pairs": 105
+    },
+    {
+      "layers": 3,
+      "craftable_columns": 47,
+      "ordered_corner_pairs": 2209,
+      "unordered_corner_pairs": 1128,
+      "cpcp_half_total": 1796,
+      "cpcp_half_canonical": 917,
+      "total_fraction_of_ordered_pairs": 0.813037573562698,
+      "canonical_fraction_of_unordered_pairs": 0.8129432624113475
+    },
+    {
+      "layers": 4,
+      "craftable_columns": 152,
+      "ordered_corner_pairs": 23104,
+      "unordered_corner_pairs": 11628,
+      "cpcp_half_total": 16193,
+      "cpcp_half_canonical": 8148,
+      "total_fraction_of_ordered_pairs": 0.7008743074792244,
+      "canonical_fraction_of_unordered_pairs": 0.7007223942208463
+    },
+    {
+      "layers": 5,
+      "craftable_columns": 476,
+      "ordered_corner_pairs": 226576,
+      "unordered_corner_pairs": 113526,
+      "cpcp_half_total": 135074,
+      "cpcp_half_canonical": 67669,
+      "total_fraction_of_ordered_pairs": 0.5961531671492126,
+      "canonical_fraction_of_unordered_pairs": 0.5960660993957332
+    },
+    {
+      "layers": 6,
+      "craftable_columns": 1450,
+      "ordered_corner_pairs": 2102500,
+      "unordered_corner_pairs": 1051975,
+      "cpcp_half_total": 1058849,
+      "cpcp_half_canonical": 529749,
+      "total_fraction_of_ordered_pairs": 0.5036142687277051,
+      "canonical_fraction_of_unordered_pairs": 0.5035756553150027
+    },
+    {
+      "layers": 7,
+      "craftable_columns": 4320,
+      "ordered_corner_pairs": 18662400,
+      "unordered_corner_pairs": 9333360,
+      "cpcp_half_total": 7905398,
+      "cpcp_half_canonical": 3953472,
+      "total_fraction_of_ordered_pairs": 0.4236002872085048,
+      "canonical_fraction_of_unordered_pairs": 0.42358507547121294
+    }
+  ]
+}

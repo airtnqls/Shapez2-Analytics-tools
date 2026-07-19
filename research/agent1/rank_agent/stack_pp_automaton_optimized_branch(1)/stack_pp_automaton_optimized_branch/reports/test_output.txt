@@ -1,0 +1,31 @@
+test_optimized_frontier_adapter (test_adapter.AdapterTests.test_optimized_frontier_adapter) ... ok
+test_signature_compatibility_fallback (test_adapter.AdapterTests.test_signature_compatibility_fallback) ... ok
+test_difference_and_dead_right_state (test_automata.AutomataAlgebraTests.test_difference_and_dead_right_state) ... ok
+test_intersection (test_automata.AutomataAlgebraTests.test_intersection) ... ok
+test_union (test_automata.AutomataAlgebraTests.test_union) ... ok
+test_json_oracle (test_finite_oracle.FiniteOracleTests.test_json_oracle) ... ok
+test_public_import_surface (test_imports.ImportTests.test_public_import_surface) ... ok
+test_batches_cleanup_and_true_pp (test_pp_rank.PPRankTests.test_batches_cleanup_and_true_pp) ... ok
+test_discovery_is_deterministic_under_enumeration_order (test_pp_rank.PPRankTests.test_discovery_is_deterministic_under_enumeration_order) ... ok
+test_empty_pinpush_output_is_never_pp (test_pp_rank.PPRankTests.test_empty_pinpush_output_is_never_pp) ... ok
+test_max_batches_is_explicit_nonproof_stop (test_pp_rank.PPRankTests.test_max_batches_is_explicit_nonproof_stop) ... ok
+test_rank_violation_is_rejected (test_pp_rank.PPRankTests.test_rank_violation_is_rejected) ... ok
+test_smallest_parent_wins_within_batch (test_pp_rank.PPRankTests.test_smallest_parent_wins_within_batch) ... ok
+test_transitive_stack_witness_bypasses_removed_peer (test_pp_rank.PPRankTests.test_transitive_stack_witness_bypasses_removed_peer) ... ok
+test_backend_materializes_only_product_paths (test_product_backend.ProductBackendTests.test_backend_materializes_only_product_paths) ... ok
+test_closure_automaton_can_be_used_as_next_bottom_family (test_stack_closure_automaton.StackClosureAutomatonTests.test_closure_automaton_can_be_used_as_next_bottom_family) ... ok
+test_exhaustive_one_layer_matches_target_dag (test_stack_closure_automaton.StackClosureAutomatonTests.test_exhaustive_one_layer_matches_target_dag) ... ok
+test_random_multilayer_matches_target_dag (test_stack_closure_automaton.StackClosureAutomatonTests.test_random_multilayer_matches_target_dag) ... ok
+test_exhaustive_one_layer_all_family (test_stack_product.StackProductTests.test_exhaustive_one_layer_all_family) ... ok
+test_family_product_prunes_A_pins (test_stack_product.StackProductTests.test_family_product_prunes_A_pins) ... ok
+test_random_two_and_three_layer_against_brute (test_stack_product.StackProductTests.test_random_two_and_three_layer_against_brute) ... ok
+test_family_intersection_and_deduplication (test_stack_relation.StackRelationTests.test_family_intersection_and_deduplication) ... ok
+test_replay_failure_is_fatal (test_stack_relation.StackRelationTests.test_replay_failure_is_fatal) ... ok
+test_top_piece_family_is_checked_piecewise (test_stack_relation.StackRelationTests.test_top_piece_family_is_checked_piecewise) ... ok
+test_union_family_preserves_member_witness (test_stack_relation.StackRelationTests.test_union_family_preserves_member_witness) ... ok
+test_zero_limit_does_not_touch_backend (test_stack_relation.StackRelationTests.test_zero_limit_does_not_touch_backend) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 1.569s
+
+OK

@@ -1,0 +1,52 @@
+{
+  "unit_tests": {
+    "count": 36,
+    "failures": 0,
+    "output": "reports/test_output_optimized.txt"
+  },
+  "legacy_vs_optimized_L2": {
+    "targets": 65536,
+    "mismatches": 0,
+    "scope": "all 256 x 256 structural row pairs, universal base family"
+  },
+  "support_quotient": {
+    "two_row_streams": 65536,
+    "mismatches": 0,
+    "random_streams": 6000,
+    "maximum_random_layers": 24,
+    "language_inclusion_step_checks": 415232,
+    "mismatches_or_inclusion_failures": 0
+  },
+  "random_multilayer_stack_closure": {
+    "targets": 12960,
+    "layers": "1..12",
+    "families": 3,
+    "top_policies": 2,
+    "legacy_optimized_target_dag_mismatches": 0
+  },
+  "witness_paths": {
+    "random_targets": 1750,
+    "layers": "1..7",
+    "missing_or_non_dag_witness": 0
+  },
+  "complete_minimized_dfa": {
+    "random_targets": 5800,
+    "layers": "1..29",
+    "source_minimized_membership_mismatches": 0,
+    "source_minimized_witness_existence_mismatches": 0
+  },
+  "product_subsumption": {
+    "reachable_complete_source_states": 2536,
+    "unique_simulation_triples": 1145,
+    "transition_obligations": 232289,
+    "failures": 0,
+    "report": "reports/product_subsumption_exhaustive.json"
+  },
+  "provided_hybrid_corpus": {
+    "targets": 367,
+    "canonical_paths": 2139,
+    "legacy_optimized_target_dag_witness_mismatches": 0,
+    "report": "reports/optimized_367_differential.json"
+  },
+  "claim_boundary": "These tests validate implementations and bounded/explored instances. The all-layer preservation claims rely on the separate support-quotient, simulation-antichain, and DFA-minimization proofs."
+}

@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "cap": 1,
+  "ordered_pairs": 65536,
+  "checks": [
+    "stack",
+    "vertical_swap",
+    "horizontal_swap",
+    "compact_stack_equivalence"
+  ],
+  "elapsed_seconds": 24.5161458890002
+}

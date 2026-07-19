@@ -1,0 +1,64 @@
+{
+  "release": "Shapez2-TMAM-Web-Studio-2.1.0-Focused-UI-Main4-PP",
+  "status": "PASS",
+  "checks": {
+    "npmCi": "PASS",
+    "npmLsDepth0": "PASS",
+    "typescript": "PASS",
+    "vitest": {
+      "status": "PASS",
+      "files": 11,
+      "tests": 39
+    },
+    "differentialFixture": {
+      "status": "PASS",
+      "cap": 3,
+      "targets": 1000
+    },
+    "highLayerReceiptCompression": {
+      "status": "PASS",
+      "caps": [
+        10,
+        20,
+        50,
+        100
+      ]
+    },
+    "legacySampleRegression": {
+      "status": "PASS",
+      "total": 132,
+      "statusCounts": {
+        "possible": 121,
+        "impossible": 11
+      }
+    },
+    "nextProductionBuild": "PASS",
+    "workerSmoke": {
+      "status": "PASS",
+      "formerOpenBoundary": {
+        "verdict": "IMPOSSIBLE",
+        "route": "pp-closure-exhausted",
+        "certificate": "passed"
+      },
+      "l6ReceiptChain": {
+        "verdict": "POSSIBLE",
+        "type": "PIN_PUSH",
+        "route": "pp-receipt-chain",
+        "edgeReplay": "passed",
+        "focusedPrimitiveMaterialization": "partial outside cap-5 Half forest"
+      }
+    },
+    "staticExportSmoke": "PASS",
+    "removedMarkerScan": "PASS outside archived research inputs"
+  },
+  "sampleStatusCounts": {
+    "possible": 121,
+    "impossible": 11
+  },
+  "ppRoutes": [
+    "rank0-pinpush-frontier",
+    "pp-receipt-chain",
+    "pp-closure-exhausted"
+  ],
+  "fullReport": "reports/MAIN4_PP_PORT_VALIDATION.json"
+}

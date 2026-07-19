@@ -1,0 +1,15 @@
+{
+  "samples": 367,
+  "zero_raw_stack_paths": 0,
+  "zero_examples": [],
+  "path_count": {
+    "min": 1,
+    "max": 18,
+    "mean": 5.8283378746594,
+    "median": 5,
+    "total": 2139
+  },
+  "reachable_nodes_max": 82,
+  "viable_edges_max": 27,
+  "seconds": 0.2231637459999547
+}

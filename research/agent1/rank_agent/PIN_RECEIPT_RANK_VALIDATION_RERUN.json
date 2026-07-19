@@ -1,0 +1,82 @@
+{
+  "measure": "sigma(X)=sum over columns of bottom-consecutive PIN run lengths",
+  "claim": "for every stable, nonempty, non-pure-full-pin-column X, sigma(pin_push(X)) >= sigma(X)+1; stack and D4 do not decrease sigma",
+  "pin": [
+    {
+      "cap": 1,
+      "checked": 256,
+      "stable": 255,
+      "nondegenerate": 240,
+      "minimum_nondegenerate_gap": 1,
+      "minimum_all_stable_gap": 0,
+      "failures": [],
+      "seconds": 0.004510249999839289
+    },
+    {
+      "cap": 2,
+      "checked": 65536,
+      "stable": 44112,
+      "nondegenerate": 44097,
+      "minimum_nondegenerate_gap": 1,
+      "minimum_all_stable_gap": 0,
+      "failures": [],
+      "seconds": 1.1821917959996426
+    },
+    {
+      "cap": 3,
+      "checked": 200000,
+      "stable": 90415,
+      "nondegenerate": 90415,
+      "minimum_nondegenerate_gap": 1,
+      "minimum_all_stable_gap": 1,
+      "failures": [],
+      "seconds": 4.447732611999982
+    }
+  ],
+  "stack": [
+    {
+      "cap": 1,
+      "checked": 65536,
+      "stable_pairs": 65536,
+      "worst_gap": 0,
+      "failures": [],
+      "seconds": 1.3089985310002703
+    },
+    {
+      "cap": 2,
+      "checked": 100000,
+      "stable_pairs": 45247,
+      "worst_gap": 0,
+      "failures": [],
+      "seconds": 2.2152311620002365
+    },
+    {
+      "cap": 3,
+      "checked": 50000,
+      "stable_pairs": 10166,
+      "worst_gap": 0,
+      "failures": [],
+      "seconds": 0.9744791749999422
+    }
+  ],
+  "symmetry": [
+    {
+      "cap": 1,
+      "checked": 256,
+      "failures": [],
+      "seconds": 0.0028406009996615467
+    },
+    {
+      "cap": 2,
+      "checked": 65536,
+      "failures": [],
+      "seconds": 0.830026708999867
+    },
+    {
+      "cap": 3,
+      "checked": 100000,
+      "failures": [],
+      "seconds": 1.3733448530001624
+    }
+  ]
+}

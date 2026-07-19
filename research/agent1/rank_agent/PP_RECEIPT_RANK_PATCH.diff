@@ -1,0 +1,51 @@
+--- a/src/build_plan.cpp
++++ b/src/build_plan.cpp
+@@
++template <ShapeTrait Trait>
++int receipt_rank(CompactShape<Trait> shape) {
++  int out = 0;
++  for (int c = 0; c < Trait::kColumns; ++c) {
++    for (int l = 0; l < Trait::kMaxLayers; ++l) {
++      if (shape.part_at(l, c) != CompactShapeType::PIN) break;
++      ++out;
++    }
++  }
++  return out;
++}
++
+ template <ShapeTrait Trait>
+ std::optional<Node<Trait>> decompose(CompactShape<Trait> target,
+                                      HalfSetView<Trait> halves,
+                                      const HalfParentView& hp,
+                                      const PPParentView& pp,
+-                                     int depth = PPParent::kMaxBatch + 1) {
++                                     int rank_limit =
++                                         Trait::kColumns * Trait::kMaxLayers + 1) {
+@@
+-  // 2. Stackable from swappable or in-depth PP base.
++  // 2. Stackable from swappable or a PP base whose receipt rank is below
++  // the current PP target's rank.  This is the formal termination gate.
+   {
+     auto pred = [&](CS b) -> bool {
+       if (is_any_orientation_swappable<Trait>(b, halves)) return true;
+       const auto parent = pp.get(b.canonical().bits);
+       if (!parent) return false;
+-      return int(parent->batch()) < depth;
++      return receipt_rank<Trait>(b) < rank_limit;
+     };
+@@
+-      auto ba = decompose<Trait>(base, halves, hp, pp, depth);
++      auto ba = decompose<Trait>(base, halves, hp, pp, rank_limit);
+@@
+-    if (parent) {
++    if (parent && receipt_rank<Trait>(target) < rank_limit) {
+       const CS pre(parent->pre_push_bits());
+-      const int batch = int(parent->batch());
+       const CS pushed = pin_push(pre);
+-      auto pa = decompose<Trait>(pre, halves, hp, pp, batch);
++      // Every recursively encountered PP target must now have receipt rank
++      // strictly below this target.  No batch number or arbitrary max depth
++      // participates in termination.
++      auto pa = decompose<Trait>(pre, halves, hp, pp,
++                                 receipt_rank<Trait>(target));
+       CHECK(pa.has_value());

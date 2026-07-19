@@ -1,0 +1,235 @@
+{
+  "schema_version": 2,
+  "generated_at_utc": "2026-07-17T15:17:08.164953+00:00",
+  "python": "3.13.5 (main, May  5 2026, 21:05:52) [GCC 14.2.0]",
+  "platform": "Linux-4.4.0-x86_64-with-glibc2.41",
+  "integration_api_version": "0.2.0",
+  "tests_discovered": 44,
+  "tests_status": "PASS",
+  "compileall_status": "PASS",
+  "legacy_shape_type_contract": {
+    "status": "PASS",
+    "missing": [],
+    "extra": [],
+    "source": "shape_classifier(2).py"
+  },
+  "coverage": {
+    "total_line": "TOTAL                                                   2437    269    402     80    86%",
+    "planner_line": "tmam/planner.py                                          641    113    158     26    80%   59, 96, 233, 253, 259, 284->exit, 353, 367-374, 393-408, 427-436, 469-470, 496, 502-504, 508-509, 533-534, 601->604, 643-644, 650-665, 668-674, 706, 798-806, 832-835, 906-907, 911-912, 928-930, 932-933, 934->918, 939-946, 950-957, 987-989, 995-997, 1019-1026, 1046-1050, 1107-1108"
+  },
+  "planner_modes": [
+    "solve_exists",
+    "solve_min_cost",
+    "analyze_all_ops"
+  ],
+  "status_vocabulary": [
+    "POSSIBLE",
+    "IMPOSSIBLE",
+    "UNKNOWN"
+  ],
+  "semantic_equivalence_checks": 45,
+  "semantic_equivalence_failures": 0,
+  "duplicate_provider_inverse_calls": {
+    "before_total": 1887,
+    "after_total": 0
+  },
+  "selected_benchmarks": [
+    {
+      "scenario": "possible_goal",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 3.923005715864284,
+      "inverse_call_reduction": 400,
+      "duplicate_inverse_before": 400,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 0.5219367998893653
+    },
+    {
+      "scenario": "impossible_goal",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 5.6262279406866575,
+      "inverse_call_reduction": 400,
+      "duplicate_inverse_before": 400,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 3.111198738170347
+    },
+    {
+      "scenario": "shared_subgoal_goal",
+      "mode": "exists",
+      "repeats": 1,
+      "speedup": 21.288575395099436,
+      "inverse_call_reduction": 5,
+      "duplicate_inverse_before": 0,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 0.10454310789881259
+    },
+    {
+      "scenario": "shared_subgoal_goal",
+      "mode": "min_cost",
+      "repeats": 1,
+      "speedup": 1.5592751645634522,
+      "inverse_call_reduction": 0,
+      "duplicate_inverse_before": 0,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 4.668435640886966
+    },
+    {
+      "scenario": "shared_subgoal_goal",
+      "mode": "all_ops",
+      "repeats": 1,
+      "speedup": 4.653550779604012,
+      "inverse_call_reduction": 4,
+      "duplicate_inverse_before": 4,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 13.915204678362572
+    },
+    {
+      "scenario": "shared_subgoal_goal",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 173.9664627398863,
+      "inverse_call_reduction": 400,
+      "duplicate_inverse_before": 400,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 11.309491525423729
+    },
+    {
+      "scenario": "multiple_last_operations_goal",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 8.754192684537136,
+      "inverse_call_reduction": 400,
+      "duplicate_inverse_before": 400,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 3.3763068880688807
+    },
+    {
+      "scenario": "representative_real_corner_provider",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 35.871475009177324,
+      "inverse_call_reduction": 100,
+      "duplicate_inverse_before": 100,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 1.7148247322297956
+    }
+  ],
+  "representative_real_provider": "six proved Corner forbidden rules adapter",
+  "concurrency": {
+    "simultaneous_solve_exists_requests": 48,
+    "actual_provider_inverse_calls": 1,
+    "duplicate_actual_inverse_calls": 0
+  },
+  "planner_example_metrics": {
+    "metrics": {
+      "provider_inverse_calls": {
+        "input.basic": 4,
+        "stack.rank": 4,
+        "pinpush.rank": 4,
+        "empty.rotate": 4,
+        "empty.paint": 4,
+        "empty.cut": 4,
+        "empty.swap": 4,
+        "empty.generator": 4
+      },
+      "provider_cache_requests": 47,
+      "provider_cache_hits": 15,
+      "provider_cache_misses": 32,
+      "duplicate_provider_requests": 15,
+      "duplicate_provider_inverse_calls": 0,
+      "subgoal_solve_calls": {
+        "exists:goal:PAB@(3,)#default": 1,
+        "exists:goal:AB@(2,)#default": 1,
+        "exists:goal:A@(1,)#default": 1,
+        "exists:goal:B@(1,)#default": 1,
+        "min_cost:goal:PAB@(3,)#default": 2,
+        "min_cost:goal:AB@(2,)#default": 1,
+        "min_cost:goal:A@(1,)#default": 1,
+        "min_cost:goal:B@(1,)#default": 1
+      },
+      "goal_cache_hits": {
+        "min_cost": 1,
+        "operation:input": 1,
+        "operation:rotate": 1,
+        "operation:paint": 1,
+        "operation:cut": 1,
+        "operation:swap": 1,
+        "operation:stack": 1,
+        "operation:pin_push": 1,
+        "operation:generator": 1
+      },
+      "goal_cache_misses": {
+        "exists": 4,
+        "min_cost": 4,
+        "operation:input": 4,
+        "operation:rotate": 4,
+        "operation:paint": 4,
+        "operation:cut": 4,
+        "operation:swap": 4,
+        "operation:stack": 4,
+        "operation:pin_push": 4,
+        "operation:generator": 4,
+        "all_ops": 1
+      },
+      "candidate_generated": {
+        "pinpush.rank": 1,
+        "stack.rank": 1,
+        "input.basic": 2
+      },
+      "candidate_cache_hits": {
+        "pinpush.rank": 1,
+        "stack.rank": 1,
+        "input.basic": 2
+      },
+      "replay_validations": 4,
+      "replay_failures": 0,
+      "cycle_blocks": 0,
+      "rank_contract_failures": 0,
+      "proof_comparisons": 0,
+      "branch_prunes": 0,
+      "negative_cache_hits": 0,
+      "provider_incomplete_events": 0,
+      "registry_invalidations": 0,
+      "max_recursion_depth": 2,
+      "trace_event_count": 42
+    },
+    "cache": {
+      "provider": {
+        "size": 32,
+        "hits": 15,
+        "misses": 32,
+        "invalidations": 0
+      },
+      "exists_goals": 4,
+      "min_cost_goals": 4,
+      "operation_evidence": 32,
+      "goal_analyses": 1,
+      "candidate_exists": 4,
+      "candidate_min_cost": 4,
+      "replay_checks": 4,
+      "registry_generation": 8,
+      "cache_epoch": 0
+    }
+  },
+  "implemented_scope": [
+    "mode-separated shared evaluation graph",
+    "incremental mode-independent provider spool",
+    "positive and negative subgoal memoization",
+    "forward replay gate",
+    "branch-and-bound and deterministic tie-break",
+    "POSSIBLE/IMPOSSIBLE/UNKNOWN coverage semantics",
+    "GoalAnalysis-derived ShapeType facts",
+    "GUI and precomputed ProcessTree adapters",
+    "generic family automata utilities"
+  ],
+  "blocked_on_upstream": [
+    "CompactShape backend and independent forward model",
+    "exact Corner/Half/Cut/Swap providers",
+    "Generator normal form provider",
+    "family-constrained Stack provider",
+    "PP-essential rank provider",
+    "complete provider manifest before global IMPOSSIBLE gate"
+  ],
+  "caveat": "This validates planner orchestration and duplicate-elimination, not full all-layer TMAM completeness."
+}

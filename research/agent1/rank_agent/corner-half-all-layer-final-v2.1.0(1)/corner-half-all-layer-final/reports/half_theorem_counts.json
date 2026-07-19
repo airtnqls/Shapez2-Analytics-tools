@@ -1,0 +1,12 @@
+{
+  "theorem": "A quad east half H=(u,v) is buildable iff u and v are craftable Corner-language columns and H is stable.",
+  "rows": [
+    {"layers":1,"craftable_columns":4,"ordered_pairs":16,"stable_pairs":16,"cpcp_half_total":16,"match":true,"oracle":"exact bitset"},
+    {"layers":2,"craftable_columns":14,"ordered_pairs":196,"stable_pairs":181,"cpcp_half_total":181,"match":true,"oracle":"exact bitset"},
+    {"layers":3,"craftable_columns":47,"ordered_pairs":2209,"stable_pairs":1796,"cpcp_half_total":1796,"match":true,"oracle":"exact bitset"},
+    {"layers":4,"craftable_columns":152,"ordered_pairs":23104,"stable_pairs":16193,"cpcp_half_total":16193,"match":true,"oracle":"exact bitset"},
+    {"layers":5,"craftable_columns":476,"ordered_pairs":226576,"stable_pairs":135074,"cpcp_half_total":135074,"match":true,"oracle":"exact bitset"},
+    {"layers":6,"craftable_columns":1450,"ordered_pairs":2102500,"stable_pairs":1058849,"cpcp_half_total":1058849,"match":true,"oracle":"exact bitset"},
+    {"layers":7,"craftable_columns":4320,"ordered_pairs":18662400,"stable_pairs":7905398,"cpcp_half_total":7905398,"match":true,"oracle":"published cpcp total"}
+  ]
+}

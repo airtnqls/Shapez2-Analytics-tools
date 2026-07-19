@@ -1,0 +1,11 @@
+{
+  "samples": 367,
+  "legacy_optimized_direct_witness_mismatches": 0,
+  "sample_failures": [],
+  "path_count_total": 2139,
+  "path_count_min": 1,
+  "path_count_max": 18,
+  "membership_median_us": 46.1,
+  "witness_median_us": 67.743,
+  "seconds": 0.2772631550001279
+}

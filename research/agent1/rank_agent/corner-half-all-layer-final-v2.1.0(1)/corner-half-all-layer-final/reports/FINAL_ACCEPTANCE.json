@@ -1,0 +1,201 @@
+{
+  "status": "PASS",
+  "release": "corner-half-v2.1.0",
+  "date": "2026-07-17",
+  "scope": [
+    "all-layer Corner concrete constructor",
+    "all-layer Half constructor",
+    "Half family soundness/completeness",
+    "canonical general Cut inverse and exact Swapper inverse existence",
+    "Half symbolic closure and minimal-state representation"
+  ],
+  "all_layer_basis": {
+    "corner": "six-forbidden-pattern theorem plus C1-C7 concrete lowering",
+    "half": "BuildableHalf(u,v) iff Corner(u) and Corner(v) and Stable(u,v)",
+    "cut": "every buildable Half has canonical parent (u,v,T,T)",
+    "swap": "Swappable iff one of two cutter axes has two buildable geometric halves",
+    "not_derived_from_testing": true
+  },
+  "automata": {
+    "corner_states": 19,
+    "stability_states": 6,
+    "half_raw_product_bound": 2166,
+    "half_reachable_product_states": 552,
+    "half_minimal_states": 210,
+    "half_states_reachable": 210,
+    "half_state_pairs_distinguished": 21945,
+    "half_state_pairs_total": 21945,
+    "max_distinguishing_suffix_layers": 9
+  },
+  "corner_validation": {
+    "regex_dfa_semantic_strings": 349525,
+    "constructor_accepted_length_0_to_10": 104191,
+    "full_replay_corner_cap7": 4320,
+    "generated_event_columns": 10000,
+    "generated_event_max_layers": 200,
+    "generated_event_max_duties": 11,
+    "high_constructor_cases": 2000,
+    "failures": 0
+  },
+  "half_validation": {
+    "exact_bitset_caps_1_to_6": [
+      {
+        "cap": 1,
+        "columns": 4,
+        "oracle": 16,
+        "predicted": 16,
+        "false_positive": 0,
+        "false_negative": 0
+      },
+      {
+        "cap": 2,
+        "columns": 14,
+        "oracle": 181,
+        "predicted": 181,
+        "false_positive": 0,
+        "false_negative": 0
+      },
+      {
+        "cap": 3,
+        "columns": 47,
+        "oracle": 1796,
+        "predicted": 1796,
+        "false_positive": 0,
+        "false_negative": 0
+      },
+      {
+        "cap": 4,
+        "columns": 152,
+        "oracle": 16193,
+        "predicted": 16193,
+        "false_positive": 0,
+        "false_negative": 0
+      },
+      {
+        "cap": 5,
+        "columns": 476,
+        "oracle": 135074,
+        "predicted": 135074,
+        "false_positive": 0,
+        "false_negative": 0
+      },
+      {
+        "cap": 6,
+        "columns": 1450,
+        "oracle": 1058849,
+        "predicted": 1058849,
+        "false_positive": 0,
+        "false_negative": 0
+      }
+    ],
+    "cap7_count": 7905398,
+    "normalized_words_height_0_to_5": 1048576,
+    "constructor_cap4_all": 16193,
+    "constructor_random_high": 10000,
+    "full_raw_replay_cap1_to_3": 1993,
+    "full_raw_replay_high_samples": 300,
+    "failures": 0
+  },
+  "inverse_validation": {
+    "cut_cap3_all": 1796,
+    "cut_unique_proof_nodes": 18414,
+    "full_targets_cap2": 65536,
+    "swappable_targets_cap2": 35017,
+    "accepted_axis_candidates_cap2": 65522,
+    "existence_mismatches": 0,
+    "raw_swap_target_sample": 2000,
+    "raw_swap_roots": 3724,
+    "raw_swap_unique_nodes": 12535,
+    "high_cut_attempted_caps_4_to_80": 500,
+    "high_cut_accepted": 350,
+    "high_cut_unique_nodes": 22096,
+    "failures": 0
+  },
+  "mutual_induction_audit": {
+    "natural_roots": 3212,
+    "half_dependent_roots": 1139,
+    "dependency_edges": 2438,
+    "unique_child_columns": 20,
+    "max_children_per_root": 4,
+    "cycles": 0,
+    "maximum_dependency_depth": 1,
+    "all_children_solid": true,
+    "strict_gap_decrease": true,
+    "unclassified_operands": 0,
+    "edge_certificate_sha256": "dfbde4ca3e9ea8a49968bb993e84f368a1a602b4d71e96c20d0db8ea5ce6a27a",
+    "child_columns": [
+      "SSS",
+      "SSSS",
+      "SSSSS",
+      "SSSSSS",
+      "SSSSSSS",
+      "SSSScSS",
+      "SSScSS",
+      "SSScSSS",
+      "SScSS",
+      "SScSSS",
+      "SScSSSS",
+      "ScSS",
+      "ScSSS",
+      "ScSSSS",
+      "ScSSSSS",
+      "cSS",
+      "cSSS",
+      "cSSSS",
+      "cSSSSS",
+      "cSSSSSS"
+    ],
+    "out_degree_histogram": {
+      "2": 983,
+      "3": 152,
+      "4": 4
+    }
+  },
+  "proof_forests": {
+    "corner_cap7": {
+      "roots": 4320,
+      "unique_nodes": 196908,
+      "operation_nodes": 196907,
+      "raw_leaves": 1,
+      "edges": 299688,
+      "max_depth": 120,
+      "replay_ok": true
+    },
+    "half_cap4": {
+      "roots": 16193,
+      "unique_nodes": 115551,
+      "operation_nodes": 115550,
+      "raw_leaves": 1,
+      "edges": 132858,
+      "max_depth": 65,
+      "replay_ok": true
+    },
+    "corner_event_189_layers": {
+      "layers": 189,
+      "unique_nodes": 4991,
+      "operation_nodes": 4990,
+      "raw_leaves": 1,
+      "max_depth": 998,
+      "replay_ok": true
+    }
+  },
+  "physics_validation": {
+    "structural_rows": 256,
+    "structural_pairs": 65536,
+    "research_kernel_states": 65792,
+    "stability_exhaustive_cap2": 65536,
+    "stability_random": 100000,
+    "mismatches": 0
+  },
+  "determinism": {
+    "corner_cases": 1000,
+    "half_cases": 1000,
+    "sha256": "f3fa1b522f90018ed8310bc85db62c18a28aa2afa389811f84d786c2dd2a37e6"
+  },
+  "acceptance_script": "run_acceptance.sh",
+  "acceptance_log": "reports/FINAL_FULL_ACCEPTANCE.log",
+  "unknown_result": false,
+  "timeout_as_rejection": false,
+  "proof_assistant_kernel": false,
+  "caveat": "Self-contained mathematical proofs and independently replayed raw-operation DAGs; not a Lean/Coq kernel proof. Re-run differential tests after replacing the reference structural kernel during core-kernel integration."
+}

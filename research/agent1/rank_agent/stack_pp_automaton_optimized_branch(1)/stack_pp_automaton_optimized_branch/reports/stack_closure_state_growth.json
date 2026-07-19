@@ -1,0 +1,23 @@
+{
+  "base_family": "all-stable-base",
+  "alphabet_rows": 256,
+  "max_depth": 2,
+  "reachable_states_per_exact_depth": [
+    1,
+    256,
+    4019
+  ],
+  "accepting_states_per_exact_depth": [
+    0,
+    232,
+    1609
+  ],
+  "max_product_subset_size_per_depth": [
+    1,
+    16,
+    17
+  ],
+  "transition_cache_entries": 65792,
+  "seconds": 4.27645877499981,
+  "interpretation": "Finite powerset closure is proved; these counts measure only reachable-state growth for the universal base family and are not a proof that rank iteration stays small."
+}

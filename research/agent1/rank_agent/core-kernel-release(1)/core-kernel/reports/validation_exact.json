@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "seed": 20260717,
+  "parameters": {
+    "medium_cases": 5000,
+    "large_differential_cases": 50,
+    "high_property_cases": 0
+  },
+  "counts": {
+    "support_exhaustive": 65792,
+    "gravity_exhaustive": 65792,
+    "unary_exhaustive": 65536,
+    "binary_medium_differential": 5000,
+    "binary_large_differential": 50,
+    "high_cap_properties": 0,
+    "stack_compact_equivalence": 5050
+  },
+  "elapsed_seconds": 29.226621888999944
+}

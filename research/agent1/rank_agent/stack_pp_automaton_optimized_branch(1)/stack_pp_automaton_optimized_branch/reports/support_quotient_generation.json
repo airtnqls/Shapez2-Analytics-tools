@@ -1,0 +1,10 @@
+{
+  "raw_reachable_support_states": 2011,
+  "minimized_support_states": 131,
+  "minimize_iterations": 2,
+  "language_inclusion_pairs": 1622,
+  "language_inclusion_iterations": 3,
+  "support_row_action_classes": 196,
+  "raw_behavior_ids_created": 685,
+  "generated_file": "stack_pp/support_quotient.py"
+}

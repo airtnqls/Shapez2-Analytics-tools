@@ -1,0 +1,32 @@
+{
+  "cap": 5,
+  "records": 39296,
+  "parent_batch_counts": {
+    "0": 38964,
+    "1": 332
+  },
+  "receipt_rank_gap_counts": {
+    "2": 2755,
+    "3": 14965,
+    "4": 21396,
+    "5": 126,
+    "6": 54
+  },
+  "minimum_receipt_rank_gap": 2,
+  "maximum_receipt_rank_gap": 6,
+  "strict_receipt_rank_failures": [],
+  "pin_push_d4_replay_failures": [],
+  "batch_summary": [
+    "batch 0 candidates=400566 essential=39296 total=39296",
+    "batch 1 candidates=2197 essential=332 total=39296",
+    "batch 2 candidates=2 essential=0 total=39296",
+    "parent_batch[0]=38964",
+    "parent_batch[1]=332",
+    "seconds=14.2439"
+  ],
+  "result": "PASS",
+  "notes": [
+    "This validates every retained Quad5 PP parent edge, not an all-layer shared-predecessor parser.",
+    "Branch-2/4 absorption observations remain accelerators/evidence unless separately proved for every layer."
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "branch": "stack-pp",
+  "revision": "0.3.0-state-control",
+  "scope": [
+    "Half-family constrained Stack closure",
+    "Stack automaton state reduction",
+    "PP rank API compatibility"
+  ],
+  "unit_tests": {
+    "count": 36,
+    "failures": 0,
+    "output": "reports/test_output_optimized.txt"
+  },
+  "exact_differential": {
+    "legacy_vs_optimized_L2_targets": 65536,
+    "mismatches": 0,
+    "provided_hybrid_targets": 367,
+    "provided_hybrid_paths": 2139,
+    "provided_hybrid_mismatches": 0
+  },
+  "support_quotient": {
+    "raw_states": 2011,
+    "minimized_states": 131,
+    "two_row_exhaustive": 65536,
+    "mismatches": 0
+  },
+  "subsumption": {
+    "simulation_triples": 1145,
+    "transition_obligations": 232289,
+    "failures": 0
+  },
+  "universal_base_complete_dfa": {
+    "live_states": 2536,
+    "minimized_states_including_dead_block": 962,
+    "global_row_classes": 200,
+    "sparse_action_groups": 45995
+  },
+  "optimized_states_L0_to_L5": [
+    1,
+    81,
+    942,
+    2082,
+    2497,
+    2527
+  ],
+  "reports": [
+    "reports/stack_automaton_benchmark.json",
+    "reports/state_explosion_analysis.json",
+    "reports/differential_validation.json",
+    "reports/support_quotient_generation.json",
+    "reports/product_subsumption_exhaustive.json",
+    "reports/family_quotient_benchmark.json",
+    "reports/optimized_367_differential.json",
+    "reports/release_verification.json"
+  ],
+  "claim_boundary": "General PP-rank symbolic fixed point remains open. No timeout or build limit is interpreted as rejection."
+}

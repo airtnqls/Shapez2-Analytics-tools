@@ -1,0 +1,91 @@
+{
+  "metrics": {
+    "provider_inverse_calls": {
+      "input.basic": 4,
+      "stack.rank": 4,
+      "pinpush.rank": 4,
+      "empty.rotate": 4,
+      "empty.paint": 4,
+      "empty.cut": 4,
+      "empty.swap": 4,
+      "empty.generator": 4
+    },
+    "provider_cache_requests": 47,
+    "provider_cache_hits": 15,
+    "provider_cache_misses": 32,
+    "duplicate_provider_requests": 15,
+    "duplicate_provider_inverse_calls": 0,
+    "subgoal_solve_calls": {
+      "exists:goal:PAB@(3,)#default": 1,
+      "exists:goal:AB@(2,)#default": 1,
+      "exists:goal:A@(1,)#default": 1,
+      "exists:goal:B@(1,)#default": 1,
+      "min_cost:goal:PAB@(3,)#default": 2,
+      "min_cost:goal:AB@(2,)#default": 1,
+      "min_cost:goal:A@(1,)#default": 1,
+      "min_cost:goal:B@(1,)#default": 1
+    },
+    "goal_cache_hits": {
+      "min_cost": 1,
+      "operation:input": 1,
+      "operation:rotate": 1,
+      "operation:paint": 1,
+      "operation:cut": 1,
+      "operation:swap": 1,
+      "operation:stack": 1,
+      "operation:pin_push": 1,
+      "operation:generator": 1
+    },
+    "goal_cache_misses": {
+      "exists": 4,
+      "min_cost": 4,
+      "operation:input": 4,
+      "operation:rotate": 4,
+      "operation:paint": 4,
+      "operation:cut": 4,
+      "operation:swap": 4,
+      "operation:stack": 4,
+      "operation:pin_push": 4,
+      "operation:generator": 4,
+      "all_ops": 1
+    },
+    "candidate_generated": {
+      "pinpush.rank": 1,
+      "stack.rank": 1,
+      "input.basic": 2
+    },
+    "candidate_cache_hits": {
+      "pinpush.rank": 1,
+      "stack.rank": 1,
+      "input.basic": 2
+    },
+    "replay_validations": 4,
+    "replay_failures": 0,
+    "cycle_blocks": 0,
+    "rank_contract_failures": 0,
+    "proof_comparisons": 0,
+    "branch_prunes": 0,
+    "negative_cache_hits": 0,
+    "provider_incomplete_events": 0,
+    "registry_invalidations": 0,
+    "max_recursion_depth": 2,
+    "trace_event_count": 42
+  },
+  "cache": {
+    "provider": {
+      "size": 32,
+      "hits": 15,
+      "misses": 32,
+      "invalidations": 0
+    },
+    "exists_goals": 4,
+    "min_cost_goals": 4,
+    "operation_evidence": 32,
+    "goal_analyses": 1,
+    "candidate_exists": 4,
+    "candidate_min_cost": 4,
+    "replay_checks": 4,
+    "registry_generation": 8,
+    "cache_epoch": 0
+  }
+}

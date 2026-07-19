@@ -1,0 +1,49 @@
+{
+  "benchmark": [
+    {
+      "height": 10,
+      "constraint_seconds": 5.101700003251608e-05,
+      "count_seconds": 0.00023813899997549015,
+      "solve_seconds": 0.0011002179999195505,
+      "count_decimal_digits": 20,
+      "witness_crystal_drop": 40,
+      "witness_pins": 1
+    },
+    {
+      "height": 100,
+      "constraint_seconds": 0.00031660699994517927,
+      "count_seconds": 2.4718000076973112e-05,
+      "solve_seconds": 0.01074493499993423,
+      "count_decimal_digits": 191,
+      "witness_crystal_drop": 400,
+      "witness_pins": 1
+    },
+    {
+      "height": 1000,
+      "constraint_seconds": 0.003289527999982056,
+      "count_seconds": 0.0003853409999692303,
+      "solve_seconds": 0.12314989000003607,
+      "count_decimal_digits": 1909,
+      "witness_crystal_drop": 4000,
+      "witness_pins": 1
+    },
+    {
+      "height": 5000,
+      "constraint_seconds": 0.01809101300000293,
+      "count_seconds": 0.003944215000046825,
+      "solve_seconds": 0.6418745099999796,
+      "count_decimal_digits": 9543,
+      "witness_crystal_drop": 20000,
+      "witness_pins": 1
+    },
+    {
+      "height": 10000,
+      "constraint_seconds": 0.030923701000006076,
+      "count_seconds": 0.009509563000051457,
+      "solve_seconds": 1.172612595999908,
+      "count_decimal_digits": 19086,
+      "witness_crystal_drop": 40000,
+      "witness_pins": 1
+    }
+  ]
+}

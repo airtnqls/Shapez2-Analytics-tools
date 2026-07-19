@@ -1,0 +1,49 @@
+{
+  "batches": [
+    [
+      "A"
+    ],
+    [
+      "C"
+    ]
+  ],
+  "entries": {
+    "A": {
+      "rank": 0,
+      "predecessor": "pre:A",
+      "seed": "SW",
+      "seed_rank": -1
+    },
+    "C": {
+      "rank": 1,
+      "predecessor": "pre:C",
+      "seed": "A",
+      "seed_rank": 0
+    }
+  },
+  "same_batch_redundant": [
+    "B",
+    "D"
+  ],
+  "global_redundant": [
+    "A"
+  ],
+  "true_pp": [
+    "C"
+  ],
+  "retained_for_parent_chain": [
+    "A"
+  ],
+  "termination_reason": "fixed_point",
+  "stats": {
+    "seeds": 3,
+    "closure_nodes": 4,
+    "pinpush_results": 4,
+    "empty_skips": 0,
+    "swappable_skips": 0,
+    "lower_rank_stackable_skips": 0,
+    "duplicate_skips": 0,
+    "same_batch_redundant": 2,
+    "retained": 2
+  }
+}

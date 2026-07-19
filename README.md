@@ -1,108 +1,39 @@
-# Shapez2Analyzer
+# Shapez2 TMAM Studio
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![PyQt6](https://img.shields.io/badge/PyQt6-GUI-green.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Languages](https://img.shields.io/badge/Languages-English%20%7C%20한국어-blue.svg)
+첨부 ZIP의 Worker 엔진과 전 레이어 Corner/Half raw proof DAG를 공유하는 두 개의 GUI입니다.
 
-## 📺 Tutorial Video
+- `run-desktop.bat`: 아카이브에서 복원한 원본 전체 기능 PyQt6 GUI
+- `run-web.bat`: 레거시 화면 언어를 재해석한 Next.js App Router GUI와 로컬 API
+- `public/solver.worker.js`: 두 GUI가 공유하는 ZIP 판정·witness 엔진
+- `backend/corner_half`: `CERTIFIED_MACRO`를 실제 RAW_INPUT/ROTATE/CUT/SWAP/STACK/GENERATE/PIN_PUSH DAG로 전개하는 constructor
 
-[![Shapez2Analyzer Tutorial](https://img.youtube.com/vi/Bs5tuStF8Wc/0.jpg)](https://www.youtube.com/watch?v=Bs5tuStF8Wc)
+## 제작 과정 모델
 
-*Click the image above to watch the tutorial video*
+판정 결과의 `proof`는 도형과 연산을 분리한 공유 DAG입니다. `processRecipe`는 이 DAG에서
+CPCP 검색의 parent backpointer와 같은 정보를 뽑아 다음을 보장합니다.
 
-## 🎬 Demo GIFs
+- 연산 입력, 전체 출력, 실제 선택 출력의 명시적 구분
+- 부모 공정 의존성을 위상 정렬한 안정적인 재생 순서
+- 공유 하위 도형과 미사용 Cut/Swap 출력 보존
+- 모든 positive constructor를 primitive까지 전개하고 독립 재실행 검증
 
-### Shape Visualise and modify
+## 실행
 
-![Shape Movement Demo](assets/move.gif)
-
-### Shape Operations
-
-![Shape Operations Demo](assets/oper.gif)
-
-### Shape Search (Support Regex)
-
-![Shape Search Demo](assets/search.gif)
-
-### Process Tree Visualization
-
-![Process Tree Demo](assets/tree.gif)
-
-And more ...
-
-## Installation
-
-### For Users (Recommended)
-
-#### Download from: [Download Here](https://github.com/airtnqls/Shapez2-Analytics-tools/releases/)
-
-Simply download the zip file, extract it, and run `Shapez2Analyzer.exe`.
-
-### For Developers
-
-```bash
-pip install -r requirements.txt
+```powershell
+npm ci --no-audit --no-fund
+npm run check
+npm run build
+run-web.bat
 ```
 
-## Run
+원본 전체 기능 PyQt 실행:
 
-```bash
-python gui.py
+```powershell
+run-desktop.bat
 ```
 
-## Build
+PyQt 실행본은 `legacy_desktop/`, 공통 backend는 `backend/`입니다. 수정 전 Python GUI 전체는
+`archive/legacy-python-gui-20260719/`에 원상태로 보관되어 있습니다. 바탕화면의
+`Shapez2 TMAM Studio`는 PyQt, `Shapez2 TMAM Web Studio`는 Web GUI를 실행합니다.
 
-```bash
-build.bat
-```
-
-## ⚠️ Warning
-
-> This program and source code may contain strong spoilers.
-
-## Features
-
-- **Shape Simulation**: Shape Code input, Operations, Analysis and Visualisation
-- **Inverse Operations**: Find original shapes from target shapes
-- **Shape Classification**: Automatic shape type detection
-- **Process Tree**: Visualize shape creation process
-- **Batch Processing**: Handle large amounts of shape data
-
-## TODO
-
-- ~~**Process Tree**: Implement process tree visualization~~
-- ~~**Claw Hybrid**: Implement claw and hybrid shape analysis~~
-- Corner tracer with Color/(CRSW)
-- ~~Writing program user documentation(Video guide)~~
-- Scaling beyond 6 floors
-- Expand quadrants like hexmode
-- Fixing bugs
-- Optimisation and refactoring
-
-## Issues
-
-- The logic is messy.
-- Claw Hybrid / Complex Hybrid / Claw Complex Hybrid are not distinguished well.
-  (Because the hybrid logic solve some of the claw hybrid logic.)
-- Classification of shapes is being called recursively.
-- Unused py files are left.
-
-## Project Structure
-
-```
-Shapez2/
-├── gui.py                 # Main GUI application
-├── shape.py               # Core shape classes and operations
-├── shape_classifier.py    # Shape classification system
-├── process_tree_solver.py # Process tree generation
-├── corner_tracer.py       # Corner tracing algorithm
-├── hybrid_tracer.py       # Hybrid shape tracing algorithm
-├── claw_tracer.py         # Claw tracing algorithm
-├── claw_hybrid_tracer.py  # Claw hybrid tracing algorithm
-├── data_operations.py     # Data processing utilities
-├── data/                  # Data files directory
-├── icons/                 # Application icons
-├── locales/               # Internationalization files
-├── docs/                  # Documentation
-```
+세부 계약은 `docs/CPCP_PROCESS_RECIPE_KO.md`를 참고하세요.

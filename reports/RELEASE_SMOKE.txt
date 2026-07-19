@@ -1,0 +1,19 @@
+Shapez2 TMAM Web Studio 2.1.0 — Focused UI + Main4 PP
+
+Release validation:
+- Clean npm ci: PASS
+- npm ls --depth=0: PASS
+- TypeScript: PASS
+- Vitest: PASS (11 files / 39 tests)
+- 1,000 deterministic cap-3 Rank0 differential targets: PASS
+- High-layer receipt compression (10/20/50/100): PASS
+- Legacy sample regression: PASS (132 total; 121 possible / 11 impossible / 0 unknown)
+- Next.js production static build: PASS
+- Worker smoke: PASS
+- Static export smoke: PASS
+- Extracted ZIP manifest verification: PASS
+- Extracted ZIP Worker/static smoke: PASS
+- node_modules and .next excluded: PASS
+- Removed PP conditional route/field marker scan outside archived research inputs: PASS
+
+The Windows GUI shell itself was not launched in this Linux container. The prebuilt out/ directory and both Node/PowerShell launcher paths are retained from the Focused-UI base.

@@ -1,0 +1,19 @@
+{
+  "repository": "cpcp1998/shapez2-solver",
+  "commit": "4a53244ce4333dd16bf5f93b14a38793cf8b4a2f",
+  "audited_files": [
+    "src/pp_parent.h",
+    "src/pin_push_searcher.h",
+    "src/pin_push_searcher.cpp",
+    "src/compact_shape_op.h",
+    "src/build_plan.cpp"
+  ],
+  "mapped_contracts": [
+    "batch 0 base-half seeds; later batches previous new PP seeds",
+    "PPParent deterministic order: earlier batch then smaller predecessor",
+    "Stackability accepts Swappable or known PP base",
+    "same-batch cleanup after discovery",
+    "old PP retained when later redundancy would break parent chains",
+    "stacked zone decomposes to layer input pieces"
+  ]
+}

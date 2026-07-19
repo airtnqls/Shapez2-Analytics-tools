@@ -1,0 +1,263 @@
+{
+  "status": "PASS",
+  "scope": [
+    "all-layer Corner membership and constructor",
+    "all-layer exact Half family membership and constructor"
+  ],
+  "corner": {
+    "minimized_dfa_states": 19,
+    "regex_dfa_semantic_exhaustive": {
+      "max_length": 9,
+      "strings_checked": 349525,
+      "mismatches": 0
+    },
+    "component_plans": {
+      "segment_natural": 15775,
+      "segment_event": 16371,
+      "zone_natural": 31781,
+      "event_zone": 65295,
+      "failures": 0
+    },
+    "constructor_exhaustive": {
+      "max_length": 10,
+      "accepted_checked": 104191,
+      "natural": 100055,
+      "event": 4136,
+      "failures": 0
+    },
+    "macro_forward_replay": {
+      "accepted_columns_length_0_to_6": 1450,
+      "macro_steps": 6492,
+      "high_event_columns": 100,
+      "high_event_macro_steps": 509,
+      "failures": 0
+    },
+    "c7": {
+      "cap6_single_duty_attempted": 3840,
+      "cap6_single_duty_accepted": 259,
+      "random_candidate_cases": 50000,
+      "random_accepted": 5987,
+      "systematic_multi_duty": 622,
+      "high_random_multi_duty": 10000,
+      "generated_event_columns": 10000,
+      "generated_max_length": 200,
+      "generated_max_duties": 11,
+      "constructor_high_event": 2000,
+      "failures": 0
+    },
+    "primitive_prefabs": {
+      "single_layer_masks": 16,
+      "pin_caps": 12,
+      "pin_orientations": 4,
+      "failures": 0
+    },
+    "merge_ir": {
+      "exhaustive_accepted": 36500,
+      "event_high": 1000,
+      "failures": 0
+    },
+    "raw_full_replay": {
+      "exhaustive_accepted_length_0_to_7": 4320,
+      "event_high": 25,
+      "failures": 0
+    }
+  },
+  "half": {
+    "theorem": "BuildableHalf(u,v) iff Corner(u) and Corner(v) and Stable(u,v)",
+    "published_count_comparison": [
+      {
+        "cap": 1,
+        "columns": 4,
+        "theorem": 16,
+        "cpcp": 16
+      },
+      {
+        "cap": 2,
+        "columns": 14,
+        "theorem": 181,
+        "cpcp": 181
+      },
+      {
+        "cap": 3,
+        "columns": 47,
+        "theorem": 1796,
+        "cpcp": 1796
+      },
+      {
+        "cap": 4,
+        "columns": 152,
+        "theorem": 16193,
+        "cpcp": 16193
+      },
+      {
+        "cap": 5,
+        "columns": 476,
+        "theorem": 135074,
+        "cpcp": 135074
+      },
+      {
+        "cap": 6,
+        "columns": 1450,
+        "theorem": 1058849,
+        "cpcp": 1058849
+      },
+      {
+        "cap": 7,
+        "columns": 4320,
+        "theorem": 7905398,
+        "cpcp": 7905398
+      }
+    ],
+    "constructor": {
+      "cap4_exhaustive": 16193,
+      "random_caps": "5..80",
+      "random_checked": 10000,
+      "failures": 0
+    },
+    "raw_full_replay": {
+      "exhaustive_caps_1_to_3": 1993,
+      "sampled_per_cap": 50,
+      "sampled_caps": [
+        4,
+        5,
+        7,
+        12,
+        20,
+        50
+      ],
+      "failures": 0
+    },
+    "exact_bitset_comparison_caps_1_to_6": {
+      "false_positive": 0,
+      "false_negative": 0,
+      "oracle_keys": [
+        16,
+        181,
+        1796,
+        16193,
+        135074,
+        1058849
+      ],
+      "rerun_report": "half_theorem_bitset_comparison_final.jsonl"
+    },
+    "cap7_rerun_report": "half_cap7_count_rerun.txt"
+  },
+  "physics": {
+    "research_kernel_states": 65792,
+    "structural_operation_rows": 256,
+    "structural_operation_pairs": 65536,
+    "mismatches": 0,
+    "stability_characterization": {
+      "exhaustive_cap2": 65536,
+      "random_heights_0_to_30": 100000,
+      "mismatches": 0,
+      "criterion": "stable iff every occupied cell is in support closure"
+    }
+  },
+  "determinism": {
+    "corner_cases": 1000,
+    "half_cases": 1000,
+    "sha256": "f3fa1b522f90018ed8310bc85db62c18a28aa2afa389811f84d786c2dd2a37e6"
+  },
+  "scaling_observation_seconds": {
+    "corner_1000000_layers": 0.08430184200005897,
+    "half_100000_layers": 1.001220443999955
+  },
+  "caveat": "Self-contained mathematical proofs plus raw-input operation DAGs and exhaustive/differential validation; not Lean/Coq kernel proofs. Core-kernel merge must rerun the differential suite.",
+  "proof_dag": {
+    "sole_leaf": "RAW_INPUT=SSSS",
+    "allowed_internal_operations": [
+      "ROTATE",
+      "CUT",
+      "SWAP",
+      "STACK",
+      "GENERATE",
+      "PIN_PUSH"
+    ],
+    "corner_cap7_all": {
+      "roots": 4320,
+      "unique_nodes": 196908,
+      "operation_nodes": 196907,
+      "edges": 299688,
+      "max_depth": 120,
+      "replay_failures": 0,
+      "raw_leaves": 1
+    },
+    "half_cap4_all": {
+      "roots": 16193,
+      "unique_nodes": 115551,
+      "operation_nodes": 115550,
+      "edges": 132858,
+      "max_depth": 65,
+      "replay_failures": 0,
+      "raw_leaves": 1
+    },
+    "corner_high_189": {
+      "layers": 189,
+      "unique_nodes": 4991,
+      "operation_nodes": 4990,
+      "max_depth": 998,
+      "replay_failures": 0,
+      "observed_build_seconds": 19.9836591509993,
+      "observed_verify_seconds": 6.273096479000742,
+      "raw_leaves": 1
+    }
+  },
+  "final_acceptance_report": "FINAL_ACCEPTANCE.json",
+  "final_acceptance_status": "PASS",
+  "mutual_induction": {
+    "natural_roots": 3212,
+    "half_dependent_roots": 1139,
+    "dependency_edges": 2438,
+    "unique_child_columns": 20,
+    "max_children_per_root": 4,
+    "cycles": 0,
+    "maximum_dependency_depth": 1,
+    "all_children_solid": true,
+    "strict_gap_decrease": true,
+    "unclassified_operands": 0,
+    "edge_certificate_sha256": "dfbde4ca3e9ea8a49968bb993e84f368a1a602b4d71e96c20d0db8ea5ce6a27a",
+    "child_columns": [
+      "SSS",
+      "SSSS",
+      "SSSSS",
+      "SSSSSS",
+      "SSSSSSS",
+      "SSSScSS",
+      "SSScSS",
+      "SSScSSS",
+      "SScSS",
+      "SScSSS",
+      "SScSSSS",
+      "ScSS",
+      "ScSSS",
+      "ScSSSS",
+      "ScSSSSS",
+      "cSS",
+      "cSSS",
+      "cSSSS",
+      "cSSSSS",
+      "cSSSSSS"
+    ],
+    "out_degree_histogram": {
+      "2": 983,
+      "3": 152,
+      "4": 4
+    }
+  },
+  "inverse_final": {
+    "cut_cap3_all": 1796,
+    "cut_unique_proof_nodes": 18414,
+    "full_targets_cap2": 65536,
+    "swappable_targets_cap2": 35017,
+    "accepted_axis_candidates_cap2": 65522,
+    "existence_mismatches": 0,
+    "raw_swap_target_sample": 2000,
+    "raw_swap_roots": 3724,
+    "raw_swap_unique_nodes": 12535,
+    "high_cut_attempted_caps_4_to_80": 500,
+    "high_cut_accepted": 350,
+    "high_cut_unique_nodes": 22096,
+    "failures": 0
+  }
+}

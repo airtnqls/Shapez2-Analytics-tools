@@ -1,0 +1,6 @@
+{"cap":1,"columns":4,"oracle":16,"predicted":16,"false_positive":0,"false_negative":0}
+{"cap":2,"columns":14,"oracle":181,"predicted":181,"false_positive":0,"false_negative":0}
+{"cap":3,"columns":47,"oracle":1796,"predicted":1796,"false_positive":0,"false_negative":0}
+{"cap":4,"columns":152,"oracle":16193,"predicted":16193,"false_positive":0,"false_negative":0}
+{"cap":5,"columns":476,"oracle":135074,"predicted":135074,"false_positive":0,"false_negative":0}
+{"cap":6,"columns":1450,"oracle":1058849,"predicted":1058849,"false_positive":0,"false_negative":0}

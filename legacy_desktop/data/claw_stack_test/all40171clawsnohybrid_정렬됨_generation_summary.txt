@@ -1,0 +1,21 @@
+input=D:\Projects\Python Project\Shapez2\data\all40171clawsnohybrid_정렬됨.txt
+input_count=40171
+dedupe=True
+top_chars=-S
+skip_probability=0.999
+pin_top_probability=0.2
+seed=123
+mask_mode=all
+top_code_count=1568
+attempted_top_count=63170
+random_skipped_top_count=62884787
+generated_count=38770
+
+[classification_counts]
+claw=12464
+claw_complex_hybrid=367
+complex_hybrid=5358
+hybrid=20
+swapable=20561
+
+[errors]

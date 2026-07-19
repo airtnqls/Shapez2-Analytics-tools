@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shapez2-stack-pp"
+version = "0.3.0"
+description = "Family-constrained Stack closure and PP-essential rank core"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["stack_pp*"]

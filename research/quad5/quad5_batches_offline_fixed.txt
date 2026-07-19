@@ -1,0 +1,6 @@
+batch 0 candidates=400566 essential=39296 total=39296
+batch 1 candidates=2197 essential=332 total=39296
+batch 2 candidates=2 essential=0 total=39296
+parent_batch[0]=38964
+parent_batch[1]=332
+seconds=14.2439

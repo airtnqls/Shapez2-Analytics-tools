@@ -1,0 +1,23 @@
+{
+  "release": "0.3.0-state-control",
+  "baseline_commit": "598330c5c6208dddb0d10bdd16dc67f43b6c8906",
+  "optimized_commit_before_final_report": "a881a47441c80b0498f46cc84c97e446e07f0ace",
+  "standard_patch": {
+    "git_apply_check": "PASS",
+    "git_apply": "PASS",
+    "unit_tests": 36,
+    "failures": 0,
+    "manifest": "PASS"
+  },
+  "commit_patch": {
+    "git_am": "PASS",
+    "unit_tests": 36,
+    "failures": 0,
+    "manifest": "PASS"
+  },
+  "zip_integrity": {
+    "full_branch": "PASS",
+    "overlay": "PASS"
+  },
+  "semantic_boundary": "Patch/application success is an engineering verification, not a proof of general PP fixed-point completeness."
+}

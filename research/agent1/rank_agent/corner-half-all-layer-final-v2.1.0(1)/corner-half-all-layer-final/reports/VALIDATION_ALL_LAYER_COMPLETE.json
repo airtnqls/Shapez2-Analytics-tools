@@ -1,0 +1,270 @@
+{
+  "status": "PASS",
+  "date": "2026-07-17",
+  "scope": [
+    "all-layer Corner concrete constructor",
+    "all-layer Half constructor",
+    "Half family soundness/completeness",
+    "general Cut/Swap Half inverse",
+    "Half symbolic closure and minimal-state representation"
+  ],
+  "theorems": {
+    "corner": "Corner(w) iff none of the six forbidden patterns occurs",
+    "half": "BuildableHalf(u,v) iff Corner(u) and Corner(v) and Stable(u,v)",
+    "swapper": "Swappable(X) iff some cutter-axis orientation has both geometric halves in HalfFamily"
+  },
+  "corner": {
+    "minimized_dfa_states": 19,
+    "regex_dfa_semantic_exhaustive": {
+      "max_length": 9,
+      "strings_checked": 349525,
+      "mismatches": 0
+    },
+    "component_plans": {
+      "segment_natural": 15775,
+      "segment_event": 16371,
+      "zone_natural": 31781,
+      "event_zone": 65295,
+      "failures": 0
+    },
+    "constructor_exhaustive": {
+      "max_length": 10,
+      "accepted_checked": 104191,
+      "natural": 100055,
+      "event": 4136,
+      "failures": 0
+    },
+    "macro_forward_replay": {
+      "accepted_columns_length_0_to_6": 1450,
+      "macro_steps": 6492,
+      "high_event_columns": 100,
+      "high_event_macro_steps": 509,
+      "failures": 0
+    },
+    "c7": {
+      "cap6_single_duty_attempted": 3840,
+      "cap6_single_duty_accepted": 259,
+      "random_candidate_cases": 50000,
+      "random_accepted": 5987,
+      "systematic_multi_duty": 622,
+      "high_random_multi_duty": 10000,
+      "generated_event_columns": 10000,
+      "generated_max_length": 200,
+      "generated_max_duties": 11,
+      "constructor_high_event": 2000,
+      "failures": 0
+    },
+    "primitive_prefabs": {
+      "single_layer_masks": 16,
+      "pin_caps": 12,
+      "pin_orientations": 4,
+      "failures": 0
+    },
+    "merge_ir": {
+      "exhaustive_accepted": 36500,
+      "event_high": 1000,
+      "failures": 0
+    },
+    "raw_full_replay": {
+      "exhaustive_accepted_length_0_to_7": 4320,
+      "event_high": 25,
+      "failures": 0
+    }
+  },
+  "half_oracle": {
+    "exact_bitset_caps_1_to_6": {
+      "false_positive": 0,
+      "false_negative": 0,
+      "oracle_keys": [
+        16,
+        181,
+        1796,
+        16193,
+        135074,
+        1058849
+      ],
+      "rerun_report": "half_theorem_bitset_comparison_final.jsonl"
+    },
+    "published_counts_caps_1_to_7": [
+      {
+        "cap": 1,
+        "columns": 4,
+        "theorem": 16,
+        "cpcp": 16
+      },
+      {
+        "cap": 2,
+        "columns": 14,
+        "theorem": 181,
+        "cpcp": 181
+      },
+      {
+        "cap": 3,
+        "columns": 47,
+        "theorem": 1796,
+        "cpcp": 1796
+      },
+      {
+        "cap": 4,
+        "columns": 152,
+        "theorem": 16193,
+        "cpcp": 16193
+      },
+      {
+        "cap": 5,
+        "columns": 476,
+        "theorem": 135074,
+        "cpcp": 135074
+      },
+      {
+        "cap": 6,
+        "columns": 1450,
+        "theorem": 1058849,
+        "cpcp": 1058849
+      },
+      {
+        "cap": 7,
+        "columns": 4320,
+        "theorem": 7905398,
+        "cpcp": 7905398
+      }
+    ]
+  },
+  "half_automaton": {
+    "stability_minimal_states": 6,
+    "raw_product_bound": 2166,
+    "raw_reachable_states": 552,
+    "minimal_states": 210,
+    "accepting_states": 201,
+    "frozen_table_matches_rebuild": true,
+    "minimality": {
+      "states": 210,
+      "reachable": 210,
+      "distinguishable_pairs": 21945,
+      "total_pairs": 21945,
+      "max_distinguishing_suffix": 9,
+      "max_representative_height": 4,
+      "minimal": true
+    },
+    "normalized_words_height_0_to_5_checked": 1048576,
+    "mismatches": 0,
+    "counts_up_to_cap_1_to_7": {
+      "1": 16,
+      "2": 181,
+      "3": 1796,
+      "4": 16193,
+      "5": 135074,
+      "6": 1058849,
+      "7": 7905398
+    },
+    "table_report": "reports/half_minimal_dfa.json",
+    "stability_minimality": {
+      "states": 6,
+      "reachable": 6,
+      "distinguishable_pairs": 15,
+      "total_pairs": 15,
+      "max_distinguishing_suffix": 1,
+      "minimal": true
+    }
+  },
+  "mutual_induction": {
+    "natural_roots": 3212,
+    "half_dependent_roots": 1139,
+    "dependency_edges": 2438,
+    "unique_child_columns": 20,
+    "max_children_per_root": 4,
+    "cycles": 0,
+    "maximum_dependency_depth": 1,
+    "all_children_solid": true,
+    "strict_gap_decrease": true,
+    "unclassified_operands": 0,
+    "edge_certificate_sha256": "dfbde4ca3e9ea8a49968bb993e84f368a1a602b4d71e96c20d0db8ea5ce6a27a",
+    "child_columns": [
+      "SSS",
+      "SSSS",
+      "SSSSS",
+      "SSSSSS",
+      "SSSSSSS",
+      "SSSScSS",
+      "SSScSS",
+      "SSScSSS",
+      "SScSS",
+      "SScSSS",
+      "SScSSSS",
+      "ScSS",
+      "ScSSS",
+      "ScSSSS",
+      "ScSSSSS",
+      "cSS",
+      "cSSS",
+      "cSSSS",
+      "cSSSSS",
+      "cSSSSSS"
+    ],
+    "out_degree_histogram": {
+      "2": 983,
+      "3": 152,
+      "4": 4
+    }
+  },
+  "inverse": {
+    "cut_inverse_cap3_all_halves": 1796,
+    "cut_inverse_failures": 0,
+    "full_targets_cap2_checked": 65536,
+    "swappable_cap2": 35017,
+    "oracle_mismatches": 0,
+    "raw_swap_proofs_sampled": 2000,
+    "raw_swap_proof_failures": 0,
+    "random_cut_caps_4_to_40_accepted": 351,
+    "random_cut_failures": 0,
+    "raw_swap_roots": 3724,
+    "random_cut_caps_4_to_80_attempted": 500,
+    "random_cut_caps_4_to_80_accepted": 350
+  },
+  "proof_forests": {
+    "corner_cap7": {
+      "roots": 4320,
+      "unique_nodes": 196908,
+      "operation_nodes": 196907,
+      "raw_leaves": 1,
+      "edges": 299688,
+      "max_depth": 120,
+      "replay_failures": 0
+    },
+    "half_cap4": {
+      "roots": 16193,
+      "unique_nodes": 115551,
+      "operation_nodes": 115550,
+      "raw_leaves": 1,
+      "edges": 132858,
+      "max_depth": 65,
+      "replay_failures": 0
+    }
+  },
+  "physics": {
+    "research_kernel_states": 65792,
+    "structural_operation_rows": 256,
+    "structural_operation_pairs": 65536,
+    "mismatches": 0,
+    "stability_characterization": {
+      "exhaustive_cap2": 65536,
+      "random_heights_0_to_30": 100000,
+      "mismatches": 0,
+      "criterion": "stable iff every occupied cell is in support closure"
+    }
+  },
+  "critical_file_sha256": {
+    "corner_half/corner_dfa.py": "52107afe42fcebe4911df3115c74beae93d7d1aa8c734d5428027a6a01ea870b",
+    "corner_half/corner_constructor.py": "e00a5b62b3cab7e2351bd7a10fa63d6bd0b87d30fd602d355d0bacbf3d135c18",
+    "corner_half/c7_gadget.py": "da0a55c71dc61be7e16c1342160ee749dea5fd5fd9365046de9c19fe818abb79",
+    "corner_half/proof_dag.py": "93ade4020eb065b45e9b1f150c54cd402189b226daa056ab10cac9e2fcd87ffc",
+    "corner_half/half_family.py": "02990451b2ad8be057b403b9d61ca8ec17544ec867ebf1907752efec511beb9f",
+    "corner_half/half_constructor.py": "d7c811c34ce5e0ef74f4645b3cabadbc7a9228b6a6f3b05dd4897f532f4d2550",
+    "corner_half/half_automaton.py": "af6bd747b84a0a11f5eeacda99717bb088e879ca137932f9d9646b7524673466",
+    "corner_half/half_dfa_table.py": "436da2d1c46f036728778f829d94daa7cc5dffb18e880748d4b8558a8eab47a2",
+    "corner_half/half_inverse.py": "8c0caf3e88154d4b439aaf98bf751b1eea70caffcaf8847c1a32692211da891d"
+  },
+  "caveat": "Self-contained hand proofs plus machine-checkable minimality/replay certificates; not a Lean/Coq kernel proof. Re-run differential tests after core-kernel integration.",
+  "final_acceptance_report": "FINAL_ACCEPTANCE.json",
+  "final_acceptance_log": "FINAL_FULL_ACCEPTANCE.log"
+}

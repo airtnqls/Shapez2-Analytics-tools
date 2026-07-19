@@ -1,0 +1,22 @@
+{
+  "release": "tmam-integration planner v2",
+  "generated_at_utc": "2026-07-17T15:21:30.536176+00:00",
+  "source_commit": "76eadb112d7b5273da78ea9121e79d4de55f54ed",
+  "base_commit": "261934bb9cf465f66fe05df3ebc1acc2a90f2eba",
+  "patch_apply_smoke": "PASS",
+  "tests_after_patch_apply": 44,
+  "compileall_after_patch_apply": "PASS",
+  "legacy_shape_type_contract_after_patch_apply": "PASS",
+  "public_statuses": [
+    "POSSIBLE",
+    "IMPOSSIBLE",
+    "UNKNOWN"
+  ],
+  "planner_modes": [
+    "solve_exists",
+    "solve_min_cost",
+    "analyze_all_ops"
+  ],
+  "full_tmam_complete": false,
+  "blocked_on_upstream_providers": true
+}

@@ -1,0 +1,14 @@
+<EMPTY>
+-S
+P
+PP
+PS
+Pc
+S
+SP
+SS
+Sc
+c
+cP
+cS
+cc

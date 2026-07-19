@@ -1,0 +1,52 @@
+{
+  "name": "shapez2-tmam-web",
+  "version": "2.1.0",
+  "private": true,
+  "scripts": {
+    "build:zip-tests": "node scripts/build-zip-tests.mjs",
+    "build:proof-cache": "python scripts/build-client-proof-cache.py",
+    "build:worker": "npm run build:zip-tests && npm run build:proof-cache && node scripts/build-worker.mjs",
+    "dev": "npm run build:worker && next dev",
+    "build": "npm run build:worker && node scripts/build-next.mjs",
+    "preview": "node scripts/serve-static.mjs 4173 --open",
+    "start": "node scripts/serve-static.mjs 4173 --open",
+    "test": "npm run test:unit && npm run test:zip-contract",
+    "test:unit": "vitest run",
+    "test:zip-contract": "npm run build:zip-tests && node scripts/build-worker.mjs && node scripts/legacy-test-audit.mjs",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run test && npm run typecheck && npm run build && npm run smoke:worker && npm run smoke:backend && npm run smoke:server && npm run smoke:static",
+    "smoke:worker": "node scripts/worker-smoke.mjs",
+    "smoke:backend": "python scripts/backend-smoke.py",
+    "smoke:server": "python scripts/server-surface-smoke.py",
+    "smoke:desktop": "node scripts/desktop-host-smoke.mjs",
+    "smoke:ui": "node scripts/chrome-ui-smoke.mjs",
+    "smoke:static": "node scripts/static-smoke.mjs"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "3.0.0",
+    "@xyflow/react": "12.11.2",
+    "dexie": "4.4.4",
+    "html-to-image": "1.11.13",
+    "jszip": "3.10.1",
+    "lucide-react": "1.25.0",
+    "next": "16.2.10",
+    "pako": "2.1.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zustand": "5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/dagre": "0.7.54",
+    "@types/node": "24.10.1",
+    "@types/pako": "2.0.4",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "esbuild": "0.27.3",
+    "postcss": "8.5.6",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  }
+}

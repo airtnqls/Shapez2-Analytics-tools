@@ -1,0 +1,8 @@
+{
+  "complete_source_states": 2536,
+  "unique_product_simulation_triples": 1145,
+  "transition_obligations_checked": 232289,
+  "failures": [],
+  "seconds": 0.38846692800007077,
+  "scope": "Complete reachable universal-base Stack product. Family-state subsumption is equality here; the switched/support simulation lemma is independent of the concrete family implementation."
+}

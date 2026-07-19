@@ -1,0 +1,23 @@
+{
+  "release": "corner-half-v2.1.0",
+  "date": "2026-07-17",
+  "scope": [
+    "all-layer Corner concrete constructor",
+    "all-layer Half constructor",
+    "Half family soundness/completeness",
+    "canonical general Cut inverse and exact Swapper inverse existence",
+    "Half symbolic closure and minimal-state representation",
+    "raw-input operation proof DAG"
+  ],
+  "corner_theorem": "six forbidden patterns; minimized 19-state DFA",
+  "half_theorem": "BuildableHalf(u,v) iff Corner(u) and Corner(v) and Stable(u,v)",
+  "half_minimal_dfa_states": 210,
+  "half_reachable_product_states": 552,
+  "stability_minimal_dfa_states": 6,
+  "swapper_theorem": "Swappable(X) iff one cutter-axis orientation has both geometric halves in HalfFamily",
+  "cut_inverse": "canonical existence-complete parent; discarded-side garbage is normalized away",
+  "final_acceptance": "reports/FINAL_ACCEPTANCE.json",
+  "unknown_result": false,
+  "timeout_as_rejection": false,
+  "proof_assistant_kernel": false
+}

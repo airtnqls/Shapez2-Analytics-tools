@@ -1,0 +1,79 @@
+{
+  "version": "2.1.0-focused-ui-main4-pp",
+  "generatedAt": "2026-07-19T10:07:47.694Z",
+  "modeSeparation": {
+    "fast": {
+      "verdict": "POSSIBLE",
+      "proofGenerated": false,
+      "tablesLoaded": [
+        "검증 샘플",
+        "Claw 목표 인덱스",
+        "Hybrid 목표 인덱스"
+      ],
+      "elapsedMsThisRun": 66.059165
+    },
+    "analysis": {
+      "verdict": "POSSIBLE",
+      "shapeType": "CLAW_HYBRID",
+      "proofGenerated": false,
+      "tablesLoaded": [
+        "검증 샘플",
+        "Claw 40,171 witness",
+        "Hybrid 367 witness"
+      ],
+      "elapsedMsThisRun": 111.90027799999999
+    },
+    "proof": {
+      "verdict": "POSSIBLE",
+      "shapeType": "CLAW_HYBRID",
+      "proofGenerated": true,
+      "tablesLoaded": [
+        "검증 샘플",
+        "Claw 40,171 witness",
+        "Hybrid 367 witness",
+        "Half 세부 공정 forest"
+      ],
+      "elapsedMsThisRun": 62.41225799999998
+    },
+    "timingNote": "동일 프로세스 순차 실행이라 뒤 실행은 브라우저/데이터 캐시 영향을 받습니다. 기능 경계와 로드 데이터 차이를 검증하는 수치이며 보편적 벤치마크가 아닙니다."
+  },
+  "screenshotTargetProof": {
+    "target": "--PP:--Pc:SSSS:-SS-:cS-S",
+    "verdict": "POSSIBLE",
+    "shapeType": "CLAW_HYBRID",
+    "graphNodes": 429,
+    "graphEdges": 506,
+    "uniqueOperationCount": 181,
+    "expandedTreeOperationCount": 2144,
+    "sharedNodeCount": 86,
+    "primitiveComplete": true,
+    "replayStatus": "passed",
+    "omittedReasons": []
+  },
+  "halfProofForest": {
+    "roots": 2760,
+    "uniqueNodes": 21139,
+    "version": 2
+  },
+  "progressPhases": {
+    "fast": [
+      "normalize",
+      "data",
+      "verdict"
+    ],
+    "analysis": [
+      "normalize",
+      "data",
+      "data",
+      "analysis"
+    ],
+    "proof": [
+      "normalize",
+      "data",
+      "data",
+      "data",
+      "analysis",
+      "proof"
+    ]
+  }
+}

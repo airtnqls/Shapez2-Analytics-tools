@@ -1,0 +1,89 @@
+{
+  "semantic_equivalence_checks": 45,
+  "semantic_equivalence_failures": 0,
+  "duplicate_inverse_calls_before_total": 1887,
+  "duplicate_inverse_calls_after_total": 0,
+  "selected_comparisons": [
+    {
+      "scenario": "possible_goal",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 3.923005715864284,
+      "inverse_call_reduction": 400,
+      "duplicate_inverse_before": 400,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 0.5219367998893653
+    },
+    {
+      "scenario": "impossible_goal",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 5.6262279406866575,
+      "inverse_call_reduction": 400,
+      "duplicate_inverse_before": 400,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 3.111198738170347
+    },
+    {
+      "scenario": "shared_subgoal_goal",
+      "mode": "exists",
+      "repeats": 1,
+      "speedup": 21.288575395099436,
+      "inverse_call_reduction": 5,
+      "duplicate_inverse_before": 0,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 0.10454310789881259
+    },
+    {
+      "scenario": "shared_subgoal_goal",
+      "mode": "min_cost",
+      "repeats": 1,
+      "speedup": 1.5592751645634522,
+      "inverse_call_reduction": 0,
+      "duplicate_inverse_before": 0,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 4.668435640886966
+    },
+    {
+      "scenario": "shared_subgoal_goal",
+      "mode": "all_ops",
+      "repeats": 1,
+      "speedup": 4.653550779604012,
+      "inverse_call_reduction": 4,
+      "duplicate_inverse_before": 4,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 13.915204678362572
+    },
+    {
+      "scenario": "shared_subgoal_goal",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 173.9664627398863,
+      "inverse_call_reduction": 400,
+      "duplicate_inverse_before": 400,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 11.309491525423729
+    },
+    {
+      "scenario": "multiple_last_operations_goal",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 8.754192684537136,
+      "inverse_call_reduction": 400,
+      "duplicate_inverse_before": 400,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 3.3763068880688807
+    },
+    {
+      "scenario": "representative_real_corner_provider",
+      "mode": "all_ops",
+      "repeats": 100,
+      "speedup": 35.871475009177324,
+      "inverse_call_reduction": 100,
+      "duplicate_inverse_before": 100,
+      "duplicate_inverse_after": 0,
+      "peak_memory_ratio_after_over_before": 1.7148247322297956
+    }
+  ],
+  "caveat": "The optimized planner intentionally retains raw candidates/proofs for cross-mode reuse; some cold trivial min-cost cases use more memory/time than the minimal legacy memo, while exists-heavy and repeated all-ops workloads show the intended improvement."
+}

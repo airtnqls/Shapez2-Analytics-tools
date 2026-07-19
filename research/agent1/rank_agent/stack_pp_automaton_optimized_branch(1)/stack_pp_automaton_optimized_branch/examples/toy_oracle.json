@@ -1,0 +1,27 @@
+{
+  "base_seeds": ["SW"],
+  "closures": {
+    "SW": [["pre:A", "SW->A"], ["pre:B", "SW->B"]],
+    "A": [["pre:C", "A->C"], ["pre:D", "A->D"]],
+    "C": []
+  },
+  "pin_push": {
+    "pre:A": "A",
+    "pre:B": "B",
+    "pre:C": "C",
+    "pre:D": "D"
+  },
+  "swappable": ["SW"],
+  "stack_parents": {
+    "B": [["A", "piece:B"]],
+    "D": [["C", "piece:D"]],
+    "A": [["C", "piece:A"]]
+  },
+  "progress": {
+    "SW": [0, "SW"],
+    "C": [1, "C"],
+    "A": [2, "A"],
+    "B": [3, "B"],
+    "D": [4, "D"]
+  }
+}

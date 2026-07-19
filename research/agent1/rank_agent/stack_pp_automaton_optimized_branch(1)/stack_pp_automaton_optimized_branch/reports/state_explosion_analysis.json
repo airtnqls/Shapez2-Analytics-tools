@@ -1,0 +1,102 @@
+{
+  "legacy_growth_cause_breakdown": {
+    "family_states_in_universal_benchmark": 1,
+    "legacy_states_L1_L2": [
+      1,
+      256,
+      4019
+    ],
+    "legacy_product_pairs_L2": 18914,
+    "legacy_max_subset_L2": 17,
+    "legacy_transition_cache_entries_L2": 65792,
+    "legacy_peak_bytes_L2": 76049352,
+    "conclusion": "The first explosion is caused by support-history variants, powerset subsets, and per-row cache duplication before a multi-state family is even introduced."
+  },
+  "optimized_growth": {
+    "states_per_exact_depth_L0_to_L5": [
+      1,
+      81,
+      942,
+      2082,
+      2497,
+      2527
+    ],
+    "max_subset_size": 5,
+    "memory_after_releasing_build_caches": 11036844,
+    "complete_reachable_states": 2536,
+    "complete_minimized_states": 962
+  },
+  "optimization_effects": [
+    {
+      "optimization": "support residual DFA minimization",
+      "before": 2011,
+      "after": 131,
+      "reduction_percent": 93.48582794629537,
+      "proof": "complete 256-symbol DFA residual-language minimization"
+    },
+    {
+      "optimization": "previous-row context projection",
+      "before": 256,
+      "after": 16,
+      "reduction_percent": 93.75,
+      "proof": "future B landing reads only previous full occupancy; support crystal history is internal to the support quotient"
+    },
+    {
+      "optimization": "product residual inclusion antichain (L3)",
+      "before": 8111,
+      "after": 2082,
+      "reduction_percent": 74.3311552213044,
+      "proof": "future-language simulation; exhaustive reachable-product check"
+    },
+    {
+      "optimization": "max deterministic subset size",
+      "before": 25,
+      "after": 5,
+      "reduction_percent": 80.0,
+      "proof": "same antichain theorem"
+    },
+    {
+      "optimization": "complete DFA residual minimization",
+      "before": 2536,
+      "after": 962,
+      "reduction_percent": 62.06624605678233,
+      "proof": "partition refinement after the reachable graph closed"
+    },
+    {
+      "optimization": "global exact row action quotient",
+      "before": 256,
+      "after": 200,
+      "reduction_percent": 21.875,
+      "proof": "rows merged iff every minimized state has the same target"
+    },
+    {
+      "optimization": "dense transitions to state-local sparse actions",
+      "before": 649472,
+      "after": 45995,
+      "reduction_percent": 92.91809346669294,
+      "proof": "exact grouping by equal next state"
+    },
+    {
+      "optimization": "proved family-state quotient (synthetic L3)",
+      "before": 54640,
+      "after": 24386,
+      "reduction_percent": 55.3696925329429,
+      "proof": "The tag is deliberately semantically inert; canonical_state and state_includes are exact residual-language equivalences."
+    }
+  ],
+  "subsumption_validation": {
+    "complete_source_states": 2536,
+    "unique_product_simulation_triples": 1145,
+    "transition_obligations_checked": 232289,
+    "failures": [],
+    "seconds": 0.38846692800007077,
+    "scope": "Complete reachable universal-base Stack product. Family-state subsumption is equality here; the switched/support simulation lemma is independent of the concrete family implementation."
+  },
+  "remaining_growth_sources": [
+    "meaningful bottom-family residual states",
+    "powerset determinization across inequivalent family residuals",
+    "full complete-DFA construction when only one target is needed",
+    "PP-rank iteration can create a new family automaton at each rank",
+    "witness materialization and forward replay are output-sized"
+  ]
+}

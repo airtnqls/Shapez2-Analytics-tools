@@ -1,0 +1,44 @@
+{
+  "depth": 3,
+  "without_quotient": {
+    "family": "tagged-parity-no-quotient",
+    "states_per_exact_depth": [
+      1,
+      81,
+      4313,
+      50690
+    ],
+    "cumulative_states_per_depth": [
+      1,
+      82,
+      4394,
+      54640
+    ],
+    "interned_family_states": 4,
+    "reachable_states": 54640,
+    "transitions": 393086,
+    "memory_bytes": 79761768,
+    "seconds": 18.486384905000023
+  },
+  "with_exact_quotient": {
+    "family": "tagged-parity-with-proved-quotient",
+    "states_per_exact_depth": [
+      1,
+      81,
+      4066,
+      24347
+    ],
+    "cumulative_states_per_depth": [
+      1,
+      82,
+      4077,
+      24386
+    ],
+    "interned_family_states": 2,
+    "reachable_states": 24386,
+    "transitions": 356953,
+    "memory_bytes": 65546788,
+    "seconds": 14.486485994000077
+  },
+  "proof_scope": "The tag is deliberately semantically inert; canonical_state and state_includes are exact residual-language equivalences."
+}

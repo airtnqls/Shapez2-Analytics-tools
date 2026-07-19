@@ -1,0 +1,11 @@
+{
+  "seed": 20260717,
+  "requested": 10000,
+  "completed": 10000,
+  "productive": 9994,
+  "no_op": 6,
+  "max_height": 128,
+  "failures": 0,
+  "failure_samples": [],
+  "seconds": 7.2055545690000145
+}

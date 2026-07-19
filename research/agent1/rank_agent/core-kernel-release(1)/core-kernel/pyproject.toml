@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shapez2-core-kernel"
+version = "0.1.0"
+description = "Immutable bit-packed structural physics kernel for Shapez 2 quad-mode research"
+requires-python = ">=3.11"
+authors = [{name = "Shapez2 Analytics core-kernel research branch"}]
+readme = "README_KO.md"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

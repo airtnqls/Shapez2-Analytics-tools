@@ -1,0 +1,116 @@
+{
+  "release": "Shapez2-TMAM-Web-Studio-2.1.0-Focused-UI-Main4-PP",
+  "generatedAtUtc": "2026-07-19T10:10:37.182614+00:00",
+  "status": "PASS",
+  "inputs": {
+    "base": {
+      "name": "Shapez2-TMAM-Web-Studio-2.1.0-Focused-UI.zip",
+      "sha256": "52877ec5225ae7b75c38e308070ebaaa309c70b6bcecc830be5679c4e4d4c421"
+    },
+    "main4EngineSource": {
+      "name": "Shapez2-TMAM-Web-Studio-2.1.0-Overflow-Terminal-Assumption.zip",
+      "sha256": "e4e74acb68531f69a96a04c32a1da56f7088dc8e54af2e4fcc5d5ead58f26615"
+    }
+  },
+  "portScope": {
+    "baseUi": "Focused-UI retained",
+    "exactEngineFiles": [
+      {
+        "path": "lib/raw-pinpush-rank0.ts",
+        "sha256": "f75167e377f23b1102cd91ff682f0d4815d8d43a6fc7d03716e4d7f36bb99995",
+        "identicalToMain4": true
+      },
+      {
+        "path": "lib/half-dfa.ts",
+        "sha256": "eb4b3ca25f876a82c0244882af04bc7c767efd0c7d08a18040f9004bec463578",
+        "identicalToMain4": true
+      }
+    ],
+    "integrationFiles": [
+      "lib/classifier.ts",
+      "lib/types.ts",
+      "lib/proof.ts",
+      "lib/ko.ts",
+      "workers/solver.worker.ts"
+    ],
+    "uiAdjustment": [
+      "components/research-panel.tsx: obsolete PP-open/conditional status display removed"
+    ],
+    "retainedFocusedFeatures": [
+      "fast/type/proof worker separation",
+      "Half proof forest",
+      "DAG/Tree process views",
+      "legacy grid renderer",
+      "Claw/Hybrid tables"
+    ]
+  },
+  "removedResultMetadata": [
+    "conditionalComplete",
+    "ppClosureAssumption",
+    "remainingCompletenessObligation"
+  ],
+  "removedRoutes": [
+    "overflow-terminal-assumption-negative",
+    "shared-predecessor-linearization-open"
+  ],
+  "activePpRoutes": [
+    "rank0-pinpush-frontier",
+    "pp-receipt-chain",
+    "pp-closure-exhausted"
+  ],
+  "validation": {
+    "npmCi": "PASS",
+    "npmLsDepth0": "PASS",
+    "typescript": "PASS",
+    "vitest": {
+      "status": "PASS",
+      "files": 11,
+      "tests": 39
+    },
+    "differentialFixture": {
+      "status": "PASS",
+      "cap": 3,
+      "targets": 1000
+    },
+    "highLayerReceiptCompression": {
+      "status": "PASS",
+      "caps": [
+        10,
+        20,
+        50,
+        100
+      ]
+    },
+    "legacySampleRegression": {
+      "status": "PASS",
+      "total": 132,
+      "statusCounts": {
+        "possible": 121,
+        "impossible": 11
+      }
+    },
+    "nextProductionBuild": "PASS",
+    "workerSmoke": {
+      "status": "PASS",
+      "formerOpenBoundary": {
+        "verdict": "IMPOSSIBLE",
+        "route": "pp-closure-exhausted",
+        "certificate": "passed"
+      },
+      "l6ReceiptChain": {
+        "verdict": "POSSIBLE",
+        "type": "PIN_PUSH",
+        "route": "pp-receipt-chain",
+        "edgeReplay": "passed",
+        "focusedPrimitiveMaterialization": "partial outside cap-5 Half forest"
+      }
+    },
+    "staticExportSmoke": "PASS",
+    "removedMarkerScan": "PASS outside archived research inputs"
+  },
+  "logs": [
+    "reports/NPM_CI.log",
+    "reports/FULL_CHECK.log",
+    "reports/FOCUSED_UI_PROOF_AUDIT.json"
+  ]
+}

@@ -1,0 +1,4718 @@
+{
+  "-----Sc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "----SSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "----Sc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "----ScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "----ScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "----Scc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "---S-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "---SS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "---SSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "---SSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "---SScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "---SScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "---SScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "---Sc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "---Sc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "---ScP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "---ScPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "---ScPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "---ScS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "---ScSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "---ScSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "---ScSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "---Scc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "---SccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "---SccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "---Sccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "--S--Sc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "--S-SSc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "--S-Sc": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "--S-ScP": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "--S-ScS": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "--S-Scc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "--SS--c": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "--SS-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "--SS-c": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "--SS-cP": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "--SS-cS": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "--SS-cc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "--SSS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "--SSSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "--SSSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--SSScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--SSScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--SSScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "--SSc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SSc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SScP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SScPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SScPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SScS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SScSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SScSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SScSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "--SScc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--SSccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--SSccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--SSccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "--Sc": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--Sc--S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--Sc-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--Sc-SP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--Sc-SS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScP-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScPPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScPPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScPSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScPSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScS-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScSPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScSPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScSSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScSSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "--ScSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "--ScSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--ScScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--ScScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--ScScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "--Scc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--Scc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SccP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SccPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SccPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SccS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SccSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SccSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "--SccSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "--Sccc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--ScccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--ScccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "--Scccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-S---Sc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-S--SSc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-S--Sc": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-S--ScP": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-S--ScS": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-S--Scc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-S-S-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-S-SS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-S-SSSc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-S-SSc": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-S-SScP": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-S-SScS": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-S-SScc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-S-Sc": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-S-Sc-S": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-S-ScP": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-S-ScPP": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-S-ScPS": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-S-ScS": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-S-ScSP": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-S-ScSS": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-S-ScSc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-S-Scc": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-S-SccP": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-S-SccS": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-S-Sccc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-SS---c": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-SS--Sc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "-SS--c": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-SS--cP": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-SS--cS": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-SS--cc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-SS-S-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-SS-SSc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "-SS-Sc": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "-SS-ScP": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "-SS-ScS": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "-SS-Scc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "-SS-c": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-SS-c-S": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-SS-cP": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-SS-cPP": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-SS-cPS": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-SS-cS": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-SS-cSP": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-SS-cSS": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "-SS-cSc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-SS-cc": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-SS-ccP": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-SS-ccS": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "-SS-ccc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "-SSS--c": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "-SSS-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "-SSS-c": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "-SSS-cP": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "-SSS-cS": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "-SSS-cc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "-SSSS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "-SSSSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-SSSSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SSSScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SSSScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SSSScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-SSSc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSSc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSScP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSScPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSScPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSScS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSScSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSScSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSScSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-SSScc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SSSccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SSSccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SSSccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-SSc": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SSc--S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SSc-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SSc-SP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SSc-SS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScP-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScPPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScPPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScPSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScPSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScS-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScSPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScSPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScSSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScSSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SScSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-SScSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SScScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SScScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SScScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-SScc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SScc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSccP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSccPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSccPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSccS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSccSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSccSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-SSccSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-SSccc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SScccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SScccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SScccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-Sc": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc---S": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc--S": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc--SP": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc--SS": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc-S": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc-S-S": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc-SP": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc-SPP": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc-SPS": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc-SS": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc-SSP": [
+    "SSS",
+    "cSS"
+  ],
+  "-Sc-SSS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScP--S": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScP-S": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScP-SP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScP-SS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPP-S": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPPP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPPPP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPPPS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPPS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPPSP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPPSS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPS-S": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPSP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPSPP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPSPS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPSS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPSSP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScPSSS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScS--S": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScS-S": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScS-SP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScS-SS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScS-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "-ScSP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSP-S": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSPP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSPPP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSPPS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSPS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSPSP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSPSS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSS-S": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "-ScSSP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSSPP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSSPS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSSS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSSSP": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSSSS": [
+    "SSS",
+    "cSS"
+  ],
+  "-ScSSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-ScSSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-ScSScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-ScSScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-ScSScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-ScSc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScSc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScScP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScScPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScScPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScScS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScScSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScScSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScScSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-ScScc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-ScSccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-ScSccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-ScSccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-Scc": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-Scc--S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-Scc-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-Scc-SP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-Scc-SS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccP-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccPPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccPPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccPSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccPSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccS-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccSPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccSPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccSSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccSSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "-SccSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-SccSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SccScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SccScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SccScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-Sccc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-Sccc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScccP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScccPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScccPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScccS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScccSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScccSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "-ScccSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "-Scccc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SccccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-SccccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "-Sccccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "P----Sc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P---SSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P---Sc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P---ScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P---ScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P---Scc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P--S-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "P--SS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "P--SSSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P--SSc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P--SScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P--SScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P--SScc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P--Sc": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P--Sc-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P--ScP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P--ScPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P--ScPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P--ScS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P--ScSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P--ScSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P--ScSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P--Scc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P--SccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P--SccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P--Sccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P-S--Sc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "P-S-SSc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "P-S-Sc": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "P-S-ScP": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "P-S-ScS": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "P-S-Scc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "P-SS--c": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "P-SS-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "P-SS-c": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "P-SS-cP": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "P-SS-cS": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "P-SS-cc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "P-SSS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "P-SSSSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P-SSSc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-SSScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-SSScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-SSScc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P-SSc": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SSc-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SScP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SScPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SScPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SScS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SScSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SScSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SScSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P-SScc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-SSccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-SSccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-SSccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P-Sc": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-Sc--S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-Sc-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-Sc-SP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-Sc-SS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScP-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScPPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScPPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScPSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScPSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScS-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScSPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScSPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScSSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScSSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "P-ScSSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P-ScSc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-ScScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-ScScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-ScScc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P-Scc": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-Scc-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SccP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SccPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SccPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SccS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SccSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SccSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "P-SccSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "P-Sccc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-ScccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-ScccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "P-Scccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "PP---Sc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PP--SSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PP--Sc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PP--ScP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PP--ScS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PP--Scc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PP-S-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "PP-SS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "PP-SSSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PP-SSc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PP-SScP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PP-SScS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PP-SScc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PP-Sc": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PP-Sc-S": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PP-ScP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PP-ScPP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PP-ScPS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PP-ScS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PP-ScSP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PP-ScSS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PP-ScSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PP-Scc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PP-SccP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PP-SccS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PP-Sccc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PPP--Sc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPP-SSc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPP-Sc": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPP-ScP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPP-ScS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPP-Scc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPPP-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PPPPS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PPPS--c": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPPS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PPPS-c": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPPS-cP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPPS-cS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPPS-cc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPPSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PPS---c": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PPS--Sc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPS--c": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PPS--cP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PPS--cS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PPS--cc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PPS-S-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "PPS-SSc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPS-Sc": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPS-ScP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPS-ScS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPS-Scc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPS-c": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PPS-c-S": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PPS-cP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PPS-cPP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PPS-cPS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PPS-cS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PPS-cSP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PPS-cSS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PPS-cSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PPS-cc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PPS-ccP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PPS-ccS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PPS-ccc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PPSS--c": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPSS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PPSS-c": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPSS-cP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPSS-cS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PPSS-cc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PPSSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PPcS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PPcSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PS----c": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "PS---Sc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PS---c": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS---cP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS---cS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS---cc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "PS--S-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "PS--SSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PS--Sc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PS--ScP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PS--ScS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PS--Scc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PS--c": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS--c-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS--cP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS--cPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS--cPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS--cS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS--cSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS--cSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS--cSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "PS--cc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS--ccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS--ccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS--ccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "PS-S--c": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "PS-S-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "PS-S-c": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "PS-S-cP": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "PS-S-cS": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "PS-S-cc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "PS-SS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "PS-SSSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PS-SSc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PS-SScP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PS-SScS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PS-SScc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PS-Sc": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PS-Sc-S": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PS-ScP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PS-ScPP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PS-ScPS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PS-ScS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PS-ScSP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PS-ScSS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PS-ScSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PS-Scc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PS-SccP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PS-SccS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PS-Sccc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PS-c": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-c--S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-c-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-c-SP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-c-SS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cP-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cPPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cPPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cPSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cPSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cS-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cSPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cSPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cSSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cSSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "PS-cSSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "PS-cSc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS-cScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS-cScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS-cScc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "PS-cc": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS-cc-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS-ccP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS-ccPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS-ccPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS-ccS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS-ccSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS-ccSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "PS-ccSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "PS-ccc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS-cccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS-cccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "PS-cccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "PSS---c": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PSS--Sc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PSS--c": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PSS--cP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PSS--cS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PSS--cc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PSS-S-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "PSS-SSc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PSS-Sc": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PSS-ScP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PSS-ScS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PSS-Scc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PSS-c": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PSS-c-S": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PSS-cP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PSS-cPP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PSS-cPS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PSS-cS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PSS-cSP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PSS-cSS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "PSS-cSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PSS-cc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PSS-ccP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PSS-ccS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "PSS-ccc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "PSSS--c": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PSSS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PSSS-c": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PSSS-cP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PSSS-cS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PSSS-cc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PSSSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PScS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PScSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PcS--Sc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PcS-SSc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PcS-Sc": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PcS-ScP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PcS-ScS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PcS-Scc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PcSS--c": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PcSS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PcSS-c": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PcSS-cP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PcSS-cS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "PcSS-cc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "PcSSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PccS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "PccSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "S-----c": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S----Sc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S----c": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S----cP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S----cS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S----cc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S---S-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "S---SSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S---Sc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S---ScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S---ScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S---Scc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S---c": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S---c-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S---cP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S---cPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S---cPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S---cS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S---cSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S---cSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S---cSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S---cc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S---ccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S---ccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S---ccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S--S--c": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "S--S-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "S--S-c": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "S--S-cP": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "S--S-cS": [
+    "SSSSSS",
+    "SSScSS",
+    "cSSSSS"
+  ],
+  "S--S-cc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "cSSSSSS"
+  ],
+  "S--SS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "S--SSSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S--SSc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S--SScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S--SScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S--SScc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S--Sc": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S--Sc-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S--ScP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S--ScPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S--ScPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S--ScS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S--ScSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S--ScSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S--ScSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S--Scc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S--SccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S--SccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S--Sccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S--c": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--c--S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--c-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--c-SP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--c-SS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cP-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cPPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cPPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cPSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cPSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cS-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cSPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cSPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cSSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cSSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S--cSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S--cSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S--cScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S--cScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S--cScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S--cc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S--cc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S--ccP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S--ccPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S--ccPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S--ccS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S--ccSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S--ccSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S--ccSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S--ccc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S--cccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S--cccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S--cccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S-S---c": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "S-S--Sc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "S-S--c": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "S-S--cP": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "S-S--cS": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "S-S--cc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "S-S-S-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "S-S-SSc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "S-S-Sc": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "S-S-ScP": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "S-S-ScS": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "S-S-Scc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "S-S-c": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "S-S-c-S": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "S-S-cP": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "S-S-cPP": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "S-S-cPS": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "S-S-cS": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "S-S-cSP": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "S-S-cSS": [
+    "SSSSS",
+    "SScSS",
+    "cSSSS"
+  ],
+  "S-S-cSc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "S-S-cc": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "S-S-ccP": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "S-S-ccS": [
+    "SSSSSS",
+    "SScSSS",
+    "cSSSSS"
+  ],
+  "S-S-ccc": [
+    "SSSSSSS",
+    "SScSSSS",
+    "cSSSSSS"
+  ],
+  "S-SS--c": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "S-SS-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "S-SS-c": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "S-SS-cP": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "S-SS-cS": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "S-SS-cc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "S-SSS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "S-SSSSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S-SSSc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-SSScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-SSScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-SSScc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S-SSc": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SSc-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SScP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SScPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SScPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SScS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SScSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SScSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SScSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S-SScc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-SSccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-SSccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-SSccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S-Sc": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-Sc--S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-Sc-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-Sc-SP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-Sc-SS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScP-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScPPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScPPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScPSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScPSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScS-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScSPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScSPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScSSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScSSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "S-ScSSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S-ScSc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-ScScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-ScScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-ScScc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S-Scc": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-Scc-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SccP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SccPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SccPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SccS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SccSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SccSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "S-SccSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S-Sccc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-ScccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-ScccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "S-Scccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "S-c": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c---S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c--S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c--SP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c--SS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c-S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c-S-S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c-SP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c-SPP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c-SPS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c-SS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c-SSP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-c-SSS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cP--S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cP-S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cP-SP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cP-SS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPP-S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPPP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPPPP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPPPS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPPS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPPSP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPPSS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPS-S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPSP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPSPP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPSPS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPSS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPSSP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cPSSS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cS--S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cS-S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cS-SP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cS-SS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cS-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "S-cSP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSP-S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSPP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSPPP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSPPS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSPS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSPSP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSPSS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSS-S": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "cSSSSSS"
+  ],
+  "S-cSSP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSSPP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSSPS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSSS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSSSP": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSSSS": [
+    "SSS",
+    "cSS"
+  ],
+  "S-cSSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S-cSSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-cSScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-cSScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-cSScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S-cSc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cSc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cScP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cScPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cScPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cScS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cScSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cScSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cScSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S-cScc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-cSccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-cSccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-cSccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S-cc": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-cc--S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-cc-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-cc-SP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-cc-SS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccP-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccPPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccPPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccPSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccPSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccS-S": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccSPP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccSPS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccSSP": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccSSS": [
+    "SSSS",
+    "cSSS"
+  ],
+  "S-ccSSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S-ccSc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-ccScP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-ccScS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-ccScc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S-ccc": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-ccc-S": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cccP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cccPP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cccPS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cccS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cccSP": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cccSS": [
+    "SSSSS",
+    "cSSSS"
+  ],
+  "S-cccSc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "S-cccc": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-ccccP": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-ccccS": [
+    "SSSSSS",
+    "cSSSSS"
+  ],
+  "S-ccccc": [
+    "SSSSSSS",
+    "cSSSSSS"
+  ],
+  "SS----c": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "SS---Sc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SS---c": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS---cP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS---cS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS---cc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "SS--S-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "ScSSSSS"
+  ],
+  "SS--SSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SS--Sc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SS--ScP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SS--ScS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SS--Scc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SS--c": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS--c-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS--cP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS--cPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS--cPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS--cS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS--cSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS--cSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS--cSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "SS--cc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS--ccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS--ccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS--ccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "SS-S--c": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "SS-S-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "SS-S-c": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "SS-S-cP": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "SS-S-cS": [
+    "SSSSSS",
+    "SSScSS",
+    "ScSSSS"
+  ],
+  "SS-S-cc": [
+    "SSSSSSS",
+    "SSScSSS",
+    "ScSSSSS"
+  ],
+  "SS-SS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "SS-SSSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SS-SSc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SS-SScP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SS-SScS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SS-SScc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SS-Sc": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SS-Sc-S": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SS-ScP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SS-ScPP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SS-ScPS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SS-ScS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SS-ScSP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SS-ScSS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SS-ScSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SS-Scc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SS-SccP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SS-SccS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SS-Sccc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SS-c": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-c--S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-c-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-c-SP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-c-SS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cP-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cPPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cPPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cPSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cPSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cS-S": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cSPP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cSPS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cSSP": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cSSS": [
+    "SSSS",
+    "ScSS"
+  ],
+  "SS-cSSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "SS-cSc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS-cScP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS-cScS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS-cScc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "SS-cc": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS-cc-S": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS-ccP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS-ccPP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS-ccPS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS-ccS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS-ccSP": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS-ccSS": [
+    "SSSSS",
+    "ScSSS"
+  ],
+  "SS-ccSc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "SS-ccc": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS-cccP": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS-cccS": [
+    "SSSSSS",
+    "ScSSSS"
+  ],
+  "SS-cccc": [
+    "SSSSSSS",
+    "ScSSSSS"
+  ],
+  "SSS---c": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SSS--Sc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "SSS--c": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SSS--cP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SSS--cS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SSS--cc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SSS-S-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "SSS-SSc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "SSS-Sc": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "SSS-ScP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "SSS-ScS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "SSS-Scc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "SSS-c": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SSS-c-S": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SSS-cP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SSS-cPP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SSS-cPS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SSS-cS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SSS-cSP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SSS-cSS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "SSS-cSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SSS-cc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SSS-ccP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SSS-ccS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "SSS-ccc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "SSSS--c": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "SSSS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "SSSS-c": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "SSSS-cP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "SSSS-cS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "SSSS-cc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "SSSSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "SScS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "SScSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "ScS--Sc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ScS-SSc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ScS-Sc": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ScS-ScP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ScS-ScS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ScS-Scc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ScSS--c": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ScSS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "ScSS-c": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ScSS-cP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ScSS-cS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ScSS-cc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ScSSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "SccS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "SccSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "cS---Sc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cS--SSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cS--Sc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cS--ScP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cS--ScS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cS--Scc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cS-S-Sc": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "cS-SS-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "cS-SSSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cS-SSc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cS-SScP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cS-SScS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cS-SScc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cS-Sc": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cS-Sc-S": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cS-ScP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cS-ScPP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cS-ScPS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cS-ScS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cS-ScSP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cS-ScSS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cS-ScSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cS-Scc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cS-SccP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cS-SccS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cS-Sccc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cSS---c": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cSS--Sc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "cSS--c": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cSS--cP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cSS--cS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cSS--cc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cSS-S-c": [
+    "SSSSSSS",
+    "SSSScSS",
+    "SScSSSS"
+  ],
+  "cSS-SSc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "cSS-Sc": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "cSS-ScP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "cSS-ScS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "cSS-Scc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "cSS-c": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cSS-c-S": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cSS-cP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cSS-cPP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cSS-cPS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cSS-cS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cSS-cSP": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cSS-cSS": [
+    "SSSSS",
+    "SScSS"
+  ],
+  "cSS-cSc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cSS-cc": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cSS-ccP": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cSS-ccS": [
+    "SSSSSS",
+    "SScSSS"
+  ],
+  "cSS-ccc": [
+    "SSSSSSS",
+    "SScSSSS"
+  ],
+  "cSSS--c": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "cSSS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "cSSS-c": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "cSSS-cP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "cSSS-cS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "cSSS-cc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "cSSSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "cScS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "cScSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "ccS--Sc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ccS-SSc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ccS-Sc": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ccS-ScP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ccS-ScS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ccS-Scc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ccSS--c": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ccSS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "ccSS-c": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ccSS-cP": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ccSS-cS": [
+    "SSSSSS",
+    "SSScSS"
+  ],
+  "ccSS-cc": [
+    "SSSSSSS",
+    "SSScSSS"
+  ],
+  "ccSSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "cccS-Sc": [
+    "SSSSSSS",
+    "SSSScSS"
+  ],
+  "cccSS-c": [
+    "SSSSSSS",
+    "SSSScSS"
+  ]
+}

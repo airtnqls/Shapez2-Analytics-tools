@@ -1,0 +1,253 @@
+{
+  "theorem": "rho(PinPush(X)) >= rho(X)+1 for nonempty X; rho(Stack(B,T)) >= rho(B); rho invariant under D4",
+  "rho": "maximum, over four columns, of consecutive PIN cells from layer 0",
+  "pin": [
+    {
+      "cap": 1,
+      "checked": 23,
+      "worst_gap": 0,
+      "failures": [
+        [
+          "P---",
+          "P---",
+          1,
+          1
+        ],
+        [
+          "PS--",
+          "PP--",
+          1,
+          1
+        ],
+        [
+          "-P--",
+          "-P--",
+          1,
+          1
+        ],
+        [
+          "SP--",
+          "PP--",
+          1,
+          1
+        ],
+        [
+          "PP--",
+          "PP--",
+          1,
+          1
+        ],
+        [
+          "cP--",
+          "PP--",
+          1,
+          1
+        ],
+        [
+          "Pc--",
+          "PP--",
+          1,
+          1
+        ],
+        [
+          "P-S-",
+          "P-P-",
+          1,
+          1
+        ],
+        [
+          "PSS-",
+          "PPP-",
+          1,
+          1
+        ],
+        [
+          "-PS-",
+          "-PP-",
+          1,
+          1
+        ]
+      ],
+      "seconds": 0.0003588390000004438
+    },
+    {
+      "cap": 2,
+      "checked": 541,
+      "worst_gap": 0,
+      "failures": [
+        [
+          "----:S---",
+          "----",
+          0,
+          0
+        ],
+        [
+          "----:P---",
+          "----",
+          0,
+          0
+        ],
+        [
+          "P---:P---",
+          "P---:P---",
+          2,
+          2
+        ],
+        [
+          "PS--:P---",
+          "PP--:PS--",
+          2,
+          2
+        ],
+        [
+          "PP--:P---",
+          "PP--:PP--",
+          2,
+          2
+        ],
+        [
+          "Pc--:P---",
+          "PP--:Pc--",
+          2,
+          2
+        ],
+        [
+          "P-S-:P---",
+          "P-P-:P-S-",
+          2,
+          2
+        ],
+        [
+          "PSS-:P---",
+          "PPP-:PSS-",
+          2,
+          2
+        ],
+        [
+          "PPS-:P---",
+          "PPP-:PPS-",
+          2,
+          2
+        ],
+        [
+          "PcS-:P---",
+          "PPP-:PcS-",
+          2,
+          2
+        ]
+      ],
+      "seconds": 0.005802614000003814
+    },
+    {
+      "cap": 3,
+      "checked": 67,
+      "worst_gap": 0,
+      "failures": [
+        [
+          "PcPP:P--P:P--P",
+          "PPPP:PcPP:P--P",
+          3,
+          3
+        ],
+        [
+          "PP-P:cPSP:SPS-",
+          "PPSP:PP-P:cP-P",
+          3,
+          3
+        ],
+        [
+          "Pc-P:PcPS:P--S",
+          "PPPP:Pc-P:Pc-S",
+          3,
+          3
+        ],
+        [
+          "cPcP:SPcc:-PPP",
+          "PPPP:cPcP:SPcc",
+          3,
+          3
+        ],
+        [
+          "PS-c:Pc--:P-PS",
+          "PP-P:PS-c:Pc--",
+          3,
+          3
+        ],
+        [
+          "P-PS:S-PS:PcPP",
+          "P-PP:P-PS:S-PS",
+          3,
+          3
+        ],
+        [
+          "ScPP:S-PP:-PPS",
+          "PPPP:ScPP:S-PP",
+          3,
+          3
+        ],
+        [
+          "P-S-:P--P:PP-P",
+          "P-PP:P-S-:P---",
+          3,
+          3
+        ],
+        [
+          "PPcS:P--c:P-cP",
+          "PPPP:PPcS:P--c",
+          3,
+          3
+        ],
+        [
+          "PPPS:SPPc:c-PS",
+          "PPPP:PPPS:SPPc",
+          3,
+          3
+        ]
+      ],
+      "seconds": 0.0012311009999734779
+    }
+  ],
+  "symmetry": [
+    {
+      "cap": 1,
+      "checked": 256,
+      "failures": [],
+      "seconds": 0.00278232300001946
+    },
+    {
+      "cap": 2,
+      "checked": 65536,
+      "failures": [],
+      "seconds": 0.8132494369999677
+    },
+    {
+      "cap": 3,
+      "checked": 250000,
+      "failures": [],
+      "seconds": 3.3007999379999546
+    }
+  ],
+  "stack": [
+    {
+      "cap": 1,
+      "checked": 65536,
+      "worst_gap": 0,
+      "failures": [],
+      "seconds": 0.7095275570000013
+    },
+    {
+      "cap": 2,
+      "checked": 500000,
+      "worst_gap": 0,
+      "failures": [],
+      "seconds": 8.477195213000016
+    },
+    {
+      "cap": 3,
+      "checked": 250000,
+      "worst_gap": 0,
+      "failures": [],
+      "seconds": 5.400804830000027
+    }
+  ]
+}

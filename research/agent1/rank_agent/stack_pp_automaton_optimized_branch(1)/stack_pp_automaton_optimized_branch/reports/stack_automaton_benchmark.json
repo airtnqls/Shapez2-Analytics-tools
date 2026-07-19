@@ -1,0 +1,381 @@
+{
+  "environment": {
+    "python": "3.13.5 (main, May  5 2026, 21:05:52) [GCC 14.2.0]",
+    "platform": "linux",
+    "cpu_count": 56
+  },
+  "full_reachable_build": {
+    "legacy": {
+      "1-2": {
+        "variant": "legacy",
+        "status": "completed",
+        "depth": 2,
+        "states_per_exact_depth": [
+          1,
+          256,
+          4019
+        ],
+        "subset_per_depth": [
+          {
+            "min": 1,
+            "max": 1,
+            "mean": 1.0,
+            "sum": 1
+          },
+          {
+            "min": 1,
+            "max": 16,
+            "mean": 5.0625,
+            "sum": 1296
+          },
+          {
+            "min": 1,
+            "max": 17,
+            "mean": 4.70614580741478,
+            "sum": 18914
+          }
+        ],
+        "transition_entries": 65792,
+        "seconds": 9.448877278000055,
+        "tracemalloc_peak_bytes": 76049352,
+        "max_rss_kib": 471172
+      },
+      "3": {
+        "variant": "legacy",
+        "status": "not_repeated_after_prior_300s_diagnostic_noncompletion",
+        "depth": 3,
+        "semantic_meaning": "none; no membership answer was inferred"
+      },
+      "4": {
+        "variant": "legacy",
+        "status": "not_started_after_depth3_diagnostic_budget",
+        "depth": 4,
+        "semantic_meaning": "none; no membership answer was inferred"
+      },
+      "5": {
+        "variant": "legacy",
+        "status": "not_started_after_depth3_diagnostic_budget",
+        "depth": 5,
+        "semantic_meaning": "none; no membership answer was inferred"
+      }
+    },
+    "compact_no_subsumption": {
+      "variant": "compact_no_subsumption",
+      "status": "completed",
+      "depth": 3,
+      "states_per_exact_depth": [
+        1,
+        81,
+        1371,
+        8111
+      ],
+      "cumulative_states_per_depth": [
+        1,
+        82,
+        1387,
+        8127
+      ],
+      "transitions_per_depth": [
+        81,
+        8336,
+        125846
+      ],
+      "seconds_per_depth": [
+        0.012183116999949561,
+        0.6395357510000395,
+        10.60502636199999
+      ],
+      "seconds": 11.258454025999981,
+      "metrics_before_release": {
+        "reachable_states": 8127,
+        "transitions": 127456,
+        "peak_frontier": 8111,
+        "memory_bytes": 38107412,
+        "build_seconds": 11.234320037001453,
+        "interned_products": 316,
+        "interned_family_states": 1,
+        "component_transition_entries": 201216,
+        "evaluated_row_transitions": 355072,
+        "sparse_transition_groups": 127456,
+        "dead_row_transitions": 0,
+        "max_subset_size": 25,
+        "support_states": 131
+      },
+      "metrics_after_release": {
+        "reachable_states": 8127,
+        "transitions": 127456,
+        "peak_frontier": 8111,
+        "memory_bytes": 8929376,
+        "build_seconds": 11.234320037001453,
+        "interned_products": 316,
+        "interned_family_states": 1,
+        "component_transition_entries": 0,
+        "evaluated_row_transitions": 355072,
+        "sparse_transition_groups": 127456,
+        "dead_row_transitions": 0,
+        "max_subset_size": 25,
+        "support_states": 131
+      },
+      "tracemalloc_peak_bytes": 48274772,
+      "max_rss_kib": 494336
+    },
+    "optimized": {
+      "variant": "optimized",
+      "status": "completed",
+      "depth": 5,
+      "states_per_exact_depth": [
+        1,
+        81,
+        942,
+        2082,
+        2497,
+        2527
+      ],
+      "cumulative_states_per_depth": [
+        1,
+        82,
+        947,
+        2087,
+        2502,
+        2532
+      ],
+      "transitions_per_depth": [
+        81,
+        7400,
+        72287,
+        157472,
+        185244
+      ],
+      "seconds_per_depth": [
+        0.018244463999963045,
+        0.9102982800000063,
+        9.094945974999973,
+        10.378817061000063,
+        3.33775675600009
+      ],
+      "seconds": 23.742748798999855,
+      "metrics_before_release": {
+        "reachable_states": 2532,
+        "transitions": 185565,
+        "peak_frontier": 2527,
+        "memory_bytes": 32402260,
+        "build_seconds": 23.67818125400413,
+        "interned_products": 316,
+        "interned_family_states": 1,
+        "component_transition_entries": 128512,
+        "evaluated_row_transitions": 640512,
+        "sparse_transition_groups": 185565,
+        "dead_row_transitions": 0,
+        "max_subset_size": 5,
+        "support_states": 131
+      },
+      "metrics_after_release": {
+        "reachable_states": 2532,
+        "transitions": 185565,
+        "peak_frontier": 2527,
+        "memory_bytes": 11036844,
+        "build_seconds": 23.67818125400413,
+        "interned_products": 316,
+        "interned_family_states": 1,
+        "component_transition_entries": 0,
+        "evaluated_row_transitions": 640512,
+        "sparse_transition_groups": 185565,
+        "dead_row_transitions": 0,
+        "max_subset_size": 5,
+        "support_states": 131
+      },
+      "tracemalloc_peak_bytes": 43026108,
+      "max_rss_kib": 502656
+    },
+    "complete_minimized": {
+      "variant": "complete_minimized",
+      "status": "completed",
+      "seconds": 27.689736005000213,
+      "metrics": {
+        "source_states": 2536,
+        "source_transitions": 649472,
+        "shortest_depth_counts": [
+          1,
+          81,
+          865,
+          1140,
+          415,
+          30,
+          4
+        ],
+        "minimized_states": 962,
+        "minimized_transitions": 192400,
+        "dense_semantic_transitions": 246272,
+        "alphabet_classes": 200,
+        "minimized_action_groups": 45995,
+        "build_seconds": 25.590350643999955,
+        "minimize_seconds": 1.9155027089998384,
+        "memory_bytes": 3488257
+      },
+      "source_metrics_after_release": {
+        "reachable_states": 2536,
+        "transitions": 186461,
+        "peak_frontier": 1,
+        "memory_bytes": 11088968,
+        "build_seconds": 23.651826762000155,
+        "interned_products": 316,
+        "interned_family_states": 1,
+        "component_transition_entries": 0,
+        "evaluated_row_transitions": 649216,
+        "sparse_transition_groups": 186461,
+        "dead_row_transitions": 0,
+        "max_subset_size": 5,
+        "support_states": 131
+      },
+      "tracemalloc_peak_bytes": 60805229,
+      "max_rss_kib": 450284
+    }
+  },
+  "single_target_L1_to_L5": {
+    "1": {
+      "cases": 600,
+      "accepted": 543,
+      "legacy_membership": {
+        "mean_us": 9.369628333333335,
+        "median_us": 1.542,
+        "p95_us": 33.971,
+        "max_us": 307.153
+      },
+      "optimized_membership": {
+        "mean_us": 6.924276666666667,
+        "median_us": 0.621,
+        "p95_us": 24.397,
+        "max_us": 68.413
+      },
+      "minimized_membership": {
+        "mean_us": 0.30133666666666664,
+        "median_us": 0.26,
+        "p95_us": 0.47,
+        "max_us": 4.888
+      },
+      "optimized_witness": {
+        "mean_us": 10.362603333333333,
+        "median_us": 8.723,
+        "p95_us": 20.431,
+        "max_us": 58.097
+      }
+    },
+    "2": {
+      "cases": 600,
+      "accepted": 384,
+      "legacy_membership": {
+        "mean_us": 64.06153666666667,
+        "median_us": 41.312,
+        "p95_us": 156.946,
+        "max_us": 2274.538
+      },
+      "optimized_membership": {
+        "mean_us": 21.765639999999998,
+        "median_us": 18.308,
+        "p95_us": 47.081,
+        "max_us": 90.416
+      },
+      "minimized_membership": {
+        "mean_us": 0.7028566666666667,
+        "median_us": 0.651,
+        "p95_us": 1.021,
+        "max_us": 8.793
+      },
+      "optimized_witness": {
+        "mean_us": 18.546856666666667,
+        "median_us": 16.174,
+        "p95_us": 36.404,
+        "max_us": 90.456
+      }
+    },
+    "3": {
+      "cases": 600,
+      "accepted": 245,
+      "legacy_membership": {
+        "mean_us": 96.41392,
+        "median_us": 74.232,
+        "p95_us": 233.743,
+        "max_us": 909.701
+      },
+      "optimized_membership": {
+        "mean_us": 36.92156166666667,
+        "median_us": 32.429,
+        "p95_us": 77.937,
+        "max_us": 132.71
+      },
+      "minimized_membership": {
+        "mean_us": 1.0698800000000002,
+        "median_us": 0.972,
+        "p95_us": 1.653,
+        "max_us": 14.261
+      },
+      "optimized_witness": {
+        "mean_us": 26.407756666666668,
+        "median_us": 23.285,
+        "p95_us": 47.612,
+        "max_us": 202.195
+      }
+    },
+    "4": {
+      "cases": 600,
+      "accepted": 167,
+      "legacy_membership": {
+        "mean_us": 139.94992333333334,
+        "median_us": 114.192,
+        "p95_us": 317.298,
+        "max_us": 1288.326
+      },
+      "optimized_membership": {
+        "mean_us": 50.23867333333333,
+        "median_us": 45.068,
+        "p95_us": 93.521,
+        "max_us": 248.635
+      },
+      "minimized_membership": {
+        "mean_us": 1.4316833333333334,
+        "median_us": 1.342,
+        "p95_us": 2.274,
+        "max_us": 14.762
+      },
+      "optimized_witness": {
+        "mean_us": 35.82187666666666,
+        "median_us": 31.687,
+        "p95_us": 62.885,
+        "max_us": 784.492
+      }
+    },
+    "5": {
+      "cases": 600,
+      "accepted": 117,
+      "legacy_membership": {
+        "mean_us": 184.10032,
+        "median_us": 158.79,
+        "p95_us": 382.617,
+        "max_us": 1426.901
+      },
+      "optimized_membership": {
+        "mean_us": 61.229346666666665,
+        "median_us": 56.955,
+        "p95_us": 104.929,
+        "max_us": 219.16
+      },
+      "minimized_membership": {
+        "mean_us": 1.7660166666666666,
+        "median_us": 1.643,
+        "p95_us": 2.805,
+        "max_us": 13.781
+      },
+      "optimized_witness": {
+        "mean_us": 44.296708333333335,
+        "median_us": 39.27,
+        "p95_us": 80.211,
+        "max_us": 279.416
+      }
+    }
+  },
+  "interpretation": {
+    "timeouts": "benchmark-only diagnostic stops; never used as IMPOSSIBLE",
+    "full_dfa": "optimized L1-L5 uses all 256 rows at every reachable state",
+    "witness": "reconstructed separately; membership stores no parent history"
+  }
+}
