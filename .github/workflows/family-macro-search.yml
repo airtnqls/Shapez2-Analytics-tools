@@ -1,0 +1,121 @@
+name: Search periodic Half family macro
+
+on:
+  push:
+    branches:
+      - experiment/half-linear-fastpath
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  search:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/half-linear-fastpath
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Search F1 to F2 macro
+        working-directory: experiments/legacy_recipe
+        run: |
+          PYTHONPATH=../.. python - <<'PY' > family-macro-search.json
+          import json
+          from search_family_macro import search_macro
+          result = search_macro(
+              repeats=1,
+              max_depth=6,
+              beam_width=80,
+              helper_limit=140,
+              max_seconds=115.0,
+              state_limit=25000,
+          )
+          print(json.dumps(result, ensure_ascii=False, indent=2))
+          PY
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('family-macro-search.json').read_text(encoding='utf-8'))
+          summary = {
+              'family': data['family'],
+              'repeats': data['repeats'],
+              'start': data['start'],
+              'goal': data['goal'],
+              'helper_pool_total': data['helper_pool_total'],
+              'helpers_used': data['helpers_used'],
+              'stop_reason': data['stop_reason'],
+              'elapsed_seconds': data['elapsed_seconds'],
+              'expanded': data['expanded'],
+              'generated': data['generated'],
+              'seen': data['seen'],
+              'hit': data['hit'],
+              'closest': data['closest'][:3],
+          }
+          text = json.dumps(summary, ensure_ascii=False, indent=2) + '\n'
+          Path('family-macro-summary.json').write_text(text, encoding='utf-8')
+          result = Path('../results/family-macro-summary.json')
+          result.parent.mkdir(parents=True, exist_ok=True)
+          result.write_text(text, encoding='utf-8')
+          print(text)
+          PY
+      - name: Commit macro summary
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin experiment/half-linear-fastpath
+          git add experiments/results/family-macro-summary.json
+          if git diff --cached --quiet; then
+            echo 'summary unchanged'
+          else
+            git commit -m 'Record periodic Half macro search result [skip ci]'
+            git push origin HEAD:experiment/half-linear-fastpath
+          fi
+      - name: Publish compact macro result
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- tmam-family-macro-search -->';
+            const path = 'experiments/legacy_recipe/family-macro-summary.json';
+            const data = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path, 'utf8')) : null;
+            const closest = data?.closest?.[0] ?? null;
+            const body = `${marker}\n### Periodic Half F₁ → F₂ macro search\n\n` +
+              `- actual-physics helper pool: \`${data?.helper_pool_total ?? 'missing'}\`\n` +
+              `- helpers used: \`${data?.helpers_used ?? 'missing'}\`\n` +
+              `- exact hit: \`${data?.hit ? 'yes' : 'no'}\`\n` +
+              `- stop: \`${data?.stop_reason ?? 'missing'}\`\n` +
+              `- expanded/generated: \`${data?.expanded ?? 'missing'} / ${data?.generated ?? 'missing'}\`\n` +
+              `- closest mismatch: \`${closest?.distance?.mismatch ?? 'missing'}\`\n` +
+              `- closest code: \`${closest?.code ?? 'missing'}\`\n` +
+              `- exact path, including helper proofs, is stored in \`experiments/results/family-macro-summary.json\`.`;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+            }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: family-macro-search
+          path: |
+            experiments/legacy_recipe/family-macro-search.json
+            experiments/legacy_recipe/family-macro-summary.json
+          if-no-files-found: warn
