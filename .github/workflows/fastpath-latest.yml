@@ -32,13 +32,17 @@ jobs:
         run: npm run build:worker
       - name: Run latest baseline audit
         run: python scripts/fastpath-latest-baseline.py
+      - name: Audit Corner/Half structure
+        run: python scripts/fastpath-corner-structure-audit.py
       - name: Run unit and type checks
         run: npm run test:unit && npm run typecheck
       - name: Publish PR baseline summary
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh pr comment "${{ github.event.pull_request.number }}" --body-file reports/FASTPATH_LATEST_SUMMARY.md --edit-last --create-if-none
+        run: |
+          cat reports/FASTPATH_CORNER_STRUCTURE.md >> reports/FASTPATH_LATEST_SUMMARY.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file reports/FASTPATH_LATEST_SUMMARY.md --edit-last --create-if-none
       - name: Upload baseline
         uses: actions/upload-artifact@v4
         with:
@@ -47,4 +51,6 @@ jobs:
             reports/FASTPATH_LATEST_BASELINE.json
             reports/FASTPATH_LATEST_SUMMARY.md
             reports/FASTPATH_LATEST_GRAPHS.json.gz
+            reports/FASTPATH_CORNER_STRUCTURE.json
+            reports/FASTPATH_CORNER_STRUCTURE.md
           if-no-files-found: error
