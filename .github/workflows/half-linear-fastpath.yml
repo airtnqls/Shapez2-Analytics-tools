@@ -31,6 +31,13 @@ jobs:
         working-directory: experiments/half_fastpath
         run: python optimizer_suite.py > optimizer-benchmark.json
 
+      - name: Run legacy project-physics replay tests
+        working-directory: experiments/legacy_recipe
+        run: |
+          PYTHONPATH=../.. python -m unittest -v test_legacy_corner_recipe.py
+          PYTHONPATH=../.. python legacy_corner_recipe.py > legacy-recipe.json
+          cat legacy-recipe.json
+
       - name: Run TypeScript-shaped regression tests
         working-directory: experiments/tmam_fastpath_ts
         run: |
@@ -49,6 +56,7 @@ jobs:
         run: |
           cat experiments/half_fastpath/benchmark.json
           cat experiments/half_fastpath/optimizer-benchmark.json
+          cat experiments/legacy_recipe/legacy-recipe.json
           cat experiments/tmam_fastpath_ts/benchmark-ts.json
       - uses: actions/upload-artifact@v4
         if: always()
@@ -57,6 +65,7 @@ jobs:
           path: |
             experiments/half_fastpath/benchmark.json
             experiments/half_fastpath/optimizer-benchmark.json
+            experiments/legacy_recipe/legacy-recipe.json
             experiments/tmam_fastpath_ts/benchmark-ts.json
             experiments/tmam_fastpath_ts/test-ts.log
           if-no-files-found: warn
