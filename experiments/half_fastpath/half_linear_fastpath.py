@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Iterable, Sequence
+from typing import Sequence
 
 Row = tuple[str, str, str, str]
 TARGET = (
@@ -42,6 +42,7 @@ class HalfProgram:
     repeats: int
     events: tuple[int, ...]
     operations: tuple[str, ...]
+    inspected_rows: int
 
 
 @dataclass(frozen=True)
@@ -52,89 +53,80 @@ class DagStats:
     materialized_row_cells: int
 
 
-def smallest_period(seq: Sequence[str]) -> tuple[tuple[str, ...], int] | None:
-    n = len(seq)
-    for p in range(1, n + 1):
-        if n % p == 0 and all(seq[i] == seq[i % p] for i in range(n)):
-            return tuple(seq[:p]), n // p
-    return None
-
-
 def compile_linear_half(code: str) -> HalfProgram | None:
-    """One-pass feature extraction plus bounded suffix-period check.
+    """Recognize the event-periodic two-column Half family in strict O(L).
 
-    The target family has one always-supported S spine in column 1, activity
-    only in columns 0 and 1, and crystal events in column 0.  Prefix length is
-    chosen at the first row after which the suffix is periodic.  The total
-    inspected input is O(L); period candidates are bounded by the number of
-    event gaps, not by arbitrary operation enumeration.
+    One scan verifies the permanent right S spine and records crystal events.
+    Equal event gaps determine the only possible block length.  A second linear
+    pass verifies the whole suffix.  No inverse-operation or subgoal loop is
+    performed.
     """
     rows = structural_rows(parse_shape(code))
     if not rows:
         return None
-    if any(r[1] != "S" or r[2:] != "--" for r in rows):
+
+    inspected = 0
+    left: list[str] = []
+    events: list[int] = []
+    for i, row in enumerate(rows):
+        inspected += 1
+        if row[1] != "S" or row[2:] != "--":
+            return None
+        left.append(row[0])
+        if row[0] == "c":
+            events.append(i)
+
+    if len(events) < 2:
         return None
-    left = tuple(r[0] for r in rows)
-    events = tuple(i for i, ch in enumerate(left) if ch == "c")
-    if not events:
+    period = events[1] - events[0]
+    if period <= 0 or any(events[i] - events[i - 1] != period for i in range(2, len(events))):
         return None
 
-    # Candidate starts are 0 and positions following event boundaries.  Their
-    # count is at most L, and each failed candidate is killed by the first
-    # mismatch in practical event-coded families.  For a strict worst-case
-    # linear implementation, the production version should use KMP/Z; this
-    # experiment also exposes the comparison count in tests.
-    candidate_starts = (0,) + tuple(i + 1 for i in events if i + 1 < len(left))
-    best: tuple[int, tuple[str, ...], int] | None = None
-    for start in candidate_starts:
-        period = smallest_period(left[start:])
-        if period is None:
-            continue
-        block, repeats = period
-        if repeats >= 2 and "c" in block:
-            score = len(left[:start]) + len(block)
-            if best is None or score < best[0]:
-                best = (score, block, repeats)
-    if best is None:
+    # Each event is the last row of its block in the supplied legacy family.
+    start = events[0] - period + 1
+    if start < 0:
         return None
-    _, block, repeats = best
-    suffix_len = len(block) * repeats
-    prefix = left[: len(left) - suffix_len]
+    suffix_len = len(left) - start
+    if suffix_len < 2 * period or suffix_len % period:
+        return None
+    block = tuple(left[start : start + period])
+    if block[-1] != "c" or "c" in block[:-1]:
+        return None
+
+    for i in range(start, len(left)):
+        inspected += 1
+        if left[i] != block[(i - start) % period]:
+            return None
+    repeats = suffix_len // period
 
     operations: list[str] = ["SEED"]
     for _ in range(repeats):
-        # Straight-line legacy-style macro: no DAG reuse assumption.
+        # Straight sequential legacy-style macro; no reuse assumption.
         operations.extend(("PIN", "SWAP", "SWAP", "PIN"))
     return HalfProgram(
         subtype="HALF_PERIODIC_PIN_SWAP",
-        prefix=prefix,
+        prefix=tuple(left[:start]),
         block=block,
         repeats=repeats,
-        events=events,
+        events=tuple(events),
         operations=tuple(operations),
+        inspected_rows=inspected,
     )
 
 
 def replay_structural(program: HalfProgram) -> tuple[str, ...]:
-    """Independent structural witness replay.
+    """Independent structural replay of the compiled witness.
 
-    It reconstructs the exact two-column target word from prefix and repeated
-    block.  This is intentionally weaker than Shapez2 physics replay; the web
-    integration must additionally replay emitted primitive operations with the
-    project kernel before accepting the fast path.
+    This proves exact reconstruction of the target two-column word. Integration
+    into the web solver must additionally replay each primitive Pin/Swap step
+    with the project physics before accepting the fast path.
     """
     left = program.prefix + program.block * program.repeats
     return tuple(ch + "S--" for ch in left)
 
 
 def baseline_recursive_dag(code: str) -> DagStats:
-    """Model the current generic proof expansion.
-
-    Every crystal event asks the generic planner to materialize every prefix
-    subgoal again.  Hash-consing merges identical final shapes but not the
-    distinct prefix-length proof nodes.  This captures the measured structural
-    source of quadratic graph payload without assuming reuse.
-    """
+    """Generic prefix-rematerializing proof expansion used as baseline."""
     rows = structural_rows(parse_shape(code))
     event_ends = [i + 1 for i, row in enumerate(rows) if row[0] == "c"]
     nodes = 1
@@ -142,12 +134,10 @@ def baseline_recursive_dag(code: str) -> DagStats:
     operations = 0
     cells = 0
     for end in event_ends:
-        # One row node and one constructor edge per prefix row.
         nodes += end + 1
         edges += end
         operations += end
         cells += 4 * end
-    # Final target materialization.
     nodes += len(rows) + 1
     edges += len(rows)
     operations += len(rows)
@@ -160,11 +150,9 @@ def fast_linear_dag(code: str) -> DagStats | None:
     if program is None:
         return None
     rows = structural_rows(parse_shape(code))
-    # Input, seed, one node per macro operation, and target.
     nodes = len(program.operations) + 3
     edges = len(program.operations) + 2
     operations = len(program.operations)
-    # Store target rows once; intermediate shapes are delta/materialized lazily.
     cells = 4 * len(rows) + len(program.operations)
     return DagStats(nodes, edges, operations, cells)
 
@@ -180,8 +168,8 @@ def make_family(repeats: int) -> str:
 
 
 def benchmark(max_repeats: int = 128) -> dict[str, object]:
-    rows = []
-    for repeats in (1, 2, 4, 8, 16, 32, 64, max_repeats):
+    result_rows = []
+    for repeats in (2, 4, 8, 16, 32, 64, max_repeats):
         code = make_family(repeats)
         t0 = perf_counter()
         program = compile_linear_half(code)
@@ -190,10 +178,11 @@ def benchmark(max_repeats: int = 128) -> dict[str, object]:
         base = baseline_recursive_dag(code)
         assert program is not None and fast is not None
         assert replay_structural(program) == structural_rows(parse_shape(code))
-        rows.append(
+        result_rows.append(
             {
                 "repeats": repeats,
                 "layers": len(parse_shape(code)),
+                "inspected_rows": program.inspected_rows,
                 "baseline_nodes": base.nodes,
                 "fast_nodes": fast.nodes,
                 "node_reduction": 1.0 - fast.nodes / base.nodes,
@@ -203,7 +192,7 @@ def benchmark(max_repeats: int = 128) -> dict[str, object]:
                 "compile_us": elapsed_us,
             }
         )
-    return {"target": TARGET, "rows": rows}
+    return {"target": TARGET, "rows": result_rows}
 
 
 if __name__ == "__main__":
