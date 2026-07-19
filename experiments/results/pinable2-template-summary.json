@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "pillar": "SS-S-cS-S-c",
+  "templates_checked": 1260,
+  "stable_templates": 927,
+  "exact_hit": null,
+  "closest_distance": 2,
+  "closest_variants": {
+    "A": "target_suffix_A",
+    "B": "target_suffix_B",
+    "C": "empty_C",
+    "D": "empty_D"
+  },
+  "closest_source": "SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+  "closest_output": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+  "conclusion": "The unfinished build_pinable_shape2 template family collapses to target-without-bottom and cannot repair bottom PP to SS. Freeze one-step template search and move to sequential family macro synthesis."
+}
