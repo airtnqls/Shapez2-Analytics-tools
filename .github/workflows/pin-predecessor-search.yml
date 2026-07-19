@@ -1,22 +1,13 @@
 name: Exact Pin Push predecessor search
 
 on:
-  push:
-    branches:
-      - experiment/half-linear-fastpath
-  pull_request:
-    branches:
-      - master
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 
 jobs:
   general-search:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
@@ -24,10 +15,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Search unconstrained stable predecessor
+      - name: Reproduce unconstrained search
         working-directory: experiments/legacy_recipe
-        run: |
-          PYTHONPATH=../.. python evolve_pin_predecessor.py > pin-predecessor-search.json
+        run: PYTHONPATH=../.. python evolve_pin_predecessor.py > pin-predecessor-search.json
       - uses: actions/upload-artifact@v4
         with:
           name: pin-predecessor-general-search
@@ -41,65 +31,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Search bottom-empty falling predecessor
+      - name: Reproduce bottom-fall constrained search
         working-directory: experiments/legacy_recipe
         run: |
           PYTHONPATH=../.. python - <<'PY' > bottom-fall-search.json
           import json
           from search_bottom_fall_predecessor import search
-          result = search(
-              seed=20260720,
-              beam_width=80,
-              elite_count=12,
-              max_seconds=125.0,
-              max_evaluations=95000,
-          )
-          print(json.dumps(result, ensure_ascii=False, indent=2))
+          print(json.dumps(search(max_seconds=125.0, max_evaluations=95000), ensure_ascii=False, indent=2))
           PY
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          data = json.loads(Path('bottom-fall-search.json').read_text(encoding='utf-8'))
-          summary = {
-              'necessary_constraint': data.get('necessary_constraint'),
-              'stop_reason': data['stop_reason'],
-              'elapsed_seconds': data.get('elapsed_seconds'),
-              'evaluations': data.get('evaluations'),
-              'generations': data.get('generations'),
-              'hit': data.get('hit'),
-              'best': data.get('best'),
-              'history_tail': data.get('history_tail', [])[-5:],
-          }
-          Path('bottom-fall-summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(json.dumps(summary, ensure_ascii=False, indent=2))
-          PY
-      - name: Publish bottom-fall result
-        if: always() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const marker = '<!-- tmam-bottom-fall-predecessor -->';
-            const path = 'experiments/legacy_recipe/bottom-fall-summary.json';
-            const data = fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : '{"error":"summary missing"}';
-            const body = `${marker}\n### Bottom-fall constrained Pin Push predecessor search\n\n\`\`\`json\n${data}\n\`\`\``;
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
-            });
-            const existing = comments.find(c => c.body && c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
-            } else {
-              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
-            }
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: bottom-fall-predecessor-search
-          path: |
-            experiments/legacy_recipe/bottom-fall-search.json
-            experiments/legacy_recipe/bottom-fall-summary.json
-          if-no-files-found: warn
+          path: experiments/legacy_recipe/bottom-fall-search.json
