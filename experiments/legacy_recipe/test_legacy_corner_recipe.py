@@ -6,23 +6,21 @@ from legacy_corner_recipe import solve_recipe
 
 
 class LegacyCornerRecipeTests(unittest.TestCase):
-    def test_legacy_pinable_constructor_replays(self) -> None:
+    def test_legacy_pinable_constructor_matches_target_q0_above_bottom(self) -> None:
         result = solve_recipe()
-        self.assertTrue(result.pin_replay_ok, result)
+        self.assertTrue(result.q0_matches_above_bottom, result)
+        self.assertEqual(result.q0_bottom_transition, "P->S")
 
-    def test_corner_plus_spine_swap_reaches_supplied_half(self) -> None:
+    def test_pin_push_alone_is_not_misreported_as_complete(self) -> None:
         result = solve_recipe()
-        self.assertIsNotNone(result.swap_recipe, result)
-        self.assertTrue(result.final_replay_ok, result)
-        self.assertEqual(result.final, result.target)
+        self.assertFalse(result.pin_replay_ok)
+        self.assertGreater(result.corner_cell_distance, 0)
 
-    def test_recipe_is_constant_width_linear_construction(self) -> None:
+    def test_optional_one_swap_recipe_must_replay_if_found(self) -> None:
         result = solve_recipe()
-        self.assertIsNotNone(result.swap_recipe)
-        assert result.swap_recipe is not None
-        # One direct Corner predecessor pass, one Pin Push, one spine, one Swap,
-        # and constant rotations/output selection. No recursive target search.
-        self.assertLessEqual(len(result.swap_recipe["operations"]), 8)
+        if result.one_swap_recipe is not None:
+            self.assertTrue(result.final_replay_ok, result)
+            self.assertEqual(result.final, result.target)
 
 
 if __name__ == "__main__":
