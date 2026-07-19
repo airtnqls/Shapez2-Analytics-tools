@@ -21,11 +21,18 @@ TARGET = (
 CAP = 11
 
 
-def selected_operation_chain(proof: dict) -> list[dict]:
+def graph_indexes(proof: dict):
     nodes = {str(node.get("id")): node for node in proof.get("nodes", [])}
     incoming: dict[str, list[dict]] = {}
+    outgoing: dict[str, list[dict]] = {}
     for edge in proof.get("edges", []):
         incoming.setdefault(str(edge.get("target")), []).append(edge)
+        outgoing.setdefault(str(edge.get("source")), []).append(edge)
+    return nodes, incoming, outgoing
+
+
+def selected_operation_chain(proof: dict) -> list[dict]:
+    nodes, incoming, _ = graph_indexes(proof)
     selected: set[str] = set()
     pending = [str(proof.get("rootId") or "")]
     while pending:
@@ -44,6 +51,50 @@ def selected_operation_chain(proof: dict) -> list[dict]:
         }
         for node in operations
     ]
+
+
+def duplicate_profile(proof: dict) -> dict:
+    nodes, incoming, outgoing = graph_indexes(proof)
+    shape_nodes = [node for node in nodes.values() if node.get("kind") == "shape"]
+    code_counts = Counter(str(node.get("code") or "") for node in shape_nodes)
+    repeated_codes = [(code, count) for code, count in code_counts.items() if count > 1]
+    repeated_codes.sort(key=lambda item: (-item[1], item[0]))
+
+    signatures: Counter[str] = Counter()
+    for node_id, node in nodes.items():
+        if node.get("kind") != "operation":
+            continue
+        inputs = []
+        for edge in incoming.get(node_id, []):
+            source = nodes.get(str(edge.get("source")), {})
+            if source.get("kind") == "shape":
+                inputs.append((str(edge.get("label") or ""), str(source.get("code") or "")))
+        outputs = []
+        for edge in outgoing.get(node_id, []):
+            target = nodes.get(str(edge.get("target")), {})
+            if target.get("kind") == "shape" and target.get("status") != "ghost":
+                outputs.append((str(edge.get("label") or ""), str(target.get("code") or "")))
+        signature = json.dumps(
+            {
+                "operation": node.get("operation"),
+                "metadata": node.get("metadata") or {},
+                "inputs": sorted(inputs),
+                "outputs": sorted(outputs),
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        signatures[signature] += 1
+    duplicate_signatures = sorted((count for count in signatures.values() if count > 1), reverse=True)
+    return {
+        "uniqueShapeCodes": len(code_counts),
+        "duplicateShapeNodes": sum(count - 1 for count in code_counts.values()),
+        "topRepeatedShapeCodes": [{"code": code, "count": count} for code, count in repeated_codes[:12]],
+        "uniqueOperationSignatures": len(signatures),
+        "duplicateOperationNodesByExactSignature": sum(count - 1 for count in signatures.values()),
+        "topDuplicateOperationSignatureCounts": duplicate_signatures[:12],
+    }
 
 
 def metrics(result: dict) -> dict:
@@ -73,6 +124,7 @@ def metrics(result: dict) -> dict:
         "shapeNodes": len(shape_nodes),
         "materializedCodeChars": total_code_chars,
         "operationHistogram": dict(sorted(operation_histogram.items())),
+        "duplicateProfile": duplicate_profile(proof),
         "selectedOperations": selected_operation_chain(proof),
     }
 
@@ -104,6 +156,14 @@ def markdown_summary(report: dict) -> str:
     for run in report["runs"]:
         histogram = ", ".join(f"{name}={count}" for name, count in run["metrics"]["operationHistogram"].items())
         lines.append(f"- **{run['label']}**: {histogram}")
+    lines.extend(["", "### Exact duplicate potential"])
+    for run in report["runs"]:
+        duplicate = run["metrics"]["duplicateProfile"]
+        lines.append(
+            f"- **{run['label']}**: shape duplicate nodes={duplicate['duplicateShapeNodes']}, "
+            f"exact duplicate operation nodes={duplicate['duplicateOperationNodesByExactSignature']}, "
+            f"unique shape codes={duplicate['uniqueShapeCodes']}"
+        )
     lines.append("")
     return "\n".join(lines)
 
@@ -112,7 +172,7 @@ def main() -> None:
     raw = timed("zip-worker-before-backend-expansion", lambda: worker_client.analyze(TARGET, CAP, "proof"))
     expanded = timed("backend-expanded-and-optimized", lambda: analyze(TARGET, CAP, "proof"))
     report = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "target": TARGET,
         "cap": CAP,
         "runs": [{key: value for key, value in run.items() if key != "result"} for run in (raw, expanded)],
