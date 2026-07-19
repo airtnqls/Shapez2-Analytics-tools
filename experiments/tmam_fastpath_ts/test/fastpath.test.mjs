@@ -12,8 +12,19 @@ test('periodic target compiles without fallback', () => {
   assert.equal(out.verdict, 'POSSIBLE');
   assert.equal(out.subtype, 'HALF_PERIODIC_PIN_SWAP');
   assert.equal(out.meter.fallbackCalls, 0);
+  assert.equal(out.orientationTurns, 0);
   assert.deepEqual(out.operations, ['SEED', 'PIN', 'SWAP', 'SWAP', 'PIN', 'PIN', 'SWAP', 'SWAP', 'PIN']);
   assert.ok(out.meter.inspections <= parseShape(target).length * 2 + 4);
+});
+
+test('rotated periodic target is still recognized', () => {
+  const original = parseShape(target);
+  const rotated = original.map((r) => [r[3], r[0], r[1], r[2]]).map((r) => r.join('')).join(':');
+  const out = solveFast(rotated, 'proof');
+  assert.equal(out.verdict, 'POSSIBLE');
+  assert.equal(out.subtype, 'HALF_PERIODIC_PIN_SWAP');
+  assert.ok(out.orientationTurns > 0);
+  assert.ok(out.meter.inspections <= original.length * 6 + 8);
 });
 
 test('mode separation prevents proof work', () => {
@@ -44,6 +55,7 @@ test('shared feature scan is linear', () => {
     const code = rows.join(':');
     const out = solveFast(code, 'proof');
     assert.equal(out.meter.fallbackCalls, 0);
+    assert.equal(out.orientationTurns, 0);
     assert.ok(out.meter.inspections <= parseShape(code).length * 2 + repeats + 4);
   }
 });
@@ -62,7 +74,7 @@ test('delta proof materializes exact states and saves cells', () => {
 });
 
 test('receipt prefix scans once', () => {
-  const code = '--P-P-P-:--P-P-P-:SuSu----';
+  const code = '--PP:--PP:SS--';
   const rows = parseShape(code);
   const meter = { inspections: 0 };
   const features = scanFeatures(rows, meter);
