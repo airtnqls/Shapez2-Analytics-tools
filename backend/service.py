@@ -4,6 +4,7 @@ from typing import Callable
 
 from .proof_expander import expand_certified_macros
 from .proof_optimizer import optimize_proof_graph
+from .proof_state_rewrite import remove_redundant_state_returns
 from .worker_client import worker_client
 from .zip_proof_validator import validate_proof_with_zip
 
@@ -19,8 +20,8 @@ def analyze(
     result = worker_client.analyze(code, requested_cap, mode, on_progress=on_progress)
 
     # A full-height target can have a valid Pin Push predecessor one layer
-    # higher than the final shape.  The historical GUI silently clipped that
-    # workspace and therefore disagreed with an unconstrained ZIP run.  Retry
+    # higher than the final shape. The historical GUI silently clipped that
+    # workspace and therefore disagreed with an unconstrained ZIP run. Retry
     # exactly one construction headroom layer, but only adopt it when the ZIP
     # worker itself changes the verdict to POSSIBLE.
     if (
@@ -38,9 +39,21 @@ def analyze(
     effective_cap = int(result.get("cap", requested_cap))
     if mode == "proof" and result.get("proof"):
         result["proof"] = expand_certified_macros(result["proof"], effective_cap)
+        returned_state_nodes = remove_redundant_state_returns(result["proof"])
         optimization = optimize_proof_graph(result["proof"])
+        returned_state_nodes += remove_redundant_state_returns(result["proof"])
+        if returned_state_nodes:
+            # A second regular pass removes now-dead producers exposed by state
+            # return bypasses and refreshes graph metrics.
+            follow_up = optimize_proof_graph(result["proof"])
+            optimization = type(optimization)(
+                nodes_before=optimization.nodes_before,
+                nodes_after=follow_up.nodes_after,
+                operations_before=optimization.operations_before,
+                operations_after=follow_up.operations_after,
+            )
         checked = validate_proof_with_zip(result["proof"], effective_cap, worker_client)
-        # The ZIP worker's recipe was generated before macro expansion.  The
+        # The ZIP worker's recipe was generated before macro expansion. The
         # canonical proof graph is authoritative for both frontends.
         result.pop("processRecipe", None)
         result.setdefault("diagnostics", {}).setdefault("warnings", [])
@@ -50,8 +63,12 @@ def analyze(
         ]
         result["diagnostics"]["tablesLoaded"].append(f"ZIP proof operation replay {checked} nodes")
         result["diagnostics"]["tablesLoaded"].append(
-            f"DAG optimization removed {optimization.removed_operations} no-op operations / {optimization.removed_nodes} nodes"
+            f"DAG optimization removed {optimization.removed_operations} operations / {optimization.removed_nodes} nodes"
         )
+        if returned_state_nodes:
+            result["diagnostics"]["tablesLoaded"].append(
+                f"State-return elimination bypassed {returned_state_nodes} repeated state nodes"
+            )
     return result
 
 
