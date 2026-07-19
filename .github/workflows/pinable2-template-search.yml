@@ -1,100 +1,24 @@
 name: Complete legacy build_pinable_shape2
 
 on:
-  push:
-    branches:
-      - experiment/half-linear-fastpath
-  pull_request:
-    branches:
-      - master
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  contents: read
 
 jobs:
   search:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: experiment/half-linear-fastpath
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Exhaust stable A/B/C/D templates
+      - name: Reproduce stable A/B/C/D template exhaustion
         working-directory: experiments/legacy_recipe
-        run: |
-          PYTHONPATH=../.. python search_pinable2_templates.py > pinable2-template-search.json
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          data = json.loads(Path('pinable2-template-search.json').read_text(encoding='utf-8'))
-          summary = {
-              'pillar': data['pillar'],
-              'unfinished_idea': data['unfinished_idea'],
-              'variant_counts': data['variant_counts'],
-              'checked': data['checked'],
-              'stable_checked': data['stable_checked'],
-              'hit': data['hit'],
-              'closest': data['closest'][:5],
-          }
-          text = json.dumps(summary, ensure_ascii=False, indent=2) + '\n'
-          Path('pinable2-template-summary.json').write_text(text, encoding='utf-8')
-          result = Path('../results/pinable2-template-summary.json')
-          result.parent.mkdir(parents=True, exist_ok=True)
-          result.write_text(text, encoding='utf-8')
-          print(text)
-          PY
-      - name: Commit reproducible summary
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add experiments/results/pinable2-template-summary.json
-          if git diff --cached --quiet; then
-            echo 'summary unchanged'
-          else
-            git commit -m 'Record pinable2 template search result [skip ci]'
-            git push origin HEAD:experiment/half-linear-fastpath
-          fi
-      - name: Publish compact template result
-        if: always() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const marker = '<!-- tmam-pinable2-template-search -->';
-            const path = 'experiments/legacy_recipe/pinable2-template-summary.json';
-            const summary = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path, 'utf8')) : null;
-            const closest = summary?.closest?.[0] ?? null;
-            const body = `${marker}\n### Complete legacy build_pinable_shape2 template search\n\n` +
-              `- templates checked: \`${summary?.checked ?? 'missing'}\`\n` +
-              `- stable templates: \`${summary?.stable_checked ?? 'missing'}\`\n` +
-              `- exact hit: \`${summary?.hit ? 'yes' : 'no'}\`\n` +
-              `- closest distance: \`${closest?.distance ?? 'missing'}\`\n` +
-              `- closest variants: \`${JSON.stringify(closest?.variants ?? null)}\`\n` +
-              `- summary is committed at \`experiments/results/pinable2-template-summary.json\`.`;
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
-            });
-            const existing = comments.find(c => c.body && c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
-            } else {
-              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
-            }
+        run: PYTHONPATH=../.. python search_pinable2_templates.py > pinable2-template-search.json
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: pinable2-template-search
-          path: |
-            experiments/legacy_recipe/pinable2-template-search.json
-            experiments/legacy_recipe/pinable2-template-summary.json
-          if-no-files-found: warn
+          path: experiments/legacy_recipe/pinable2-template-search.json
