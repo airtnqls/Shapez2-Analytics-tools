@@ -43,14 +43,17 @@ export function noOverflowReceipt(features) {
 }
 
 export function monotoneStack(features) {
-  if (!features.isHalf || features.ownershipTransitions.length !== 1) return null;
+  // This accelerator is intentionally narrow. A single event/plain transition
+  // alone is not enough: deleting one event from a periodic Half created a false
+  // positive. Require the permanent support spine as an additional certificate.
+  if (!features.isHalf || !features.rightSpine || features.ownershipTransitions.length !== 1) return null;
   const split = features.ownershipTransitions[0];
   if (split <= 0 || split >= features.layers) return null;
   return {
     subtype: 'HALF_MONOTONE_STACK',
     cost: features.layers + 1,
     operations: ['BUILD_BOTTOM', 'BUILD_TOP', 'STACK'],
-    evidence: { split },
+    evidence: { split, support: 'right-spine' },
   };
 }
 
