@@ -4,6 +4,7 @@ from typing import Callable
 
 from .proof_expander import expand_certified_macros
 from .proof_optimizer import optimize_proof_graph
+from .proof_overview import build_proof_overview
 from .proof_state_rewrite import remove_redundant_state_returns
 from .worker_client import worker_client
 from .zip_proof_validator import validate_proof_with_zip
@@ -53,6 +54,9 @@ def analyze(
                 operations_after=follow_up.operations_after,
             )
         checked = validate_proof_with_zip(result["proof"], effective_cap, worker_client)
+        overview = build_proof_overview(code, effective_cap, result["proof"])
+        if overview is not None:
+            result["proof"]["overview"] = overview
         # The ZIP worker's recipe was generated before macro expansion. The
         # canonical proof graph is authoritative for both frontends.
         result.pop("processRecipe", None)
@@ -68,6 +72,10 @@ def analyze(
         if returned_state_nodes:
             result["diagnostics"]["tablesLoaded"].append(
                 f"State-return elimination bypassed {returned_state_nodes} repeated state nodes"
+            )
+        if overview is not None:
+            result["diagnostics"]["tablesLoaded"].append(
+                f"Semantic overview {overview['operationCount']} operations / primitive detail {overview['detailOperationCount']} operations"
             )
     return result
 
