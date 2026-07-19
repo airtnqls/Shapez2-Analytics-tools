@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import gzip
 import json
+import sys
 import time
 from collections import Counter
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.service import analyze
 from backend.worker_client import worker_client
@@ -88,7 +93,7 @@ def main() -> None:
         "cap": CAP,
         "runs": [{key: value for key, value in run.items() if key != "result"} for run in (raw, expanded)],
     }
-    reports = Path("reports")
+    reports = PROJECT_ROOT / "reports"
     reports.mkdir(parents=True, exist_ok=True)
     (reports / "FASTPATH_LATEST_BASELINE.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
