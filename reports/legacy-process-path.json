@@ -1,0 +1,6 @@
+{
+  "target": "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----",
+  "errorType": "ModuleNotFoundError",
+  "error": "No module named 'PyQt6'",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/scripts/audit_legacy_process_path.py\", line 70, in main\n    report = build_report()\n             ^^^^^^^^^^^^^^\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/scripts/audit_legacy_process_path.py\", line 21, in build_report\n    from shape import Shape\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/archive/legacy-python-gui-20260719/shape.py\", line 5, in <module>\n    from PyQt6.QtCore import QThread, pyqtSignal\nModuleNotFoundError: No module named 'PyQt6'\n"
+}
