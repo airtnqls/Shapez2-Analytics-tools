@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import json
+import sys
 from collections import Counter
 from dataclasses import asdict
+from pathlib import Path
 
-from backend.corner_half.corner_ir import compile_corner_ir
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from backend.corner_half.corner_full_replay import replay_corner_full
+from backend.corner_half.corner_ir import compile_corner_ir
 from backend.corner_half.half_family import analyze_half
-from backend.corner_half.proof_dag import half_raw_proof, verify_proof, verify_proof_forest
+from backend.corner_half.proof_dag import half_raw_proof, verify_proof
 
 TARGET = (
     "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:"
@@ -33,8 +39,12 @@ def walk(root):
 
 def main() -> None:
     analysis = analyze_half(STRUCTURAL_TARGET, CAP)
+    if not analysis.buildable:
+        raise RuntimeError("target Half unexpectedly rejected")
     root = half_raw_proof(STRUCTURAL_TARGET, CAP)
     audit = verify_proof(root)
+    if not audit.replay_ok or audit.result != STRUCTURAL_TARGET:
+        raise RuntimeError(f"baseline replay mismatch: {audit}")
     nodes = walk(root)
     ops = Counter(node.operation for node in nodes)
     left_ir = compile_corner_ir(analysis.left_column, CAP)
@@ -43,6 +53,7 @@ def main() -> None:
     right_replay = replay_corner_full(analysis.right_column, CAP, True)
 
     report = {
+        "schemaVersion": 1,
         "target": TARGET,
         "structuralTarget": STRUCTURAL_TARGET,
         "cap": CAP,
