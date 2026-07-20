@@ -1,6 +1,147 @@
 {
   "target": "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----",
-  "errorType": "ModuleNotFoundError",
-  "error": "No module named 'PyQt6'",
-  "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/scripts/audit_legacy_process_path.py\", line 70, in main\n    report = build_report()\n             ^^^^^^^^^^^^^^\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/scripts/audit_legacy_process_path.py\", line 21, in build_report\n    from shape import Shape\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/archive/legacy-python-gui-20260719/shape.py\", line 5, in <module>\n    from PyQt6.QtCore import QThread, pyqtSignal\nModuleNotFoundError: No module named 'PyQt6'\n"
+  "root": "ID0",
+  "nodeCount": 7,
+  "nodes": {
+    "ID0": {
+      "shape_code": "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----",
+      "operation": "process_tree.operation.quad",
+      "input_ids": [
+        "ID1",
+        "ID3",
+        "ID5",
+        "ID6"
+      ]
+    },
+    "ID1": {
+      "shape_code": "Su------:Su------:--------:Su------:--------:cw------:Su------:--------:Su------:--------:cw------",
+      "operation": "불가능한 도형",
+      "input_ids": [
+        "ID2"
+      ]
+    },
+    "ID2": {
+      "shape_code": "?",
+      "operation": "불가능한 도형의 하위",
+      "input_ids": []
+    },
+    "ID3": {
+      "shape_code": "Su------:Su------:Su------:Su------:Su------:Su------:Su------:Su------:Su------:Su------:Su------",
+      "operation": "생략",
+      "input_ids": [
+        "ID4"
+      ]
+    },
+    "ID4": {
+      "shape_code": "...",
+      "operation": "생략",
+      "input_ids": []
+    },
+    "ID5": {
+      "shape_code": "",
+      "operation": "analyzer.shape_types.empty",
+      "input_ids": []
+    },
+    "ID6": {
+      "shape_code": "",
+      "operation": "analyzer.shape_types.empty",
+      "input_ids": []
+    }
+  },
+  "forwardPaths": [
+    [
+      {
+        "id": "ID2",
+        "shape": "?",
+        "operationToProduce": "불가능한 도형의 하위",
+        "inputs": []
+      },
+      {
+        "id": "ID1",
+        "shape": "Su------:Su------:--------:Su------:--------:cw------:Su------:--------:Su------:--------:cw------",
+        "operationToProduce": "불가능한 도형",
+        "inputs": [
+          "ID2"
+        ]
+      },
+      {
+        "id": "ID0",
+        "shape": "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----",
+        "operationToProduce": "process_tree.operation.quad",
+        "inputs": [
+          "ID1",
+          "ID3",
+          "ID5",
+          "ID6"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "ID4",
+        "shape": "...",
+        "operationToProduce": "생략",
+        "inputs": []
+      },
+      {
+        "id": "ID3",
+        "shape": "Su------:Su------:Su------:Su------:Su------:Su------:Su------:Su------:Su------:Su------:Su------",
+        "operationToProduce": "생략",
+        "inputs": [
+          "ID4"
+        ]
+      },
+      {
+        "id": "ID0",
+        "shape": "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----",
+        "operationToProduce": "process_tree.operation.quad",
+        "inputs": [
+          "ID1",
+          "ID3",
+          "ID5",
+          "ID6"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "ID5",
+        "shape": "",
+        "operationToProduce": "analyzer.shape_types.empty",
+        "inputs": []
+      },
+      {
+        "id": "ID0",
+        "shape": "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----",
+        "operationToProduce": "process_tree.operation.quad",
+        "inputs": [
+          "ID1",
+          "ID3",
+          "ID5",
+          "ID6"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "ID6",
+        "shape": "",
+        "operationToProduce": "analyzer.shape_types.empty",
+        "inputs": []
+      },
+      {
+        "id": "ID0",
+        "shape": "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----",
+        "operationToProduce": "process_tree.operation.quad",
+        "inputs": [
+          "ID1",
+          "ID3",
+          "ID5",
+          "ID6"
+        ]
+      }
+    ]
+  ]
 }
+4
+---SSSScS-S-c
