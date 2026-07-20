@@ -21,5 +21,319 @@
     "SSSSSSSSSSS",
     "",
     ""
+  ],
+  "stackCandidates": [
+    {
+      "helper": "S---",
+      "helperColumn": 0,
+      "helperHeight": 1,
+      "order": "current-bottom",
+      "result": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "P",
+        "PSSS-SSSS"
+      ]
+    },
+    {
+      "helper": "S---",
+      "helperColumn": 0,
+      "helperHeight": 1,
+      "order": "helper-bottom",
+      "result": "SPPP:P---:SS-S:-P-S:SS-S:-P-S:-S--:SS-S:-P-S:SS-S:-P--",
+      "pillars": [
+        "SPS-S--S-S",
+        "P-SPSPSSPSP",
+        "P",
+        "P-SSSS-SSS"
+      ]
+    },
+    {
+      "helper": "S---:S---",
+      "helperColumn": 0,
+      "helperHeight": 2,
+      "order": "current-bottom",
+      "result": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "P",
+        "PSSS-SSSS"
+      ]
+    },
+    {
+      "helper": "S---:S---",
+      "helperColumn": 0,
+      "helperHeight": 2,
+      "order": "helper-bottom",
+      "result": "SPPP:S---:P---:SS-S:-P-S:SS-S:-P-S:-S--:SS-S:-P-S:SS-S",
+      "pillars": [
+        "SSPS-S--S-S",
+        "P--SPSPSSPS",
+        "P",
+        "P--SSSS-SSS"
+      ]
+    },
+    {
+      "helper": "S---:S---:S---",
+      "helperColumn": 0,
+      "helperHeight": 3,
+      "order": "current-bottom",
+      "result": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "P",
+        "PSSS-SSSS"
+      ]
+    },
+    {
+      "helper": "S---:S---:S---",
+      "helperColumn": 0,
+      "helperHeight": 3,
+      "order": "helper-bottom",
+      "result": "SPPP:S---:S---:P---:SS-S:-P-S:SS-S:-P-S:-S--:SS-S:-P-S",
+      "pillars": [
+        "SSSPS-S--S",
+        "P---SPSPSSP",
+        "P",
+        "P---SSSS-SS"
+      ]
+    },
+    {
+      "helper": "-S--",
+      "helperColumn": 1,
+      "helperHeight": 1,
+      "order": "current-bottom",
+      "result": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "P",
+        "PSSS-SSSS"
+      ]
+    },
+    {
+      "helper": "-S--",
+      "helperColumn": 1,
+      "helperHeight": 1,
+      "order": "helper-bottom",
+      "result": "PSPP:-P--:SS-S:-P-S:SS-S:-P-S:-S--:SS-S:-P-S:SS-S:-P--",
+      "pillars": [
+        "P-S-S--S-S",
+        "SPSPSPSSPSP",
+        "P",
+        "P-SSSS-SSS"
+      ]
+    },
+    {
+      "helper": "-S--:-S--",
+      "helperColumn": 1,
+      "helperHeight": 2,
+      "order": "current-bottom",
+      "result": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "P",
+        "PSSS-SSSS"
+      ]
+    },
+    {
+      "helper": "-S--:-S--",
+      "helperColumn": 1,
+      "helperHeight": 2,
+      "order": "helper-bottom",
+      "result": "PSPP:-S--:-P--:SS-S:-P-S:SS-S:-P-S:-S--:SS-S:-P-S:SS-S",
+      "pillars": [
+        "P--S-S--S-S",
+        "SSPSPSPSSPS",
+        "P",
+        "P--SSSS-SSS"
+      ]
+    },
+    {
+      "helper": "-S--:-S--:-S--",
+      "helperColumn": 1,
+      "helperHeight": 3,
+      "order": "current-bottom",
+      "result": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "P",
+        "PSSS-SSSS"
+      ]
+    },
+    {
+      "helper": "-S--:-S--:-S--",
+      "helperColumn": 1,
+      "helperHeight": 3,
+      "order": "helper-bottom",
+      "result": "PSPP:-S--:-S--:-P--:SS-S:-P-S:SS-S:-P-S:-S--:SS-S:-P-S",
+      "pillars": [
+        "P---S-S--S",
+        "SSSPSPSPSSP",
+        "P",
+        "P---SSSS-SS"
+      ]
+    },
+    {
+      "helper": "--S-",
+      "helperColumn": 2,
+      "helperHeight": 1,
+      "order": "current-bottom",
+      "result": "PPPP:SSSS:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "PS",
+        "PSSS-SSSS"
+      ]
+    },
+    {
+      "helper": "--S-",
+      "helperColumn": 2,
+      "helperHeight": 1,
+      "order": "helper-bottom",
+      "result": "PPSP:SSPS:-P-S:SS-S:-P-S:-S--:SS-S:-P-S:SS-S:-P--:-S--",
+      "pillars": [
+        "PS-S--S-S",
+        "PSPSPSSPSPS",
+        "SP",
+        "PSSSS-SSS"
+      ]
+    },
+    {
+      "helper": "--S-:--S-",
+      "helperColumn": 2,
+      "helperHeight": 2,
+      "order": "current-bottom",
+      "result": "PPPP:SSSS:-PSS:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "PSS",
+        "PSSS-SSSS"
+      ]
+    },
+    {
+      "helper": "--S-:--S-",
+      "helperColumn": 2,
+      "helperHeight": 2,
+      "order": "helper-bottom",
+      "result": "PPSP:SSSS:-PPS:SS-S:-P-S:-S--:SS-S:-P-S:SS-S:-P--:-S--",
+      "pillars": [
+        "PS-S--S-S",
+        "PSPSPSSPSPS",
+        "SSP",
+        "PSSSS-SSS"
+      ]
+    },
+    {
+      "helper": "--S-:--S-:--S-",
+      "helperColumn": 2,
+      "helperHeight": 3,
+      "order": "current-bottom",
+      "result": "PPPP:SSSS:-PSS:SSSS:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "PSSS",
+        "PSSS-SSSS"
+      ]
+    },
+    {
+      "helper": "--S-:--S-:--S-",
+      "helperColumn": 2,
+      "helperHeight": 3,
+      "order": "helper-bottom",
+      "result": "PPSP:SSSS:-PSS:SSPS:-P-S:-S--:SS-S:-P-S:SS-S:-P--:-S--",
+      "pillars": [
+        "PS-S--S-S",
+        "PSPSPSSPSPS",
+        "SSSP",
+        "PSSSS-SSS"
+      ]
+    },
+    {
+      "helper": "---S",
+      "helperColumn": 3,
+      "helperHeight": 1,
+      "order": "current-bottom",
+      "result": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P-S:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "P",
+        "PSSS-SSSSS"
+      ]
+    },
+    {
+      "helper": "---S",
+      "helperColumn": 3,
+      "helperHeight": 1,
+      "order": "helper-bottom",
+      "result": "PPPS:---P:SS-S:-P-S:SS-S:-P-S:-S--:SS-S:-P-S:SS-S:-P--",
+      "pillars": [
+        "P-S-S--S-S",
+        "P-SPSPSSPSP",
+        "P",
+        "SPSSSS-SSS"
+      ]
+    },
+    {
+      "helper": "---S:---S",
+      "helperColumn": 3,
+      "helperHeight": 2,
+      "order": "current-bottom",
+      "result": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P-S:cS-S",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "P",
+        "PSSS-SSSSSS"
+      ]
+    },
+    {
+      "helper": "---S:---S",
+      "helperColumn": 3,
+      "helperHeight": 2,
+      "order": "helper-bottom",
+      "result": "PPPS:---S:---P:SS-S:-P-S:SS-S:-P-S:-S--:SS-S:-P-S:SS-S",
+      "pillars": [
+        "P--S-S--S-S",
+        "P--SPSPSSPS",
+        "P",
+        "SSPSSSS-SSS"
+      ]
+    },
+    {
+      "helper": "---S:---S:---S",
+      "helperColumn": 3,
+      "helperHeight": 3,
+      "order": "current-bottom",
+      "result": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P-S:cS-S",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "P",
+        "PSSS-SSSSSS"
+      ]
+    },
+    {
+      "helper": "---S:---S:---S",
+      "helperColumn": 3,
+      "helperHeight": 3,
+      "order": "helper-bottom",
+      "result": "PPPS:---S:---S:---P:SS-S:-P-S:SS-S:-P-S:-S--:SS-S:-P-S",
+      "pillars": [
+        "P---S-S--S",
+        "P---SPSPSSP",
+        "P",
+        "SSSPSSSS-SS"
+      ]
+    }
   ]
 }
