@@ -1,0 +1,32 @@
+name: Build pinable shape2 probe
+
+on:
+  push:
+    branches: [optimize/latest-tmam-fastpath]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact helper synthesis
+        run: |
+          mkdir -p reports
+          python scripts/search_build_pinable_shape2.py | tee reports/build-pinable-shape2-search.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-pinable-shape2-search
+          path: reports/build-pinable-shape2-search.json
+          if-no-files-found: error
