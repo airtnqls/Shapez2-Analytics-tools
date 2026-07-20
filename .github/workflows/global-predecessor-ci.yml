@@ -38,13 +38,6 @@ jobs:
             python -m compileall -q backend/corner_half/global_predecessor.py scripts/search_build_pinable_shape2.py
             python -m unittest -v backend.corner_half.test_global_predecessor
           } 2>&1 | tee reports/global-predecessor-tests.log
-      - name: Generate pair-assembly repair search
-        id: repair
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          python scripts/search_pair_assembly_bottom_fix.py 2>reports/pair-assembly-bottom-fix.stderr.log | tee reports/pair-assembly-bottom-fix.json
       - name: Complete the legacy build_pinable_shape2 helper search
         id: shape2
         continue-on-error: true
@@ -52,13 +45,20 @@ jobs:
         run: |
           set -o pipefail
           python scripts/search_build_pinable_shape2.py 2>reports/build-pinable-shape2-search.stderr.log | tee reports/build-pinable-shape2-search.json
+      - name: Generate pair-assembly repair search
+        id: repair
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python scripts/search_pair_assembly_bottom_fix.py 2>reports/pair-assembly-bottom-fix.stderr.log | tee reports/pair-assembly-bottom-fix.json
       - name: Print concise synthesis results
         if: always()
         shell: bash
         run: |
           python - <<'PY'
           import json, pathlib
-          for name in ('pair-assembly-bottom-fix','build-pinable-shape2-search'):
+          for name in ('build-pinable-shape2-search','pair-assembly-bottom-fix'):
               p=pathlib.Path('reports')/(name+'.json')
               if not p.exists() or not p.read_text(encoding='utf-8').strip():
                   print(name, 'NO JSON')
