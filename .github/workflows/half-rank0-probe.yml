@@ -1,0 +1,32 @@
+name: Half direct Rank0 predecessor probe
+
+on:
+  push:
+    branches:
+      - optimize/latest-tmam-fastpath
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Bundle and run target-guided Rank0 probe
+        run: |
+          mkdir -p reports /tmp/half-probe
+          npx esbuild scripts/probe_half_rank0_predecessor.ts --bundle --platform=node --format=esm --outfile=/tmp/half-probe/probe.mjs
+          node /tmp/half-probe/probe.mjs | tee reports/half-rank0-predecessor-probe.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: half-rank0-predecessor-probe
+          path: reports/half-rank0-predecessor-probe.json
+          if-no-files-found: error
