@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "sequence": [
+    "PIN_PUSH",
+    "STACK(q3,Sx2)",
+    "SWAP",
+    "ROTATE",
+    "SWAP",
+    "PIN_PUSH",
+    "CUT/ROTATE"
+  ],
+  "predecessor": "SScS:cPcc:cScS:SPcS:cScS:SScS:cPcc:cScS:SPcS:cSc-:--c-",
+  "afterFirstPin": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+  "afterStack": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P-S:cS-S",
+  "afterStackPillars": [
+    "PS-S-cS-S-c",
+    "PSPSPSSPSPS",
+    "P",
+    "PSSS-SSSSSS"
+  ],
+  "candidateWords": 47,
+  "secondHelpers": 1616,
+  "firstStates": 9,
+  "testedSecondSwapOutputs": 29088,
+  "hits": []
+}
