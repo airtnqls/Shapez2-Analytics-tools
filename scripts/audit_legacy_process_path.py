@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
+import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LEGACY = ROOT / "archive" / "legacy-python-gui-20260719"
 sys.path.insert(0, str(LEGACY))
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 TARGET = (
     "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:"
@@ -14,7 +17,7 @@ TARGET = (
 )
 
 
-def main() -> None:
+def build_report() -> dict[str, object]:
     from shape import Shape
     from process_tree_solver import ProcessTreeSolver
 
@@ -23,9 +26,6 @@ def main() -> None:
     root = solver.solve_process_tree(TARGET)
     data = solver.tree_to_data(root)
 
-    # Record the reachable graph and every maximal leaf->root path.  The legacy
-    # process tree stores target -> predecessor edges, so reverse each path to
-    # obtain the actual forward construction order shown by the GUI.
     nodes = data.get("nodes", {})
     root_id = data.get("root_id")
     paths: list[list[dict[str, object]]] = []
@@ -53,15 +53,34 @@ def main() -> None:
             walk(child, next_path, seen | {node_id})
 
     if root_id:
-        walk(root_id, [], set())
+        walk(str(root_id), [], set())
 
-    print(json.dumps({
+    return {
         "target": TARGET,
         "root": root_id,
         "nodeCount": len(nodes),
         "nodes": nodes,
         "forwardPaths": paths,
-    }, ensure_ascii=False, indent=2))
+    }
+
+
+def main() -> None:
+    output_path = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+    try:
+        report = build_report()
+    except BaseException as exc:  # legacy modules may raise SystemExit
+        report = {
+            "target": TARGET,
+            "errorType": type(exc).__name__,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+    payload = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(payload, encoding="utf-8")
+    else:
+        os.write(1, payload.encode("utf-8"))
 
 
 if __name__ == "__main__":
