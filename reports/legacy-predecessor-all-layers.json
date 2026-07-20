@@ -1,0 +1,836 @@
+{
+  "schemaVersion": 1,
+  "exhaustive": {
+    "maxLength": 8,
+    "eventColumns": 413,
+    "counts": {
+      "relation:exact": 357,
+      "stable": 413,
+      "helpers-all-craftable": 413,
+      "relation:bottom-only-difference": 25,
+      "relation:other": 31
+    },
+    "byZone": {
+      "p_receipt": {
+        "relation:exact": 90,
+        "stable": 121,
+        "relation:other": 31
+      },
+      "pair_assembly": {
+        "relation:bottom-only-difference": 25,
+        "stable": 32,
+        "relation:exact": 7
+      },
+      "pins_only": {
+        "relation:exact": 8,
+        "stable": 8
+      },
+      "top_parking": {
+        "relation:exact": 252,
+        "stable": 252
+      }
+    },
+    "minimalFailures": {
+      "relation-other": [
+        {
+          "target": "PP-S-c",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPS",
+            "cccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--c",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--"
+        },
+        {
+          "target": "PP--S-c",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cPcS:cScS:SPcS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPS",
+            "ccccccc",
+            "ccSSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PP-S--c",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:-P-S:SP-S:-S--:-P--:cS--"
+        },
+        {
+          "target": "PP-S--c",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScc:cPcS:SPcS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPPS",
+            "ccccccc",
+            "cccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS---c",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:-P--:cS--"
+        },
+        {
+          "target": "PP-S-cS",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:SSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSS",
+            "ccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--cS",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:SS--"
+        },
+        {
+          "target": "PP-S-cP",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:PPc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSP",
+            "ccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--cP",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:PP--"
+        },
+        {
+          "target": "PP-S-cc",
+          "zoneKind": "p_receipt",
+          "segments": [
+            ""
+          ],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSS",
+            "ccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--cc",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:cS--"
+        },
+        {
+          "target": "PPP-S-c",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:PPcc:cPcc:cScS:SPcS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPS",
+            "ccccccc",
+            "cccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPPS--c",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:PP--:SP-S:-S--:-P--:cS--"
+        },
+        {
+          "target": "PP---S-c",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cPcS:cPcS:cScS:SPcS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPPSPS",
+            "cccccccc",
+            "ccSSSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PP--S--c",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:-P-S:-P-S:SP-S:-S--:-P--:cS--"
+        },
+        {
+          "target": "PP--S--c",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cPcc:cScS:cPcS:SPcS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPPS",
+            "cccccccc",
+            "cccSSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PP-S---c",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:-P-S:SP-S:-S--:-P--:-P--:cS--"
+        },
+        {
+          "target": "PP--S-cS",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cPcS:cScS:SPcS:cSc-:SSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPSS",
+            "cccccccc",
+            "ccSSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PP-S--cS",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:-P-S:SP-S:-S--:-P--:cS--:SS--"
+        },
+        {
+          "target": "PP--S-cP",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cPcS:cScS:SPcS:cSc-:PPc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPSP",
+            "cccccccc",
+            "ccSSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PP-S--cP",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:-P-S:SP-S:-S--:-P--:cS--:PP--"
+        },
+        {
+          "target": "PP--S-cc",
+          "zoneKind": "p_receipt",
+          "segments": [
+            ""
+          ],
+          "predecessor": "PPcc:cPcc:cPcS:cScS:SPcS:cSc-:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPSS",
+            "cccccccc",
+            "ccSSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PP-S--cc",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:-P-S:SP-S:-S--:-P--:cS--:cS--"
+        },
+        {
+          "target": "PP-S---c",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScc:cPcc:cPcS:SPcS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPPPS",
+            "cccccccc",
+            "ccccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS----c",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:-P--:-P--:cS--"
+        },
+        {
+          "target": "PP-S--cS",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScc:cPcS:SPcS:cSc-:SSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPPSS",
+            "cccccccc",
+            "cccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS---cS",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:-P--:cS--:SS--"
+        },
+        {
+          "target": "PP-S--cP",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScc:cPcS:SPcS:cSc-:PPc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPPSP",
+            "cccccccc",
+            "cccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS---cP",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:-P--:cS--:PP--"
+        },
+        {
+          "target": "PP-S--cc",
+          "zoneKind": "p_receipt",
+          "segments": [
+            ""
+          ],
+          "predecessor": "PPcc:cPcc:cScc:cPcS:SPcS:cSc-:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPPSS",
+            "cccccccc",
+            "cccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS---cc",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:-P--:cS--:cS--"
+        },
+        {
+          "target": "PP-S-c-S",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:-Sc-:SSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSSS",
+            "cccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--c-S",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:-S--:SS--"
+        },
+        {
+          "target": "PP-S-cSS",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:SSc-:SSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSSS",
+            "cccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--cSS",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:SS--:SS--"
+        },
+        {
+          "target": "PP-S-cSP",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:SSc-:PPc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSSP",
+            "cccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--cSP",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:SS--:PP--"
+        },
+        {
+          "target": "PP-S-cSc",
+          "zoneKind": "p_receipt",
+          "segments": [
+            "S"
+          ],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cScS:SScS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSSS",
+            "cccccccc",
+            "ccSSSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--cSc",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS-S:SS-S:cS--"
+        },
+        {
+          "target": "PP-S-cPS",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:PPc-:SSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSPS",
+            "cccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--cPS",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:PP--:SS--"
+        },
+        {
+          "target": "PP-S-cPP",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:PPc-:PPc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSPP",
+            "cccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--cPP",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:PP--:PP--"
+        },
+        {
+          "target": "PP-S-ccS",
+          "zoneKind": "p_receipt",
+          "segments": [
+            ""
+          ],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:cSc-:SSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSSS",
+            "cccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--ccS",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:cS--:SS--"
+        },
+        {
+          "target": "PP-S-ccP",
+          "zoneKind": "p_receipt",
+          "segments": [
+            ""
+          ],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:cSc-:PPc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSSP",
+            "cccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--ccP",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:cS--:PP--"
+        },
+        {
+          "target": "PP-S-ccc",
+          "zoneKind": "p_receipt",
+          "segments": [
+            "",
+            ""
+          ],
+          "predecessor": "PPcc:cPcc:cScS:SPcS:cSc-:cSc-:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPSPSSS",
+            "cccccccc",
+            "ccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPS--ccc",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:SP-S:-S--:-P--:cS--:cS--:cS--"
+        },
+        {
+          "target": "PPP--S-c",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:PPcc:cPcc:cPcS:cScS:SPcS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPPSPS",
+            "cccccccc",
+            "cccSSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPPS---c",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:PP-S:SP-S:-P--:-S--:-P--:cS--"
+        },
+        {
+          "target": "PPP-S--c",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:PPcc:cPcc:cScc:cPcS:SPcS:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPPS",
+            "cccccccc",
+            "ccccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPPS---c",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:PP--:SP-S:-S--:-P--:-P--:cS--"
+        },
+        {
+          "target": "PPP-S-cS",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:PPcc:cPcc:cScS:SPcS:cSc-:SSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPSS",
+            "cccccccc",
+            "cccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPPS--cS",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:PP--:SP-S:-S--:-P--:cS--:SS--"
+        },
+        {
+          "target": "PPP-S-cP",
+          "zoneKind": "p_receipt",
+          "segments": [],
+          "predecessor": "PPcc:PPcc:cPcc:cScS:SPcS:cSc-:PPc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPSP",
+            "cccccccc",
+            "cccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPPS--cP",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:PP--:SP-S:-S--:-P--:cS--:PP--"
+        },
+        {
+          "target": "PPP-S-cc",
+          "zoneKind": "p_receipt",
+          "segments": [
+            ""
+          ],
+          "predecessor": "PPcc:PPcc:cPcc:cScS:SPcS:cSc-:cSc-:--c-",
+          "predecessorStable": true,
+          "helpers": [
+            "PPPSPSS",
+            "cccccccc",
+            "cccSS"
+          ],
+          "helperCraftable": [
+            true,
+            true,
+            true
+          ],
+          "pushedA": "PPPS--cc",
+          "relation": "other",
+          "pushed": "PPPP:PP-S:PP--:SP-S:-S--:-P--:cS--:cS--"
+        }
+      ]
+    }
+  },
+  "highLayerFamily": {
+    "family": "S + (S-S-c)^n",
+    "rows": [
+      {
+        "repeats": 1,
+        "layers": 6,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 20
+      },
+      {
+        "repeats": 2,
+        "layers": 11,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 40
+      },
+      {
+        "repeats": 3,
+        "layers": 16,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 60
+      },
+      {
+        "repeats": 4,
+        "layers": 21,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 80
+      },
+      {
+        "repeats": 5,
+        "layers": 26,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 100
+      },
+      {
+        "repeats": 6,
+        "layers": 31,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 120
+      },
+      {
+        "repeats": 7,
+        "layers": 36,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 140
+      },
+      {
+        "repeats": 8,
+        "layers": 41,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 160
+      },
+      {
+        "repeats": 9,
+        "layers": 46,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 180
+      },
+      {
+        "repeats": 10,
+        "layers": 51,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 200
+      },
+      {
+        "repeats": 11,
+        "layers": 56,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 220
+      },
+      {
+        "repeats": 12,
+        "layers": 61,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 240
+      },
+      {
+        "repeats": 13,
+        "layers": 66,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 260
+      },
+      {
+        "repeats": 14,
+        "layers": 71,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 280
+      },
+      {
+        "repeats": 15,
+        "layers": 76,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 300
+      },
+      {
+        "repeats": 16,
+        "layers": 81,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 320
+      },
+      {
+        "repeats": 24,
+        "layers": 121,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 480
+      },
+      {
+        "repeats": 32,
+        "layers": 161,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 640
+      },
+      {
+        "repeats": 48,
+        "layers": 241,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 960
+      },
+      {
+        "repeats": 64,
+        "layers": 321,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 1280
+      },
+      {
+        "repeats": 80,
+        "layers": 401,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 1600
+      },
+      {
+        "repeats": 100,
+        "layers": 501,
+        "stable": true,
+        "relation": "bottom-receipt",
+        "helpersCraftable": true,
+        "predecessorCells": 2000
+      }
+    ]
+  }
+}
