@@ -16,7 +16,7 @@ import { BatchPanel } from "./batch-panel";
 import { ComparePanel } from "./compare-panel";
 import { HistoryPanel } from "./history-panel";
 import { OperationsLab } from "./operations-lab";
-import { ProofCanvas } from "./proof-canvas";
+import { SmartProofCanvas } from "./smart-proof-canvas";
 import { ResearchPanel } from "./research-panel";
 import { ShapeEditor } from "./shape-editor";
 import { ShapeRenderer } from "./shape-renderer";
@@ -157,7 +157,7 @@ export function AppShell() {
   </div>;
 
   const workspace = store.workspaceTab === "shape" ? shapeWorkspace
-    : store.workspaceTab === "proof" ? <div className="relative h-full min-h-0"><ProofCanvas graph={store.result?.proof ?? null} onNodeSelect={(node) => { setSelectedNode(node); if (node) setDetailsOpen(true); }} /></div>
+    : store.workspaceTab === "proof" ? <div className="relative h-full min-h-0"><SmartProofCanvas graph={store.result?.proof ?? null} onNodeSelect={(node) => { setSelectedNode(node); if (node) setDetailsOpen(true); }} /></div>
     : store.workspaceTab === "lab" ? <OperationsLab cap={store.cap} onUseTarget={useTarget} />
     : store.workspaceTab === "batch" ? <BatchPanel defaultCap={store.cap} onUseTarget={(code) => useTarget(code)} />
     : store.workspaceTab === "compare" ? <ComparePanel cap={store.cap} currentCode={store.code} />
