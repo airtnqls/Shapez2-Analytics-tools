@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+PATCH_VERSION = 1
 
 
 def replace_once(path: Path, old: str, new: str) -> None:
@@ -54,7 +55,7 @@ def patch_corner_full_replay() -> None:
 def main() -> None:
     patch_proof_dag()
     patch_corner_full_replay()
-    print("latest proof fast paths applied")
+    print(f"latest proof fast paths applied v{PATCH_VERSION}")
 
 
 if __name__ == "__main__":
