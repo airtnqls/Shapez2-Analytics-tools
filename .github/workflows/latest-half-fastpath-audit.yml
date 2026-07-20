@@ -57,7 +57,9 @@ jobs:
           print({'status': 'PASS', 'nodes': audit.unique_nodes, 'operations': audit.operation_nodes})
           PY
       - name: Persist concise audit reports
-        if: github.event_name == 'push' && steps.baseline.outcome == 'success' && steps.legacy.outcome == 'success'
+        if: steps.baseline.outcome == 'success' && steps.legacy.outcome == 'success'
+        env:
+          HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
         shell: bash
         run: |
           git config user.name github-actions[bot]
@@ -67,7 +69,7 @@ jobs:
             exit 0
           fi
           git commit -m 'Record latest Half macro audit [skip ci]'
-          git push origin HEAD:${{ github.ref_name }}
+          git push origin HEAD:$HEAD_BRANCH
       - name: Publish audit result to PR
         if: always() && github.event_name == 'pull_request'
         env:
