@@ -16,7 +16,7 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,11 +41,27 @@ jobs:
           python scripts/audit_user_legacy_macro.py > reports/user-legacy-macro.json 2> reports/user-legacy-macro.stderr.log
           cat reports/user-legacy-macro.json || true
           cat reports/user-legacy-macro.stderr.log || true
+      - name: Search the exact screenshot macro family
+        id: macro
+        continue-on-error: true
+        shell: bash
+        run: |
+          python scripts/search_user_screenshot_macro.py > reports/user-screenshot-macro-search.json 2> reports/user-screenshot-macro-search.stderr.log
+          python - <<'PY'
+          import json
+          p='reports/user-screenshot-macro-search.json'
+          data=json.load(open(p,encoding='utf-8'))
+          print({k:data.get(k) for k in ('sequence','firstStates','secondHelpers','testedSecondSwapOutputs')})
+          print('hits',len(data.get('hits',[])))
+          for hit in data.get('hits',[])[:3]:
+              print(json.dumps(hit,ensure_ascii=False))
+          PY
+          cat reports/user-screenshot-macro-search.stderr.log || true
       - name: Run focused backend checks
         id: tests
         continue-on-error: true
         run: |
-          python -m compileall -q backend/corner_half scripts/audit_latest_half_fastpath.py scripts/audit_user_legacy_macro.py
+          python -m compileall -q backend/corner_half scripts/audit_latest_half_fastpath.py scripts/audit_user_legacy_macro.py scripts/search_user_screenshot_macro.py
           python - <<'PY'
           from backend.corner_half.half_constructor import construct_half
           from backend.corner_half.proof_dag import half_raw_proof, verify_proof
@@ -57,18 +73,18 @@ jobs:
           print({'status': 'PASS', 'nodes': audit.unique_nodes, 'operations': audit.operation_nodes})
           PY
       - name: Persist concise audit reports
-        if: steps.baseline.outcome == 'success' && steps.legacy.outcome == 'success'
+        if: steps.baseline.outcome == 'success' && steps.legacy.outcome == 'success' && steps.macro.outcome == 'success'
         env:
           HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add reports/latest-half-baseline.json reports/user-legacy-macro.json
+          git add reports/latest-half-baseline.json reports/user-legacy-macro.json reports/user-screenshot-macro-search.json
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m 'Record latest Half macro audit [skip ci]'
+          git commit -m 'Record screenshot macro search [skip ci]'
           git push origin HEAD:$HEAD_BRANCH
       - name: Publish audit result to PR
         if: always() && github.event_name == 'pull_request'
@@ -77,6 +93,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
           LEGACY_OUTCOME: ${{ steps.legacy.outcome }}
+          MACRO_OUTCOME: ${{ steps.macro.outcome }}
           TEST_OUTCOME: ${{ steps.tests.outcome }}
         shell: bash
         run: |
@@ -86,28 +103,24 @@ jobs:
             echo
             echo "- baseline: \`$BASELINE_OUTCOME\`"
             echo "- user legacy macro: \`$LEGACY_OUTCOME\`"
+            echo "- screenshot macro search: \`$MACRO_OUTCOME\`"
             echo "- focused tests: \`$TEST_OUTCOME\`"
             echo
-            echo '<details><summary>baseline JSON</summary>'
-            echo
-            echo '```json'
-            head -c 50000 reports/latest-half-baseline.json 2>/dev/null || true
-            echo
-            echo '```'
-            echo '</details>'
-            echo
-            echo '<details><summary>user legacy macro JSON</summary>'
-            echo
-            echo '```json'
-            head -c 50000 reports/user-legacy-macro.json 2>/dev/null || true
-            echo
-            echo '```'
-            echo '</details>'
-            echo
+            for pair in 'baseline JSON|reports/latest-half-baseline.json' 'user legacy macro JSON|reports/user-legacy-macro.json' 'screenshot macro JSON|reports/user-screenshot-macro-search.json'; do
+              title=${pair%%|*}; file=${pair#*|}
+              echo "<details><summary>$title</summary>"
+              echo
+              echo '```json'
+              head -c 50000 "$file" 2>/dev/null || true
+              echo
+              echo '```'
+              echo '</details>'
+              echo
+            done
             echo '<details><summary>stderr</summary>'
             echo
             echo '```text'
-            cat reports/latest-half-baseline.stderr.log reports/user-legacy-macro.stderr.log 2>/dev/null | head -c 30000 || true
+            cat reports/*.stderr.log 2>/dev/null | head -c 30000 || true
             echo
             echo '```'
             echo '</details>'
@@ -122,14 +135,18 @@ jobs:
             reports/latest-half-baseline.stderr.log
             reports/user-legacy-macro.json
             reports/user-legacy-macro.stderr.log
+            reports/user-screenshot-macro-search.json
+            reports/user-screenshot-macro-search.stderr.log
           if-no-files-found: warn
       - name: Enforce audit success
         if: always()
         env:
           BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
           LEGACY_OUTCOME: ${{ steps.legacy.outcome }}
+          MACRO_OUTCOME: ${{ steps.macro.outcome }}
           TEST_OUTCOME: ${{ steps.tests.outcome }}
         run: |
           test "$BASELINE_OUTCOME" = success
           test "$LEGACY_OUTCOME" = success
+          test "$MACRO_OUTCOME" = success
           test "$TEST_OUTCOME" = success
