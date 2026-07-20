@@ -7,6 +7,7 @@ on:
       - backend/corner_half/global_predecessor.py
       - backend/corner_half/test_global_predecessor.py
       - scripts/search_pair_assembly_bottom_fix.py
+      - scripts/search_build_pinable_shape2.py
       - .github/workflows/global-predecessor-ci.yml
   pull_request:
     branches: [master]
@@ -28,7 +29,7 @@ jobs:
           python-version: '3.11'
       - name: Compile and test global predecessor
         run: |
-          python -m compileall -q backend/corner_half/global_predecessor.py
+          python -m compileall -q backend/corner_half/global_predecessor.py scripts/search_build_pinable_shape2.py
           python -m unittest -v backend.corner_half.test_global_predecessor
       - name: Generate pair-assembly repair search
         run: |
@@ -41,7 +42,22 @@ jobs:
           print('signatures',data['deltaSignatures'])
           print('family tail',data['highLayerFamily'][-4:])
           PY
+      - name: Complete the legacy build_pinable_shape2 helper search
+        run: |
+          python scripts/search_build_pinable_shape2.py > reports/build-pinable-shape2-search.json
+          python - <<'PY'
+          import json
+          data=json.load(open('reports/build-pinable-shape2-search.json',encoding='utf-8'))
+          for report in data['reports']:
+              print({k:report.get(k) for k in ('target','a1','a2','checked','craftable','halfStable','fullStable','skipped')})
+              print('hits', len(report.get('hits', [])))
+              for hit in report.get('hits', [])[:3]:
+                  print(hit)
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: global-predecessor-all-layer
-          path: reports/pair-assembly-bottom-fix.json
+          path: |
+            reports/pair-assembly-bottom-fix.json
+            reports/build-pinable-shape2-search.json
+          if-no-files-found: error
