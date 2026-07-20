@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from backend.corner_half.structural_ops import stack
 from backend.corner_half.structural_physics import code, column, parse, push_pin
 
 PILLAR = "SS-S-cS-S-c"
@@ -135,6 +136,32 @@ def columns(shape_code: str) -> list[str]:
     return [column(rows, q) for q in range(4)]
 
 
+def one_column_helper(q: int, height: int) -> str:
+    row = ["-", "-", "-", "-"]
+    row[q] = "S"
+    return ":".join("".join(row) for _ in range(height))
+
+
+def stack_candidates(pushed: str) -> list[dict[str, object]]:
+    current = parse(pushed, CAP)
+    out: list[dict[str, object]] = []
+    for q in range(4):
+        for height in (1, 2, 3):
+            helper = one_column_helper(q, height)
+            for order in ("current-bottom", "helper-bottom"):
+                result_rows = stack(current, parse(helper, CAP), CAP) if order == "current-bottom" else stack(parse(helper, CAP), current, CAP)
+                result = code(result_rows)
+                out.append({
+                    "helper": helper,
+                    "helperColumn": q,
+                    "helperHeight": height,
+                    "order": order,
+                    "result": result,
+                    "pillars": columns(result),
+                })
+    return out
+
+
 def main() -> None:
     predecessor = code(parse(build_pinable_shape(PILLAR, CAP), CAP))
     pushed = code(push_pin(parse(predecessor, CAP), CAP))
@@ -147,6 +174,7 @@ def main() -> None:
         "pushedPillars": columns(pushed),
         "targetStructural": TARGET,
         "targetPillars": columns(TARGET),
+        "stackCandidates": stack_candidates(pushed),
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
