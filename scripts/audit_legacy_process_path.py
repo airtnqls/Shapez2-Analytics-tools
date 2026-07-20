@@ -4,12 +4,59 @@ import json
 import os
 import sys
 import traceback
+import types
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LEGACY = ROOT / "archive" / "legacy-python-gui-20260719"
 sys.path.insert(0, str(LEGACY))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+# The legacy structural model imports QThread/pyqtSignal although the process
+# tree path does not use a GUI thread.  Keep the audit dependency-free by
+# installing a minimal compatible QtCore shim before importing legacy modules.
+if "PyQt6.QtCore" not in sys.modules:
+    pyqt6 = types.ModuleType("PyQt6")
+    qtcore = types.ModuleType("PyQt6.QtCore")
+
+    class _Signal:
+        def __init__(self, *args, **kwargs):
+            self._slots = []
+
+        def connect(self, callback):
+            self._slots.append(callback)
+
+        def emit(self, *args, **kwargs):
+            for callback in tuple(self._slots):
+                callback(*args, **kwargs)
+
+    class _QThread:
+        def __init__(self, *args, **kwargs):
+            self._running = False
+
+        def start(self):
+            self._running = True
+            try:
+                run = getattr(self, "run", None)
+                if callable(run):
+                    run()
+            finally:
+                self._running = False
+
+        def isRunning(self):
+            return self._running
+
+        def quit(self):
+            self._running = False
+
+        def wait(self, *args, **kwargs):
+            return True
+
+    qtcore.QThread = _QThread
+    qtcore.pyqtSignal = lambda *args, **kwargs: _Signal()
+    pyqt6.QtCore = qtcore
+    sys.modules["PyQt6"] = pyqt6
+    sys.modules["PyQt6.QtCore"] = qtcore
 
 TARGET = (
     "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:"
