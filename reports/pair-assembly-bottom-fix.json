@@ -1,0 +1,544 @@
+{
+  "schemaVersion": 1,
+  "search": {
+    "window": 5,
+    "maxChanges": 3,
+    "values": [
+      "-",
+      "S",
+      "c",
+      "P"
+    ]
+  },
+  "exhaustiveTargets": 32,
+  "solved": 7,
+  "failed": 25,
+  "deltaSignatures": {
+    "()": 7
+  },
+  "failures": [
+    {
+      "target": "-S-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S--S-c",
+      "baseExact": false,
+      "baseOutput": "PS--S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S--c",
+      "baseExact": false,
+      "baseOutput": "PS-S--c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cS",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cP",
+      "baseExact": false,
+      "baseOutput": "PS-S-cP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cc",
+      "baseExact": false,
+      "baseOutput": "PS-S-cc",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S---S-c",
+      "baseExact": false,
+      "baseOutput": "PS---S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S--S--c",
+      "baseExact": false,
+      "baseOutput": "PS--S--c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S--S-cS",
+      "baseExact": false,
+      "baseOutput": "PS--S-cS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S--S-cP",
+      "baseExact": false,
+      "baseOutput": "PS--S-cP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S--S-cc",
+      "baseExact": false,
+      "baseOutput": "PS--S-cc",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S---c",
+      "baseExact": false,
+      "baseOutput": "PS-S---c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S--cS",
+      "baseExact": false,
+      "baseOutput": "PS-S--cS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S--cP",
+      "baseExact": false,
+      "baseOutput": "PS-S--cP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S--cc",
+      "baseExact": false,
+      "baseOutput": "PS-S--cc",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-c-S",
+      "baseExact": false,
+      "baseOutput": "PS-S-c-S",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cSS",
+      "baseExact": false,
+      "baseOutput": "PS-S-cSS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cSP",
+      "baseExact": false,
+      "baseOutput": "PS-S-cSP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cSc",
+      "baseExact": false,
+      "baseOutput": "PS-S-cSc",
+      "checked": 3675,
+      "delta": null
+    }
+  ],
+  "examples": [
+    {
+      "target": "-S-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "--S-S-c",
+      "baseExact": true,
+      "delta": [],
+      "predecessor": "-Pcc:SScS:cPcc:cScS:SPcS:cSc-:--c-"
+    },
+    {
+      "target": "-S--S-c",
+      "baseExact": false,
+      "baseOutput": "PS--S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S--c",
+      "baseExact": false,
+      "baseOutput": "PS-S--c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cS",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cP",
+      "baseExact": false,
+      "baseOutput": "PS-S-cP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cc",
+      "baseExact": false,
+      "baseOutput": "PS-S-cc",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "---S-S-c",
+      "baseExact": true,
+      "delta": [],
+      "predecessor": "-Pcc:-Pcc:SScS:cPcc:cScS:SPcS:cSc-:--c-"
+    },
+    {
+      "target": "--S--S-c",
+      "baseExact": true,
+      "delta": [],
+      "predecessor": "-Pcc:SScS:cPcc:cPcS:cScS:SPcS:cSc-:--c-"
+    },
+    {
+      "target": "--S-S--c",
+      "baseExact": true,
+      "delta": [],
+      "predecessor": "-Pcc:SScS:cPcc:cScc:cPcS:SPcS:cSc-:--c-"
+    },
+    {
+      "target": "--S-S-cS",
+      "baseExact": true,
+      "delta": [],
+      "predecessor": "-Pcc:SScS:cPcc:cScS:SPcS:cSc-:SSc-:--c-"
+    },
+    {
+      "target": "--S-S-cP",
+      "baseExact": true,
+      "delta": [],
+      "predecessor": "-Pcc:SScS:cPcc:cScS:SPcS:cSc-:PPc-:--c-"
+    },
+    {
+      "target": "--S-S-cc",
+      "baseExact": true,
+      "delta": [],
+      "predecessor": "-Pcc:SScS:cPcc:cScS:SPcS:cSc-:cSc-:--c-"
+    },
+    {
+      "target": "-S---S-c",
+      "baseExact": false,
+      "baseOutput": "PS---S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S--S--c",
+      "baseExact": false,
+      "baseOutput": "PS--S--c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S--S-cS",
+      "baseExact": false,
+      "baseOutput": "PS--S-cS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S--S-cP",
+      "baseExact": false,
+      "baseOutput": "PS--S-cP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S--S-cc",
+      "baseExact": false,
+      "baseOutput": "PS--S-cc",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S---c",
+      "baseExact": false,
+      "baseOutput": "PS-S---c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S--cS",
+      "baseExact": false,
+      "baseOutput": "PS-S--cS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S--cP",
+      "baseExact": false,
+      "baseOutput": "PS-S--cP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S--cc",
+      "baseExact": false,
+      "baseOutput": "PS-S--cc",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-c-S",
+      "baseExact": false,
+      "baseOutput": "PS-S-c-S",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cSS",
+      "baseExact": false,
+      "baseOutput": "PS-S-cSS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cSP",
+      "baseExact": false,
+      "baseOutput": "PS-S-cSP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cSc",
+      "baseExact": false,
+      "baseOutput": "PS-S-cSc",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cPS",
+      "baseExact": false,
+      "baseOutput": "PS-S-cPS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-cPP",
+      "baseExact": false,
+      "baseOutput": "PS-S-cPP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-ccS",
+      "baseExact": false,
+      "baseOutput": "PS-S-ccS",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-ccP",
+      "baseExact": false,
+      "baseOutput": "PS-S-ccP",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "target": "-S-S-ccc",
+      "baseExact": false,
+      "baseOutput": "PS-S-ccc",
+      "checked": 3675,
+      "delta": null
+    }
+  ],
+  "highLayerFamily": [
+    {
+      "repeats": 1,
+      "layers": 6,
+      "target": "SS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 2,
+      "layers": 11,
+      "target": "SS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 3,
+      "layers": 16,
+      "target": "SS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 4,
+      "layers": 21,
+      "target": "SS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 5,
+      "layers": 26,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 6,
+      "layers": 31,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 7,
+      "layers": 36,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 8,
+      "layers": 41,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 9,
+      "layers": 46,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 10,
+      "layers": 51,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 11,
+      "layers": 56,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 12,
+      "layers": 61,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 16,
+      "layers": 81,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 24,
+      "layers": 121,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 32,
+      "layers": 161,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 48,
+      "layers": 241,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 64,
+      "layers": 321,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    },
+    {
+      "repeats": 100,
+      "layers": 501,
+      "target": "SS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "baseExact": false,
+      "baseOutput": "PS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-cS-S-c",
+      "checked": 3675,
+      "delta": null
+    }
+  ]
+}
