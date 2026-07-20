@@ -41,6 +41,22 @@ jobs:
           python scripts/audit_user_legacy_macro.py > reports/user-legacy-macro.json 2> reports/user-legacy-macro.stderr.log
           cat reports/user-legacy-macro.json || true
           cat reports/user-legacy-macro.stderr.log || true
+      - name: Audit legacy predecessor over the all-layer Corner language
+        id: all_layer
+        continue-on-error: true
+        shell: bash
+        run: |
+          python scripts/audit_legacy_predecessor_all_layers.py > reports/legacy-predecessor-all-layers.json 2> reports/legacy-predecessor-all-layers.stderr.log
+          python - <<'PY'
+          import json
+          data=json.load(open('reports/legacy-predecessor-all-layers.json',encoding='utf-8'))
+          ex=data['exhaustive']
+          print('event columns',ex['eventColumns'])
+          print('counts',json.dumps(ex['counts'],ensure_ascii=False,sort_keys=True))
+          print('zones',json.dumps(ex['byZone'],ensure_ascii=False,sort_keys=True))
+          print('family tail',data['highLayerFamily']['rows'][-4:])
+          PY
+          cat reports/legacy-predecessor-all-layers.stderr.log || true
       - name: Extract the exact legacy ProcessTree path
         id: legacy_path
         continue-on-error: true
@@ -76,7 +92,7 @@ jobs:
         id: tests
         continue-on-error: true
         run: |
-          python -m compileall -q backend/corner_half scripts/audit_latest_half_fastpath.py scripts/audit_user_legacy_macro.py scripts/audit_legacy_process_path.py scripts/search_user_screenshot_macro.py
+          python -m compileall -q backend/corner_half scripts/audit_latest_half_fastpath.py scripts/audit_user_legacy_macro.py scripts/audit_legacy_predecessor_all_layers.py scripts/audit_legacy_process_path.py scripts/search_user_screenshot_macro.py
           python - <<'PY'
           from backend.corner_half.half_constructor import construct_half
           from backend.corner_half.proof_dag import half_raw_proof, verify_proof
@@ -88,18 +104,18 @@ jobs:
           print({'status': 'PASS', 'nodes': audit.unique_nodes, 'operations': audit.operation_nodes})
           PY
       - name: Persist concise audit reports
-        if: steps.baseline.outcome == 'success' && steps.legacy.outcome == 'success' && steps.legacy_path.outcome == 'success' && steps.macro.outcome == 'success'
+        if: steps.baseline.outcome == 'success' && steps.legacy.outcome == 'success' && steps.all_layer.outcome == 'success' && steps.legacy_path.outcome == 'success' && steps.macro.outcome == 'success'
         env:
           HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add reports/latest-half-baseline.json reports/user-legacy-macro.json reports/legacy-process-path.json reports/user-screenshot-macro-search.json
+          git add reports/latest-half-baseline.json reports/user-legacy-macro.json reports/legacy-predecessor-all-layers.json reports/legacy-process-path.json reports/user-screenshot-macro-search.json
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m 'Record exact legacy Half process path [skip ci]'
+          git commit -m 'Record all-layer legacy predecessor audit [skip ci]'
           git push origin HEAD:$HEAD_BRANCH
       - name: Publish audit result to PR
         if: always() && github.event_name == 'pull_request'
@@ -108,6 +124,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
           LEGACY_OUTCOME: ${{ steps.legacy.outcome }}
+          ALL_LAYER_OUTCOME: ${{ steps.all_layer.outcome }}
           LEGACY_PATH_OUTCOME: ${{ steps.legacy_path.outcome }}
           MACRO_OUTCOME: ${{ steps.macro.outcome }}
           TEST_OUTCOME: ${{ steps.tests.outcome }}
@@ -119,11 +136,12 @@ jobs:
             echo
             echo "- baseline: \`$BASELINE_OUTCOME\`"
             echo "- user legacy macro: \`$LEGACY_OUTCOME\`"
+            echo "- all-layer predecessor audit: \`$ALL_LAYER_OUTCOME\`"
             echo "- exact legacy path: \`$LEGACY_PATH_OUTCOME\`"
             echo "- screenshot macro search: \`$MACRO_OUTCOME\`"
             echo "- focused tests: \`$TEST_OUTCOME\`"
             echo
-            for pair in 'baseline JSON|reports/latest-half-baseline.json' 'user legacy macro JSON|reports/user-legacy-macro.json' 'legacy process path JSON|reports/legacy-process-path.json' 'screenshot macro JSON|reports/user-screenshot-macro-search.json'; do
+            for pair in 'baseline JSON|reports/latest-half-baseline.json' 'user legacy macro JSON|reports/user-legacy-macro.json' 'all-layer predecessor JSON|reports/legacy-predecessor-all-layers.json' 'legacy process path JSON|reports/legacy-process-path.json' 'screenshot macro JSON|reports/user-screenshot-macro-search.json'; do
               title=${pair%%|*}; file=${pair#*|}
               echo "<details><summary>$title</summary>"
               echo
@@ -152,6 +170,8 @@ jobs:
             reports/latest-half-baseline.stderr.log
             reports/user-legacy-macro.json
             reports/user-legacy-macro.stderr.log
+            reports/legacy-predecessor-all-layers.json
+            reports/legacy-predecessor-all-layers.stderr.log
             reports/legacy-process-path.json
             reports/legacy-process-path.stderr.log
             reports/user-screenshot-macro-search.json
@@ -162,12 +182,14 @@ jobs:
         env:
           BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
           LEGACY_OUTCOME: ${{ steps.legacy.outcome }}
+          ALL_LAYER_OUTCOME: ${{ steps.all_layer.outcome }}
           LEGACY_PATH_OUTCOME: ${{ steps.legacy_path.outcome }}
           MACRO_OUTCOME: ${{ steps.macro.outcome }}
           TEST_OUTCOME: ${{ steps.tests.outcome }}
         run: |
           test "$BASELINE_OUTCOME" = success
           test "$LEGACY_OUTCOME" = success
+          test "$ALL_LAYER_OUTCOME" = success
           test "$LEGACY_PATH_OUTCOME" = success
           test "$MACRO_OUTCOME" = success
           test "$TEST_OUTCOME" = success
