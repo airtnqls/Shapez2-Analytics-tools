@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   audit:
@@ -22,20 +23,54 @@ jobs:
         with:
           python-version: '3.11'
       - name: Generate latest Half proof baseline
+        id: baseline
+        continue-on-error: true
         shell: bash
         run: |
           mkdir -p reports
-          set +e
           python scripts/audit_latest_half_fastpath.py > reports/latest-half-baseline.json 2> reports/latest-half-baseline.stderr.log
-          status=$?
           cat reports/latest-half-baseline.json || true
           cat reports/latest-half-baseline.stderr.log || true
-          exit $status
       - name: Run focused proof DAG tests
+        id: tests
+        continue-on-error: true
         run: |
           python -m unittest discover -s backend/corner_half/tests -p 'test_proof_dag.py'
           python -m unittest discover -s backend/corner_half/tests -p 'test_half_full_replay.py'
           python -m unittest discover -s backend/corner_half/tests -p 'test_half_constructor.py'
+      - name: Publish audit result to PR
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        shell: bash
+        run: |
+          {
+            echo '<!-- latest-half-fastpath-audit -->'
+            echo '## Latest Half fast-path audit'
+            echo
+            echo "- baseline: \`$BASELINE_OUTCOME\`"
+            echo "- focused tests: \`$TEST_OUTCOME\`"
+            echo
+            echo '<details><summary>baseline JSON</summary>'
+            echo
+            echo '```json'
+            head -c 50000 reports/latest-half-baseline.json 2>/dev/null || true
+            echo
+            echo '```'
+            echo '</details>'
+            echo
+            echo '<details><summary>stderr</summary>'
+            echo
+            echo '```text'
+            head -c 30000 reports/latest-half-baseline.stderr.log 2>/dev/null || true
+            echo
+            echo '```'
+            echo '</details>'
+          } > reports/pr-comment.md
+          gh pr comment "$PR_NUMBER" --body-file reports/pr-comment.md
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -44,3 +79,11 @@ jobs:
             reports/latest-half-baseline.json
             reports/latest-half-baseline.stderr.log
           if-no-files-found: warn
+      - name: Enforce audit success
+        if: always()
+        env:
+          BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          test "$BASELINE_OUTCOME" = success
+          test "$TEST_OUTCOME" = success
