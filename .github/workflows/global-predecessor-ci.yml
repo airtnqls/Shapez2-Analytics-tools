@@ -28,36 +28,63 @@ jobs:
         with:
           python-version: '3.11'
       - name: Compile and test global predecessor
-        run: |
-          python -m compileall -q backend/corner_half/global_predecessor.py scripts/search_build_pinable_shape2.py
-          python -m unittest -v backend.corner_half.test_global_predecessor
-      - name: Generate pair-assembly repair search
+        id: unit
+        continue-on-error: true
+        shell: bash
         run: |
           mkdir -p reports
-          python scripts/search_pair_assembly_bottom_fix.py > reports/pair-assembly-bottom-fix.json
-          python - <<'PY'
-          import json
-          data=json.load(open('reports/pair-assembly-bottom-fix.json',encoding='utf-8'))
-          print({k:data[k] for k in ('exhaustiveTargets','solved','failed')})
-          print('signatures',data['deltaSignatures'])
-          print('family tail',data['highLayerFamily'][-4:])
-          PY
-      - name: Complete the legacy build_pinable_shape2 helper search
+          set -o pipefail
+          {
+            python -m compileall -q backend/corner_half/global_predecessor.py scripts/search_build_pinable_shape2.py
+            python -m unittest -v backend.corner_half.test_global_predecessor
+          } 2>&1 | tee reports/global-predecessor-tests.log
+      - name: Generate pair-assembly repair search
+        id: repair
+        continue-on-error: true
+        shell: bash
         run: |
-          python scripts/search_build_pinable_shape2.py > reports/build-pinable-shape2-search.json
+          set -o pipefail
+          python scripts/search_pair_assembly_bottom_fix.py 2>reports/pair-assembly-bottom-fix.stderr.log | tee reports/pair-assembly-bottom-fix.json
+      - name: Complete the legacy build_pinable_shape2 helper search
+        id: shape2
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python scripts/search_build_pinable_shape2.py 2>reports/build-pinable-shape2-search.stderr.log | tee reports/build-pinable-shape2-search.json
+      - name: Print concise synthesis results
+        if: always()
+        shell: bash
+        run: |
           python - <<'PY'
-          import json
-          data=json.load(open('reports/build-pinable-shape2-search.json',encoding='utf-8'))
-          for report in data['reports']:
-              print({k:report.get(k) for k in ('target','a1','a2','checked','craftable','halfStable','fullStable','skipped')})
-              print('hits', len(report.get('hits', [])))
-              for hit in report.get('hits', [])[:3]:
-                  print(hit)
+          import json, pathlib
+          for name in ('pair-assembly-bottom-fix','build-pinable-shape2-search'):
+              p=pathlib.Path('reports')/(name+'.json')
+              if not p.exists() or not p.read_text(encoding='utf-8').strip():
+                  print(name, 'NO JSON')
+                  continue
+              data=json.loads(p.read_text(encoding='utf-8'))
+              if name.startswith('pair'):
+                  print({k:data.get(k) for k in ('exhaustiveTargets','solved','failed')})
+              else:
+                  for report in data.get('reports',[]):
+                      print({k:report.get(k) for k in ('target','a1','a2','checked','craftable','halfStable','fullStable','skipped')})
+                      print('hits',len(report.get('hits',[])),report.get('hits',[])[:2])
           PY
+          cat reports/*.stderr.log 2>/dev/null || true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: global-predecessor-all-layer
-          path: |
-            reports/pair-assembly-bottom-fix.json
-            reports/build-pinable-shape2-search.json
+          path: reports/
           if-no-files-found: error
+      - name: Enforce success
+        if: always()
+        env:
+          UNIT: ${{ steps.unit.outcome }}
+          REPAIR: ${{ steps.repair.outcome }}
+          SHAPE2: ${{ steps.shape2.outcome }}
+        run: |
+          test "$UNIT" = success
+          test "$REPAIR" = success
+          test "$SHAPE2" = success
