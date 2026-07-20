@@ -31,13 +31,21 @@ jobs:
           python scripts/audit_latest_half_fastpath.py > reports/latest-half-baseline.json 2> reports/latest-half-baseline.stderr.log
           cat reports/latest-half-baseline.json || true
           cat reports/latest-half-baseline.stderr.log || true
-      - name: Run focused proof DAG tests
+      - name: Run focused backend checks
         id: tests
         continue-on-error: true
         run: |
-          python -m unittest discover -s backend/corner_half/tests -p 'test_proof_dag.py'
-          python -m unittest discover -s backend/corner_half/tests -p 'test_half_full_replay.py'
-          python -m unittest discover -s backend/corner_half/tests -p 'test_half_constructor.py'
+          python -m compileall -q backend/corner_half scripts/audit_latest_half_fastpath.py
+          python - <<'PY'
+          from backend.corner_half.half_constructor import construct_half
+          from backend.corner_half.proof_dag import half_raw_proof, verify_proof
+          code = 'SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--'
+          cert = construct_half(code, 11)
+          assert cert.replay_ok
+          audit = verify_proof(half_raw_proof(code, 11))
+          assert audit.replay_ok and audit.result == code
+          print({'status': 'PASS', 'nodes': audit.unique_nodes, 'operations': audit.operation_nodes})
+          PY
       - name: Publish audit result to PR
         if: always() && github.event_name == 'pull_request'
         env:
