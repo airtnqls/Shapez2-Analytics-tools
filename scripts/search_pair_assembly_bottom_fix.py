@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import json
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,7 +43,9 @@ def valid_exact(rows: list[list[str]], target: str) -> bool:
 
 def mutations(rows: list[list[str]], max_changes: int = 3, window: int = 5):
     cap = len(rows)
-    coordinates = [(l, q) for l in range(min(window, cap)) for q in (0, 3)]
+    # The screenshot changes the bottom of A and B while preserving the all-c
+    # overflow column.  Include A/B/D (q0/q1/q3), not only A/D.
+    coordinates = [(l, q) for l in range(min(window, cap)) for q in (0, 1, 3)]
     original = {(l, q): rows[l][q] for l, q in coordinates}
     for changes in range(1, max_changes + 1):
         for coords in itertools.combinations(coordinates, changes):
@@ -98,8 +100,8 @@ def main() -> None:
         family.append({"repeats": repeats, "layers": len(target), **search_one(target)})
 
     print(json.dumps({
-        "schemaVersion": 1,
-        "search": {"window": 5, "maxChanges": 3, "values": VALUES},
+        "schemaVersion": 2,
+        "search": {"window": 5, "columns": [0, 1, 3], "maxChanges": 3, "values": VALUES},
         "exhaustiveTargets": len(targets),
         "solved": sum(result.get("delta") is not None for result in results),
         "failed": len(failures),
