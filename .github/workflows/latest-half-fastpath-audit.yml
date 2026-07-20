@@ -1,0 +1,36 @@
+name: Latest Half fast-path audit
+
+on:
+  push:
+    branches:
+      - optimize/latest-tmam-fastpath
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Generate latest Half proof baseline
+        run: |
+          mkdir -p reports
+          python scripts/audit_latest_half_fastpath.py > reports/latest-half-baseline.json
+          cat reports/latest-half-baseline.json
+      - name: Run focused proof DAG tests
+        run: |
+          python -m unittest \
+            backend.corner_half.tests.test_proof_dag \
+            backend.corner_half.tests.test_half_full_replay \
+            backend.corner_half.tests.test_half_constructor
+      - uses: actions/upload-artifact@v4
+        with:
+          name: latest-half-fastpath-audit
+          path: reports/latest-half-baseline.json
+          if-no-files-found: error
