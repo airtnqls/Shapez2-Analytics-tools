@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "target": "SuSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----:SuSu----:--Su----:SuSu----:--Su----:cwSu----",
+  "structuralTarget": "SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+  "cap": 11,
+  "half": {
+    "left": "SS-S-cS-S-c",
+    "right": "SSSSSSSSSSS",
+    "buildable": true
+  },
+  "baseline": {
+    "result": "SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+    "unique_nodes": 317,
+    "operation_nodes": 316,
+    "raw_leaves": 1,
+    "max_depth": 143,
+    "all_stable": true,
+    "replay_ok": true
+  },
+  "operationHistogram": {
+    "CUT": 32,
+    "GENERATE": 8,
+    "PIN_PUSH": 3,
+    "RAW_INPUT": 1,
+    "ROTATE": 83,
+    "STACK": 129,
+    "SWAP": 61
+  },
+  "leftIR": [
+    {
+      "rule": "C2_anchored_deposit",
+      "before": "",
+      "after": "-S",
+      "layer": 1,
+      "helper": "two_ordinary_anchor_piece",
+      "metadata": {}
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "-S",
+      "after": "-SS",
+      "layer": 2,
+      "helper": "one_ordinary_piece",
+      "metadata": {}
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "-SS",
+      "after": "-SSS",
+      "layer": 3,
+      "helper": "one_ordinary_piece",
+      "metadata": {}
+    },
+    {
+      "rule": "C2_anchored_deposit",
+      "before": "-SSS",
+      "after": "-SSS-S",
+      "layer": 5,
+      "helper": "two_ordinary_anchor_piece",
+      "metadata": {}
+    },
+    {
+      "rule": "C2_anchored_deposit",
+      "before": "-SSS-S",
+      "after": "-SSS-S--S",
+      "layer": 8,
+      "helper": "two_ordinary_anchor_piece",
+      "metadata": {}
+    },
+    {
+      "rule": "C3_generate",
+      "before": "-SSS-S--S",
+      "after": "cSSScSccSc",
+      "layer": null,
+      "helper": "generator",
+      "metadata": {}
+    },
+    {
+      "rule": "C4_shatter",
+      "before": "cSSScSccSc",
+      "after": "-SSScSccSc",
+      "layer": 0,
+      "helper": "single_crystal_trigger_helper",
+      "metadata": {}
+    },
+    {
+      "rule": "C7_overflow_event",
+      "before": "-SSScSccSc",
+      "after": "-S-SScS-S-c",
+      "layer": null,
+      "helper": "C7_B_C_D",
+      "metadata": {
+        "predecessor": "-Scc:SPcS:SScS:SScS:cScS:SScS:cScS:cScc:SPcS:cScS:--c-",
+        "duties": "((2, 1, 'anchored'), (9, 8, 'anchored'))"
+      }
+    },
+    {
+      "rule": "C5_pin_cut_descent",
+      "before": "-S-SScS-S-c",
+      "after": "-SS-ScS-S-c",
+      "layer": 3,
+      "helper": "solid_tower_with_one_pin",
+      "metadata": {}
+    },
+    {
+      "rule": "C5_pin_cut_descent",
+      "before": "-SS-ScS-S-c",
+      "after": "-SSS-cS-S-c",
+      "layer": 4,
+      "helper": "solid_tower_with_one_pin",
+      "metadata": {}
+    },
+    {
+      "rule": "C5_pin_cut_descent",
+      "before": "-SSS-cS-S-c",
+      "after": "S-SS-cS-S-c",
+      "layer": 1,
+      "helper": "solid_tower_with_one_pin",
+      "metadata": {}
+    },
+    {
+      "rule": "C5_pin_cut_descent",
+      "before": "S-SS-cS-S-c",
+      "after": "SS-S-cS-S-c",
+      "layer": 2,
+      "helper": "solid_tower_with_one_pin",
+      "metadata": {}
+    }
+  ],
+  "rightIR": [
+    {
+      "rule": "C1_top_deposit",
+      "before": "",
+      "after": "S",
+      "layer": 0,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "S",
+      "after": "SS",
+      "layer": 1,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "SS",
+      "after": "SSS",
+      "layer": 2,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "SSS",
+      "after": "SSSS",
+      "layer": 3,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "SSSS",
+      "after": "SSSSS",
+      "layer": 4,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "SSSSS",
+      "after": "SSSSSS",
+      "layer": 5,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "SSSSSS",
+      "after": "SSSSSSS",
+      "layer": 6,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "SSSSSSS",
+      "after": "SSSSSSSS",
+      "layer": 7,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "SSSSSSSS",
+      "after": "SSSSSSSSS",
+      "layer": 8,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "SSSSSSSSS",
+      "after": "SSSSSSSSSS",
+      "layer": 9,
+      "helper": "one_ordinary_piece"
+    },
+    {
+      "rule": "C1_top_deposit",
+      "before": "SSSSSSSSSS",
+      "after": "SSSSSSSSSSS",
+      "layer": 10,
+      "helper": "one_ordinary_piece"
+    }
+  ],
+  "fullReplay": {
+    "leftOperations": 121,
+    "rightOperations": 99,
+    "leftHistogram": {
+      "swap_restore_west_towers": 22,
+      "rotate_cw_restore": 22,
+      "swap_restore_east_tower": 22,
+      "rotate_ccw_restore": 22,
+      "C2_anchored_deposit": 3,
+      "C1_top_deposit": 2,
+      "C3_generate": 1,
+      "swap_install_tempC_D": 5,
+      "rotate_cw": 5,
+      "swap_install_B_C": 5,
+      "rotate_ccw": 5,
+      "C4_shatter": 1,
+      "C7_assemble_from_BC_DA": 1,
+      "C7_overflow_event": 1,
+      "C5_pin_cut_descent": 4
+    },
+    "rightHistogram": {
+      "swap_restore_west_towers": 22,
+      "rotate_cw_restore": 22,
+      "swap_restore_east_tower": 22,
+      "rotate_ccw_restore": 22,
+      "C1_top_deposit": 11
+    }
+  }
+}

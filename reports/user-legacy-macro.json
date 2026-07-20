@@ -1,0 +1,25 @@
+{
+  "pillar": "SS-S-cS-S-c",
+  "cap": 11,
+  "legacyPredecessorStructural": "SScS:cPcc:cScS:SPcS:cScS:SScS:cPcc:cScS:SPcS:cSc-:--c-",
+  "legacyPredecessorPillars": [
+    "SccScSccSc",
+    "SPSPSSPSPS",
+    "ccccccccccc",
+    "ScSSSScSS"
+  ],
+  "pushedStructural": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
+  "pushedPillars": [
+    "PS-S-cS-S-c",
+    "PSPSPSSPSPS",
+    "P",
+    "PSSS-SSSS"
+  ],
+  "targetStructural": "SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+  "targetPillars": [
+    "SS-S-cS-S-c",
+    "SSSSSSSSSSS",
+    "",
+    ""
+  ]
+}
