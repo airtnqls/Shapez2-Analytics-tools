@@ -121,14 +121,20 @@ describe("target-specific StackClosure(Swappable) product", () => {
     }
   }, 120000);
 
-  it("keeps high-layer work in the target product rather than the L^4 split product", async () => {
+  it("collapses the dense 50-layer L^4 split worst case into the target product", async () => {
     const cap = 50;
-    let target: ShapeRows = [["S", "S", "S", "S"]];
-    for (let i = 1; i < cap; i += 1) target = stackShapes(target, [["S", EMPTY, EMPTY, EMPTY]], cap);
+    const target: ShapeRows = Array.from(
+      { length: cap },
+      () => ["S", "S", "S", "S"] as ShapeRows[number],
+    );
+    const legacySplitCandidates = (cap + 1) ** 4;
+    expect(legacySplitCandidates).toBe(6_765_201);
+
     const result = await findSwappableStackWitness(target, cap, { yieldEvery: 1_000_000 });
     expect(result.witness).not.toBeNull();
     expect(result.witness?.topPieces.length).toBeGreaterThan(0);
     expect(result.states).toBeLessThan(50_000);
     expect(result.checked).toBeLessThan(1_000_000);
+    expect(result.checked).toBeLessThan(legacySplitCandidates);
   }, 120000);
 });
