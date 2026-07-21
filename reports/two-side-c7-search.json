@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "target": "SS-S-cS-S-c",
   "cap": 11,
   "postLiftA": "--SSScSccSc",
@@ -43,7 +43,7 @@
       8
     ]
   ],
-  "checked": 32,
+  "checked": 64,
   "hitCount": 0,
   "hits": [],
   "closest": [
@@ -55,6 +55,7 @@
         "B"
       ],
       "filler": "S",
+      "oppositeSource": "P",
       "predecessor": "-ccS:SccP:SccP:SScP:cScS:SScS:cScS:cccS:SScP:cScS:--c-",
       "predecessorColumns": [
         "-SSScSccSc",
@@ -84,6 +85,7 @@
         "D"
       ],
       "filler": "S",
+      "oppositeSource": "P",
       "predecessor": "-Scc:SPcc:SPcc:SPcS:cScS:SScS:cScS:cScc:SPcS:cScS:--c-",
       "predecessorColumns": [
         "-SSScSccSc",
@@ -110,9 +112,430 @@
         "B",
         "B",
         "B",
+        "B"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccS:Scc-:Scc-:SSc-:cScS:SScS:cScS:cccS:SSc-:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cccSSSScSS",
+        "ccccccccccc",
+        "S---SSSS-S"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:S--S:SS-S:-S--:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PcccSSSScSS",
+      "postD": "PS---SSSS-S",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "B",
         "D"
       ],
       "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccS:Scc-:Scc-:SSc-:cScS:SScS:cScS:cScc:S-cS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cccSSSSS-S",
+        "ccccccccccc",
+        "S---SSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:S--S:SS-S:-S--:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PcccSSSSS-S",
+      "postD": "PS---SSScSS",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "D",
+        "B"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccS:Scc-:SScc:S-cS:cScS:SScS:cScS:cccS:SSc-:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "ccS-SSScSS",
+        "ccccccccccc",
+        "S-cSSSSS-S"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS-S:SS-S:---S:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PccS-SSScSS",
+      "postD": "PS-cSSSSS-S",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "D",
+        "D"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccS:Scc-:SScc:S-cS:cScS:SScS:cScS:cScc:S-cS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "ccS-SSSS-S",
+        "ccccccccccc",
+        "S-cSSSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS-S:SS-S:---S:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PccS-SSSS-S",
+      "postD": "PS-cSSSScSS",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "B",
+        "B"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccc:Sccc:SccS:SSc-:cScS:SScS:cScS:cccS:SSc-:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cccSSSScSS",
+        "ccccccccccc",
+        "ccS-SSSS-S"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:S--S:SS-S:-S--:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PcccSSSScSS",
+      "postD": "PccS-SSSS-S",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "B",
+        "D"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccc:Sccc:SccS:SSc-:cScS:SScS:cScS:cScc:S-cS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cccSSSSS-S",
+        "ccccccccccc",
+        "ccS-SSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:S--S:SS-S:-S--:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PcccSSSSS-S",
+      "postD": "PccS-SSScSS",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "D",
+        "D"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccc:Sccc:S-cc:S-cS:cScS:SScS:cScS:cScc:S-cS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cc--SSSS-S",
+        "ccccccccccc",
+        "cccSSSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS--:S--S:---S:SS-S:-S-S:SS-S:-S-S",
+      "postB": "Pcc--SSSS-S",
+      "postD": "PcccSSSScSS",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "B",
+        "B",
+        "B"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccc:Sccc:Scc-:SSc-:cScS:SScS:cScS:cccS:SSc-:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cccSSSScSS",
+        "ccccccccccc",
+        "cc--SSSS-S"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:S--S:SS--:-S--:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PcccSSSScSS",
+      "postD": "Pcc--SSSS-S",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "B",
+        "D",
+        "B"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccc:Sccc:SScc:S-cS:cScS:SScS:cScS:cccS:SSc-:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "ccS-SSScSS",
+        "ccccccccccc",
+        "cccSSSSS-S"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS--:SS-S:---S:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PccS-SSScSS",
+      "postD": "PcccSSSSS-S",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "B",
+        "D",
+        "D"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccc:Sccc:SScc:S-cS:cScS:SScS:cScS:cScc:S-cS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "ccS-SSSS-S",
+        "ccccccccccc",
+        "cccSSSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS--:SS-S:---S:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PccS-SSSS-S",
+      "postD": "PcccSSSScSS",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "D",
+        "B",
+        "B"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-Scc:S-cc:SccS:SSc-:cScS:SScS:cScS:cccS:SSc-:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "S-cSSSScSS",
+        "ccccccccccc",
+        "ccS-SSSS-S"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS-S:SS-S:-S--:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PS-cSSSScSS",
+      "postD": "PccS-SSSS-S",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "D",
+        "B",
+        "D"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-Scc:S-cc:SccS:SSc-:cScS:SScS:cScS:cScc:S-cS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "S-cSSSSS-S",
+        "ccccccccccc",
+        "ccS-SSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS-S:SS-S:-S--:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PS-cSSSSS-S",
+      "postD": "PccS-SSScSS",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "D",
+        "D",
+        "B"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-Scc:S-cc:S-cc:S-cS:cScS:SScS:cScS:cccS:SSc-:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "S---SSScSS",
+        "ccccccccccc",
+        "cccSSSSS-S"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS--:SS-S:---S:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PS---SSScSS",
+      "postD": "PcccSSSSS-S",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "D",
+        "D",
+        "D"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-Scc:S-cc:S-cc:S-cS:cScS:SScS:cScS:cScc:S-cS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "S---SSSS-S",
+        "ccccccccccc",
+        "cccSSSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS--:SS-S:---S:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PS---SSSS-S",
+      "postD": "PcccSSSScSS",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "B",
+        "D"
+      ],
+      "filler": "S",
+      "oppositeSource": "P",
       "predecessor": "-ccS:SccP:SccP:SScP:cScS:SScS:cScS:cScc:SPcS:cScS:--c-",
       "predecessorColumns": [
         "-SSScSccSc",
@@ -142,6 +565,7 @@
         "B"
       ],
       "filler": "S",
+      "oppositeSource": "P",
       "predecessor": "-Scc:SPcc:SPcc:SPcS:cScS:SScS:cScS:cccS:SScP:cScS:--c-",
       "predecessorColumns": [
         "-SSScSccSc",
@@ -166,11 +590,89 @@
     {
       "assignment": [
         "B",
+        "D",
+        "D",
+        "B"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccc:Sccc:S-cc:S-cS:cScS:SScS:cScS:cccS:SSc-:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cc--SSScSS",
+        "ccccccccccc",
+        "cccSSSSS-S"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:SS--:S--S:---S:SS-S:-S-S:SS-S:-S-S",
+      "postB": "Pcc--SSScSS",
+      "postD": "PcccSSSSS-S",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "B",
+        "B",
+        "D"
+      ],
+      "filler": "S",
+      "oppositeSource": "-",
+      "predecessor": "-ccc:Sccc:Scc-:SSc-:cScS:SScS:cScS:cScc:S-cS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cccSSSSS-S",
+        "ccccccccccc",
+        "cc--SSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "actualA": "SSS-S-S",
+      "output": "SPPP:S--S:SS--:-S--:SS-S:-S-S:SS-S:-S-S",
+      "postB": "PcccSSSSS-S",
+      "postD": "Pcc--SSScSS",
+      "distance": 6,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
         "B",
         "B",
         "B"
       ],
       "filler": "P",
+      "oppositeSource": "-",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "B",
+        "B"
+      ],
+      "filler": "P",
+      "oppositeSource": "P",
       "conflict": [
         0,
         1,
@@ -187,6 +689,24 @@
         "D"
       ],
       "filler": "P",
+      "oppositeSource": "-",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "B",
+        "D"
+      ],
+      "filler": "P",
+      "oppositeSource": "P",
       "conflict": [
         0,
         1,
@@ -203,6 +723,7 @@
         "B"
       ],
       "filler": "S",
+      "oppositeSource": "P",
       "conflict": [
         1,
         3,
@@ -219,6 +740,24 @@
         "B"
       ],
       "filler": "P",
+      "oppositeSource": "-",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "D",
+        "B"
+      ],
+      "filler": "P",
+      "oppositeSource": "P",
       "conflict": [
         0,
         1,
@@ -235,6 +774,7 @@
         "D"
       ],
       "filler": "S",
+      "oppositeSource": "P",
       "conflict": [
         1,
         3,
@@ -251,6 +791,7 @@
         "D"
       ],
       "filler": "P",
+      "oppositeSource": "-",
       "conflict": [
         0,
         1,
@@ -262,157 +803,14 @@
     {
       "assignment": [
         "B",
-        "D",
         "B",
-        "B"
-      ],
-      "filler": "S",
-      "conflict": [
-        1,
-        2,
-        "P",
-        "c"
-      ],
-      "ok": false
-    },
-    {
-      "assignment": [
-        "B",
-        "D",
-        "B",
-        "B"
-      ],
-      "filler": "P",
-      "conflict": [
-        0,
-        1,
-        "P",
-        "c"
-      ],
-      "ok": false
-    },
-    {
-      "assignment": [
-        "B",
-        "D",
-        "B",
-        "D"
-      ],
-      "filler": "S",
-      "conflict": [
-        1,
-        2,
-        "P",
-        "c"
-      ],
-      "ok": false
-    },
-    {
-      "assignment": [
-        "B",
-        "D",
-        "B",
-        "D"
-      ],
-      "filler": "P",
-      "conflict": [
-        0,
-        1,
-        "P",
-        "c"
-      ],
-      "ok": false
-    },
-    {
-      "assignment": [
-        "B",
-        "D",
-        "D",
-        "B"
-      ],
-      "filler": "S",
-      "conflict": [
-        1,
-        2,
-        "P",
-        "c"
-      ],
-      "ok": false
-    },
-    {
-      "assignment": [
-        "B",
-        "D",
-        "D",
-        "B"
-      ],
-      "filler": "P",
-      "conflict": [
-        0,
-        1,
-        "P",
-        "c"
-      ],
-      "ok": false
-    },
-    {
-      "assignment": [
-        "B",
-        "D",
-        "D",
-        "D"
-      ],
-      "filler": "S",
-      "conflict": [
-        1,
-        2,
-        "P",
-        "c"
-      ],
-      "ok": false
-    },
-    {
-      "assignment": [
-        "B",
-        "D",
         "D",
         "D"
       ],
       "filler": "P",
+      "oppositeSource": "P",
       "conflict": [
         0,
-        1,
-        "P",
-        "c"
-      ],
-      "ok": false
-    },
-    {
-      "assignment": [
-        "D",
-        "B",
-        "B",
-        "B"
-      ],
-      "filler": "S",
-      "conflict": [
-        0,
-        2,
-        "P",
-        "c"
-      ],
-      "ok": false
-    },
-    {
-      "assignment": [
-        "D",
-        "B",
-        "B",
-        "B"
-      ],
-      "filler": "P",
-      "conflict": [
-        1,
         1,
         "P",
         "c"
