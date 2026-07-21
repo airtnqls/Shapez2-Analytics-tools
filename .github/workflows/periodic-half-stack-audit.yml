@@ -1,0 +1,57 @@
+name: Periodic Half stack audit
+
+on:
+  push:
+    branches: [optimize/latest-tmam-fastpath]
+    paths:
+      - scripts/audit_periodic_half_stack.py
+      - backend/corner_half/proof_dag.py
+      - .github/workflows/periodic-half-stack-audit.yml
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Replay periodic constructor
+        run: |
+          mkdir -p reports
+          python scripts/audit_periodic_half_stack.py | tee reports/periodic-half-stack-audit.json
+      - name: Persist result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+        run: |
+          python - <<'PY'
+          import base64,json,os,pathlib,subprocess,time
+          repo=os.environ['GITHUB_REPOSITORY']; branch=os.environ['HEAD_BRANCH']
+          path='reports/periodic-half-stack-audit.json'; body=pathlib.Path(path).read_bytes()
+          def gh(args,data=None): return subprocess.run(['gh','api',*args],input=data,text=True,capture_output=True)
+          for attempt in range(5):
+              cur=gh([f'/repos/{repo}/contents/{path}?ref={branch}'])
+              sha=json.loads(cur.stdout)['sha'] if cur.returncode==0 else None
+              payload={'message':'Persist periodic Half stack audit [skip ci]','content':base64.b64encode(body).decode(),'branch':branch}
+              if sha: payload['sha']=sha
+              out=gh(['--method','PUT',f'/repos/{repo}/contents/{path}','--input','-'],json.dumps(payload))
+              if out.returncode==0: break
+              if attempt==4: raise RuntimeError(out.stderr or out.stdout)
+              time.sleep(2*(attempt+1))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: periodic-half-stack-audit
+          path: reports/periodic-half-stack-audit.json
