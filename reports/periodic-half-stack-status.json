@@ -1,0 +1,5 @@
+{
+  "outcome": "failure",
+  "result": null,
+  "stderr": "Traceback (most recent call last):\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/scripts/audit_periodic_half_stack.py\", line 49, in <module>\n    main()\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/scripts/audit_periodic_half_stack.py\", line 35, in main\n    raise ProofDagError((candidate.result, TARGET, candidate_audit))\nbackend.corner_half.proof_dag.ProofDagError: ('SS--:SS--:-S--:SS--:-S--:-S--:SS--:-S--:SS--:-S--:-S--', 'SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--', ProofAudit(result='SS--:SS--:-S--:SS--:-S--:-S--:SS--:-S--:SS--:-S--:-S--', unique_nodes=187, operation_nodes=186, raw_leaves=1, max_depth=94, all_stable=True, replay_ok=True))"
+}
