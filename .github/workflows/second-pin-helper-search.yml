@@ -17,7 +17,7 @@ permissions:
 jobs:
   search:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,39 +27,52 @@ jobs:
         with:
           python-version: '3.11'
       - name: Run deterministic helper synthesis
+        id: synthesis
+        continue-on-error: true
         shell: bash
         run: |
           mkdir -p reports
           set -o pipefail
           python scripts/search_second_pin_helper.py 2>reports/second-pin-helper-search.stderr.log | tee reports/second-pin-helper-search.json
       - name: Print concise result
+        if: always()
         shell: bash
         run: |
           python - <<'PY'
-          import json
-          p='reports/second-pin-helper-search.json'
-          data=json.load(open(p,encoding='utf-8'))
-          search=data['search']
-          print({
-              'fixedEast':search['fixedEast'],
-              'evaluated':search['evaluated'],
-              'rounds':search['rounds'],
-              'exact':len(search['exact']),
-              'bestScore':search['closest'][0]['score'] if search['closest'] else None,
-              'bestDistance':search['closest'][0]['distance'] if search['closest'] else None,
-          })
-          if search['exact']:
-              print(json.dumps(search['exact'][0],ensure_ascii=False))
-          elif search['closest']:
-              print(json.dumps(search['closest'][0],ensure_ascii=False))
+          import json, pathlib
+          p=pathlib.Path('reports/second-pin-helper-search.json')
+          if not p.exists() or not p.read_text(encoding='utf-8').strip():
+              print('NO JSON')
+          else:
+              data=json.loads(p.read_text(encoding='utf-8'))
+              if data.get('errorType'):
+                  print({'errorType':data.get('errorType'),'error':data.get('error')})
+              else:
+                  searches=data.get('searches',[])
+                  closest=data.get('closest',[])
+                  print({
+                      'fixedHalfCandidates':data.get('fixedHalfCandidates'),
+                      'selected':len(data.get('selectedFixedHalves',[])),
+                      'searches':len(searches),
+                      'evaluated':sum(item.get('evaluated',0) for item in searches),
+                      'exact':len(data.get('exact',[])),
+                      'bestScore':closest[0].get('score') if closest else None,
+                      'bestDistance':closest[0].get('distance') if closest else None,
+                  })
+                  if data.get('exact'):
+                      print(json.dumps(data['exact'][0],ensure_ascii=False))
+                  elif closest:
+                      print(json.dumps(closest[0],ensure_ascii=False))
           PY
           cat reports/second-pin-helper-search.stderr.log || true
+          echo "synthesis outcome: ${{ steps.synthesis.outcome }}"
       - name: Persist report
-        if: github.event_name == 'push'
+        if: always() && github.event_name == 'push'
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          touch reports/second-pin-helper-search.json reports/second-pin-helper-search.stderr.log
           git add reports/second-pin-helper-search.json reports/second-pin-helper-search.stderr.log
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Persist second Pin helper synthesis [skip ci]'
@@ -72,4 +85,9 @@ jobs:
           path: |
             reports/second-pin-helper-search.json
             reports/second-pin-helper-search.stderr.log
-          if-no-files-found: error
+          if-no-files-found: warn
+      - name: Enforce synthesis execution
+        if: always()
+        env:
+          OUTCOME: ${{ steps.synthesis.outcome }}
+        run: test "$OUTCOME" = success
