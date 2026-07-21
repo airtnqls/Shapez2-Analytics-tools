@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "probe": {
+    "elapsedMs": 440.377021,
+    "ok": false,
+    "route": null,
+    "transitions": 447039,
+    "maxFailedStates": 1124,
+    "predecessor": null,
+    "predecessorRank0": null,
+    "replay": null,
+    "replayOk": false,
+    "predecessorColumns": null
+  },
+  "factor": {
+    "predecessorFound": false,
+    "matchesCount": 0,
+    "matches": [],
+    "nearest": []
+  }
+}
