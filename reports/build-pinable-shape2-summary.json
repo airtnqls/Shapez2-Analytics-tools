@@ -4,11 +4,11 @@
     {
       "target": "SS-S-cS-S-c",
       "a1": "PS-S-cS-S-c",
-      "a2": "-SSScS-S-c",
+      "a2": null,
       "checked": 177147,
       "craftable": 46368,
       "halfStable": null,
-      "fullStable": 209600,
+      "fullStable": 26200,
       "hits": [],
       "skipped": null
     }

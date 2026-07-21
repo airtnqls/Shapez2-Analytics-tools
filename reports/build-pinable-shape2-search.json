@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "reports": [
     {
       "target": "SS-S-cS-S-c",
@@ -9,14 +9,15 @@
       "a1": "PS-S-cS-S-c",
       "b1": "PSPSPSSPSPS",
       "snapshot": "--SSScS-S-c",
-      "a2": "-SSScS-S-c",
+      "a2Shifted": "-SSScS-S-c",
       "alphabet": "-SP",
       "firstStates": 384,
+      "layouts": 60,
       "checked": 177147,
       "craftable": 46368,
-      "helperStable": 3104,
-      "fullStable": 209600,
-      "replayed": 209600,
+      "helperStable": 31040,
+      "fullStable": 26200,
+      "replayed": 26200,
       "hits": []
     }
   ]
