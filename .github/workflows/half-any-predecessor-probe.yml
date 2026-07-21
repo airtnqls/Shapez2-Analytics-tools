@@ -6,6 +6,7 @@ on:
     paths:
       - scripts/patch_raw_pinpush_any.py
       - scripts/probe_half_any_predecessor.ts
+      - scripts/factor_any_predecessor_through_swap.py
       - lib/raw-pinpush-rank0.ts
       - .github/workflows/half-any-predecessor-probe.yml
   pull_request:
@@ -42,6 +43,14 @@ jobs:
           python scripts/patch_raw_pinpush_any.py
           npx esbuild scripts/probe_half_any_predecessor.ts --bundle --platform=node --format=esm --outfile=/tmp/half-any-probe/probe.mjs
           node /tmp/half-any-probe/probe.mjs 2>reports/half-any-predecessor-probe.stderr.log | tee reports/half-any-predecessor-probe.json
+      - name: Factor predecessor through the legacy second Swapper
+        id: factor
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python scripts/factor_any_predecessor_through_swap.py reports/half-any-predecessor-probe.json \
+            2>reports/half-any-predecessor-factor.stderr.log | tee reports/half-any-predecessor-factor.json
       - name: Print concise result
         if: always()
         shell: bash
@@ -61,10 +70,23 @@ jobs:
                   'columns':data.get('predecessorColumns'),
               })
           else:
-              print('NO JSON')
+              print('NO PROBE JSON')
+          f=pathlib.Path('reports/half-any-predecessor-factor.json')
+          if f.exists() and f.read_text(encoding='utf-8').strip():
+              factor=json.loads(f.read_text(encoding='utf-8'))
+              print({
+                  'factorPredecessorFound':factor.get('predecessorFound'),
+                  'matches':len(factor.get('matches',[])),
+                  'nearest':factor.get('nearest',[None])[0] if factor.get('nearest') else None,
+              })
+              if factor.get('matches'):
+                  print(json.dumps(factor['matches'][0],ensure_ascii=False))
+          else:
+              print('NO FACTOR JSON')
           PY
-          cat reports/half-any-predecessor-probe.stderr.log 2>/dev/null || true
+          cat reports/half-any-predecessor-probe.stderr.log reports/half-any-predecessor-factor.stderr.log 2>/dev/null || true
           echo "probe outcome: ${{ steps.probe.outcome }}"
+          echo "factor outcome: ${{ steps.factor.outcome }}"
       - name: Publish result to PR
         if: always() && github.event_name == 'pull_request'
         env:
@@ -76,13 +98,24 @@ jobs:
             echo '<!-- half-any-predecessor-probe -->'
             echo '## Half unrestricted predecessor probe'
             echo
+            echo '<details><summary>Inverse result</summary>'
+            echo
             echo '```json'
             cat reports/half-any-predecessor-probe.json 2>/dev/null || true
             echo
             echo '```'
+            echo '</details>'
+            echo
+            echo '<details><summary>Swap factorization</summary>'
+            echo
+            echo '```json'
+            head -c 50000 reports/half-any-predecessor-factor.json 2>/dev/null || true
+            echo
+            echo '```'
+            echo '</details>'
             echo
             echo '```text'
-            cat reports/half-any-predecessor-probe.stderr.log 2>/dev/null || true
+            cat reports/half-any-predecessor-probe.stderr.log reports/half-any-predecessor-factor.stderr.log 2>/dev/null || true
             echo
             echo '```'
           } > reports/half-any-pr-comment.md
@@ -96,8 +129,10 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          touch reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log
-          git add reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log
+          touch reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log \
+                reports/half-any-predecessor-factor.json reports/half-any-predecessor-factor.stderr.log
+          git add reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log \
+                  reports/half-any-predecessor-factor.json reports/half-any-predecessor-factor.stderr.log
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Persist unrestricted Half predecessor probe [skip ci]'
           git pull --rebase origin optimize/latest-tmam-fastpath
@@ -109,9 +144,14 @@ jobs:
           path: |
             reports/half-any-predecessor-probe.json
             reports/half-any-predecessor-probe.stderr.log
+            reports/half-any-predecessor-factor.json
+            reports/half-any-predecessor-factor.stderr.log
           if-no-files-found: warn
       - name: Enforce probe execution
         if: always()
         env:
-          OUTCOME: ${{ steps.probe.outcome }}
-        run: test "$OUTCOME" = success
+          PROBE: ${{ steps.probe.outcome }}
+          FACTOR: ${{ steps.factor.outcome }}
+        run: |
+          test "$PROBE" = success
+          test "$FACTOR" = success
