@@ -22,13 +22,20 @@ def set_cell(values: list[str], layer: int, value: str) -> bool:
     old = values[layer]
     if old == value:
         return True
-    if old == ORDINARY:
+    if old in (ORDINARY, EMPTY):
         values[layer] = value
         return True
     return False
 
 
-def compile_two_side(post_a: str, mapping: tuple[tuple[int, int], ...], assignment: tuple[int, ...], *, filler: str):
+def compile_two_side(
+    post_a: str,
+    mapping: tuple[tuple[int, int], ...],
+    assignment: tuple[int, ...],
+    *,
+    filler: str,
+    opposite_source: str,
+):
     post_b = [filler] * (CAP + 1)
     post_d = [filler] * (CAP + 1)
     post_c = [CRYSTAL] * (CAP + 1)
@@ -56,8 +63,8 @@ def compile_two_side(post_a: str, mapping: tuple[tuple[int, int], ...], assignme
                 conflict = (side_index, source, side[source], ORDINARY)
         if conflict is not None:
             break
-        if not set_cell(other, source, PIN):
-            conflict = (1 - side_index, source, other[source], PIN)
+        if not set_cell(other, source, opposite_source):
+            conflict = (1 - side_index, source, other[source], opposite_source)
             break
 
     if conflict is not None:
@@ -102,16 +109,24 @@ def main() -> None:
     results = []
     hits = []
     for filler in (ORDINARY, PIN):
-        for assignment in itertools.product((0, 1), repeat=len(moving)):
-            result = compile_two_side(post, mapping, assignment, filler=filler)
-            record = {
-                "assignment": ["B" if side == 0 else "D" for side in assignment],
-                "filler": filler,
-                **result,
-            }
-            results.append(record)
-            if record.get("ok"):
-                hits.append(record)
+        for opposite_source in (EMPTY, PIN):
+            for assignment in itertools.product((0, 1), repeat=len(moving)):
+                result = compile_two_side(
+                    post,
+                    mapping,
+                    assignment,
+                    filler=filler,
+                    opposite_source=opposite_source,
+                )
+                record = {
+                    "assignment": ["B" if side == 0 else "D" for side in assignment],
+                    "filler": filler,
+                    "oppositeSource": opposite_source,
+                    **result,
+                }
+                results.append(record)
+                if record.get("ok"):
+                    hits.append(record)
     results.sort(key=lambda item: (
         0 if item.get("stable") else 1,
         sum(1 for value in item.get("craftable", []) if not value),
@@ -119,7 +134,7 @@ def main() -> None:
         str(item.get("assignment")),
     ))
     report = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "target": TARGET,
         "cap": CAP,
         "postLiftA": post,
@@ -128,7 +143,7 @@ def main() -> None:
         "checked": len(results),
         "hitCount": len(hits),
         "hits": hits,
-        "closest": results[:20],
+        "closest": results[:30],
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
@@ -138,7 +153,7 @@ if __name__ == "__main__":
         main()
     except BaseException as exc:
         print(json.dumps({
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "errorType": type(exc).__name__,
             "error": str(exc),
             "traceback": traceback.format_exc(),
