@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import json
 import sys
+import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,8 +47,6 @@ def search(target: str, *, alphabet: str = "-SP", max_hits: int = 20) -> dict:
     checked = craftable = half_stable = full_stable = 0
     hits: list[dict[str, object]] = []
 
-    # B is a helper column, so trailing '-' variants are represented by shorter
-    # words.  Enumerating fixed width is still convenient; normalize by rstrip.
     seen: set[str] = set()
     for cells in itertools.product(alphabet, repeat=cap):
         b = "".join(cells).rstrip(EMPTY)
@@ -103,13 +102,19 @@ def main() -> None:
     ]
     reports = []
     for target in targets:
-        # Full 3^L is fine for L<=11.  The longer family is tested only after a
-        # reusable B rule has been inferred from the first two exact searches.
         if len(target) > 11:
             reports.append({"target": target, "skipped": "await inferred helper rule"})
             continue
-        reports.append(search(target))
-    print(json.dumps({"schemaVersion": 1, "reports": reports}, ensure_ascii=False, indent=2))
+        try:
+            reports.append(search(target))
+        except BaseException as exc:
+            reports.append({
+                "target": target,
+                "errorType": type(exc).__name__,
+                "error": str(exc),
+                "traceback": traceback.format_exc(),
+            })
+    print(json.dumps({"schemaVersion": 2, "reports": reports}, ensure_ascii=False, indent=2), flush=True)
 
 
 if __name__ == "__main__":
