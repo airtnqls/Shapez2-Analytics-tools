@@ -22,14 +22,41 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Replay periodic constructor
+        id: replay
+        continue-on-error: true
+        shell: bash
         run: |
           mkdir -p reports
-          python scripts/audit_periodic_half_stack.py | tee reports/periodic-half-stack-audit.json
-      - name: Persist result
+          set -o pipefail
+          python scripts/audit_periodic_half_stack.py 2>reports/periodic-half-stack-audit.stderr.log | tee reports/periodic-half-stack-audit.json
+      - name: Build status
+        if: always()
+        env:
+          OUTCOME: ${{ steps.replay.outcome }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          result_path=pathlib.Path('reports/periodic-half-stack-audit.json')
+          stderr_path=pathlib.Path('reports/periodic-half-stack-audit.stderr.log')
+          result=None
+          if result_path.exists() and result_path.read_text(encoding='utf-8').strip():
+              try: result=json.loads(result_path.read_text(encoding='utf-8'))
+              except Exception: result={'raw':result_path.read_text(encoding='utf-8',errors='replace')[-10000:]}
+          status={
+              'outcome':os.environ.get('OUTCOME'),
+              'result':result,
+              'stderr':'\n'.join(stderr_path.read_text(encoding='utf-8',errors='replace').splitlines()[-120:]) if stderr_path.exists() else '',
+          }
+          pathlib.Path('reports/periodic-half-stack-status.json').write_text(json.dumps(status,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(status,ensure_ascii=False,indent=2))
+          PY
+      - name: Persist status
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
@@ -38,20 +65,25 @@ jobs:
           python - <<'PY'
           import base64,json,os,pathlib,subprocess,time
           repo=os.environ['GITHUB_REPOSITORY']; branch=os.environ['HEAD_BRANCH']
-          path='reports/periodic-half-stack-audit.json'; body=pathlib.Path(path).read_bytes()
-          def gh(args,data=None): return subprocess.run(['gh','api',*args],input=data,text=True,capture_output=True)
-          for attempt in range(5):
-              cur=gh([f'/repos/{repo}/contents/{path}?ref={branch}'])
-              sha=json.loads(cur.stdout)['sha'] if cur.returncode==0 else None
-              payload={'message':'Persist periodic Half stack audit [skip ci]','content':base64.b64encode(body).decode(),'branch':branch}
-              if sha: payload['sha']=sha
-              out=gh(['--method','PUT',f'/repos/{repo}/contents/{path}','--input','-'],json.dumps(payload))
-              if out.returncode==0: break
-              if attempt==4: raise RuntimeError(out.stderr or out.stdout)
-              time.sleep(2*(attempt+1))
+          for path in ('reports/periodic-half-stack-audit.json','reports/periodic-half-stack-status.json'):
+              body=pathlib.Path(path).read_bytes()
+              for attempt in range(6):
+                  cur=subprocess.run(['gh','api',f'/repos/{repo}/contents/{path}?ref={branch}'],text=True,capture_output=True)
+                  sha=json.loads(cur.stdout)['sha'] if cur.returncode==0 else None
+                  payload={'message':f'Persist {pathlib.Path(path).name} [skip ci]','content':base64.b64encode(body).decode(),'branch':branch}
+                  if sha: payload['sha']=sha
+                  out=subprocess.run(['gh','api','--method','PUT',f'/repos/{repo}/contents/{path}','--input','-'],input=json.dumps(payload),text=True,capture_output=True)
+                  if out.returncode==0: break
+                  if attempt==5: raise RuntimeError(out.stderr or out.stdout)
+                  time.sleep(2*(attempt+1))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: periodic-half-stack-audit
-          path: reports/periodic-half-stack-audit.json
+          path: reports/
+      - name: Enforce replay
+        if: always()
+        env:
+          OUTCOME: ${{ steps.replay.outcome }}
+        run: test "$OUTCOME" = success
