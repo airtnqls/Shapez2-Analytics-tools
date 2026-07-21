@@ -1,0 +1,68 @@
+name: Batch C7 exact search
+
+on:
+  push:
+    branches: [optimize/latest-tmam-fastpath]
+    paths:
+      - scripts/search_batch_c7_exact.py
+      - backend/corner_half/c7_gadget.py
+      - backend/corner_half/corner_event_plan.py
+      - .github/workflows/batch-c7-exact-search.yml
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Search exact batch duties
+        run: |
+          mkdir -p reports
+          python scripts/search_batch_c7_exact.py | tee reports/batch-c7-exact-search.json
+      - name: Print concise result
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('reports/batch-c7-exact-search.json',encoding='utf-8'))
+          print({k:data.get(k) for k in ('target','checked')})
+          print('base',data.get('base'))
+          print('hits',len(data.get('hits',[])),data.get('hits',[])[:2])
+          print('failures',list(data.get('failureCounts',{}).items())[:10])
+          PY
+      - name: Persist result through Contents API
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+        run: |
+          python - <<'PY'
+          import base64,json,os,pathlib,subprocess,time
+          repo=os.environ['GITHUB_REPOSITORY']; branch=os.environ['HEAD_BRANCH']
+          path='reports/batch-c7-exact-search.json'; body=pathlib.Path(path).read_bytes()
+          def gh(args,data=None): return subprocess.run(['gh','api',*args],input=data,text=True,capture_output=True)
+          for attempt in range(5):
+              current=gh([f'/repos/{repo}/contents/{path}?ref={branch}'])
+              sha=json.loads(current.stdout)['sha'] if current.returncode==0 else None
+              payload={'message':'Persist batch C7 exact search [skip ci]','content':base64.b64encode(body).decode(),'branch':branch}
+              if sha: payload['sha']=sha
+              out=gh(['--method','PUT',f'/repos/{repo}/contents/{path}','--input','-'],json.dumps(payload))
+              if out.returncode==0: break
+              if attempt==4: raise RuntimeError(out.stderr or out.stdout)
+              time.sleep(2*(attempt+1))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: batch-c7-exact-search
+          path: reports/batch-c7-exact-search.json
