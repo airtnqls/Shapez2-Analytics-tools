@@ -1,0 +1,14 @@
+{
+  "target": "SS--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+  "cap": 11,
+  "elapsedMs": 1050.87414,
+  "result": {
+    "ok": false,
+    "transitions": 755892,
+    "maxFailedStates": 2090,
+    "bottomMask": 0,
+    "axis": -1
+  },
+  "replay": null,
+  "replayOk": false
+}
