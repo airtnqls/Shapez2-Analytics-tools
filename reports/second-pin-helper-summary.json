@@ -1,0 +1,602 @@
+{
+  "schemaVersion": 1,
+  "errorType": null,
+  "error": null,
+  "fixedHalfCandidates": 13,
+  "selectedFixedHalves": [
+    [
+      "",
+      "P",
+      "east:T,-/current-helper/out1/rot0/pair1/extra-rot0"
+    ],
+    [
+      "",
+      "PS-S-cS-S-c",
+      "east:T,-/current-helper/out0/rot0/pair3/extra-rot0"
+    ],
+    [
+      "",
+      "SSSSSSSSSSS",
+      "east:-,T/current-helper/out1/rot0/pair0/extra-rot0"
+    ],
+    [
+      "P",
+      "PSSSSSSSSS",
+      "east:T,-/current-helper/out1/rot0/pair2/extra-rot0"
+    ],
+    [
+      "PS-S-cS-S-c",
+      "PSPSPSSPSPS",
+      "east:T,-/current-helper/out0/rot0/pair0/extra-rot0"
+    ],
+    [
+      "PSPSPSSPSPS",
+      "",
+      "east:T,-/current-helper/out0/rot0/pair1/extra-rot0"
+    ],
+    [
+      "PSPSPSSPSPS",
+      "SSSSSSSSSSS",
+      "west:T,-/current-helper/out0/rot0/pair1/extra-rot0"
+    ],
+    [
+      "PSSSSSSSSS",
+      "",
+      "east:-,T/current-helper/out1/rot0/pair3/extra-rot0"
+    ],
+    [
+      "PSSSSSSSSS",
+      "SSSSSSSSSSS",
+      "east:T,-/current-helper/out1/rot0/pair3/extra-rot0"
+    ],
+    [
+      "SSSSSSSSSSS",
+      "",
+      "east:T,-/current-helper/out1/rot0/pair0/extra-rot0"
+    ],
+    [
+      "SSSSSSSSSSS",
+      "P",
+      "east:-,T/current-helper/out1/rot0/pair1/extra-rot0"
+    ],
+    [
+      "SSSSSSSSSSS",
+      "PS-S-cS-S-c",
+      "west:-,T/current-helper/out0/rot0/pair3/extra-rot0"
+    ]
+  ],
+  "searches": 12,
+  "evaluated": 539874,
+  "exactCount": 0,
+  "exact": [],
+  "best": {
+    "fixedHalf": [
+      "",
+      "P"
+    ],
+    "fixedHalfSource": "east:T,-/current-helper/out1/rot0/pair1/extra-rot0",
+    "c": "S-S-cS-S-cS",
+    "d": "SSSSSSSSSSS",
+    "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+    "helperStable": true,
+    "preStable": true,
+    "columnsCraftable": [
+      true,
+      true
+    ],
+    "preFinal": "-PSS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+    "preFinalPillars": [
+      "",
+      "P",
+      "S-S-cS-S-cS",
+      "SSSSSSSSSSS"
+    ],
+    "afterFinalPin": "-PPP:-PSS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS",
+    "afterFinalPillars": [
+      "",
+      "PP",
+      "PS-S-cS-S-c",
+      "PSSSSSSSSSS"
+    ],
+    "distance": 2,
+    "score": [
+      2,
+      2,
+      6,
+      0
+    ],
+    "extraction": {
+      "turns": 0,
+      "side": "west",
+      "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+      "candidatePillars": [
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS",
+        "",
+        ""
+      ]
+    }
+  },
+  "top10": [
+    {
+      "fixedHalf": [
+        "",
+        "P"
+      ],
+      "fixedHalfSource": "east:T,-/current-helper/out1/rot0/pair1/extra-rot0",
+      "c": "S-S-cS-S-cS",
+      "d": "SSSSSSSSSSS",
+      "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "-PSS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "preFinalPillars": [
+        "",
+        "P",
+        "S-S-cS-S-cS",
+        "SSSSSSSSSSS"
+      ],
+      "afterFinalPin": "-PPP:-PSS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS",
+      "afterFinalPillars": [
+        "",
+        "PP",
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 0,
+        "side": "west",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "fixedHalf": [
+        "",
+        "SSSSSSSSSSS"
+      ],
+      "fixedHalfSource": "east:-,T/current-helper/out1/rot0/pair0/extra-rot0",
+      "c": "S-S-cS-S-cS",
+      "d": "SSSSSSSSSSS",
+      "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "-SSS:-S-S:-SSS:-S-S:-ScS:-SSS:-S-S:-SSS:-S-S:-ScS:-SSS",
+      "preFinalPillars": [
+        "",
+        "SSSSSSSSSSS",
+        "S-S-cS-S-cS",
+        "SSSSSSSSSSS"
+      ],
+      "afterFinalPin": "-PPP:-SSS:-S-S:-SSS:-S-S:-ScS:-SSS:-S-S:-SSS:-S-S:-ScS",
+      "afterFinalPillars": [
+        "",
+        "PSSSSSSSSSS",
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 0,
+        "side": "west",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "fixedHalf": [
+        "P",
+        "PSSSSSSSSS"
+      ],
+      "fixedHalfSource": "east:T,-/current-helper/out1/rot0/pair2/extra-rot0",
+      "c": "S-S-cS-S-cS",
+      "d": "SSSSSSSSSSS",
+      "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "PPSS:-S-S:-SSS:-S-S:-ScS:-SSS:-S-S:-SSS:-S-S:-ScS:--SS",
+      "preFinalPillars": [
+        "P",
+        "PSSSSSSSSS",
+        "S-S-cS-S-cS",
+        "SSSSSSSSSSS"
+      ],
+      "afterFinalPin": "PPPP:PPSS:-S-S:-SSS:-S-S:-ScS:-SSS:-S-S:-SSS:-S-S:-ScS",
+      "afterFinalPillars": [
+        "PP",
+        "PPSSSSSSSSS",
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 0,
+        "side": "west",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "fixedHalf": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS"
+      ],
+      "fixedHalfSource": "east:T,-/current-helper/out0/rot0/pair0/extra-rot0",
+      "c": "S-S-cS-S-cS",
+      "d": "SSSSSSSSSSS",
+      "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "PPSS:SS-S:-PSS:SS-S:-PcS:cSSS:SS-S:-PSS:SS-S:-PcS:cSSS",
+      "preFinalPillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "S-S-cS-S-cS",
+        "SSSSSSSSSSS"
+      ],
+      "afterFinalPin": "PPPP:PPSS:SS-S:-PSS:SS-S:-PcS:cSSS:SS-S:-PSS:SS-S:-PcS",
+      "afterFinalPillars": [
+        "PPS-S-cS-S",
+        "PPSPSPSSPSP",
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 0,
+        "side": "west",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "fixedHalf": [
+        "PSPSPSSPSPS",
+        ""
+      ],
+      "fixedHalfSource": "east:T,-/current-helper/out0/rot0/pair1/extra-rot0",
+      "c": "S-S-cS-S-cS",
+      "d": "SSSSSSSSSSS",
+      "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "P-SS:S--S:P-SS:S--S:P-cS:S-SS:S--S:P-SS:S--S:P-cS:S-SS",
+      "preFinalPillars": [
+        "PSPSPSSPSPS",
+        "",
+        "S-S-cS-S-cS",
+        "SSSSSSSSSSS"
+      ],
+      "afterFinalPin": "P-PP:P-SS:S--S:P-SS:S--S:P-cS:S-SS:S--S:P-SS:S--S:P-cS",
+      "afterFinalPillars": [
+        "PPSPSPSSPSP",
+        "",
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 0,
+        "side": "west",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "fixedHalf": [
+        "PSPSPSSPSPS",
+        "SSSSSSSSSSS"
+      ],
+      "fixedHalfSource": "west:T,-/current-helper/out0/rot0/pair1/extra-rot0",
+      "c": "S-S-cS-S-cS",
+      "d": "SSSSSSSSSSS",
+      "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "PSSS:SS-S:PSSS:SS-S:PScS:SSSS:SS-S:PSSS:SS-S:PScS:SSSS",
+      "preFinalPillars": [
+        "PSPSPSSPSPS",
+        "SSSSSSSSSSS",
+        "S-S-cS-S-cS",
+        "SSSSSSSSSSS"
+      ],
+      "afterFinalPin": "PPPP:PSSS:SS-S:PSSS:SS-S:PScS:SSSS:SS-S:PSSS:SS-S:PScS",
+      "afterFinalPillars": [
+        "PPSPSPSSPSP",
+        "PSSSSSSSSSS",
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 0,
+        "side": "west",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "fixedHalf": [
+        "PSSSSSSSSS",
+        ""
+      ],
+      "fixedHalfSource": "east:-,T/current-helper/out1/rot0/pair3/extra-rot0",
+      "c": "S-S-cS-S-cS",
+      "d": "SSSSSSSSSSS",
+      "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "P-SS:S--S:S-SS:S--S:S-cS:S-SS:S--S:S-SS:S--S:S-cS:--SS",
+      "preFinalPillars": [
+        "PSSSSSSSSS",
+        "",
+        "S-S-cS-S-cS",
+        "SSSSSSSSSSS"
+      ],
+      "afterFinalPin": "P-PP:P-SS:S--S:S-SS:S--S:S-cS:S-SS:S--S:S-SS:S--S:S-cS",
+      "afterFinalPillars": [
+        "PPSSSSSSSSS",
+        "",
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 0,
+        "side": "west",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "fixedHalf": [
+        "PSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ],
+      "fixedHalfSource": "east:T,-/current-helper/out1/rot0/pair3/extra-rot0",
+      "c": "S-S-cS-S-cS",
+      "d": "SSSSSSSSSSS",
+      "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "PSSS:SS-S:SSSS:SS-S:SScS:SSSS:SS-S:SSSS:SS-S:SScS:-SSS",
+      "preFinalPillars": [
+        "PSSSSSSSSS",
+        "SSSSSSSSSSS",
+        "S-S-cS-S-cS",
+        "SSSSSSSSSSS"
+      ],
+      "afterFinalPin": "PPPP:PSSS:SS-S:SSSS:SS-S:SScS:SSSS:SS-S:SSSS:SS-S:SScS",
+      "afterFinalPillars": [
+        "PPSSSSSSSSS",
+        "PSSSSSSSSSS",
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 0,
+        "side": "west",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "fixedHalf": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "fixedHalfSource": "east:T,-/current-helper/out1/rot0/pair0/extra-rot0",
+      "c": "S-S-cS-S-cS",
+      "d": "SSSSSSSSSSS",
+      "helper": "--SS:---S:--SS:---S:--cS:--SS:---S:--SS:---S:--cS:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "S-SS:S--S:S-SS:S--S:S-cS:S-SS:S--S:S-SS:S--S:S-cS:S-SS",
+      "preFinalPillars": [
+        "SSSSSSSSSSS",
+        "",
+        "S-S-cS-S-cS",
+        "SSSSSSSSSSS"
+      ],
+      "afterFinalPin": "P-PP:S-SS:S--S:S-SS:S--S:S-cS:S-SS:S--S:S-SS:S--S:S-cS",
+      "afterFinalPillars": [
+        "PSSSSSSSSSS",
+        "",
+        "PS-S-cS-S-c",
+        "PSSSSSSSSSS"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 0,
+        "side": "west",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "fixedHalf": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "fixedHalfSource": "east:T,-/current-helper/out1/rot0/pair0/extra-rot0",
+      "c": "SSSSSSSSSSS",
+      "d": "S-S-cS-S-cS",
+      "helper": "--SS:--S-:--SS:--S-:--Sc:--SS:--S-:--SS:--S-:--Sc:--SS",
+      "helperStable": true,
+      "preStable": true,
+      "columnsCraftable": [
+        true,
+        true
+      ],
+      "preFinal": "S-SS:S-S-:S-SS:S-S-:S-Sc:S-SS:S-S-:S-SS:S-S-:S-Sc:S-SS",
+      "preFinalPillars": [
+        "SSSSSSSSSSS",
+        "",
+        "SSSSSSSSSSS",
+        "S-S-cS-S-cS"
+      ],
+      "afterFinalPin": "P-PP:S-SS:S-S-:S-SS:S-S-:S-Sc:S-SS:S-S-:S-SS:S-S-:S-Sc",
+      "afterFinalPillars": [
+        "PSSSSSSSSSS",
+        "",
+        "PSSSSSSSSSS",
+        "PS-S-cS-S-c"
+      ],
+      "distance": 2,
+      "score": [
+        2,
+        2,
+        6,
+        0
+      ],
+      "extraction": {
+        "turns": 1,
+        "side": "east",
+        "candidate": "PP--:SS--:-S--:SS--:-S--:cS--:SS--:-S--:SS--:-S--:cS--",
+        "candidatePillars": [
+          "PS-S-cS-S-c",
+          "PSSSSSSSSSS",
+          "",
+          ""
+        ]
+      }
+    }
+  ]
+}
