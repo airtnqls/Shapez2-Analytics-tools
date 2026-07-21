@@ -34,50 +34,52 @@ jobs:
           mkdir -p reports
           set -o pipefail
           python scripts/search_second_pin_helper.py 2>reports/second-pin-helper-search.stderr.log | tee reports/second-pin-helper-search.json
-      - name: Print concise result
+      - name: Build concise result
         if: always()
         shell: bash
         run: |
           python - <<'PY'
           import json, pathlib
-          p=pathlib.Path('reports/second-pin-helper-search.json')
-          if not p.exists() or not p.read_text(encoding='utf-8').strip():
-              print('NO JSON')
+          source=pathlib.Path('reports/second-pin-helper-search.json')
+          summary=pathlib.Path('reports/second-pin-helper-summary.json')
+          if not source.exists() or not source.read_text(encoding='utf-8').strip():
+              data={'schemaVersion':1,'error':'NO JSON'}
           else:
-              data=json.loads(p.read_text(encoding='utf-8'))
-              if data.get('errorType'):
-                  print({'errorType':data.get('errorType'),'error':data.get('error')})
-              else:
-                  searches=data.get('searches',[])
-                  closest=data.get('closest',[])
-                  print({
-                      'fixedHalfCandidates':data.get('fixedHalfCandidates'),
-                      'selected':len(data.get('selectedFixedHalves',[])),
-                      'searches':len(searches),
-                      'evaluated':sum(item.get('evaluated',0) for item in searches),
-                      'exact':len(data.get('exact',[])),
-                      'bestScore':closest[0].get('score') if closest else None,
-                      'bestDistance':closest[0].get('distance') if closest else None,
-                  })
-                  if data.get('exact'):
-                      print(json.dumps(data['exact'][0],ensure_ascii=False))
-                  elif closest:
-                      print(json.dumps(closest[0],ensure_ascii=False))
+              raw=json.loads(source.read_text(encoding='utf-8'))
+              searches=raw.get('searches',[])
+              closest=raw.get('closest',[])
+              data={
+                  'schemaVersion':1,
+                  'errorType':raw.get('errorType'),
+                  'error':raw.get('error'),
+                  'fixedHalfCandidates':raw.get('fixedHalfCandidates'),
+                  'selectedFixedHalves':raw.get('selectedFixedHalves',[]),
+                  'searches':len(searches),
+                  'evaluated':sum(item.get('evaluated',0) for item in searches),
+                  'exactCount':len(raw.get('exact',[])),
+                  'exact':raw.get('exact',[])[:3],
+                  'best':closest[0] if closest else None,
+                  'top10':closest[:10],
+              }
+          summary.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(summary.read_text(encoding='utf-8'))
           PY
           cat reports/second-pin-helper-search.stderr.log || true
           echo "synthesis outcome: ${{ steps.synthesis.outcome }}"
-      - name: Persist report
-        if: always() && github.event_name == 'push'
+      - name: Persist report on research branch
+        if: always()
+        env:
+          HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          touch reports/second-pin-helper-search.json reports/second-pin-helper-search.stderr.log
-          git add reports/second-pin-helper-search.json reports/second-pin-helper-search.stderr.log
+          touch reports/second-pin-helper-search.json reports/second-pin-helper-search.stderr.log reports/second-pin-helper-summary.json
+          git add reports/second-pin-helper-search.json reports/second-pin-helper-search.stderr.log reports/second-pin-helper-summary.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Persist second Pin helper synthesis [skip ci]'
-          git pull --rebase origin optimize/latest-tmam-fastpath
-          git push origin HEAD:optimize/latest-tmam-fastpath
+          git pull --rebase origin "$HEAD_BRANCH"
+          git push origin HEAD:"$HEAD_BRANCH"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -85,6 +87,7 @@ jobs:
           path: |
             reports/second-pin-helper-search.json
             reports/second-pin-helper-search.stderr.log
+            reports/second-pin-helper-summary.json
           if-no-files-found: warn
       - name: Enforce synthesis execution
         if: always()
