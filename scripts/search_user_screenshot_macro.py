@@ -57,6 +57,19 @@ def variants(value: str) -> set[str]:
     return out
 
 
+def first_helper_pool(tower: str):
+    # Enumerate the small constant family visible in the screenshot: a stable
+    # Half made from zero, one, or two full S towers, in either side.  Keep both
+    # operand orders because the selected Swapper output is order-sensitive.
+    specs = []
+    for side in ("east", "west"):
+        for pair in ((tower, ""), ("", tower), (tower, tower)):
+            helper = helper_half(pair[0], pair[1], side)
+            if helper is not None:
+                specs.append((side, pair, helper))
+    return specs
+
+
 def main() -> None:
     predecessor = parse(build_pinable_shape(PILLAR, CAP), CAP)
     pushed = push_pin(predecessor, CAP)
@@ -64,12 +77,6 @@ def main() -> None:
     stacked = stack(pushed, top_two, CAP)
 
     tower = ORDINARY * CAP
-    first_helpers = []
-    for west in ((tower, ""), ("", tower)):
-        helper = helper_half(west[0], west[1], "west")
-        if helper is not None:
-            first_helpers.append((west, helper))
-
     word_set = {"", tower, "c" * CAP, "P" * CAP}
     for source in (predecessor, pushed, stacked, parse(TARGET, CAP)):
         for word in columns(source):
@@ -84,51 +91,61 @@ def main() -> None:
                 if helper is not None:
                     second_helpers.append((side, first, second, helper))
 
-    hits = []
-    first_states = {}
-    for west, helper in first_helpers:
-        outputs = swap(stacked, helper, CAP)
-        for output_index, output in enumerate(outputs):
-            for turns in (1, 2, 3):
-                state = rotate(output, turns)
-                first_states.setdefault(code(state), {
-                    "firstHelperWest": west,
-                    "firstSwapOutput": output_index,
-                    "middleTurns": turns,
-                    "state": code(state),
-                    "pillars": columns(state),
-                })
+    first_states: dict[str, dict[str, object]] = {}
+    for side, pair, helper in first_helper_pool(tower):
+        for order in ("current-helper", "helper-current"):
+            operands = (stacked, helper) if order == "current-helper" else (helper, stacked)
+            outputs = swap(*operands, CAP)
+            for output_index, output in enumerate(outputs):
+                for turns in range(4):
+                    state = rotate(output, turns)
+                    first_states.setdefault(code(state), {
+                        "firstHelperSide": side,
+                        "firstHelperColumns": list(pair),
+                        "firstHelper": code(helper),
+                        "firstSwapOrder": order,
+                        "firstSwapOutput": output_index,
+                        "middleTurns": turns,
+                        "state": code(state),
+                        "pillars": columns(state),
+                    })
 
+    hits = []
     tested = 0
     for first in first_states.values():
-        state = parse(first["state"], CAP)
+        state = parse(str(first["state"]), CAP)
         for side, a, b, helper in second_helpers:
-            for output_index, output in enumerate(swap(state, helper, CAP)):
-                tested += 1
-                pushed_final = push_pin(output, CAP)
-                finals = target_from_any_half(pushed_final)
-                if finals:
-                    hits.append({
-                        **first,
-                        "secondHelperSide": side,
-                        "secondHelperColumns": [a, b],
-                        "secondHelper": code(helper),
-                        "secondSwapOutput": output_index,
-                        "preFinalPin": code(output),
-                        "preFinalPillars": columns(output),
-                        "postFinalPin": code(pushed_final),
-                        "postFinalPillars": columns(pushed_final),
-                        "finalExtraction": finals,
-                    })
-                    if len(hits) >= 50:
-                        break
-            if len(hits) >= 50:
+            for order in ("current-helper", "helper-current"):
+                operands = (state, helper) if order == "current-helper" else (helper, state)
+                for output_index, output in enumerate(swap(*operands, CAP)):
+                    tested += 1
+                    pushed_final = push_pin(output, CAP)
+                    finals = target_from_any_half(pushed_final)
+                    if finals:
+                        hits.append({
+                            **first,
+                            "secondHelperSide": side,
+                            "secondHelperColumns": [a, b],
+                            "secondHelper": code(helper),
+                            "secondSwapOrder": order,
+                            "secondSwapOutput": output_index,
+                            "preFinalPin": code(output),
+                            "preFinalPillars": columns(output),
+                            "postFinalPin": code(pushed_final),
+                            "postFinalPillars": columns(pushed_final),
+                            "finalExtraction": finals,
+                        })
+                        if len(hits) >= 100:
+                            break
+                if len(hits) >= 100:
+                    break
+            if len(hits) >= 100:
                 break
-        if len(hits) >= 50:
+        if len(hits) >= 100:
             break
 
     report = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "sequence": ["PIN_PUSH", "STACK(q3,Sx2)", "SWAP", "ROTATE", "SWAP", "PIN_PUSH", "CUT/ROTATE"],
         "predecessor": code(predecessor),
         "afterFirstPin": code(pushed),
@@ -137,6 +154,7 @@ def main() -> None:
         "candidateWords": len(words),
         "secondHelpers": len(second_helpers),
         "firstStates": len(first_states),
+        "firstStateDetails": list(first_states.values()),
         "testedSecondSwapOutputs": tested,
         "hits": hits,
     }
