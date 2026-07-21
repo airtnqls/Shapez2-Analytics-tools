@@ -1,29 +1,23 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "reports": [
-    {
-      "target": "SS-S-c",
-      "errorType": "GlobalPredecessorError",
-      "error": "target is not on the event route",
-      "traceback": "Traceback (most recent call last):\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/scripts/search_build_pinable_shape2.py\", line 109, in main\n    reports.append(search(target))\n                   ^^^^^^^^^^^^^^\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/scripts/search_build_pinable_shape2.py\", line 44, in search\n    first = compile_global_predecessor(target, cap)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/Shapez2-Analytics-tools/Shapez2-Analytics-tools/backend/corner_half/global_predecessor.py\", line 128, in compile_global_predecessor\n    raise GlobalPredecessorError(\"target is not on the event route\")\nbackend.corner_half.global_predecessor.GlobalPredecessorError: target is not on the event route\n"
-    },
     {
       "target": "SS-S-cS-S-c",
       "cap": 11,
       "firstPredecessor": "SScS:cPcc:cScS:SPcS:cScS:SScS:cPcc:cScS:SPcS:cSc-:--c-",
       "afterFirstPin": "PPPP:SS-S:-P-S:SS-S:-P--:cS-S:SS-S:-P-S:SS-S:-P--:cS--",
       "a1": "PS-S-cS-S-c",
-      "a2": "--SSScS-S-c",
+      "b1": "PSPSPSSPSPS",
+      "snapshot": "--SSScS-S-c",
+      "a2": "-SSScS-S-c",
       "alphabet": "-SP",
+      "firstStates": 384,
       "checked": 177147,
       "craftable": 46368,
-      "halfStable": 544,
-      "fullStable": 544,
+      "helperStable": 3104,
+      "fullStable": 209600,
+      "replayed": 209600,
       "hits": []
-    },
-    {
-      "target": "SS-S-cS-S-cS-S-c",
-      "skipped": "await inferred helper rule"
     }
   ]
 }

@@ -2,37 +2,15 @@
   "schemaVersion": 1,
   "reports": [
     {
-      "target": "SS-S-c",
-      "a1": null,
-      "a2": null,
-      "checked": null,
-      "craftable": null,
-      "halfStable": null,
-      "fullStable": null,
-      "hits": [],
-      "skipped": null
-    },
-    {
       "target": "SS-S-cS-S-c",
       "a1": "PS-S-cS-S-c",
-      "a2": "--SSScS-S-c",
+      "a2": "-SSScS-S-c",
       "checked": 177147,
       "craftable": 46368,
-      "halfStable": 544,
-      "fullStable": 544,
+      "halfStable": null,
+      "fullStable": 209600,
       "hits": [],
       "skipped": null
-    },
-    {
-      "target": "SS-S-cS-S-cS-S-c",
-      "a1": null,
-      "a2": null,
-      "checked": null,
-      "craftable": null,
-      "halfStable": null,
-      "fullStable": null,
-      "hits": [],
-      "skipped": "await inferred helper rule"
     }
   ]
 }
