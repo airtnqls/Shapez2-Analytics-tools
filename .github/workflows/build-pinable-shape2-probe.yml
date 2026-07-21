@@ -17,7 +17,7 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,37 +27,79 @@ jobs:
         with:
           python-version: '3.11'
       - name: Run exact helper synthesis
-        run: |
-          mkdir -p reports
-          python scripts/search_build_pinable_shape2.py | tee reports/build-pinable-shape2-search.json
-          python - <<'PY' | tee reports/build-pinable-shape2-summary.json
-          import json
-          data=json.load(open('reports/build-pinable-shape2-search.json',encoding='utf-8'))
-          out=[]
-          for r in data.get('reports',[]):
-              out.append({
-                  'target':r.get('target'), 'a1':r.get('a1'), 'a2':r.get('a2'),
-                  'checked':r.get('checked'), 'craftable':r.get('craftable'),
-                  'halfStable':r.get('halfStable'), 'fullStable':r.get('fullStable'),
-                  'hits':r.get('hits',[])[:20], 'skipped':r.get('skipped'),
-              })
-          print(json.dumps({'schemaVersion':1,'reports':out},ensure_ascii=False,indent=2))
-          PY
-      - name: Persist report on research branch
-        if: github.event_name == 'push'
+        id: synthesis
+        continue-on-error: true
         shell: bash
         run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add reports/build-pinable-shape2-search.json reports/build-pinable-shape2-summary.json
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Persist build_pinable_shape2 synthesis [skip ci]'
-          git pull --rebase origin optimize/latest-tmam-fastpath
-          git push origin HEAD:optimize/latest-tmam-fastpath
+          mkdir -p reports
+          set -o pipefail
+          python scripts/search_build_pinable_shape2.py 2>reports/build-pinable-shape2.stderr.log | tee reports/build-pinable-shape2-search.json
+      - name: Build concise result
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY' | tee reports/build-pinable-shape2-summary.json
+          import json, pathlib
+          p=pathlib.Path('reports/build-pinable-shape2-search.json')
+          data=json.loads(p.read_text(encoding='utf-8')) if p.exists() and p.read_text(encoding='utf-8').strip() else {'reports':[]}
+          out=[]
+          for r in data.get('reports',[]):
+              hits=r.get('hits',[])
+              out.append({
+                  'target':r.get('target'),
+                  'a1':r.get('a1'),
+                  'b1':r.get('b1'),
+                  'snapshot':r.get('snapshot'),
+                  'a2Shifted':r.get('a2Shifted'),
+                  'firstStates':r.get('firstStates'),
+                  'layouts':r.get('layouts'),
+                  'checked':r.get('checked'),
+                  'craftable':r.get('craftable'),
+                  'helperStable':r.get('helperStable'),
+                  'fullStable':r.get('fullStable'),
+                  'replayed':r.get('replayed'),
+                  'hitCount':len(hits),
+                  'hits':hits[:10],
+                  'errorType':r.get('errorType'),
+                  'error':r.get('error'),
+              })
+          print(json.dumps({'schemaVersion':2,'reports':out},ensure_ascii=False,indent=2))
+          PY
+          cat reports/build-pinable-shape2.stderr.log || true
+      - name: Persist concise report through Contents API
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64, json, os, pathlib, subprocess, time
+          repo=os.environ['GITHUB_REPOSITORY']; branch=os.environ['HEAD_BRANCH']
+          for path in ('reports/build-pinable-shape2-summary.json',):
+              body=pathlib.Path(path).read_bytes()
+              for attempt in range(6):
+                  current=subprocess.run(['gh','api',f'/repos/{repo}/contents/{path}?ref={branch}'],text=True,capture_output=True)
+                  sha=json.loads(current.stdout)['sha'] if current.returncode==0 else None
+                  payload={'message':'Persist shifted build_pinable_shape2 summary [skip ci]','content':base64.b64encode(body).decode(),'branch':branch}
+                  if sha: payload['sha']=sha
+                  out=subprocess.run(['gh','api','--method','PUT',f'/repos/{repo}/contents/{path}','--input','-'],input=json.dumps(payload),text=True,capture_output=True)
+                  if out.returncode==0:
+                      print('persisted',path); break
+                  if attempt==5: raise RuntimeError(out.stderr or out.stdout)
+                  time.sleep(2*(attempt+1))
+          PY
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: build-pinable-shape2-search
           path: |
             reports/build-pinable-shape2-search.json
             reports/build-pinable-shape2-summary.json
-          if-no-files-found: error
+            reports/build-pinable-shape2.stderr.log
+          if-no-files-found: warn
+      - name: Enforce synthesis execution
+        if: always()
+        env:
+          OUTCOME: ${{ steps.synthesis.outcome }}
+        run: test "$OUTCOME" = success
