@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sequence": [
     "PIN_PUSH",
     "STACK(q3,Sx2)",
@@ -20,7 +20,585 @@
   ],
   "candidateWords": 47,
   "secondHelpers": 1616,
-  "firstStates": 9,
-  "testedSecondSwapOutputs": 29088,
+  "firstStates": 32,
+  "firstStateDetails": [
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "S---:S---:S---:S---:S---:S---:S---:S---:S---:S---:S---",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 0,
+      "state": "PP--:SS--:-P--:SS--:-P--:cS--:SS--:-P--:SS--:-P--:cS--",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "",
+        ""
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "S---:S---:S---:S---:S---:S---:S---:S---:S---:S---:S---",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 1,
+      "state": "-PP-:-SS-:--P-:-SS-:--P-:-cS-:-SS-:--P-:-SS-:--P-:-cS-",
+      "pillars": [
+        "",
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        ""
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "S---:S---:S---:S---:S---:S---:S---:S---:S---:S---:S---",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 2,
+      "state": "--PP:--SS:---P:--SS:---P:--cS:--SS:---P:--SS:---P:--cS",
+      "pillars": [
+        "",
+        "",
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "S---:S---:S---:S---:S---:S---:S---:S---:S---:S---:S---",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 3,
+      "state": "P--P:S--S:P---:S--S:P---:S--c:S--S:P---:S--S:P---:S--c",
+      "pillars": [
+        "PSPSPSSPSPS",
+        "",
+        "",
+        "PS-S-cS-S-c"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "S---:S---:S---:S---:S---:S---:S---:S---:S---:S---:S---",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 0,
+      "state": "S-PP:S--S:S--S:S--S:S--S:S--S:S--S:S--S:S--S:S--S:S---",
+      "pillars": [
+        "SSSSSSSSSSS",
+        "",
+        "P",
+        "PSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "S---:S---:S---:S---:S---:S---:S---:S---:S---:S---:S---",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 1,
+      "state": "PS-P:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:-S--",
+      "pillars": [
+        "PSSSSSSSSS",
+        "SSSSSSSSSSS",
+        "",
+        "P"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "S---:S---:S---:S---:S---:S---:S---:S---:S---:S---:S---",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 2,
+      "state": "PPS-:-SS-:-SS-:-SS-:-SS-:-SS-:-SS-:-SS-:-SS-:-SS-:--S-",
+      "pillars": [
+        "P",
+        "PSSSSSSSSS",
+        "SSSSSSSSSSS",
+        ""
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "S---:S---:S---:S---:S---:S---:S---:S---:S---:S---:S---",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 3,
+      "state": "-PPS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:---S",
+      "pillars": [
+        "",
+        "P",
+        "PSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 0,
+      "state": "-SPP:-S-S:-S-S:-S-S:-S-S:-S-S:-S-S:-S-S:-S-S:-S-S:-S--",
+      "pillars": [
+        "",
+        "SSSSSSSSSSS",
+        "P",
+        "PSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 1,
+      "state": "P-SP:S-S-:S-S-:S-S-:S-S-:S-S-:S-S-:S-S-:S-S-:S-S-:--S-",
+      "pillars": [
+        "PSSSSSSSSS",
+        "",
+        "SSSSSSSSSSS",
+        "P"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 2,
+      "state": "PP-S:-S-S:-S-S:-S-S:-S-S:-S-S:-S-S:-S-S:-S-S:-S-S:---S",
+      "pillars": [
+        "P",
+        "PSSSSSSSSS",
+        "",
+        "SSSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 3,
+      "state": "SPP-:S-S-:S-S-:S-S-:S-S-:S-S-:S-S-:S-S-:S-S-:S-S-:S---",
+      "pillars": [
+        "SSSSSSSSSSS",
+        "P",
+        "PSSSSSSSSS",
+        ""
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 0,
+      "state": "SSPP:SS-S:SS-S:SS-S:SS-S:SS-S:SS-S:SS-S:SS-S:SS-S:SS--",
+      "pillars": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS",
+        "P",
+        "PSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 1,
+      "state": "PSSP:SSS-:SSS-:SSS-:SSS-:SSS-:SSS-:SSS-:SSS-:SSS-:-SS-",
+      "pillars": [
+        "PSSSSSSSSS",
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS",
+        "P"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 2,
+      "state": "PPSS:-SSS:-SSS:-SSS:-SSS:-SSS:-SSS:-SSS:-SSS:-SSS:--SS",
+      "pillars": [
+        "P",
+        "PSSSSSSSSS",
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "east",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--:SS--",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 3,
+      "state": "SPPS:S-SS:S-SS:S-SS:S-SS:S-SS:S-SS:S-SS:S-SS:S-SS:S--S",
+      "pillars": [
+        "SSSSSSSSSSS",
+        "P",
+        "PSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 0,
+      "state": "PPS-:SSS-:-PS-:SSS-:-PS-:cSS-:SSS-:-PS-:SSS-:-PS-:cSS-",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "SSSSSSSSSSS",
+        ""
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 1,
+      "state": "-PPS:-SSS:--PS:-SSS:--PS:-cSS:-SSS:--PS:-SSS:--PS:-cSS",
+      "pillars": [
+        "",
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "SSSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 2,
+      "state": "S-PP:S-SS:S--P:S-SS:S--P:S-cS:S-SS:S--P:S-SS:S--P:S-cS",
+      "pillars": [
+        "SSSSSSSSSSS",
+        "",
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 3,
+      "state": "PS-P:SS-S:PS--:SS-S:PS--:SS-c:SS-S:PS--:SS-S:PS--:SS-c",
+      "pillars": [
+        "PSPSPSSPSPS",
+        "SSSSSSSSSSS",
+        "",
+        "PS-S-cS-S-c"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 0,
+      "state": "--PP:---S:---S:---S:---S:---S:---S:---S:---S:---S",
+      "pillars": [
+        "",
+        "",
+        "P",
+        "PSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 1,
+      "state": "P--P:S---:S---:S---:S---:S---:S---:S---:S---:S---",
+      "pillars": [
+        "PSSSSSSSSS",
+        "",
+        "",
+        "P"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 2,
+      "state": "PP--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--:-S--",
+      "pillars": [
+        "P",
+        "PSSSSSSSSS",
+        "",
+        ""
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        ""
+      ],
+      "firstHelper": "--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 1,
+      "middleTurns": 3,
+      "state": "-PP-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-:--S-",
+      "pillars": [
+        "",
+        "P",
+        "PSSSSSSSSS",
+        ""
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "---S:---S:---S:---S:---S:---S:---S:---S:---S:---S:---S",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 0,
+      "state": "PP-S:SS-S:-P-S:SS-S:-P-S:cS-S:SS-S:-P-S:SS-S:-P-S:cS-S",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "",
+        "SSSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "---S:---S:---S:---S:---S:---S:---S:---S:---S:---S:---S",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 1,
+      "state": "SPP-:SSS-:S-P-:SSS-:S-P-:ScS-:SSS-:S-P-:SSS-:S-P-:ScS-",
+      "pillars": [
+        "SSSSSSSSSSS",
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        ""
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "---S:---S:---S:---S:---S:---S:---S:---S:---S:---S:---S",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 2,
+      "state": "-SPP:-SSS:-S-P:-SSS:-S-P:-ScS:-SSS:-S-P:-SSS:-S-P:-ScS",
+      "pillars": [
+        "",
+        "SSSSSSSSSSS",
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "---S:---S:---S:---S:---S:---S:---S:---S:---S:---S:---S",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 3,
+      "state": "P-SP:S-SS:P-S-:S-SS:P-S-:S-Sc:S-SS:P-S-:S-SS:P-S-:S-Sc",
+      "pillars": [
+        "PSPSPSSPSPS",
+        "",
+        "SSSSSSSSSSS",
+        "PS-S-cS-S-c"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 0,
+      "state": "PPSS:SSSS:-PSS:SSSS:-PSS:cSSS:SSSS:-PSS:SSSS:-PSS:cSSS",
+      "pillars": [
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 1,
+      "state": "SPPS:SSSS:S-PS:SSSS:S-PS:ScSS:SSSS:S-PS:SSSS:S-PS:ScSS",
+      "pillars": [
+        "SSSSSSSSSSS",
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS",
+        "SSSSSSSSSSS"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 2,
+      "state": "SSPP:SSSS:SS-P:SSSS:SS-P:SScS:SSSS:SS-P:SSSS:SS-P:SScS",
+      "pillars": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS",
+        "PS-S-cS-S-c",
+        "PSPSPSSPSPS"
+      ]
+    },
+    {
+      "firstHelperSide": "west",
+      "firstHelperColumns": [
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS"
+      ],
+      "firstHelper": "--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS:--SS",
+      "firstSwapOrder": "current-helper",
+      "firstSwapOutput": 0,
+      "middleTurns": 3,
+      "state": "PSSP:SSSS:PSS-:SSSS:PSS-:SSSc:SSSS:PSS-:SSSS:PSS-:SSSc",
+      "pillars": [
+        "PSPSPSSPSPS",
+        "SSSSSSSSSSS",
+        "SSSSSSSSSSS",
+        "PS-S-cS-S-c"
+      ]
+    }
+  ],
+  "testedSecondSwapOutputs": 206848,
   "hits": []
 }
