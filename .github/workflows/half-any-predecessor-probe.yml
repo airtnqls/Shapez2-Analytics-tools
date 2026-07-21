@@ -51,38 +51,43 @@ jobs:
           set -o pipefail
           python scripts/factor_any_predecessor_through_swap.py reports/half-any-predecessor-probe.json \
             2>reports/half-any-predecessor-factor.stderr.log | tee reports/half-any-predecessor-factor.json
-      - name: Print concise result
+      - name: Build concise result
         if: always()
         shell: bash
         run: |
           python - <<'PY'
           import json, pathlib
-          p=pathlib.Path('reports/half-any-predecessor-probe.json')
-          if p.exists() and p.read_text(encoding='utf-8').strip():
-              data=json.loads(p.read_text(encoding='utf-8'))
-              print({
-                  'elapsedMs':data.get('elapsedMs'),
-                  'ok':data.get('result',{}).get('ok'),
-                  'route':data.get('result',{}).get('route'),
-                  'transitions':data.get('result',{}).get('transitions'),
-                  'predecessorRank0':data.get('predecessorRank0'),
-                  'replayOk':data.get('replayOk'),
-                  'columns':data.get('predecessorColumns'),
-              })
-          else:
-              print('NO PROBE JSON')
-          f=pathlib.Path('reports/half-any-predecessor-factor.json')
-          if f.exists() and f.read_text(encoding='utf-8').strip():
-              factor=json.loads(f.read_text(encoding='utf-8'))
-              print({
-                  'factorPredecessorFound':factor.get('predecessorFound'),
-                  'matches':len(factor.get('matches',[])),
-                  'nearest':factor.get('nearest',[None])[0] if factor.get('nearest') else None,
-              })
-              if factor.get('matches'):
-                  print(json.dumps(factor['matches'][0],ensure_ascii=False))
-          else:
-              print('NO FACTOR JSON')
+          def load(path):
+              p=pathlib.Path(path)
+              if not p.exists() or not p.read_text(encoding='utf-8').strip():
+                  return None
+              return json.loads(p.read_text(encoding='utf-8'))
+          probe=load('reports/half-any-predecessor-probe.json') or {}
+          factor=load('reports/half-any-predecessor-factor.json') or {}
+          summary={
+              'schemaVersion':1,
+              'probe':{
+                  'elapsedMs':probe.get('elapsedMs'),
+                  'ok':probe.get('result',{}).get('ok'),
+                  'route':probe.get('result',{}).get('route'),
+                  'transitions':probe.get('result',{}).get('transitions'),
+                  'maxFailedStates':probe.get('result',{}).get('maxFailedStates'),
+                  'predecessor':probe.get('result',{}).get('predecessor'),
+                  'predecessorRank0':probe.get('predecessorRank0'),
+                  'replay':probe.get('replay'),
+                  'replayOk':probe.get('replayOk'),
+                  'predecessorColumns':probe.get('predecessorColumns'),
+              },
+              'factor':{
+                  'predecessorFound':factor.get('predecessorFound'),
+                  'matchesCount':len(factor.get('matches',[])),
+                  'matches':factor.get('matches',[])[:5],
+                  'nearest':factor.get('nearest',[])[:10],
+              },
+          }
+          out=pathlib.Path('reports/half-any-predecessor-summary.json')
+          out.write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(out.read_text(encoding='utf-8'))
           PY
           cat reports/half-any-predecessor-probe.stderr.log reports/half-any-predecessor-factor.stderr.log 2>/dev/null || true
           echo "probe outcome: ${{ steps.probe.outcome }}"
@@ -98,24 +103,8 @@ jobs:
             echo '<!-- half-any-predecessor-probe -->'
             echo '## Half unrestricted predecessor probe'
             echo
-            echo '<details><summary>Inverse result</summary>'
-            echo
             echo '```json'
-            cat reports/half-any-predecessor-probe.json 2>/dev/null || true
-            echo
-            echo '```'
-            echo '</details>'
-            echo
-            echo '<details><summary>Swap factorization</summary>'
-            echo
-            echo '```json'
-            head -c 50000 reports/half-any-predecessor-factor.json 2>/dev/null || true
-            echo
-            echo '```'
-            echo '</details>'
-            echo
-            echo '```text'
-            cat reports/half-any-predecessor-probe.stderr.log reports/half-any-predecessor-factor.stderr.log 2>/dev/null || true
+            cat reports/half-any-predecessor-summary.json 2>/dev/null || true
             echo
             echo '```'
           } > reports/half-any-pr-comment.md
@@ -123,20 +112,24 @@ jobs:
       - name: Restore patched source
         if: always()
         run: git checkout -- lib/raw-pinpush-rank0.ts
-      - name: Persist report
+      - name: Persist report on research branch
         if: always()
+        env:
+          HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           touch reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log \
-                reports/half-any-predecessor-factor.json reports/half-any-predecessor-factor.stderr.log
+                reports/half-any-predecessor-factor.json reports/half-any-predecessor-factor.stderr.log \
+                reports/half-any-predecessor-summary.json
           git add reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log \
-                  reports/half-any-predecessor-factor.json reports/half-any-predecessor-factor.stderr.log
+                  reports/half-any-predecessor-factor.json reports/half-any-predecessor-factor.stderr.log \
+                  reports/half-any-predecessor-summary.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Persist unrestricted Half predecessor probe [skip ci]'
-          git pull --rebase origin optimize/latest-tmam-fastpath
-          git push origin HEAD:optimize/latest-tmam-fastpath
+          git pull --rebase origin "$HEAD_BRANCH"
+          git push origin HEAD:"$HEAD_BRANCH"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -146,6 +139,7 @@ jobs:
             reports/half-any-predecessor-probe.stderr.log
             reports/half-any-predecessor-factor.json
             reports/half-any-predecessor-factor.stderr.log
+            reports/half-any-predecessor-summary.json
           if-no-files-found: warn
       - name: Enforce probe execution
         if: always()
