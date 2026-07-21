@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - optimize/latest-tmam-fastpath
+    paths:
+      - scripts/probe_half_rank0_predecessor.ts
+      - lib/raw-pinpush-rank0.ts
+      - .github/workflows/half-rank0-probe.yml
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   probe:
@@ -15,6 +19,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: optimize/latest-tmam-fastpath
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -25,6 +32,16 @@ jobs:
           mkdir -p reports /tmp/half-probe
           npx esbuild scripts/probe_half_rank0_predecessor.ts --bundle --platform=node --format=esm --outfile=/tmp/half-probe/probe.mjs
           node /tmp/half-probe/probe.mjs | tee reports/half-rank0-predecessor-probe.json
+      - name: Persist probe report
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add reports/half-rank0-predecessor-probe.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Persist direct Half Rank0 probe [skip ci]'
+          git pull --rebase origin optimize/latest-tmam-fastpath
+          git push origin HEAD:optimize/latest-tmam-fastpath
       - uses: actions/upload-artifact@v4
         with:
           name: half-rank0-predecessor-probe
