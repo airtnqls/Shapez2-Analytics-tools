@@ -112,24 +112,39 @@ jobs:
       - name: Restore patched source
         if: always()
         run: git checkout -- lib/raw-pinpush-rank0.ts
-      - name: Persist report on research branch
+      - name: Persist concise report through Contents API
         if: always()
         env:
+          GH_TOKEN: ${{ github.token }}
           HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
         shell: bash
         run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          touch reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log \
-                reports/half-any-predecessor-factor.json reports/half-any-predecessor-factor.stderr.log \
-                reports/half-any-predecessor-summary.json
-          git add reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log \
-                  reports/half-any-predecessor-factor.json reports/half-any-predecessor-factor.stderr.log \
-                  reports/half-any-predecessor-summary.json
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Persist unrestricted Half predecessor probe [skip ci]'
-          git pull --rebase origin "$HEAD_BRANCH"
-          git push origin HEAD:"$HEAD_BRANCH"
+          python - <<'PY'
+          import base64, json, os, pathlib, subprocess, time
+          repo=os.environ['GITHUB_REPOSITORY']
+          branch=os.environ['HEAD_BRANCH']
+          path='reports/half-any-predecessor-summary.json'
+          body=pathlib.Path(path).read_bytes()
+          def gh(args, data=None, check=True):
+              proc=subprocess.run(['gh','api',*args],input=data,text=True,capture_output=True)
+              if check and proc.returncode:
+                  raise RuntimeError(proc.stderr or proc.stdout)
+              return proc
+          for attempt in range(5):
+              current=gh([f'/repos/{repo}/contents/{path}?ref={branch}'],check=False)
+              sha=None
+              if current.returncode==0:
+                  sha=json.loads(current.stdout)['sha']
+              payload={'message':'Persist unrestricted Half inverse summary [skip ci]','content':base64.b64encode(body).decode(),'branch':branch}
+              if sha: payload['sha']=sha
+              out=gh(['--method','PUT',f'/repos/{repo}/contents/{path}','--input','-'],json.dumps(payload),check=False)
+              if out.returncode==0:
+                  print('persisted',path,branch)
+                  break
+              if attempt==4:
+                  raise RuntimeError(out.stderr or out.stdout)
+              time.sleep(2*(attempt+1))
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
