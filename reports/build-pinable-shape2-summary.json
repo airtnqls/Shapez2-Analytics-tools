@@ -1,16 +1,23 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "reports": [
     {
       "target": "SS-S-cS-S-c",
       "a1": "PS-S-cS-S-c",
-      "a2": null,
+      "b1": "PSPSPSSPSPS",
+      "snapshot": "--SSScS-S-c",
+      "a2Shifted": "-SSScS-S-c",
+      "firstStates": 384,
+      "layouts": 60,
       "checked": 177147,
       "craftable": 46368,
-      "halfStable": null,
+      "helperStable": 31040,
       "fullStable": 26200,
+      "replayed": 26200,
+      "hitCount": 0,
       "hits": [],
-      "skipped": null
+      "errorType": null,
+      "error": null
     }
   ]
 }
