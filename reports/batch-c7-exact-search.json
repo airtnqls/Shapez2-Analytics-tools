@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "target": "SS-S-cS-S-c",
+  "cap": 11,
+  "base": {
+    "postLiftA": "--SSScSccSc",
+    "baseDuties": [
+      [
+        2,
+        1,
+        "anchored"
+      ],
+      [
+        9,
+        8,
+        "anchored"
+      ]
+    ],
+    "baseActualA": "-S-SScS-S-c",
+    "postMoves": [
+      [
+        "descend",
+        3
+      ],
+      [
+        "descend",
+        4
+      ],
+      [
+        "descend",
+        1
+      ],
+      [
+        "descend",
+        2
+      ]
+    ],
+    "sources": [
+      2,
+      3,
+      4,
+      6,
+      9
+    ],
+    "targets": [
+      0,
+      1,
+      3,
+      6,
+      8
+    ]
+  },
+  "checked": 8,
+  "hits": [],
+  "failureCounts": {
+    "natural duty lacks a surviving A blocker below target": 5,
+    "anchored duty leaves A occupied below target after shatter": 2,
+    "no surviving static A anchor strictly between lower source 2 and target 1": 1
+  },
+  "failureExamples": {
+    "anchored duty leaves A occupied below target after shatter": "anchored duty leaves A occupied below target after shatter: C7Duty(source=4, target=3, kind=<DutyKind.ANCHORED: 'anchored'>)",
+    "no surviving static A anchor strictly between lower source 2 and target 1": "no surviving static A anchor strictly between lower source 2 and target 1",
+    "natural duty lacks a surviving A blocker below target": "natural duty lacks a surviving A blocker below target: C7Duty(source=9, target=8, kind=<DutyKind.NATURAL: 'natural'>)"
+  }
+}
