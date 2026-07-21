@@ -28,75 +28,57 @@ jobs:
           python-version: '3.11'
       - name: Run deterministic helper synthesis
         id: synthesis
-        continue-on-error: true
         shell: bash
         run: |
           mkdir -p reports
           set -o pipefail
           python scripts/search_second_pin_helper.py 2>reports/second-pin-helper-search.stderr.log | tee reports/second-pin-helper-search.json
       - name: Build concise result
-        if: always()
         shell: bash
         run: |
           python - <<'PY'
           import json, pathlib
           source=pathlib.Path('reports/second-pin-helper-search.json')
           summary=pathlib.Path('reports/second-pin-helper-summary.json')
-          if not source.exists() or not source.read_text(encoding='utf-8').strip():
-              data={'schemaVersion':1,'error':'NO JSON'}
-          else:
-              raw=json.loads(source.read_text(encoding='utf-8'))
-              searches=raw.get('searches',[])
-              closest=raw.get('closest',[])
-              data={
-                  'schemaVersion':1,
-                  'errorType':raw.get('errorType'),
-                  'error':raw.get('error'),
-                  'fixedHalfCandidates':raw.get('fixedHalfCandidates'),
-                  'selectedFixedHalves':raw.get('selectedFixedHalves',[]),
-                  'searches':len(searches),
-                  'evaluated':sum(item.get('evaluated',0) for item in searches),
-                  'exactCount':len(raw.get('exact',[])),
-                  'exact':raw.get('exact',[])[:3],
-                  'best':closest[0] if closest else None,
-                  'top10':closest[:10],
-              }
+          raw=json.loads(source.read_text(encoding='utf-8'))
+          searches=raw.get('searches',[])
+          closest=raw.get('closest',[])
+          data={
+              'schemaVersion':1,
+              'errorType':raw.get('errorType'),
+              'error':raw.get('error'),
+              'fixedHalfCandidates':raw.get('fixedHalfCandidates'),
+              'selectedFixedHalves':raw.get('selectedFixedHalves',[]),
+              'searches':len(searches),
+              'evaluated':sum(item.get('evaluated',0) for item in searches),
+              'exactCount':len(raw.get('exact',[])),
+              'exact':raw.get('exact',[])[:3],
+              'best':closest[0] if closest else None,
+              'top10':closest[:10],
+          }
           summary.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
           print(summary.read_text(encoding='utf-8'))
           PY
-          cat reports/second-pin-helper-search.stderr.log || true
-          echo "synthesis outcome: ${{ steps.synthesis.outcome }}"
       - name: Persist concise report through Contents API
-        if: always()
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-          HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+          HEAD_BRANCH: ${{ github.ref_name }}
         shell: bash
         run: |
           python - <<'PY'
           import base64, json, os, pathlib, subprocess, time
-          repo=os.environ['GITHUB_REPOSITORY']
-          branch=os.environ['HEAD_BRANCH']
-          path='reports/second-pin-helper-summary.json'
-          body=pathlib.Path(path).read_bytes()
-          def gh(args, data=None, check=True):
-              proc=subprocess.run(['gh','api',*args],input=data,text=True,capture_output=True)
-              if check and proc.returncode:
-                  raise RuntimeError(proc.stderr or proc.stdout)
-              return proc
+          repo=os.environ['GITHUB_REPOSITORY']; branch=os.environ['HEAD_BRANCH']
+          path='reports/second-pin-helper-summary.json'; body=pathlib.Path(path).read_bytes()
+          def gh(args, data=None): return subprocess.run(['gh','api',*args],input=data,text=True,capture_output=True)
           for attempt in range(5):
-              current=gh([f'/repos/{repo}/contents/{path}?ref={branch}'],check=False)
-              sha=None
-              if current.returncode==0:
-                  sha=json.loads(current.stdout)['sha']
+              current=gh([f'/repos/{repo}/contents/{path}?ref={branch}'])
+              sha=json.loads(current.stdout)['sha'] if current.returncode==0 else None
               payload={'message':'Persist second Pin helper summary [skip ci]','content':base64.b64encode(body).decode(),'branch':branch}
               if sha: payload['sha']=sha
-              out=gh(['--method','PUT',f'/repos/{repo}/contents/{path}','--input','-'],json.dumps(payload),check=False)
-              if out.returncode==0:
-                  print('persisted',path,branch)
-                  break
-              if attempt==4:
-                  raise RuntimeError(out.stderr or out.stdout)
+              out=gh(['--method','PUT',f'/repos/{repo}/contents/{path}','--input','-'],json.dumps(payload))
+              if out.returncode==0: break
+              if attempt==4: raise RuntimeError(out.stderr or out.stdout)
               time.sleep(2*(attempt+1))
           PY
       - uses: actions/upload-artifact@v4
@@ -105,11 +87,5 @@ jobs:
           name: second-pin-helper-search
           path: |
             reports/second-pin-helper-search.json
-            reports/second-pin-helper-search.stderr.log
             reports/second-pin-helper-summary.json
-          if-no-files-found: warn
-      - name: Enforce synthesis execution
-        if: always()
-        env:
-          OUTCOME: ${{ steps.synthesis.outcome }}
-        run: test "$OUTCOME" = success
+          if-no-files-found: error
