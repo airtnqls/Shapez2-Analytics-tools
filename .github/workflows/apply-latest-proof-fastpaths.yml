@@ -7,13 +7,13 @@ on:
     paths:
       - scripts/apply_latest_proof_fastpaths.py
       - .github/workflows/apply-latest-proof-fastpaths.yml
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -40,6 +40,7 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add backend/corner_half/proof_dag.py backend/corner_half/corner_full_replay.py
+          git add backend/corner_half/proof_dag.py
           git commit -m 'Optimize exact Corner and Half proof construction'
+          git pull --rebase origin optimize/latest-tmam-fastpath
           git push origin HEAD:optimize/latest-tmam-fastpath
