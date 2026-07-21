@@ -1,0 +1,75 @@
+name: Second Pin helper synthesis
+
+on:
+  push:
+    branches: [optimize/latest-tmam-fastpath]
+    paths:
+      - scripts/search_second_pin_helper.py
+      - backend/corner_half/global_predecessor.py
+      - .github/workflows/second-pin-helper-search.yml
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run deterministic helper synthesis
+        shell: bash
+        run: |
+          mkdir -p reports
+          set -o pipefail
+          python scripts/search_second_pin_helper.py 2>reports/second-pin-helper-search.stderr.log | tee reports/second-pin-helper-search.json
+      - name: Print concise result
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          p='reports/second-pin-helper-search.json'
+          data=json.load(open(p,encoding='utf-8'))
+          search=data['search']
+          print({
+              'fixedEast':search['fixedEast'],
+              'evaluated':search['evaluated'],
+              'rounds':search['rounds'],
+              'exact':len(search['exact']),
+              'bestScore':search['closest'][0]['score'] if search['closest'] else None,
+              'bestDistance':search['closest'][0]['distance'] if search['closest'] else None,
+          })
+          if search['exact']:
+              print(json.dumps(search['exact'][0],ensure_ascii=False))
+          elif search['closest']:
+              print(json.dumps(search['closest'][0],ensure_ascii=False))
+          PY
+          cat reports/second-pin-helper-search.stderr.log || true
+      - name: Persist report
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add reports/second-pin-helper-search.json reports/second-pin-helper-search.stderr.log
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Persist second Pin helper synthesis [skip ci]'
+          git pull --rebase origin optimize/latest-tmam-fastpath
+          git push origin HEAD:optimize/latest-tmam-fastpath
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: second-pin-helper-search
+          path: |
+            reports/second-pin-helper-search.json
+            reports/second-pin-helper-search.stderr.log
+          if-no-files-found: error
