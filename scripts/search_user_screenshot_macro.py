@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import heapq
 import json
 import sys
 from pathlib import Path
@@ -58,9 +59,6 @@ def variants(value: str) -> set[str]:
 
 
 def first_helper_pool(tower: str):
-    # Enumerate the small constant family visible in the screenshot: a stable
-    # Half made from zero, one, or two full S towers, in either side.  Keep both
-    # operand orders because the selected Swapper output is order-sensitive.
     specs = []
     for side in ("east", "west"):
         for pair in ((tower, ""), ("", tower), (tower, tower)):
@@ -68,6 +66,33 @@ def first_helper_pool(tower: str):
             if helper is not None:
                 specs.append((side, pair, helper))
     return specs
+
+
+def half_distance(rows) -> tuple[int, dict[str, object]]:
+    target_rows = parse(TARGET, CAP)
+    best = (10**9, {})
+    # Every adjacent ordered pair can be rotated into the east half.  Compare
+    # the exact cells before Cutter so the rank also exposes near misses.
+    for turns in range(4):
+        oriented = rotate(rows, turns)
+        for side, pair in (("east", (0, 1)), ("west", (2, 3))):
+            candidate = rows_from_columns((column(oriented, pair[0]), column(oriented, pair[1]), "", ""))
+            if side == "west":
+                candidate = rotate(candidate, 2)
+            distance = 0
+            for layer in range(CAP):
+                for q in range(2):
+                    if candidate[layer][q] != target_rows[layer][q]:
+                        distance += 1
+            record = {
+                "turns": turns,
+                "side": side,
+                "candidate": code(candidate),
+                "candidatePillars": columns(candidate),
+            }
+            if distance < best[0]:
+                best = (distance, record)
+    return best
 
 
 def main() -> None:
@@ -111,6 +136,8 @@ def main() -> None:
                     })
 
     hits = []
+    closest_heap: list[tuple[int, int, dict[str, object]]] = []
+    serial = 0
     tested = 0
     for first in first_states.values():
         state = parse(str(first["state"]), CAP)
@@ -121,31 +148,32 @@ def main() -> None:
                     tested += 1
                     pushed_final = push_pin(output, CAP)
                     finals = target_from_any_half(pushed_final)
+                    base = {
+                        **first,
+                        "secondHelperSide": side,
+                        "secondHelperColumns": [a, b],
+                        "secondHelper": code(helper),
+                        "secondSwapOrder": order,
+                        "secondSwapOutput": output_index,
+                        "preFinalPin": code(output),
+                        "preFinalPillars": columns(output),
+                        "postFinalPin": code(pushed_final),
+                        "postFinalPillars": columns(pushed_final),
+                    }
                     if finals:
-                        hits.append({
-                            **first,
-                            "secondHelperSide": side,
-                            "secondHelperColumns": [a, b],
-                            "secondHelper": code(helper),
-                            "secondSwapOrder": order,
-                            "secondSwapOutput": output_index,
-                            "preFinalPin": code(output),
-                            "preFinalPillars": columns(output),
-                            "postFinalPin": code(pushed_final),
-                            "postFinalPillars": columns(pushed_final),
-                            "finalExtraction": finals,
-                        })
-                        if len(hits) >= 100:
-                            break
-                if len(hits) >= 100:
-                    break
-            if len(hits) >= 100:
-                break
-        if len(hits) >= 100:
-            break
+                        hits.append({**base, "finalExtraction": finals})
+                    distance, nearest = half_distance(pushed_final)
+                    ranked = {**base, "distance": distance, "nearest": nearest}
+                    serial += 1
+                    entry = (-distance, serial, ranked)
+                    if len(closest_heap) < 100:
+                        heapq.heappush(closest_heap, entry)
+                    elif entry > closest_heap[0]:
+                        heapq.heapreplace(closest_heap, entry)
 
+    closest = [entry[2] for entry in sorted(closest_heap, key=lambda x: (-x[0], x[1]))]
     report = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "sequence": ["PIN_PUSH", "STACK(q3,Sx2)", "SWAP", "ROTATE", "SWAP", "PIN_PUSH", "CUT/ROTATE"],
         "predecessor": code(predecessor),
         "afterFirstPin": code(pushed),
@@ -156,7 +184,8 @@ def main() -> None:
         "firstStates": len(first_states),
         "firstStateDetails": list(first_states.values()),
         "testedSecondSwapOutputs": tested,
-        "hits": hits,
+        "hits": hits[:100],
+        "closest": closest,
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
