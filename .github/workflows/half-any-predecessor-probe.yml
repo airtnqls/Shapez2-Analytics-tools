@@ -1,0 +1,94 @@
+name: Half unrestricted predecessor probe
+
+on:
+  push:
+    branches: [optimize/latest-tmam-fastpath]
+    paths:
+      - scripts/patch_raw_pinpush_any.py
+      - scripts/probe_half_any_predecessor.ts
+      - lib/raw-pinpush-rank0.ts
+      - .github/workflows/half-any-predecessor-probe.yml
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: npm ci --no-audit --no-fund
+      - name: Patch research export and run unrestricted inverse
+        id: probe
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p reports /tmp/half-any-probe
+          python scripts/patch_raw_pinpush_any.py
+          npx esbuild scripts/probe_half_any_predecessor.ts --bundle --platform=node --format=esm --outfile=/tmp/half-any-probe/probe.mjs
+          node /tmp/half-any-probe/probe.mjs 2>reports/half-any-predecessor-probe.stderr.log | tee reports/half-any-predecessor-probe.json
+      - name: Print concise result
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('reports/half-any-predecessor-probe.json')
+          if p.exists() and p.read_text(encoding='utf-8').strip():
+              data=json.loads(p.read_text(encoding='utf-8'))
+              print({
+                  'elapsedMs':data.get('elapsedMs'),
+                  'ok':data.get('result',{}).get('ok'),
+                  'route':data.get('result',{}).get('route'),
+                  'transitions':data.get('result',{}).get('transitions'),
+                  'predecessorRank0':data.get('predecessorRank0'),
+                  'replayOk':data.get('replayOk'),
+                  'columns':data.get('predecessorColumns'),
+              })
+          else:
+              print('NO JSON')
+          PY
+          cat reports/half-any-predecessor-probe.stderr.log 2>/dev/null || true
+          echo "probe outcome: ${{ steps.probe.outcome }}"
+      - name: Restore patched source
+        if: always()
+        run: git checkout -- lib/raw-pinpush-rank0.ts
+      - name: Persist report
+        if: always() && github.event_name == 'push'
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          touch reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log
+          git add reports/half-any-predecessor-probe.json reports/half-any-predecessor-probe.stderr.log
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Persist unrestricted Half predecessor probe [skip ci]'
+          git pull --rebase origin optimize/latest-tmam-fastpath
+          git push origin HEAD:optimize/latest-tmam-fastpath
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: half-any-predecessor-probe
+          path: |
+            reports/half-any-predecessor-probe.json
+            reports/half-any-predecessor-probe.stderr.log
+          if-no-files-found: warn
+      - name: Enforce probe execution
+        if: always()
+        env:
+          OUTCOME: ${{ steps.probe.outcome }}
+        run: test "$OUTCOME" = success
