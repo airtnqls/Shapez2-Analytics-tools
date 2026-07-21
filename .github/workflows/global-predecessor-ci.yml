@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
@@ -24,6 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -52,12 +53,28 @@ jobs:
         run: |
           set -o pipefail
           python scripts/search_pair_assembly_bottom_fix.py 2>reports/pair-assembly-bottom-fix.stderr.log | tee reports/pair-assembly-bottom-fix.json
-      - name: Print concise synthesis results
+      - name: Write and print concise synthesis results
         if: always()
+        env:
+          UNIT: ${{ steps.unit.outcome }}
+          REPAIR: ${{ steps.repair.outcome }}
+          SHAPE2: ${{ steps.shape2.outcome }}
         shell: bash
         run: |
           python - <<'PY'
-          import json, pathlib
+          import json, os, pathlib
+          report={
+              'unit':os.environ.get('UNIT'),
+              'repair':os.environ.get('REPAIR'),
+              'shape2':os.environ.get('SHAPE2'),
+              'tails':{},
+          }
+          for name in ('global-predecessor-tests.log','build-pinable-shape2-search.stderr.log','pair-assembly-bottom-fix.stderr.log'):
+              p=pathlib.Path('reports')/name
+              if p.exists():
+                  report['tails'][name]='\n'.join(p.read_text(encoding='utf-8',errors='replace').splitlines()[-80:])
+          pathlib.Path('reports/global-predecessor-ci-status.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(report,ensure_ascii=False,indent=2))
           for name in ('build-pinable-shape2-search','pair-assembly-bottom-fix'):
               p=pathlib.Path('reports')/(name+'.json')
               if not p.exists() or not p.read_text(encoding='utf-8').strip():
@@ -67,11 +84,21 @@ jobs:
               if name.startswith('pair'):
                   print({k:data.get(k) for k in ('exhaustiveTargets','solved','failed')})
               else:
-                  for report in data.get('reports',[]):
-                      print({k:report.get(k) for k in ('target','a1','a2','checked','craftable','halfStable','fullStable','skipped')})
-                      print('hits',len(report.get('hits',[])),report.get('hits',[])[:2])
+                  for item in data.get('reports',[]):
+                      print({k:item.get(k) for k in ('target','a1','a2','checked','craftable','halfStable','fullStable','skipped','errorType')})
+                      print('hits',len(item.get('hits',[])),item.get('hits',[])[:2])
           PY
-          cat reports/*.stderr.log 2>/dev/null || true
+      - name: Persist concise status
+        if: always()
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add reports/global-predecessor-ci-status.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Persist global predecessor CI status [skip ci]'
+          git pull --rebase origin optimize/latest-tmam-fastpath
+          git push origin HEAD:optimize/latest-tmam-fastpath
       - uses: actions/upload-artifact@v4
         if: always()
         with:
