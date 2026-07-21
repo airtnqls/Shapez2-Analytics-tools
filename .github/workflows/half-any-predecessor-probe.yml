@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   probe:
@@ -64,6 +65,28 @@ jobs:
           PY
           cat reports/half-any-predecessor-probe.stderr.log 2>/dev/null || true
           echo "probe outcome: ${{ steps.probe.outcome }}"
+      - name: Publish result to PR
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          {
+            echo '<!-- half-any-predecessor-probe -->'
+            echo '## Half unrestricted predecessor probe'
+            echo
+            echo '```json'
+            cat reports/half-any-predecessor-probe.json 2>/dev/null || true
+            echo
+            echo '```'
+            echo
+            echo '```text'
+            cat reports/half-any-predecessor-probe.stderr.log 2>/dev/null || true
+            echo
+            echo '```'
+          } > reports/half-any-pr-comment.md
+          gh pr comment "$PR_NUMBER" --body-file reports/half-any-pr-comment.md
       - name: Restore patched source
         if: always()
         run: git checkout -- lib/raw-pinpush-rank0.ts
