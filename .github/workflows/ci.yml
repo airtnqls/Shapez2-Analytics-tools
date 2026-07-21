@@ -13,29 +13,29 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
       - run: npm ci
-
-      - name: TypeScript
-        id: typecheck
-        continue-on-error: true
-        shell: bash
-        run: set -o pipefail; npm run typecheck 2>&1 | tee ci-typecheck.log
 
       - name: Tests
         id: tests
         continue-on-error: true
         shell: bash
         run: set -o pipefail; npm test 2>&1 | tee ci-tests.log
+
+      - name: TypeScript
+        id: typecheck
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run typecheck 2>&1 | tee ci-typecheck.log
 
       - name: Production build
         id: build
@@ -75,23 +75,6 @@ jobs:
           path: ci-*.log
           if-no-files-found: error
 
-      - name: Enforce all checks
-        if: always()
-        env:
-          TYPECHECK: ${{ steps.typecheck.outcome }}
-          TESTS: ${{ steps.tests.outcome }}
-          BUILD: ${{ steps.build.outcome }}
-          WORKER: ${{ steps.worker.outcome }}
-          BACKEND: ${{ steps.backend.outcome }}
-          SERVER: ${{ steps.server.outcome }}
-          STATIC: ${{ steps.static.outcome }}
-        run: |
-          printf 'typecheck=%s\ntests=%s\nbuild=%s\nworker=%s\nbackend=%s\nserver=%s\nstatic=%s\n' \
-            "$TYPECHECK" "$TESTS" "$BUILD" "$WORKER" "$BACKEND" "$SERVER" "$STATIC"
-          test "$TYPECHECK" = success
-          test "$TESTS" = success
-          test "$BUILD" = success
-          test "$WORKER" = success
-          test "$BACKEND" = success
-          test "$SERVER" = success
-          test "$STATIC" = success
+      - name: Fail on any check regression
+        if: ${{ always() && (steps.tests.outcome != 'success' || steps.typecheck.outcome != 'success' || steps.build.outcome != 'success' || steps.worker.outcome != 'success' || steps.backend.outcome != 'success' || steps.server.outcome != 'success' || steps.static.outcome != 'success') }}
+        run: exit 1
