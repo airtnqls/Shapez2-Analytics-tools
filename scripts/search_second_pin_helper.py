@@ -40,27 +40,79 @@ def normalized_word(value: str) -> str:
     return value[:CAP].ljust(CAP, EMPTY)
 
 
-def target_distance(rows) -> tuple[int, dict[str, object]]:
-    target = fixed_rows(parse(TARGET_HALF, CAP))
-    best = (10**9, {})
+def word_distance(value: str, target: str) -> int:
+    a = normalized_word(value)
+    b = normalized_word(target)
+    return sum(x != y for x, y in zip(a, b))
+
+
+def best_target_column(rows) -> tuple[int, dict[str, object]]:
+    pillars = [column(rows, q) for q in range(4)]
+    ranked = sorted(
+        (word_distance(value, TARGET_COLUMN), q, value)
+        for q, value in enumerate(pillars)
+    )
+    distance, q, value = ranked[0]
+    return distance, {"column": q, "value": value, "pillars": pillars}
+
+
+def direct_half_extractions(rows):
     for turns in range(4):
         oriented = rotate(rows, turns)
         east, west = cut(oriented, CAP)
-        for side, raw_candidate in (("east", east), ("west", rotate(west, 2))):
-            candidate = fixed_rows(raw_candidate)
-            distance = sum(
-                candidate[layer][q] != target[layer][q]
-                for layer in range(CAP)
-                for q in range(2)
-            )
-            if distance < best[0]:
-                best = (distance, {
-                    "turns": turns,
-                    "side": side,
-                    "candidate": code(candidate),
-                    "candidatePillars": [column(candidate, q) for q in range(4)],
-                })
-    return best
+        yield {
+            "kind": "direct-cut",
+            "turns": turns,
+            "side": "east",
+            "result": code(east),
+        }
+        yield {
+            "kind": "direct-cut",
+            "turns": turns,
+            "side": "west-rotated",
+            "result": code(rotate(west, 2)),
+        }
+
+
+def finalize_with_tower(rows) -> dict[str, object] | None:
+    """Find the constant final Swap/Cut that turns an exact Corner into H=(u,T).
+
+    A final Pin cannot itself create the full S^L payload with an S receipt: it
+    would produce P+S^(L-1).  The legacy process therefore uses the Pin to make
+    the event Corner, then imports the solid tower by one last Swapper.  This
+    routine checks that real physical route instead of requiring the Pin output
+    to equal the complete Half.
+    """
+    for route in direct_half_extractions(rows):
+        if route["result"] == TARGET_HALF:
+            return route
+
+    tower = "S" * CAP
+    helpers = [
+        ("east:T,-", rows_from_columns((tower, "", "", ""))),
+        ("east:-,T", rows_from_columns(("", tower, "", ""))),
+        ("east:T,T", rows_from_columns((tower, tower, "", ""))),
+        ("west:T,-", rows_from_columns(("", "", tower, ""))),
+        ("west:-,T", rows_from_columns(("", "", "", tower))),
+        ("west:T,T", rows_from_columns(("", "", tower, tower))),
+    ]
+    for helper_name, helper in helpers:
+        for order_name, left, right in (
+            ("current-helper", rows, helper),
+            ("helper-current", helper, rows),
+        ):
+            for output_index, output in enumerate(swap(left, right, CAP)):
+                for route in direct_half_extractions(output):
+                    if route["result"] == TARGET_HALF:
+                        return {
+                            "kind": "final-tower-swap",
+                            "helper": helper_name,
+                            "helperCode": code(helper),
+                            "swapOrder": order_name,
+                            "swapOutput": output_index,
+                            **route,
+                        }
+    return None
 
 
 @dataclass(frozen=True)
@@ -106,20 +158,21 @@ def evaluate(candidate: Candidate, config: SwapConfig) -> tuple[tuple[int, int, 
     pre = rotate(swapped, config.pre_pin_turns)
     pre_stable = is_stable(pre)
     pushed = push_pin(pre, CAP)
-    distance, extraction = target_distance(pushed)
+    distance, column_info = best_target_column(pushed)
+    final_route = finalize_with_tower(pushed) if distance == 0 else None
 
-    # Exact physical validity is always ranked ahead of visual closeness.  The
-    # helper must itself be a buildable stable Half and the actual selected
-    # Swapper output (including cut-boundary shatter/gravity) must be stable.
     penalty = (
         (0 if helper_stable else 80)
         + (0 if pre_stable else 80)
         + (0 if c_ok else 40)
         + (0 if d_ok else 40)
     )
+    # If the event Corner is exact but the final tower route is blocked by a
+    # crystal cut boundary, keep it close but behind a fully finalizable hit.
+    route_penalty = 0 if final_route is not None else (4 if distance == 0 else 0)
     complexity = sum(ch != "S" for ch in c + d)
     support_penalty = sum(ch == EMPTY for ch in c + d)
-    score = (distance + penalty, distance, complexity, support_penalty, 0)
+    score = (distance + penalty + route_penalty, distance, complexity, support_penalty, 0)
     return score, {
         "config": {
             "stateSource": config.state_source,
@@ -142,8 +195,9 @@ def evaluate(candidate: Candidate, config: SwapConfig) -> tuple[tuple[int, int, 
         "afterFinalPin": code(pushed),
         "afterFinalPillars": [column(pushed, q) for q in range(4)],
         "distance": distance,
+        "targetColumn": column_info,
+        "finalRoute": final_route,
         "score": list(score),
-        "extraction": extraction,
     }
 
 
@@ -168,6 +222,10 @@ def seed_words(first) -> list[str]:
         TARGET_COLUMN,
         first.pushed_columns[0], first.pushed_columns[1], first.pushed_columns[2], first.pushed_columns[3],
         first.predecessor_columns[0], first.predecessor_columns[1], first.predecessor_columns[2], first.predecessor_columns[3],
+        # The bottom receipt must be empty for a final S.  Seed the exact family
+        # suggested by the unfinished legacy build_pinable_shape2 routine.
+        "-" + TARGET_COLUMN[:-1],
+        "--" + TARGET_COLUMN[:-2],
     }
     for value in list(words):
         v = normalized_word(value)
@@ -224,14 +282,14 @@ def all_configs(first) -> list[SwapConfig]:
     return list(configs.values())
 
 
-def search_configuration(config: SwapConfig, first, *, seed: int = 0, beam_width: int = 320, rounds: int = 30):
+def search_configuration(config: SwapConfig, first, *, seed: int = 0, beam_width: int = 360, rounds: int = 36):
     words = seed_words(first)
     rng = random.Random(seed)
     initial = {Candidate(c, d) for c in words for d in words}
-    for _ in range(4000):
+    for _ in range(5000):
         base_c = list(normalized_word(rng.choice(words)))
         base_d = list(normalized_word(rng.choice(words)))
-        for _ in range(rng.randint(1, 5)):
+        for _ in range(rng.randint(1, 6)):
             if rng.random() < 0.5:
                 base_c[rng.randrange(CAP)] = rng.choice(ALPHABET)
             else:
@@ -261,9 +319,10 @@ def search_configuration(config: SwapConfig, first, *, seed: int = 0, beam_width
         best_score, best_record = measured(beam[0])
         history.append({"round": round_index, "score": list(best_score), "best": best_record})
         for candidate in beam:
-            score, record = measured(candidate)
+            _score, record = measured(candidate)
             if (
-                score[1] == 0
+                record["distance"] == 0
+                and record["finalRoute"] is not None
                 and record["helperStable"]
                 and record["preStable"]
                 and all(record["columnsCraftable"])
@@ -297,15 +356,13 @@ def main() -> None:
     first = compile_global_predecessor(TARGET_COLUMN, CAP)
     configs = all_configs(first)
 
-    # Rank the exact Swapper configurations by a small deterministic seed set.
-    # This ranking now executes the real second Swapper, including its crystal
-    # boundary shatter and gravity, rather than concatenating two imagined halves.
     probe_candidates = [
         Candidate("S" * CAP, "S" * CAP),
         Candidate("c" * CAP, "S" * CAP),
         Candidate("S" * CAP, "c" * CAP),
         Candidate(first.predecessor_columns[2], first.predecessor_columns[3]),
         Candidate(first.pushed_columns[2], first.pushed_columns[3]),
+        Candidate("-" + TARGET_COLUMN[:-1], "S" * CAP),
     ]
     ranked = []
     for config in configs:
@@ -317,7 +374,7 @@ def main() -> None:
             item[1].swap_order, item[1].swap_output, item[1].pre_pin_turns,
         )
     )
-    selected = [item[1] for item in ranked[:24]]
+    selected = [item[1] for item in ranked[:32]]
 
     searches = []
     exact = []
@@ -333,7 +390,7 @@ def main() -> None:
         key=lambda record: (tuple(record["score"]), record["config"], record["c"], record["d"]),
     )[:50]
     report = {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "target": TARGET_HALF,
         "targetColumn": TARGET_COLUMN,
         "firstPredecessor": first.predecessor,
@@ -362,7 +419,7 @@ if __name__ == "__main__":
         main()
     except BaseException as exc:
         print(json.dumps({
-            "schemaVersion": 3,
+            "schemaVersion": 4,
             "errorType": type(exc).__name__,
             "error": str(exc),
             "traceback": traceback.format_exc(),
