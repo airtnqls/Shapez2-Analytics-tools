@@ -28,6 +28,7 @@ import {
 import { generateCrystals, isStable, pushPin, stackShapes } from "./physics";
 import { bottomPinReceiptProfile, bottomPinReceiptRank, forwardBatchUpperBound, ppChainUpperBound } from "./pp-rank";
 import { solveRank0PinPush, uniquePlainPinPushPredecessor } from "./raw-pinpush-rank0";
+import { findSwappableStackWitness, orientedHalfResidual } from "./stack-closure-dp";
 
 export const CORNER_RULES: Array<[string, RegExp]> = [
   ["R1", /-P/],
@@ -132,10 +133,10 @@ function halfColumns(rows: ShapeRows): number[] | null {
   return null;
 }
 
+/** Exact 210-state residual membership for one oriented adjacent half. */
 export function isBuildableHalfRows(rows: ShapeRows, columns: number[] = [0, 1]): boolean {
-  const masked = maskColumns(rows, columns);
-  const ps = pillars(masked).filter((_, q) => columns.includes(q));
-  return ps.every((pillar) => cornerCheck(pillar).accepted) && isStable(masked);
+  if (columns.length !== 2) return false;
+  return orientedHalfResidual(rows, [columns[0], columns[1]]).accepted;
 }
 
 export function halfOrientation(rows: ShapeRows): { accepted: boolean; turns: number; columns: number[] } {
@@ -196,12 +197,11 @@ function makeBottomAndPieces(rows: ShapeRows, cap: number, splits: number[]): { 
   const bottom = work.map((row, l) => row.map((cell, q) => (l < splits[q] ? cell : EMPTY)) as (typeof row));
   const topRows = work.map((row, l) => row.map((cell, q) => (l >= splits[q] ? cell : EMPTY)) as (typeof row));
   if (topRows.some((row) => row.some((cell) => cell === CRYSTAL))) return null;
-  const pieces = topRows
-    .map((row) => rowsToCode([row]))
-    .filter(Boolean);
+  const pieces = topRows.map((row) => rowsToCode([row])).filter(Boolean);
   return { bottom: trimRows(bottom), pieces };
 }
 
+/** Legacy Cartesian split oracle retained only for differential tests. */
 export async function findStackWitness(
   rows: ShapeRows,
   cap: number,
@@ -224,14 +224,7 @@ export async function findStackWitness(
             let replay = parts.bottom;
             for (const piece of parts.pieces) replay = stackShapes(replay, parseCode(piece, cap), cap);
             if (rowsToCode(replay) === rowsToCode(rows)) {
-              return {
-                witness: {
-                  bottom: rowsToCode(parts.bottom),
-                  topPieces: parts.pieces,
-                  splitHeights: splits,
-                },
-                checked,
-              };
+              return { witness: { bottom: rowsToCode(parts.bottom), topPieces: parts.pieces, splitHeights: splits }, checked };
             }
           }
           if (checked % yieldEvery === 0) {
@@ -276,7 +269,6 @@ export async function brutePinPushPredecessor(
   return { predecessor: null, checked };
 }
 
-
 async function findPinPushWitness(
   target: ShapeRows,
   cap: number,
@@ -288,9 +280,6 @@ async function findPinPushWitness(
   let checked = 0;
   let states = 0;
 
-  // Every higher-rank edge is reduced through the unique no-overflow receipt
-  // lift. Strip the maximal chain before invoking the expensive Rank0
-  // frontier, so a 100-layer receipt tower is processed in linear depth.
   for (let depth = 0; depth < 4 * cap; depth += 1) {
     if (hooks.cancelled?.()) throw new Error("CANCELLED");
     const currentCode = rowsToCode(current);
@@ -305,8 +294,6 @@ async function findPinPushWitness(
     current = predecessorRows;
   }
 
-  // Try the deepest core first. If the maximal plain predecessor chain was
-  // only an alternative construction, walk back toward the original target.
   const candidates = [{ code: rowsToCode(current), rows: current }, ...chain.slice().reverse()];
   for (let index = 0; index < candidates.length; index += 1) {
     if (hooks.cancelled?.()) throw new Error("CANCELLED");
@@ -335,9 +322,9 @@ async function findPinPushWitness(
     const predecessorRows = parseCode(direct.predecessor, cap);
     let predecessorStack: StackWitness | undefined;
     if (!isSwappableRows(predecessorRows).accepted) {
-      const stack = await findStackWitness(predecessorRows, cap, (bottom) => isSwappableRows(bottom).accepted, hooks);
+      const stack = await findSwappableStackWitness(predecessorRows, cap, hooks);
       checked += stack.checked;
-      states += stack.checked;
+      states += stack.states;
       if (!stack.witness) throw new Error("RANK0_FRONTIER_CONTRACT_FAILURE: accepted Rank0 predecessor has no Stack/Swap witness");
       predecessorStack = stack.witness;
     }
@@ -369,23 +356,13 @@ function baseFacts(rows: ShapeRows, columns: ColumnFact[]): AnalysisFacts {
   const receiptProfile = bottomPinReceiptProfile(rows, cap);
   const receiptRank = bottomPinReceiptRank(rows, cap);
   return {
-    stable: isStable(rows),
-    basic: isRawInput(rows),
-    half,
-    swappable,
-    stackable: false,
-    claw: false,
-    hybrid: false,
+    stable: isStable(rows), basic: isRawInput(rows), half, swappable,
+    stackable: false, claw: false, hybrid: false,
     generatorImage: Boolean(generatorPredecessor(rows, Math.max(1, rows.length))),
-    height: shapeHeight(rows),
-    occupiedCells: occupiedCount(rows),
-    activeColumns: activeColumnCount(rows),
-    receiptProfile,
-    receiptRank,
-    ppChainUpperBound: ppChainUpperBound(rows, cap),
-    ppBatchUpperBound: forwardBatchUpperBound(cap),
-    ppTerminationProof: "bottom-pin-receipt-rank",
-    coverage: "complete",
+    height: shapeHeight(rows), occupiedCells: occupiedCount(rows), activeColumns: activeColumnCount(rows),
+    receiptProfile, receiptRank,
+    ppChainUpperBound: ppChainUpperBound(rows, cap), ppBatchUpperBound: forwardBatchUpperBound(cap),
+    ppTerminationProof: "bottom-pin-receipt-rank", coverage: "complete",
   };
 }
 
@@ -425,137 +402,35 @@ export async function classifyShape(
   let candidatesChecked = 0;
   let statesVisited = 0;
 
-  if (!normalized) {
-    return {
-      verdict: "IMPOSSIBLE",
-      shapeType: "EMPTY",
-      route: "empty",
-      reason: "빈 도형은 제작 목표로 취급하지 않습니다.",
-      explanation: ["입력에 점유 셀이 없습니다."],
-      facts: { ...facts, coverage: "complete" },
-      columns,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
-  }
+  const finish = (
+    partial: Omit<ClassificationOutcome, "facts" | "columns" | "candidatesChecked" | "statesVisited" | "warnings">,
+    factPatch: Partial<AnalysisFacts> = {},
+  ): ClassificationOutcome => ({
+    ...partial,
+    facts: { ...facts, ...factPatch }, columns, candidatesChecked, statesVisited, warnings,
+  });
 
-  if (!facts.stable) {
-    return {
-      verdict: "IMPOSSIBLE",
-      shapeType: "IMPOSSIBLE",
-      route: "unstable",
-      reason: "최종 도형이 중력 적용 후 변하므로 제작 가능한 안정 출력이 아닙니다.",
-      explanation: ["support closure가 모든 점유 셀을 포함하지 않습니다."],
-      facts: { ...facts, coverage: "complete" },
-      columns,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
-  }
+  if (!normalized) return finish({ verdict: "IMPOSSIBLE", shapeType: "EMPTY", route: "empty", reason: "빈 도형은 제작 목표로 취급하지 않습니다.", explanation: ["입력에 점유 셀이 없습니다."] });
+  if (!facts.stable) return finish({ verdict: "IMPOSSIBLE", shapeType: "IMPOSSIBLE", route: "unstable", reason: "최종 도형이 중력 적용 후 변하므로 제작 가능한 안정 출력이 아닙니다.", explanation: ["support closure가 모든 점유 셀을 포함하지 않습니다."] });
 
   const known = context.knownSamples.get(normalized);
-  if (known?.status === "impossible") {
-    return {
-      verdict: "IMPOSSIBLE",
-      shapeType: "IMPOSSIBLE",
-      route: known.route || "known-negative-certificate",
-      reason: known.reason,
-      explanation: ["0.8.0 전건 감사에서 완전 음성 certificate가 봉인된 도형입니다."],
-      facts: { ...facts, coverage: "complete" },
-      columns,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
-  }
+  if (known?.status === "impossible") return finish({ verdict: "IMPOSSIBLE", shapeType: "IMPOSSIBLE", route: known.route || "known-negative-certificate", reason: known.reason, explanation: ["0.8.0 전건 감사에서 완전 음성 certificate가 봉인된 도형입니다."] });
 
   if (known?.status === "possible") {
     const expectedType = mapKnownType(known.shape_type);
-    const expectedFamilyMatches =
-      (expectedType === "BASIC" && facts.basic) ||
-      (expectedType === "HALF" && facts.half) ||
-      (expectedType === "SWAPPABLE" && facts.swappable);
-    if (expectedFamilyMatches) {
-      return {
-        verdict: "POSSIBLE",
-        shapeType: expectedType,
-        route: known.route || expectedType.toLowerCase(),
-        reason: known.reason,
-        explanation: ["레거시 전건 감사의 ShapeType 우선순위를 보존했습니다."],
-        facts: { ...facts, coverage: "complete" },
-        columns,
-        candidatesChecked,
-        statesVisited,
-        warnings,
-      };
-    }
+    const expectedFamilyMatches = (expectedType === "BASIC" && facts.basic) || (expectedType === "HALF" && facts.half) || (expectedType === "SWAPPABLE" && facts.swappable);
+    if (expectedFamilyMatches) return finish({ verdict: "POSSIBLE", shapeType: expectedType, route: known.route || expectedType.toLowerCase(), reason: known.reason, explanation: ["레거시 전건 감사의 ShapeType 우선순위를 보존했습니다."] });
   }
 
-  if (facts.basic) {
-    return {
-      verdict: "POSSIBLE",
-      shapeType: "BASIC",
-      route: "basic",
-      reason: "각 기둥이 원재료 입력의 연속 구조를 만족합니다.",
-      explanation: ["추가 역연산 없이 입력 도형으로 사용할 수 있습니다."],
-      facts: { ...facts, coverage: "complete" },
-      columns,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
-  }
-
-  if (facts.half) {
-    return {
-      verdict: "POSSIBLE",
-      shapeType: "HALF",
-      route: "half",
-      reason: "전층 Corner 조건과 2열 안정성 조건을 모두 만족하는 Half입니다.",
-      explanation: ["Corner(left) ∧ Corner(right) ∧ Stable(left,right)"],
-      facts: { ...facts, coverage: "complete" },
-      columns,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
-  }
-
-  if (facts.swappable) {
-    return {
-      verdict: "POSSIBLE",
-      shapeType: "SWAPPABLE",
-      route: "swap",
-      reason: "한 축에서 양쪽 Half가 전층 Half family에 속합니다.",
-      explanation: ["두 Half를 각각 제작한 뒤 Swapper로 결합할 수 있습니다."],
-      facts: { ...facts, coverage: "complete" },
-      columns,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
-  }
+  if (facts.basic) return finish({ verdict: "POSSIBLE", shapeType: "BASIC", route: "basic", reason: "각 기둥이 원재료 입력의 연속 구조를 만족합니다.", explanation: ["추가 역연산 없이 입력 도형으로 사용할 수 있습니다."] });
+  if (facts.half) return finish({ verdict: "POSSIBLE", shapeType: "HALF", route: "half-dfa", reason: "전층 210-state Half residual과 constructor 정리를 만족합니다.", explanation: ["Corner(left) ∧ Corner(right) ∧ Stable(left,right)", "판정은 exact minimized Half DFA를 사용합니다."] });
+  if (facts.swappable) return finish({ verdict: "POSSIBLE", shapeType: "SWAPPABLE", route: "swap-half-dfa", reason: "한 축에서 양쪽 Half가 전층 Half family에 속합니다.", explanation: ["두 Half를 각각 제작한 뒤 Swapper로 결합할 수 있습니다."] });
 
   const clawLookup = rotatedLookup(rows, cap, context.clawTable);
   const claw = clawLookup?.value;
   if (claw && clawLookup) {
-    facts.claw = true;
-    facts.ppDepth = 1;
-    return {
-      verdict: "POSSIBLE",
-      shapeType: "CLAW",
-      route: "claw-table",
-      reason: "40,171개 인증 Claw parent table에서 회전 동등한 exact Pin Push predecessor를 찾았습니다.",
-      explanation: [`predecessor: ${claw.predecessor}`, `backend: ${claw.backend}`],
-      facts: { ...facts, coverage: "complete" },
-      columns,
-      witness: { ...claw, targetCode: clawLookup.matchedCode, restoreTurns: clawLookup.restoreTurns },
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
+    facts.claw = true; facts.ppDepth = 1;
+    return finish({ verdict: "POSSIBLE", shapeType: "CLAW", route: "claw-table", reason: "40,171개 인증 Claw parent table에서 회전 동등한 exact Pin Push predecessor를 찾았습니다.", explanation: [`predecessor: ${claw.predecessor}`, `backend: ${claw.backend}`], witness: { ...claw, targetCode: clawLookup.matchedCode, restoreTurns: clawLookup.restoreTurns } });
   }
 
   const hybrid = cap === 5 ? context.hybridTable?.get(normalized) : undefined;
@@ -564,200 +439,63 @@ export async function classifyShape(
     const bottomRows = parseCode(hybrid.bottom, cap);
     const bottomLookup = rotatedLookup(bottomRows, cap, context.clawTable);
     const bottomClaw = bottomLookup ? { ...bottomLookup.value, targetCode: bottomLookup.matchedCode, restoreTurns: bottomLookup.restoreTurns } : undefined;
-    return {
-      verdict: "POSSIBLE",
-      shapeType: "CLAW_HYBRID",
-      route: "claw-hybrid-table",
-      reason: "367개 인증 Claw-Hybrid 분해 테이블에서 exact Stack witness를 찾았습니다.",
-      explanation: [`bottom: ${hybrid.bottom}`, `top: ${hybrid.top}`, bottomClaw ? "bottom의 Claw parent도 함께 materialize됩니다." : "bottom constructor는 인증 macro로 축약 표시됩니다."],
-      facts: { ...facts, coverage: "complete" },
-      columns,
-      witness: { ...hybrid, bottomClaw } as HybridWitness,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
+    return finish({ verdict: "POSSIBLE", shapeType: "CLAW_HYBRID", route: "claw-hybrid-table", reason: "367개 인증 Claw-Hybrid 분해 테이블에서 exact Stack witness를 찾았습니다.", explanation: [`bottom: ${hybrid.bottom}`, `top: ${hybrid.top}`, bottomClaw ? "bottom의 Claw parent도 함께 materialize됩니다." : "bottom constructor는 인증 macro로 축약 표시됩니다."], witness: { ...hybrid, bottomClaw } as HybridWitness });
   }
 
   let ppResult: Awaited<ReturnType<typeof findPinPushWitness>> | null = null;
   if (facts.receiptRank > 0 && known?.status !== "possible") {
     await hooks.progress?.(0, Math.max(1, 4 * cap), "receipt chain 우선 압축");
     ppResult = await findPinPushWitness(rows, cap, context, hooks);
-    candidatesChecked += ppResult.checked;
-    statesVisited += ppResult.states;
+    candidatesChecked += ppResult.checked; statesVisited += ppResult.states;
     if (ppResult.witness?.kind === "receipt-chain") {
       facts.ppDepth = ppResult.witness.receiptTargets.length;
-      return {
-        verdict: "POSSIBLE", shapeType: "PIN_PUSH", route: "pp-receipt-chain",
-        reason: `유일한 no-overflow receipt predecessor를 ${ppResult.witness.receiptTargets.length - 1}회 압축한 뒤 Rank0 overflow core를 찾았습니다.`,
-        explanation: [
-          `primitive predecessor: ${ppResult.witness.predecessor || "<empty>"}`,
-          `Pin Push outputs: ${ppResult.witness.receiptTargets.length}개`,
-          "양성 witness는 각 Pin Push edge를 독립 정방향 replay해 확인했습니다.",
-        ],
-        facts: { ...facts, coverage: "complete" },
-        columns, witness: ppResult.witness, candidatesChecked, statesVisited, warnings,
-      };
+      return finish({ verdict: "POSSIBLE", shapeType: "PIN_PUSH", route: "pp-receipt-chain", reason: `유일한 no-overflow receipt predecessor를 ${ppResult.witness.receiptTargets.length - 1}회 압축한 뒤 Rank0 overflow core를 찾았습니다.`, explanation: [`primitive predecessor: ${ppResult.witness.predecessor || "<empty>"}`, `Pin Push outputs: ${ppResult.witness.receiptTargets.length}개`, "양성 witness는 각 Pin Push edge를 독립 정방향 replay해 확인했습니다."], witness: ppResult.witness });
     }
   }
 
-  await hooks.progress?.(0, 1, "StackClosure(Swappable) 목표 지향 탐색");
-  const stack = await findStackWitness(rows, cap, (bottom) => isSwappableRows(bottom).accepted, hooks);
-  candidatesChecked += stack.checked;
-  statesVisited += stack.checked;
+  await hooks.progress?.(0, Math.max(1, shapeHeight(rows)), "StackClosure(Swappable) exact product");
+  const stack = await findSwappableStackWitness(rows, cap, hooks);
+  candidatesChecked += stack.checked; statesVisited += stack.states;
   if (stack.witness) {
-    facts.stackable = true;
-    facts.stackDepth = stack.witness.topPieces.length;
-    return {
-      verdict: "POSSIBLE",
-      shapeType: "STACKABLE",
-      route: "stack",
-      reason: "Swappable base와 단층 top piece sequence로 정확히 재생됩니다.",
-      explanation: [
-        `base: ${stack.witness.bottom || "<빈 도형>"}`,
-        `top pieces: ${stack.witness.topPieces.length}개`,
-      ],
-      facts: { ...facts, coverage: "complete" },
-      columns,
-      witness: stack.witness,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
+    facts.stackable = true; facts.stackDepth = stack.witness.topPieces.length;
+    return finish({ verdict: "POSSIBLE", shapeType: "STACKABLE", route: "stack-product-dp", reason: "Swappable base와 단층 top piece sequence가 exact target product에서 복원됐습니다.", explanation: [`base: ${stack.witness.bottom || "<빈 도형>"}`, `top pieces: ${stack.witness.topPieces.length}개`, "열별 split Cartesian product 대신 monotone ownership × Half residual DP를 사용했습니다."], witness: stack.witness });
   }
 
-
-  // Preserve legacy decided ShapeType before selecting an alternative valid
-  // Pin Push construction.
   if (known?.status === "possible") {
     const shapeType = mapKnownType(known.shape_type);
-    return {
-      verdict: "POSSIBLE",
-      shapeType,
-      route: known.route || "validated-sample",
-      reason: known.reason,
-      explanation: ["0.8.0 샘플 회귀 세트에서 제작 Proof replay가 통과했습니다."],
-      facts: {
-        ...facts,
-        stackable: shapeType === "STACKABLE",
-        claw: shapeType === "CLAW",
-        hybrid: shapeType === "CLAW_HYBRID",
-            coverage: "complete",
-      },
-      columns,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
+    return finish({ verdict: "POSSIBLE", shapeType, route: known.route || "validated-sample", reason: known.reason, explanation: ["0.8.0 샘플 회귀 세트에서 제작 Proof replay가 통과했습니다."] }, { stackable: shapeType === "STACKABLE", claw: shapeType === "CLAW", hybrid: shapeType === "CLAW_HYBRID" });
   }
 
-
   if (cap <= 2) {
-    const brute = await brutePinPushPredecessor(rows, cap, (predecessor) => {
-      return isRawInput(predecessor) || halfOrientation(predecessor).accepted || isSwappableRows(predecessor).accepted;
-    }, hooks);
-    candidatesChecked += brute.checked;
-    statesVisited += brute.checked;
+    const brute = await brutePinPushPredecessor(rows, cap, (predecessor) => isRawInput(predecessor) || halfOrientation(predecessor).accepted || isSwappableRows(predecessor).accepted, hooks);
+    candidatesChecked += brute.checked; statesVisited += brute.checked;
     if (brute.predecessor) {
       facts.ppDepth = 1;
-      return {
-        verdict: "POSSIBLE",
-        shapeType: "PIN_PUSH",
-        route: "cap2-exhaustive-pinpush",
-        reason: "Cap≤2 전체 안정 전상 열거에서 제작 가능한 Pin Push predecessor를 찾았습니다.",
-        explanation: [`predecessor: ${brute.predecessor}`],
-        facts: { ...facts, coverage: "complete" },
-        columns,
-        witness: { predecessor: brute.predecessor, backend: "cap2-exhaustive" },
-        candidatesChecked,
-        statesVisited,
-        warnings,
-      };
+      return finish({ verdict: "POSSIBLE", shapeType: "PIN_PUSH", route: "cap2-exhaustive-pinpush", reason: "Cap≤2 전체 안정 전상 열거에서 제작 가능한 Pin Push predecessor를 찾았습니다.", explanation: [`predecessor: ${brute.predecessor}`], witness: { predecessor: brute.predecessor, backend: "cap2-exhaustive" } });
     }
   }
 
   if (!ppResult) {
     await hooks.progress?.(0, Math.max(1, 4 * cap), "PP 정규형 탐색");
     ppResult = await findPinPushWitness(rows, cap, context, hooks);
-    candidatesChecked += ppResult.checked;
-    statesVisited += ppResult.states;
+    candidatesChecked += ppResult.checked; statesVisited += ppResult.states;
   }
   if (ppResult.witness) {
     facts.ppDepth = ppResult.witness.receiptTargets.length;
-    return {
-      verdict: "POSSIBLE",
-      shapeType: "PIN_PUSH",
-      route: ppResult.witness.kind === "receipt-chain" ? "pp-receipt-chain" : "rank0-pinpush-frontier",
-      reason: ppResult.witness.kind === "receipt-chain"
-        ? `유일한 no-overflow receipt predecessor를 ${ppResult.witness.receiptTargets.length - 1}회 제거한 뒤 Rank0 overflow core를 찾았습니다.`
-        : "전층 Rank0 Pin Push frontier가 Swappable/Stackable predecessor를 직접 복원했습니다.",
-      explanation: [
-        `primitive predecessor: ${ppResult.witness.predecessor || "<empty>"}`,
-        `Pin Push outputs: ${ppResult.witness.receiptTargets.length}개`,
-        "양성 witness는 각 Pin Push edge를 독립 정방향 replay해 확인했습니다.",
-      ],
-      facts: {
-        ...facts,
-            coverage: "complete",
-      },
-      columns,
-      witness: ppResult.witness,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
+    return finish({ verdict: "POSSIBLE", shapeType: "PIN_PUSH", route: ppResult.witness.kind === "receipt-chain" ? "pp-receipt-chain" : "rank0-pinpush-frontier", reason: ppResult.witness.kind === "receipt-chain" ? `유일한 no-overflow receipt predecessor를 ${ppResult.witness.receiptTargets.length - 1}회 제거한 뒤 Rank0 overflow core를 찾았습니다.` : "전층 Rank0 Pin Push frontier가 Swappable/Stackable predecessor를 직접 복원했습니다.", explanation: [`primitive predecessor: ${ppResult.witness.predecessor || "<empty>"}`, `Pin Push outputs: ${ppResult.witness.receiptTargets.length}개`, "양성 witness는 각 Pin Push edge를 독립 정방향 replay해 확인했습니다."], witness: ppResult.witness });
   }
 
-  const allCorner = columns.every((column) => column.accepted);
-  if (!allCorner) warnings.push("Corner 필요조건 위반이 음성 certificate에 포함됐습니다.");
-  return {
-    verdict: "IMPOSSIBLE",
-    shapeType: "IMPOSSIBLE",
-    route: "pp-closure-exhausted",
-    reason: "Rank0/Stack/primitive-overflow 경로와 모든 유일 receipt predecessor를 소진했습니다.",
-    explanation: [
-      "Basic/Half/Swap/Stack/Generator/인증 Claw·Hybrid 경로에서 witness가 없습니다.",
-      `Rank0 Pin Push frontier와 최대 ${facts.ppChainUpperBound}단계의 유일 receipt chain을 소진했습니다.`,
-      "full-height PP-essential overflow는 Swappable 또는 Stackable 종단형으로 정규화됩니다.",
-    ],
-    facts: {
-      ...facts,
-        coverage: "complete",
-    },
-    columns,
-    candidatesChecked,
-    statesVisited,
-    warnings,
-  };
-
+  if (!columns.every((column) => column.accepted)) warnings.push("Corner 필요조건 위반이 음성 certificate에 포함됐습니다.");
+  return finish({ verdict: "IMPOSSIBLE", shapeType: "IMPOSSIBLE", route: "pp-closure-exhausted", reason: "Rank0/Stack/primitive-overflow 경로와 모든 유일 receipt predecessor를 소진했습니다.", explanation: ["Basic/Half/Swap/Stack/Generator/인증 Claw·Hybrid 경로에서 witness가 없습니다.", `Rank0 Pin Push frontier와 최대 ${facts.ppChainUpperBound}단계의 유일 receipt chain을 소진했습니다.`, "full-height PP-essential overflow는 Swappable 또는 Stackable 종단형으로 정규화됩니다."] });
 }
 
 function fastFacts(rows: ShapeRows): AnalysisFacts {
   const cap = Math.max(1, rows.length);
   const receiptProfile = bottomPinReceiptProfile(rows, cap);
   const receiptRank = bottomPinReceiptRank(rows, cap);
-  return {
-    stable: true,
-    basic: false,
-    half: false,
-    swappable: false,
-    stackable: false,
-    claw: false,
-    hybrid: false,
-    generatorImage: false,
-    height: shapeHeight(rows),
-    occupiedCells: occupiedCount(rows),
-    activeColumns: activeColumnCount(rows),
-    receiptProfile,
-    receiptRank,
-    ppChainUpperBound: ppChainUpperBound(rows, cap),
-    ppBatchUpperBound: forwardBatchUpperBound(cap),
-    ppTerminationProof: "bottom-pin-receipt-rank",
-    coverage: "complete",
-  };
+  return { stable: true, basic: false, half: false, swappable: false, stackable: false, claw: false, hybrid: false, generatorImage: false, height: shapeHeight(rows), occupiedCells: occupiedCount(rows), activeColumns: activeColumnCount(rows), receiptProfile, receiptRank, ppChainUpperBound: ppChainUpperBound(rows, cap), ppBatchUpperBound: forwardBatchUpperBound(cap), ppTerminationProof: "bottom-pin-receipt-rank", coverage: "complete" };
 }
 
-/** 존재 판정 전용 경로. 전체 witness table과 Proof graph는 읽거나 만들지 않는다. */
 export async function classifyShapeFast(
   code: string,
   cap: number,
@@ -771,71 +509,47 @@ export async function classifyShapeFast(
   const warnings: string[] = [];
   let candidatesChecked = 0;
   let statesVisited = 4 * Math.max(1, rows.length);
-
-  const done = (partial: Omit<ClassificationOutcome, "facts" | "columns" | "candidatesChecked" | "statesVisited" | "warnings">): ClassificationOutcome => ({
-    ...partial, facts, columns, candidatesChecked, statesVisited, warnings,
-  });
+  const done = (partial: Omit<ClassificationOutcome, "facts" | "columns" | "candidatesChecked" | "statesVisited" | "warnings">): ClassificationOutcome => ({ ...partial, facts, columns, candidatesChecked, statesVisited, warnings });
 
   if (!normalized) return done({ verdict: "IMPOSSIBLE", shapeType: "EMPTY", route: "empty", reason: "빈 도형입니다.", explanation: [] });
   facts.stable = isStable(rows);
   if (!facts.stable) return done({ verdict: "IMPOSSIBLE", shapeType: "IMPOSSIBLE", route: "unstable", reason: "중력 적용 뒤 모양이 바뀌는 불안정 도형입니다.", explanation: [] });
-
   const known = context.knownSamples.get(normalized);
   if (known?.status === "impossible") return done({ verdict: "IMPOSSIBLE", shapeType: "IMPOSSIBLE", route: known.route || "known-negative-certificate", reason: known.reason, explanation: [] });
 
   facts.basic = isRawInput(rows);
   if (facts.basic) return done({ verdict: "POSSIBLE", shapeType: "BASIC", route: "basic", reason: "기본 입력으로 제작할 수 있습니다.", explanation: [] });
   facts.half = halfOrientation(rows).accepted;
-  if (facts.half) return done({ verdict: "POSSIBLE", shapeType: "HALF", route: "half", reason: "전층 Half constructor가 존재합니다.", explanation: [] });
+  if (facts.half) return done({ verdict: "POSSIBLE", shapeType: "HALF", route: "half-dfa", reason: "전층 Half residual이 accept합니다.", explanation: [] });
   facts.swappable = isSwappableRows(rows).accepted;
-  if (facts.swappable) return done({ verdict: "POSSIBLE", shapeType: "SWAPPABLE", route: "swap", reason: "두 Half를 교환기로 결합할 수 있습니다.", explanation: [] });
+  if (facts.swappable) return done({ verdict: "POSSIBLE", shapeType: "SWAPPABLE", route: "swap-half-dfa", reason: "두 Half를 교환기로 결합할 수 있습니다.", explanation: [] });
 
-  if (rotatedSetHas(rows, cap, context.clawTargets)) {
-    facts.claw = true; facts.ppDepth = 1;
-    return done({ verdict: "POSSIBLE", shapeType: "CLAW", route: "claw-target-index", reason: "인증 Claw 집합에 포함됩니다.", explanation: [] });
-  }
-  if (rotatedSetHas(rows, cap, context.hybridTargets)) {
-    facts.hybrid = true;
-    return done({ verdict: "POSSIBLE", shapeType: "CLAW_HYBRID", route: "hybrid-target-index", reason: "인증 Claw-Hybrid 집합에 포함됩니다.", explanation: [] });
-  }
+  if (rotatedSetHas(rows, cap, context.clawTargets)) { facts.claw = true; facts.ppDepth = 1; return done({ verdict: "POSSIBLE", shapeType: "CLAW", route: "claw-target-index", reason: "인증 Claw 집합에 포함됩니다.", explanation: [] }); }
+  if (rotatedSetHas(rows, cap, context.hybridTargets)) { facts.hybrid = true; return done({ verdict: "POSSIBLE", shapeType: "CLAW_HYBRID", route: "hybrid-target-index", reason: "인증 Claw-Hybrid 집합에 포함됩니다.", explanation: [] }); }
 
   let ppResult: Awaited<ReturnType<typeof findPinPushWitness>> | null = null;
   if (facts.receiptRank > 0 && known?.status !== "possible") {
     await hooks.progress?.(0, Math.max(1, 4 * cap), "receipt chain 우선 판정");
     ppResult = await findPinPushWitness(rows, cap, { knownSamples: context.knownSamples }, hooks);
-    candidatesChecked += ppResult.checked;
-    statesVisited += ppResult.states;
-    if (ppResult.witness) {
-      facts.ppDepth = ppResult.witness.receiptTargets.length;
-      return done({ verdict: "POSSIBLE", shapeType: "PIN_PUSH", route: ppResult.witness.kind === "receipt-chain" ? "pp-receipt-chain" : "rank0-pinpush-frontier", reason: "PP 정규형 predecessor가 존재합니다.", explanation: [], witness: ppResult.witness });
-    }
+    candidatesChecked += ppResult.checked; statesVisited += ppResult.states;
+    if (ppResult.witness) { facts.ppDepth = ppResult.witness.receiptTargets.length; return done({ verdict: "POSSIBLE", shapeType: "PIN_PUSH", route: ppResult.witness.kind === "receipt-chain" ? "pp-receipt-chain" : "rank0-pinpush-frontier", reason: "PP 정규형 predecessor가 존재합니다.", explanation: [], witness: ppResult.witness }); }
   }
 
-  await hooks.progress?.(0, 1, "쌓기 가능성 검사");
-  const stack = await findStackWitness(rows, cap, (bottom) => isSwappableRows(bottom).accepted, hooks);
-  candidatesChecked += stack.checked; statesVisited += stack.checked;
-  if (stack.witness) {
-    facts.stackable = true; facts.stackDepth = stack.witness.topPieces.length;
-    return done({ verdict: "POSSIBLE", shapeType: "STACKABLE", route: "stack", reason: "제작 가능한 바닥과 상단 조각으로 정확히 쌓을 수 있습니다.", explanation: [], witness: stack.witness });
-  }
+  await hooks.progress?.(0, Math.max(1, shapeHeight(rows)), "Stack exact product");
+  const stack = await findSwappableStackWitness(rows, cap, hooks);
+  candidatesChecked += stack.checked; statesVisited += stack.states;
+  if (stack.witness) { facts.stackable = true; facts.stackDepth = stack.witness.topPieces.length; return done({ verdict: "POSSIBLE", shapeType: "STACKABLE", route: "stack-product-dp", reason: "exact ownership × Half residual product가 accept합니다.", explanation: [], witness: stack.witness }); }
 
   if (known?.status === "possible") return done({ verdict: "POSSIBLE", shapeType: mapKnownType(known.shape_type), route: known.route || "validated-sample", reason: known.reason, explanation: [] });
-
   if (!ppResult) {
     await hooks.progress?.(0, Math.max(1, 4 * cap), "PP 정규형 판정");
     ppResult = await findPinPushWitness(rows, cap, { knownSamples: context.knownSamples }, hooks);
-    candidatesChecked += ppResult.checked;
-    statesVisited += ppResult.states;
+    candidatesChecked += ppResult.checked; statesVisited += ppResult.states;
   }
-  if (ppResult.witness) {
-    facts.ppDepth = ppResult.witness.receiptTargets.length;
-    return done({ verdict: "POSSIBLE", shapeType: "PIN_PUSH", route: ppResult.witness.kind === "receipt-chain" ? "pp-receipt-chain" : "rank0-pinpush-frontier", reason: "PP 정규형 predecessor가 존재합니다.", explanation: [], witness: ppResult.witness });
-  }
-
+  if (ppResult.witness) { facts.ppDepth = ppResult.witness.receiptTargets.length; return done({ verdict: "POSSIBLE", shapeType: "PIN_PUSH", route: ppResult.witness.kind === "receipt-chain" ? "pp-receipt-chain" : "rank0-pinpush-frontier", reason: "PP 정규형 predecessor가 존재합니다.", explanation: [], witness: ppResult.witness }); }
   return done({ verdict: "IMPOSSIBLE", shapeType: "IMPOSSIBLE", route: "pp-closure-exhausted", reason: "모든 제작 family와 PP 정규형 predecessor를 소진했습니다.", explanation: [] });
 }
 
 export function canonicalLookupKey(code: string, cap: number): string {
   return canonicalCode(code, cap);
 }
-
