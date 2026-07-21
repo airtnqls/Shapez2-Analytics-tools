@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "probe": {
-    "elapsedMs": 442.202152,
+    "elapsedMs": 317.131815,
     "ok": false,
     "route": null,
     "transitions": 447039,
