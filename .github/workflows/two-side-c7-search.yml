@@ -1,0 +1,81 @@
+name: Two-sided C7 block search
+
+on:
+  push:
+    branches: [optimize/latest-tmam-fastpath]
+    paths:
+      - scripts/search_two_side_c7_exact.py
+      - .github/workflows/two-side-c7-search.yml
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact two-sided event synthesis
+        id: synthesis
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p reports
+          set -o pipefail
+          python scripts/search_two_side_c7_exact.py 2>reports/two-side-c7-search.stderr.log | tee reports/two-side-c7-search.json
+      - name: Print concise result
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('reports/two-side-c7-search.json')
+          data=json.loads(p.read_text(encoding='utf-8')) if p.exists() and p.read_text(encoding='utf-8').strip() else {}
+          print({k:data.get(k) for k in ('target','mapping','moving','checked','hitCount','errorType','error')})
+          print('hits',data.get('hits',[])[:3])
+          print('closest',data.get('closest',[])[:3])
+          PY
+          cat reports/two-side-c7-search.stderr.log || true
+      - name: Persist report through Contents API
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64, json, os, pathlib, subprocess, time
+          path='reports/two-side-c7-search.json'
+          body=pathlib.Path(path).read_bytes()
+          repo=os.environ['GITHUB_REPOSITORY']; branch=os.environ['HEAD_BRANCH']
+          for attempt in range(6):
+              current=subprocess.run(['gh','api',f'/repos/{repo}/contents/{path}?ref={branch}'],text=True,capture_output=True)
+              sha=json.loads(current.stdout)['sha'] if current.returncode==0 else None
+              payload={'message':'Persist two-sided C7 search [skip ci]','content':base64.b64encode(body).decode(),'branch':branch}
+              if sha: payload['sha']=sha
+              out=subprocess.run(['gh','api','--method','PUT',f'/repos/{repo}/contents/{path}','--input','-'],input=json.dumps(payload),text=True,capture_output=True)
+              if out.returncode==0:
+                  print('persisted',path); break
+              if attempt==5: raise RuntimeError(out.stderr or out.stdout)
+              time.sleep(2*(attempt+1))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: two-side-c7-search
+          path: reports/
+          if-no-files-found: warn
+      - name: Enforce execution
+        if: always()
+        env:
+          OUTCOME: ${{ steps.synthesis.outcome }}
+        run: test "$OUTCOME" = success
