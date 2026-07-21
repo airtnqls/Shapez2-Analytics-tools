@@ -13,13 +13,16 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - run: npm ci
 
       - name: TypeScript
@@ -28,17 +31,41 @@ jobs:
         shell: bash
         run: set -o pipefail; npm run typecheck 2>&1 | tee ci-typecheck.log
 
-      - name: Vitest
+      - name: Tests
         id: tests
         continue-on-error: true
         shell: bash
-        run: set -o pipefail; npm test -- --run 2>&1 | tee ci-tests.log
+        run: set -o pipefail; npm test 2>&1 | tee ci-tests.log
 
       - name: Production build
         id: build
         continue-on-error: true
         shell: bash
         run: set -o pipefail; npm run build 2>&1 | tee ci-build.log
+
+      - name: Worker smoke
+        id: worker
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run smoke:worker 2>&1 | tee ci-worker.log
+
+      - name: Backend smoke
+        id: backend
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run smoke:backend 2>&1 | tee ci-backend.log
+
+      - name: Server smoke
+        id: server
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run smoke:server 2>&1 | tee ci-server.log
+
+      - name: Static smoke
+        id: static
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run smoke:static 2>&1 | tee ci-static.log
 
       - name: Upload diagnostic logs
         if: always()
@@ -54,8 +81,17 @@ jobs:
           TYPECHECK: ${{ steps.typecheck.outcome }}
           TESTS: ${{ steps.tests.outcome }}
           BUILD: ${{ steps.build.outcome }}
+          WORKER: ${{ steps.worker.outcome }}
+          BACKEND: ${{ steps.backend.outcome }}
+          SERVER: ${{ steps.server.outcome }}
+          STATIC: ${{ steps.static.outcome }}
         run: |
-          printf 'typecheck=%s\ntests=%s\nbuild=%s\n' "$TYPECHECK" "$TESTS" "$BUILD"
+          printf 'typecheck=%s\ntests=%s\nbuild=%s\nworker=%s\nbackend=%s\nserver=%s\nstatic=%s\n' \
+            "$TYPECHECK" "$TESTS" "$BUILD" "$WORKER" "$BACKEND" "$SERVER" "$STATIC"
           test "$TYPECHECK" = success
           test "$TESTS" = success
           test "$BUILD" = success
+          test "$WORKER" = success
+          test "$BACKEND" = success
+          test "$SERVER" = success
+          test "$STATIC" = success
