@@ -68,7 +68,7 @@ jobs:
         if: always()
         run: git checkout -- lib/raw-pinpush-rank0.ts
       - name: Persist report
-        if: always() && github.event_name == 'push'
+        if: always()
         shell: bash
         run: |
           git config user.name github-actions[bot]
