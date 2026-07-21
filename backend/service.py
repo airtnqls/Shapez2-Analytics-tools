@@ -8,6 +8,20 @@ from .worker_client import worker_client
 from .zip_proof_validator import validate_proof_with_zip
 
 
+_PUBLIC_ROUTE_ALIASES = {
+    "half-dfa": "half",
+    "swap-half-dfa": "swap",
+    "stack-product-dp": "stack",
+}
+
+
+def _preserve_public_route(result: dict) -> None:
+    """Keep the stable API route while allowing richer worker-internal names."""
+    route = result.get("route")
+    if isinstance(route, str):
+        result["route"] = _PUBLIC_ROUTE_ALIASES.get(route, route)
+
+
 def analyze(
     code: str,
     cap: int,
@@ -52,6 +66,7 @@ def analyze(
         result["diagnostics"]["tablesLoaded"].append(
             f"DAG optimization removed {optimization.removed_operations} no-op operations / {optimization.removed_nodes} nodes"
         )
+    _preserve_public_route(result)
     return result
 
 
