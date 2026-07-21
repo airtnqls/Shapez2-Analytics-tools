@@ -48,11 +48,11 @@ def target_distance(rows) -> tuple[int, dict[str, object]]:
         east, west = cut(oriented, CAP)
         for side, raw_candidate in (("east", east), ("west", rotate(west, 2))):
             candidate = fixed_rows(raw_candidate)
-            distance = 0
-            for layer in range(CAP):
-                for q in range(2):
-                    if candidate[layer][q] != target[layer][q]:
-                        distance += 1
+            distance = sum(
+                candidate[layer][q] != target[layer][q]
+                for layer in range(CAP)
+                for q in range(2)
+            )
             if distance < best[0]:
                 best = (distance, {
                     "turns": turns,
@@ -70,35 +70,73 @@ class Candidate:
 
 
 @dataclass(frozen=True)
-class FixedHalf:
-    first: str
-    second: str
-    source: str
+class SwapConfig:
+    state: str
+    state_source: str
+    helper_side: str
+    swap_order: str
+    swap_output: int
+    pre_pin_turns: int
 
 
-def evaluate(candidate: Candidate, fixed_half: FixedHalf) -> tuple[tuple[int, int, int, int], dict[str, object]]:
+def helper_rows(candidate: Candidate, side: str):
     c = normalized_word(candidate.c)
     d = normalized_word(candidate.d)
-    helper_rows = rows_from_columns(("", "", c, d))
-    helper_stable = is_stable(helper_rows)
+    if side == "east":
+        return rows_from_columns((c, d, "", ""))
+    if side == "west":
+        return rows_from_columns(("", "", c, d))
+    raise ValueError(side)
+
+
+def evaluate(candidate: Candidate, config: SwapConfig) -> tuple[tuple[int, int, int, int, int], dict[str, object]]:
+    c = normalized_word(candidate.c)
+    d = normalized_word(candidate.d)
+    helper = helper_rows(candidate, config.helper_side)
+    helper_stable = is_stable(helper)
     c_ok = is_craftable_column(c.rstrip(EMPTY))
     d_ok = is_craftable_column(d.rstrip(EMPTY))
-    pre = rows_from_columns((fixed_half.first, fixed_half.second, c, d))
+
+    state = parse(config.state, CAP)
+    if config.swap_order == "state-helper":
+        outputs = swap(state, helper, CAP)
+    else:
+        outputs = swap(helper, state, CAP)
+    swapped = outputs[config.swap_output]
+    pre = rotate(swapped, config.pre_pin_turns)
     pre_stable = is_stable(pre)
     pushed = push_pin(pre, CAP)
     distance, extraction = target_distance(pushed)
-    penalty = (0 if helper_stable else 40) + (0 if pre_stable else 40) + (0 if c_ok else 20) + (0 if d_ok else 20)
+
+    # Exact physical validity is always ranked ahead of visual closeness.  The
+    # helper must itself be a buildable stable Half and the actual selected
+    # Swapper output (including cut-boundary shatter/gravity) must be stable.
+    penalty = (
+        (0 if helper_stable else 80)
+        + (0 if pre_stable else 80)
+        + (0 if c_ok else 40)
+        + (0 if d_ok else 40)
+    )
     complexity = sum(ch != "S" for ch in c + d)
-    score = (distance + penalty, distance, complexity, 0)
+    support_penalty = sum(ch == EMPTY for ch in c + d)
+    score = (distance + penalty, distance, complexity, support_penalty, 0)
     return score, {
-        "fixedHalf": [fixed_half.first, fixed_half.second],
-        "fixedHalfSource": fixed_half.source,
+        "config": {
+            "stateSource": config.state_source,
+            "helperSide": config.helper_side,
+            "swapOrder": config.swap_order,
+            "swapOutput": config.swap_output,
+            "prePinTurns": config.pre_pin_turns,
+        },
+        "state": config.state,
+        "statePillars": [column(state, q) for q in range(4)],
         "c": c.rstrip(EMPTY),
         "d": d.rstrip(EMPTY),
-        "helper": code(helper_rows),
+        "helper": code(helper),
         "helperStable": helper_stable,
         "preStable": pre_stable,
         "columnsCraftable": [c_ok, d_ok],
+        "afterSecondSwap": code(swapped),
         "preFinal": code(pre),
         "preFinalPillars": [column(pre, q) for q in range(4)],
         "afterFinalPin": code(pushed),
@@ -134,13 +172,17 @@ def seed_words(first) -> list[str]:
     for value in list(words):
         v = normalized_word(value)
         words.update({
-            v.replace("P", "S"), v.replace("c", "S"), v.replace("P", EMPTY), v.replace("c", EMPTY),
-            EMPTY + v[:-1], v[1:] + EMPTY,
+            v.replace("P", "S"),
+            v.replace("c", "S"),
+            v.replace("P", EMPTY),
+            v.replace("c", EMPTY),
+            EMPTY + v[:-1],
+            v[1:] + EMPTY,
         })
     return sorted({normalized_word(value) for value in words})
 
 
-def first_swap_fixed_halves(first) -> list[FixedHalf]:
+def first_swap_states(first) -> list[tuple[str, str]]:
     pushed = parse(first.pushed, CAP)
     top_two = parse("---S:---S", CAP)
     stacked = stack(pushed, top_two, CAP)
@@ -153,7 +195,7 @@ def first_swap_fixed_halves(first) -> list[FixedHalf]:
         ("west:-,T", rows_from_columns(("", "", "", tower))),
         ("west:T,T", rows_from_columns(("", "", tower, tower))),
     ]
-    states: dict[str, tuple[list[list[str]], str]] = {}
+    states: dict[str, str] = {}
     for helper_name, helper in helpers:
         for order_name, left, right in (
             ("current-helper", stacked, helper),
@@ -164,50 +206,50 @@ def first_swap_fixed_halves(first) -> list[FixedHalf]:
                     state = fixed_rows(rotate(output, turns))
                     state_code = code(state)
                     source = f"{helper_name}/{order_name}/out{output_index}/rot{turns}"
-                    states.setdefault(state_code, (state, source))
-
-    fixed: dict[tuple[str, str], FixedHalf] = {}
-    for state, source in states.values():
-        values = tuple(column(state, q) for q in range(4))
-        for turns in range(4):
-            rotated_values = values[(-turns) % 4:] + values[:(-turns) % 4] if turns else values
-            for offset in range(4):
-                a = rotated_values[offset]
-                b = rotated_values[(offset + 1) % 4]
-                key = (a, b)
-                fixed.setdefault(key, FixedHalf(a, b, f"{source}/pair{offset}/extra-rot{turns}"))
-    # Keep only halves that could plausibly survive a final Pin: at least one
-    # column carries target/event content or is the full-S payload.
-    return sorted(
-        (
-            item for item in fixed.values()
-            if item.first or item.second
-        ),
-        key=lambda item: (item.first, item.second, item.source),
-    )
+                    states.setdefault(state_code, source)
+    return sorted(states.items())
 
 
-def search_configuration(fixed_half: FixedHalf, first, *, seed: int = 0, beam_width: int = 240, rounds: int = 24):
+def all_configs(first) -> list[SwapConfig]:
+    configs: dict[tuple[str, str, str, int, int], SwapConfig] = {}
+    for state, source in first_swap_states(first):
+        for helper_side in ("east", "west"):
+            for swap_order in ("state-helper", "helper-state"):
+                for swap_output in (0, 1):
+                    for pre_pin_turns in range(4):
+                        key = (state, helper_side, swap_order, swap_output, pre_pin_turns)
+                        configs[key] = SwapConfig(
+                            state, source, helper_side, swap_order, swap_output, pre_pin_turns
+                        )
+    return list(configs.values())
+
+
+def search_configuration(config: SwapConfig, first, *, seed: int = 0, beam_width: int = 320, rounds: int = 30):
     words = seed_words(first)
     rng = random.Random(seed)
     initial = {Candidate(c, d) for c in words for d in words}
-    for _ in range(2500):
+    for _ in range(4000):
         base_c = list(normalized_word(rng.choice(words)))
         base_d = list(normalized_word(rng.choice(words)))
-        for _ in range(rng.randint(1, 4)):
-            base_c[rng.randrange(CAP)] = rng.choice(ALPHABET)
-            base_d[rng.randrange(CAP)] = rng.choice(ALPHABET)
+        for _ in range(rng.randint(1, 5)):
+            if rng.random() < 0.5:
+                base_c[rng.randrange(CAP)] = rng.choice(ALPHABET)
+            else:
+                base_d[rng.randrange(CAP)] = rng.choice(ALPHABET)
         initial.add(Candidate("".join(base_c), "".join(base_d)))
 
-    cache: dict[Candidate, tuple[tuple[int, int, int, int], dict[str, object]]] = {}
+    cache: dict[Candidate, tuple[tuple[int, int, int, int, int], dict[str, object]]] = {}
 
     def measured(candidate: Candidate):
         if candidate not in cache:
-            cache[candidate] = evaluate(candidate, fixed_half)
+            cache[candidate] = evaluate(candidate, config)
         return cache[candidate]
 
     def select(pool, limit):
-        ranked = sorted(pool, key=lambda c: (measured(c)[0], normalized_word(c.c), normalized_word(c.d)))
+        ranked = sorted(
+            pool,
+            key=lambda c: (measured(c)[0], normalized_word(c.c), normalized_word(c.d)),
+        )
         return ranked[:limit]
 
     beam = select(initial, beam_width)
@@ -220,7 +262,12 @@ def search_configuration(fixed_half: FixedHalf, first, *, seed: int = 0, beam_wi
         history.append({"round": round_index, "score": list(best_score), "best": best_record})
         for candidate in beam:
             score, record = measured(candidate)
-            if score[1] == 0 and record["helperStable"] and record["preStable"] and all(record["columnsCraftable"]):
+            if (
+                score[1] == 0
+                and record["helperStable"]
+                and record["preStable"]
+                and all(record["columnsCraftable"])
+            ):
                 exact.append(record)
         if exact:
             break
@@ -231,8 +278,13 @@ def search_configuration(fixed_half: FixedHalf, first, *, seed: int = 0, beam_wi
 
     closest = [measured(candidate)[1] for candidate in beam[:30]]
     return {
-        "fixedHalf": [fixed_half.first, fixed_half.second],
-        "fixedHalfSource": fixed_half.source,
+        "config": {
+            "stateSource": config.state_source,
+            "helperSide": config.helper_side,
+            "swapOrder": config.swap_order,
+            "swapOutput": config.swap_output,
+            "prePinTurns": config.pre_pin_turns,
+        },
         "evaluated": len(cache),
         "rounds": len(history),
         "history": history,
@@ -243,22 +295,34 @@ def search_configuration(fixed_half: FixedHalf, first, *, seed: int = 0, beam_wi
 
 def main() -> None:
     first = compile_global_predecessor(TARGET_COLUMN, CAP)
-    fixed_halves = first_swap_fixed_halves(first)
+    configs = all_configs(first)
 
-    # Rank fixed halves by a cheap all-S/all-c seed evaluation, then spend the
-    # beam budget only on the most promising constant number of orientations.
-    probe_candidates = [Candidate("S" * CAP, "S" * CAP), Candidate("c" * CAP, "S" * CAP), Candidate("S" * CAP, "c" * CAP)]
+    # Rank the exact Swapper configurations by a small deterministic seed set.
+    # This ranking now executes the real second Swapper, including its crystal
+    # boundary shatter and gravity, rather than concatenating two imagined halves.
+    probe_candidates = [
+        Candidate("S" * CAP, "S" * CAP),
+        Candidate("c" * CAP, "S" * CAP),
+        Candidate("S" * CAP, "c" * CAP),
+        Candidate(first.predecessor_columns[2], first.predecessor_columns[3]),
+        Candidate(first.pushed_columns[2], first.pushed_columns[3]),
+    ]
     ranked = []
-    for fixed_half in fixed_halves:
-        best = min(evaluate(candidate, fixed_half)[0] for candidate in probe_candidates)
-        ranked.append((best, fixed_half))
-    ranked.sort(key=lambda item: (item[0], item[1].first, item[1].second, item[1].source))
-    selected = [item[1] for item in ranked[:12]]
+    for config in configs:
+        best = min(evaluate(candidate, config)[0] for candidate in probe_candidates)
+        ranked.append((best, config))
+    ranked.sort(
+        key=lambda item: (
+            item[0], item[1].state, item[1].helper_side,
+            item[1].swap_order, item[1].swap_output, item[1].pre_pin_turns,
+        )
+    )
+    selected = [item[1] for item in ranked[:24]]
 
     searches = []
     exact = []
-    for index, fixed_half in enumerate(selected):
-        result = search_configuration(fixed_half, first, seed=index)
+    for index, config in enumerate(selected):
+        result = search_configuration(config, first, seed=index)
         searches.append(result)
         exact.extend(result["exact"])
         if exact:
@@ -266,16 +330,26 @@ def main() -> None:
 
     closest = sorted(
         (record for result in searches for record in result["closest"]),
-        key=lambda record: (tuple(record["score"]), record["fixedHalf"], record["c"], record["d"]),
+        key=lambda record: (tuple(record["score"]), record["config"], record["c"], record["d"]),
     )[:50]
     report = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "target": TARGET_HALF,
         "targetColumn": TARGET_COLUMN,
         "firstPredecessor": first.predecessor,
         "afterFirstPin": first.pushed,
-        "fixedHalfCandidates": len(fixed_halves),
-        "selectedFixedHalves": [[item.first, item.second, item.source] for item in selected],
+        "firstStates": len(first_swap_states(first)),
+        "swapConfigurations": len(configs),
+        "selectedConfigurations": [
+            {
+                "stateSource": item.state_source,
+                "helperSide": item.helper_side,
+                "swapOrder": item.swap_order,
+                "swapOutput": item.swap_output,
+                "prePinTurns": item.pre_pin_turns,
+            }
+            for item in selected
+        ],
         "searches": searches,
         "exact": exact[:20],
         "closest": closest,
@@ -288,7 +362,7 @@ if __name__ == "__main__":
         main()
     except BaseException as exc:
         print(json.dumps({
-            "schemaVersion": 2,
+            "schemaVersion": 3,
             "errorType": type(exc).__name__,
             "error": str(exc),
             "traceback": traceback.format_exc(),
