@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "target": "SS-S-cS-S-c",
+  "cap": 11,
+  "postLiftA": "--SSScSccSc",
+  "mapping": [
+    [
+      2,
+      0
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      4,
+      3
+    ],
+    [
+      6,
+      6
+    ],
+    [
+      9,
+      8
+    ]
+  ],
+  "moving": [
+    [
+      2,
+      0
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      4,
+      3
+    ],
+    [
+      9,
+      8
+    ]
+  ],
+  "checked": 32,
+  "hitCount": 0,
+  "hits": [],
+  "closest": [
+    {
+      "assignment": [
+        "B",
+        "B",
+        "B",
+        "B"
+      ],
+      "filler": "S",
+      "predecessor": "-ccS:SccP:SccP:SScP:cScS:SScS:cScS:cccS:SScP:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cccSSSScSS",
+        "ccccccccccc",
+        "SPPPSSSSPS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS--cS-S-c",
+      "output": "SPPP:S--S:SS-P:---P:---P:cS-S:SS-S:-S-S:SS-S:---P:cS-S",
+      "postB": "PcccSSSScSS",
+      "postD": "PSPPPSSSSPS",
+      "distance": 2,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "D",
+        "D",
+        "D"
+      ],
+      "filler": "S",
+      "predecessor": "-Scc:SPcc:SPcc:SPcS:cScS:SScS:cScS:cScc:SPcS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "SPPPSSSSPS",
+        "ccccccccccc",
+        "cccSSSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "actualA": "SSS--cS-S-c",
+      "output": "SPPP:SS--:SP-S:-P--:-P--:cS-S:SS-S:-S-S:SS-S:-P--:cS-S",
+      "postB": "PSPPPSSSSPS",
+      "postD": "PcccSSSScSS",
+      "distance": 2,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "B",
+        "D"
+      ],
+      "filler": "S",
+      "predecessor": "-ccS:SccP:SccP:SScP:cScS:SScS:cScS:cScc:SPcS:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "cccSSSSSPS",
+        "ccccccccccc",
+        "SPPPSSScSS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "actualA": "SSS--cS-S-c",
+      "output": "SPPP:S--S:SS-P:---P:---P:cS-S:SS-S:-S-S:SS-S:-P--:cS-S",
+      "postB": "PcccSSSSSPS",
+      "postD": "PSPPPSSScSS",
+      "distance": 2,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "D",
+        "D",
+        "B"
+      ],
+      "filler": "S",
+      "predecessor": "-Scc:SPcc:SPcc:SPcS:cScS:SScS:cScS:cccS:SScP:cScS:--c-",
+      "predecessorColumns": [
+        "-SSScSccSc",
+        "SPPPSSScSS",
+        "ccccccccccc",
+        "cccSSSSSPS"
+      ],
+      "stable": true,
+      "craftable": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "actualA": "SSS--cS-S-c",
+      "output": "SPPP:SS--:SP-S:-P--:-P--:cS-S:SS-S:-S-S:SS-S:---P:cS-S",
+      "postB": "PSPPPSSScSS",
+      "postD": "PcccSSSSSPS",
+      "distance": 2,
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "B",
+        "B"
+      ],
+      "filler": "P",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "B",
+        "D"
+      ],
+      "filler": "P",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "D",
+        "B"
+      ],
+      "filler": "S",
+      "conflict": [
+        1,
+        3,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "D",
+        "B"
+      ],
+      "filler": "P",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "D",
+        "D"
+      ],
+      "filler": "S",
+      "conflict": [
+        1,
+        3,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "B",
+        "D",
+        "D"
+      ],
+      "filler": "P",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "B",
+        "B"
+      ],
+      "filler": "S",
+      "conflict": [
+        1,
+        2,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "B",
+        "B"
+      ],
+      "filler": "P",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "B",
+        "D"
+      ],
+      "filler": "S",
+      "conflict": [
+        1,
+        2,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "B",
+        "D"
+      ],
+      "filler": "P",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "D",
+        "B"
+      ],
+      "filler": "S",
+      "conflict": [
+        1,
+        2,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "D",
+        "B"
+      ],
+      "filler": "P",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "D",
+        "D"
+      ],
+      "filler": "S",
+      "conflict": [
+        1,
+        2,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "B",
+        "D",
+        "D",
+        "D"
+      ],
+      "filler": "P",
+      "conflict": [
+        0,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "B",
+        "B",
+        "B"
+      ],
+      "filler": "S",
+      "conflict": [
+        0,
+        2,
+        "P",
+        "c"
+      ],
+      "ok": false
+    },
+    {
+      "assignment": [
+        "D",
+        "B",
+        "B",
+        "B"
+      ],
+      "filler": "P",
+      "conflict": [
+        1,
+        1,
+        "P",
+        "c"
+      ],
+      "ok": false
+    }
+  ]
+}
