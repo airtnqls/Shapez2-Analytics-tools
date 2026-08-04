@@ -2,15 +2,15 @@
 
 :root {
   color-scheme: light;
-  --surface-0: #f4f6f8;
+  --surface-0: #eef1f4;
   --surface-1: #ffffff;
-  --surface-2: #f7f9fb;
-  --surface-3: #e9eef5;
-  --surface-4: #dbeafe;
-  --text: #182230;
-  --muted: #667085;
-  --border: rgba(15, 23, 42, .11);
-  --border-strong: rgba(15, 23, 42, .2);
+  --surface-2: #f2f5f8;
+  --surface-3: #dfe5ec;
+  --surface-4: #cfe0f7;
+  --text: #111b28;
+  --muted: #4f5d6d;
+  --border: rgba(15, 23, 42, .17);
+  --border-strong: rgba(15, 23, 42, .3);
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
   --accent-strong: #1e40af;
@@ -22,20 +22,20 @@
   --shape-grid: rgba(30, 30, 30, .28);
   --shape-grid-strong: rgba(30, 30, 30, .5);
   --shape-outline: rgba(30, 30, 30, .62);
-  --graph-dot: rgba(70, 70, 70, .14);
+  --graph-dot: rgba(55, 65, 75, .2);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --surface-0: #181b1f;
-  --surface-1: #23272c;
-  --surface-2: #2b3036;
-  --surface-3: #353b42;
-  --surface-4: #414952;
+  --surface-0: #15181c;
+  --surface-1: #20252a;
+  --surface-2: #292f35;
+  --surface-3: #373e46;
+  --surface-4: #46515c;
   --text: #eeeeee;
-  --muted: #a7adb5;
-  --border: rgba(235, 235, 235, .16);
-  --border-strong: rgba(235, 235, 235, .3);
+  --muted: #b5bbc3;
+  --border: rgba(235, 235, 235, .22);
+  --border-strong: rgba(235, 235, 235, .38);
   --accent: #4b86c1;
   --accent-hover: #5a94ce;
   --accent-strong: #91bce6;
@@ -43,7 +43,7 @@
   --shape-grid: rgba(235, 235, 235, .2);
   --shape-grid-strong: rgba(235, 235, 235, .38);
   --shape-outline: rgba(235, 235, 235, .48);
-  --graph-dot: rgba(235, 235, 235, .12);
+  --graph-dot: rgba(235, 235, 235, .16);
 }
 
 * { box-sizing: border-box; }
@@ -69,14 +69,14 @@ code, pre, kbd, .font-mono { font-family: "Cascadia Code", "JetBrains Mono", Con
 * { scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent; scrollbar-width: thin; }
 
 .shape-renderer { margin-inline: auto; }
-.proof-node { contain: layout paint style; border-radius: 8px; box-shadow: none; }
+.proof-node { contain: layout paint style; border-radius: 7px; box-shadow: none; }
 .react-flow__viewport { will-change: transform; }
 
 .legacy-shell textarea,
 .legacy-shell input,
 .legacy-shell select { border-radius: 0 !important; }
 .legacy-menubar { box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .08); }
-.legacy-process-view .react-flow { background: #fafafa; }
+.legacy-process-view .react-flow { background: var(--surface-0); }
 :root[data-theme="dark"] .legacy-process-view .react-flow { background: var(--surface-0); }
 
 /* Original PyQt visual grammar, shared by the complete Web Studio shell. */
@@ -226,6 +226,19 @@ button.legacy-shape-card:hover { border-color: #3979b9; background: #f7fbff; }
 }
 .react-flow__edge-textbg { fill: var(--surface-0); }
 .react-flow__edge-text { font-weight: 600; }
+.legacy-process-view { --graph-inverse-zoom: 1; }
+.legacy-process-view .react-flow__edge-path {
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.legacy-process-view .proof-node {
+  border-color: color-mix(in srgb, var(--text) 58%, transparent) !important;
+  border-width: calc(1px * var(--graph-inverse-zoom));
+}
+.legacy-process-view .proof-node > * {
+  border-color: var(--border-strong);
+}
 .react-flow__attribution { display: none; }
 .react-flow__node.selected { z-index: 20 !important; }
 .react-flow__node { overflow: visible !important; }

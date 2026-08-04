@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any
+from typing import Any, Callable
 
 from .corner_half.proof_dag import ProofDagError, ProofNode, shape_raw_proof, verify_proof
 
@@ -64,6 +64,43 @@ class _GraphWriter:
         self._memo[id(node)] = shape_id
         return shape_id
 
+    def materialize_graph(self, source: dict[str, Any], output_id: str) -> str:
+        """Splice a recursively resolved primitive DAG into one macro output."""
+        source_nodes = source.get("nodes")
+        source_edges = source.get("edges")
+        source_root = str(source.get("rootId", ""))
+        if not isinstance(source_nodes, list) or not isinstance(source_edges, list) or not source_root:
+            raise ProofExpansionError("resolved operand proof has an invalid graph shape")
+
+        target = next((item for item in self.nodes if str(item.get("id")) == output_id), None)
+        root = next((item for item in source_nodes if str(item.get("id")) == source_root), None)
+        if target is None or root is None:
+            raise ProofExpansionError("resolved operand proof root is missing")
+
+        id_map = {source_root: output_id}
+        for node in source_nodes:
+            old_id = str(node.get("id"))
+            if old_id == source_root:
+                target.update({key: value for key, value in node.items() if key != "id"})
+                target["id"] = output_id
+                continue
+            new_id = self.id("node")
+            id_map[old_id] = new_id
+            self.nodes.append({**node, "id": new_id})
+
+        for edge in source_edges:
+            source_id = id_map.get(str(edge.get("source")))
+            target_id = id_map.get(str(edge.get("target")))
+            if source_id is None or target_id is None:
+                raise ProofExpansionError("resolved operand proof contains a dangling edge")
+            self.edges.append({
+                **edge,
+                "id": self.id("edge"),
+                "source": source_id,
+                "target": target_id,
+            })
+        return output_id
+
     @staticmethod
     def _input_labels(operation: str, count: int) -> list[str]:
         if operation == "STACK":
@@ -73,7 +110,13 @@ class _GraphWriter:
         return ["입력" if count == 1 else f"입력 {index + 1}" for index in range(count)]
 
 
-def expand_certified_macros(graph: dict[str, Any], cap: int) -> dict[str, Any]:
+def expand_certified_macros(
+    graph: dict[str, Any],
+    cap: int,
+    *,
+    resolver: Callable[[str, int], dict[str, Any]] | None = None,
+    resolving: set[tuple[str, int]] | None = None,
+) -> dict[str, Any]:
     """Replace every CERTIFIED_MACRO node with a replay-verified raw proof DAG."""
     nodes = graph.get("nodes")
     edges = graph.get("edges")
@@ -108,20 +151,46 @@ def expand_certified_macros(graph: dict[str, Any], cap: int) -> dict[str, Any]:
     ]
 
     writer = _GraphWriter(graph)
+    active = resolving if resolving is not None else set()
     failures: list[str] = []
     for macro_id, output_id in output_for_macro.items():
         output = node_by_id.get(output_id, {})
         code = str(output.get("code", ""))
         try:
-            root = shape_raw_proof(code, cap)
-            audit = verify_proof(root)
-            if not audit.replay_ok or audit.result != code:
-                raise ProofExpansionError(f"replay mismatch: {audit.result!r} != {code!r}")
-            # Keep sharing inside each constructor DAG. Separate macro sites
-            # retain their existing output node IDs so downstream edges and
-            # the selected root never become orphaned.
-            writer._memo.clear()
-            writer.materialize(root, output_id)
+            try:
+                root = shape_raw_proof(code, cap)
+                audit = verify_proof(root)
+                if not audit.replay_ok or audit.result != code:
+                    raise ProofExpansionError(f"replay mismatch: {audit.result!r} != {code!r}")
+                # Keep sharing inside each constructor DAG. Separate macro sites
+                # retain their existing output node IDs so downstream edges and
+                # the selected root never become orphaned.
+                writer._memo.clear()
+                writer.materialize(root, output_id)
+            except ProofDagError:
+                if resolver is None:
+                    raise
+                key = (code, cap)
+                if key in active:
+                    raise ProofExpansionError(f"recursive constructor cycle: {code!r}")
+                active.add(key)
+                try:
+                    resolved = resolver(code, cap)
+                    expanded = expand_certified_macros(
+                        resolved,
+                        cap,
+                        resolver=resolver,
+                        resolving=active,
+                    )
+                    if (
+                        expanded.get("replayStatus") != "passed"
+                        or not expanded.get("primitiveComplete")
+                        or expanded.get("omittedReasons")
+                    ):
+                        raise ProofExpansionError(f"recursive operand proof is incomplete: {code!r}")
+                    writer.materialize_graph(expanded, output_id)
+                finally:
+                    active.remove(key)
         except (ProofDagError, ProofExpansionError, ValueError) as exc:
             failures.append(f"{code or '<빈 도형>'}: {exc}")
 

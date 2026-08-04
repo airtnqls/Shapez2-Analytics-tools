@@ -66,21 +66,21 @@ const ShapeFlowNode = memo(function ShapeFlowNode({ data, selected }: NodeProps<
   const layerCount = displayLayers(data.code ?? "").length;
   const status = data.status === "positive" ? "검증" : data.status === "ghost" ? "미사용" : data.status === "negative" ? "거부" : data.status === "unknown" ? "미완료" : "";
   return <div data-layer-count={layerCount} className={cn(
-    "proof-node proof-node-shape relative w-[166px] border bg-[var(--surface-1)]",
+    "proof-node proof-node-shape relative w-[150px] border bg-[var(--surface-1)]",
     selected || data.active ? "border-[var(--accent)] outline outline-2 outline-[color-mix(in_srgb,var(--accent)_24%,transparent)]" : "border-[var(--border-strong)]",
     data.status === "ghost" && "border-dashed opacity-50",
     data.status === "negative" && "border-rose-500/45",
     data.status === "unknown" && "border-amber-500/45",
   )}>
     <Handle type="target" position={horizontal ? Position.Left : Position.Top} className="!h-2 !w-2 !border !border-[var(--surface-0)] !bg-[var(--accent)]" />
-    <div className="flex h-6 items-center justify-between border-b border-[var(--border)] px-2">
+    <div className="flex h-5 items-center justify-between border-b border-[var(--border)] px-2">
       <span className="truncate text-[9px] font-semibold uppercase tracking-[.08em] text-[var(--muted)]">도형</span>
       <span className="text-[9px] text-[var(--muted)]">{status}</span>
     </div>
-    <div className="flex min-h-[96px] justify-center overflow-visible bg-[var(--surface-0)] px-2 py-2">
+    <div className="flex min-h-[78px] justify-center overflow-visible bg-[var(--surface-0)] px-1.5 py-1.5">
       <ShapeRenderer code={data.code ?? ""} compact maxLayers={Number.MAX_SAFE_INTEGER} />
     </div>
-    <code title={data.code ?? ""} className="block truncate border-t border-[var(--border)] px-2 py-1.5 text-[9px] text-[var(--muted)]">{data.code || "<empty>"}</code>
+    <code title={data.code ?? ""} className="block truncate border-t border-[var(--border)] px-2 py-1 text-[9px] text-[var(--muted)]">{data.code || "<empty>"}</code>
     <Handle type="source" position={horizontal ? Position.Right : Position.Bottom} className="!h-2 !w-2 !border !border-[var(--surface-0)] !bg-[var(--accent)]" />
   </div>;
 });
@@ -89,12 +89,12 @@ const OperationFlowNode = memo(function OperationFlowNode({ data, selected }: No
   const horizontal = data.direction === "LR";
   const asset = operationAssets[data.operation ?? ""];
   return <div className={cn(
-    "proof-node relative flex w-[154px] items-center border bg-[var(--surface-2)]",
+    "proof-node relative flex w-[142px] items-center border bg-[var(--surface-2)]",
     selected || data.active ? "border-[var(--accent)] outline outline-2 outline-[color-mix(in_srgb,var(--accent)_24%,transparent)]" : "border-[var(--border-strong)]",
   )}>
     <Handle type="target" position={horizontal ? Position.Left : Position.Top} className="!h-2 !w-2 !border !border-[var(--surface-0)] !bg-[var(--accent)]" />
-    <span className="grid h-12 w-11 shrink-0 place-items-center border-r border-[var(--border)] bg-white">
-      {asset ? <Image src={`/legacy-icons/${asset}`} width={23} height={23} alt="" unoptimized /> : data.operation === "CERTIFIED_MACRO" ? <ShieldCheck size={18} /> : <Workflow size={18} />}
+    <span className="grid h-10 w-10 shrink-0 place-items-center border-r border-[var(--border)] bg-white">
+      {asset ? <Image src={`/legacy-icons/${asset}`} width={21} height={21} alt="" unoptimized /> : data.operation === "CERTIFIED_MACRO" ? <ShieldCheck size={17} /> : <Workflow size={17} />}
     </span>
     <div className="min-w-0 px-2 py-1.5">
       <div className="truncate text-[11px] font-semibold">{data.label}</div>
@@ -109,12 +109,12 @@ const CertificateFlowNode = memo(function CertificateFlowNode({ data, selected }
   const negative = data.status === "negative";
   const unknown = data.status === "unknown";
   return <div className={cn(
-    "proof-node relative w-[220px] border bg-[var(--surface-1)]",
+    "proof-node relative w-[200px] border bg-[var(--surface-1)]",
     selected && "outline outline-2 outline-[color-mix(in_srgb,var(--accent)_24%,transparent)]",
     negative ? "border-rose-500/40" : unknown ? "border-amber-500/40" : "border-emerald-500/40",
   )}>
     <Handle type="target" position={horizontal ? Position.Left : Position.Top} className="!h-2 !w-2 !border !border-[var(--surface-0)] !bg-current" />
-    <div className="flex gap-2 px-3 py-2.5">
+    <div className="flex gap-2 px-2.5 py-2">
       {negative ? <FileCheck2 className="mt-0.5 shrink-0 text-rose-500" size={15} /> : <ShieldCheck className={cn("mt-0.5 shrink-0", unknown ? "text-amber-500" : "text-emerald-600")} size={15} />}
       <div className="min-w-0">
         <div className="text-[11px] font-semibold leading-4">{data.label}</div>
@@ -209,15 +209,19 @@ function layoutGraph(graph: ProofGraph, direction: "LR" | "TB", collapseInputs: 
     rankdir: direction,
     ranker: "network-simplex",
     acyclicer: "greedy",
-    nodesep: direction === "TB" ? 70 : 54,
-    ranksep: direction === "TB" ? 80 : 104,
-    edgesep: 22,
-    marginx: 48,
-    marginy: 48,
+    nodesep: direction === "TB" ? 58 : 44,
+    ranksep: direction === "TB" ? 68 : 88,
+    edgesep: 18,
+    marginx: 36,
+    marginy: 36,
   });
   for (const node of view.nodes) {
     const layers = node.kind === "shape" ? Math.max(1, displayLayers(node.code ?? "").length) : 0;
-    const size = node.kind === "shape" ? { width: 166, height: 64 + layers * 25 } : node.kind === "operation" ? { width: 154, height: 48 } : { width: 220, height: 76 };
+    const size = node.kind === "shape"
+      ? { width: 150, height: 42 + Math.max(78, layers * 25 + 14) }
+      : node.kind === "operation"
+        ? { width: 142, height: 40 }
+        : { width: 200, height: 68 };
     dag.setNode(node.id, size);
   }
   for (const edge of view.edges) dag.setEdge(edge.source, edge.target, { weight: edge.dashed ? 1 : 3 });
@@ -234,7 +238,7 @@ function layoutGraph(graph: ProofGraph, direction: "LR" | "TB", collapseInputs: 
     };
   });
   const edges: Edge[] = view.edges.map((edge) => {
-    const stroke = edge.dashed ? "#798694" : "#4e6175";
+    const stroke = edge.dashed ? "#526273" : "#2b3f52";
     return {
       id: edge.id,
       source: edge.source,
@@ -243,9 +247,9 @@ function layoutGraph(graph: ProofGraph, direction: "LR" | "TB", collapseInputs: 
       animated: false,
       type: "smoothstep",
       pathOptions: { borderRadius: 12, offset: 20 },
-      markerEnd: { type: MarkerType.ArrowClosed, width: 15, height: 15, color: stroke },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: stroke },
       interactionWidth: 16,
-      style: { stroke, strokeDasharray: edge.dashed ? "6 5" : undefined, opacity: edge.dashed ? .58 : .84, strokeWidth: 1.45 },
+      style: { stroke, strokeDasharray: edge.dashed ? "6 5" : undefined, opacity: edge.dashed ? .88 : 1, strokeWidth: 1.65 },
       labelStyle: { fill: "var(--muted)", fontSize: 9, fontWeight: 600 },
       labelBgStyle: { fill: "var(--surface-0)", fillOpacity: .94 },
       labelBgPadding: [4, 2] as [number, number],
@@ -315,7 +319,7 @@ const ProofCanvasInner = forwardRef<ProofCanvasHandle, { graph: ProofGraph | nul
   const renderedNodes = useMemo(() => layout.nodes.map((node) => ({ ...node, data: { ...node.data, active: node.id === activeId } })), [activeId, layout.nodes]);
   const renderedEdges = useMemo(() => layout.edges.map((edge) => {
     const active = activeId != null && (edge.source === activeId || edge.target === activeId);
-    return active ? { ...edge, style: { ...edge.style, stroke: "var(--accent)", strokeWidth: 2.2, opacity: 1 } } : edge;
+    return active ? { ...edge, style: { ...edge.style, stroke: "var(--accent)", strokeWidth: 2.25, opacity: 1 } } : edge;
   }), [activeId, layout.edges]);
   const macroCount = safeGraph?.omittedReasons?.length ?? 0;
 
@@ -334,8 +338,8 @@ const ProofCanvasInner = forwardRef<ProofCanvasHandle, { graph: ProofGraph | nul
   const focusNode = useCallback((id: string) => {
     const node = layout.nodes.find((item) => item.id === id);
     if (!node) return;
-    const width = node.width ?? (node.type === "shape" ? 166 : node.type === "certificate" ? 220 : 154);
-    const height = node.height ?? (node.type === "operation" ? 48 : 100);
+    const width = node.width ?? (node.type === "shape" ? 150 : node.type === "certificate" ? 200 : 142);
+    const height = node.height ?? (node.type === "operation" ? 40 : 100);
     flow.setCenter(node.position.x + width / 2, node.position.y + height / 2, { zoom: .92, duration: 220 });
   }, [flow, layout.nodes]);
 
@@ -453,7 +457,12 @@ const ProofCanvasInner = forwardRef<ProofCanvasHandle, { graph: ProofGraph | nul
           nodesConnectable={false}
           onNodeClick={(_, node) => { const index = operations.findIndex((operation) => operation.id === node.id); setActiveStep(index); setFocusId(node.id); onNodeSelect?.(node.data); window.setTimeout(() => focusNode(node.id), 20); }}
           onPaneClick={() => onNodeSelect?.(null)}
-          onMove={(_, viewport) => wrapperRef.current?.classList.toggle("graph-far", viewport.zoom < .3)}
+          onMove={(_, viewport) => {
+            const wrapper = wrapperRef.current;
+            if (!wrapper) return;
+            wrapper.classList.toggle("graph-far", viewport.zoom < .3);
+            wrapper.style.setProperty("--graph-inverse-zoom", String(Math.max(1, 1 / Math.max(viewport.zoom, .05))));
+          }}
           proOptions={{ hideAttribution: true }}
         >
           <Background gap={22} size={1} color="var(--graph-dot)" />

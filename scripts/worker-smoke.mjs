@@ -71,6 +71,37 @@ if (clawMessage.type !== "result") throw new Error(`claw worker returned ${clawM
 const claw = clawMessage.result;
 if (claw.verdict !== "POSSIBLE" || claw.shapeType !== "CLAW" || claw.proof?.replayStatus !== "passed") throw new Error("claw proof smoke failed");
 if (!claw.processRecipe?.steps?.length || claw.processRecipe.finalShapeNodeId !== claw.proof.rootId) throw new Error("process recipe was not emitted");
+if (!claw.proof.primitiveComplete || claw.proof.omittedReasons.length || claw.proof.nodes.some((node) => node.operation === "CERTIFIED_MACRO")) {
+  throw new Error("claw proof was visually truncated");
+}
+
+const fullGraphCases = [
+  ["smoke-full-swap", "PPPP:-PSS:-P--:-ScS", 5],
+  ["smoke-full-swappable", "PPPP:cSSS:S-S-:SScS", 5],
+];
+for (const [jobId, code, cap] of fullGraphCases) {
+  const message = await analyze(jobId, "proof", code, cap);
+  const proof = message.result?.proof;
+  if (
+    message.type !== "result"
+    || message.result.verdict !== "POSSIBLE"
+    || !proof?.primitiveComplete
+    || proof.replayStatus !== "passed"
+    || proof.omittedReasons.length
+    || proof.nodes.some((node) => node.operation === "CERTIFIED_MACRO")
+  ) {
+    throw new Error(`full proof graph smoke failed: ${jobId} ${JSON.stringify({
+      type: message.type,
+      verdict: message.result?.verdict,
+      shapeType: message.result?.shapeType,
+      replayStatus: proof?.replayStatus,
+      primitiveComplete: proof?.primitiveComplete,
+      omittedReasons: proof?.omittedReasons,
+      macros: proof?.nodes?.filter((node) => node.operation === "CERTIFIED_MACRO").length,
+      tables: message.result?.diagnostics?.tablesLoaded,
+    })}`);
+  }
+}
 
 const negativeMessage = await analyze("smoke-negative", "proof", "S---:S-S-:SSSS", 5);
 if (negativeMessage.type !== "result") throw new Error(`negative worker returned ${negativeMessage.type}`);
@@ -87,7 +118,15 @@ if (closed.verdict !== "IMPOSSIBLE" || closed.route !== "pp-closure-exhausted" |
 const receiptMessage = await analyze("smoke-receipt", "proof", "P-PP:S-PP:--Pc:-SSS:-P--:cS--", 6);
 if (receiptMessage.type !== "result") throw new Error(`receipt worker returned ${receiptMessage.type}`);
 const receipt = receiptMessage.result;
-if (receipt.verdict !== "POSSIBLE" || receipt.shapeType !== "PIN_PUSH" || receipt.route !== "pp-receipt-chain" || receipt.proof?.replayStatus === "failed") {
+if (
+  receipt.verdict !== "POSSIBLE"
+  || receipt.shapeType !== "PIN_PUSH"
+  || receipt.route !== "pp-receipt-chain"
+  || receipt.proof?.replayStatus !== "passed"
+  || !receipt.proof?.primitiveComplete
+  || receipt.proof.omittedReasons.length
+  || receipt.proof.nodes.some((node) => node.operation === "CERTIFIED_MACRO")
+) {
   throw new Error(`receipt-chain smoke failed: ${receipt.verdict}/${receipt.shapeType}/${receipt.route}/${receipt.proof?.replayStatus}`);
 }
 
@@ -109,6 +148,7 @@ console.log(JSON.stringify({
   fast: { verdict: fast.verdict, tables: fast.diagnostics.tablesLoaded, totalMs: fast.timing.totalMs },
   analysis: { verdict: typed.verdict, type: typed.shapeType, tables: typed.diagnostics.tablesLoaded, totalMs: typed.timing.totalMs },
   claw: { verdict: claw.verdict, type: claw.shapeType, replay: claw.proof.replayStatus, phases: progressByJob.get("smoke-claw"), totalMs: claw.timing.totalMs },
+  fullGraphCases: fullGraphCases.length,
   negative: { verdict: negative.verdict, certificate: negative.negativeCertificate.verifier, route: negative.route },
   ppClosed: { verdict: closed.verdict, route: closed.route, certificate: closed.negativeCertificate.verifier },
   receiptChain: { verdict: receipt.verdict, type: receipt.shapeType, route: receipt.route, replay: receipt.proof.replayStatus },

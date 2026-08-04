@@ -306,6 +306,11 @@ export function buildProofGraph(result: AnalysisResult, forest?: HalfProofForest
     const open = builder.certificate("판정이 정상적으로 완료되지 않았습니다.", "unknown");
     builder.edge(rank, root, "종료 상한"); builder.edge(open, root, "중단 상태", true);
     rootId = root; replay = "partial";
+  } else if (result.witness && Array.isArray((result.witness as PinPushWitness).receiptTargets)) {
+    // Keep the historical display family (CLAW/CLAW_HYBRID) while building
+    // the graph from the actual constructive ZIP receipt-chain witness.
+    const built = pinPushProof(builder, result.normalizedCode, result.cap, result.witness as PinPushWitness, forest);
+    rootId = built.root; replay = built.replay && !builder.omissions.size ? "passed" : built.replay ? "partial" : "failed";
   } else if (result.shapeType === "BASIC" || result.shapeType === "HALF") {
     rootId = materializeKnownShape(builder, result.normalizedCode, result.cap, forest); replay = builder.omissions.size ? "partial" : "passed";
   } else if (result.shapeType === "SWAPPABLE") {

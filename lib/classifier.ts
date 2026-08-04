@@ -362,6 +362,22 @@ function mapKnownType(value: string): ShapeType {
   return allowed.includes(normalized as ShapeType) ? (normalized as ShapeType) : "UNKNOWN";
 }
 
+function knownConstructiveWitness(known: KnownSample, shapeType: ShapeType): ClawRecord | HybridRecord | StackWitness | undefined {
+  if (shapeType === "STACKABLE") {
+    const match = known.reason.match(/bottom=(\S+),\s*top=(\S+)의/);
+    if (match) return { bottom: match[1], topPieces: [match[2]], splitHeights: [] };
+  }
+  if (shapeType === "CLAW" || shapeType === "PIN_PUSH") {
+    const match = known.reason.match(/predecessor\s+(\S+)\s*를\s*Pin Push/i);
+    if (match) return { predecessor: match[1], backend: "validated-sample-forward-replay" };
+  }
+  if (shapeType === "CLAW_HYBRID") {
+    const match = known.reason.match(/Claw bottom\s+(\S+)\s+위에\s+top\s+(\S+)\s*을\s*쌓습니다/i);
+    if (match) return { bottom: match[1], top: match[2], cuts: [], backend: "validated-sample-forward-replay" };
+  }
+  return undefined;
+}
+
 function baseFacts(rows: ShapeRows, columns: ColumnFact[]): AnalysisFacts {
   const half = halfOrientation(rows).accepted;
   const swappable = isSwappableRows(rows).accepted;
@@ -627,31 +643,6 @@ export async function classifyShape(
   }
 
 
-  // Preserve legacy decided ShapeType before selecting an alternative valid
-  // Pin Push construction.
-  if (known?.status === "possible") {
-    const shapeType = mapKnownType(known.shape_type);
-    return {
-      verdict: "POSSIBLE",
-      shapeType,
-      route: known.route || "validated-sample",
-      reason: known.reason,
-      explanation: ["0.8.0 샘플 회귀 세트에서 제작 Proof replay가 통과했습니다."],
-      facts: {
-        ...facts,
-        stackable: shapeType === "STACKABLE",
-        claw: shapeType === "CLAW",
-        hybrid: shapeType === "CLAW_HYBRID",
-            coverage: "complete",
-      },
-      columns,
-      candidatesChecked,
-      statesVisited,
-      warnings,
-    };
-  }
-
-
   if (cap <= 2) {
     const brute = await brutePinPushPredecessor(rows, cap, (predecessor) => {
       return isRawInput(predecessor) || halfOrientation(predecessor).accepted || isSwappableRows(predecessor).accepted;
@@ -684,9 +675,12 @@ export async function classifyShape(
   }
   if (ppResult.witness) {
     facts.ppDepth = ppResult.witness.receiptTargets.length;
+    const preferredType = known?.status === "possible" ? mapKnownType(known.shape_type) : "PIN_PUSH";
+    facts.claw = preferredType === "CLAW";
+    facts.hybrid = preferredType === "CLAW_HYBRID";
     return {
       verdict: "POSSIBLE",
-      shapeType: "PIN_PUSH",
+      shapeType: preferredType,
       route: ppResult.witness.kind === "receipt-chain" ? "pp-receipt-chain" : "rank0-pinpush-frontier",
       reason: ppResult.witness.kind === "receipt-chain"
         ? `유일한 no-overflow receipt predecessor를 ${ppResult.witness.receiptTargets.length - 1}회 제거한 뒤 Rank0 overflow core를 찾았습니다.`
@@ -702,6 +696,30 @@ export async function classifyShape(
       },
       columns,
       witness: ppResult.witness,
+      candidatesChecked,
+      statesVisited,
+      warnings,
+    };
+  }
+
+  if (known?.status === "possible") {
+    const shapeType = mapKnownType(known.shape_type);
+    const witness = knownConstructiveWitness(known, shapeType);
+    return {
+      verdict: "POSSIBLE",
+      shapeType,
+      route: known.route || "validated-sample",
+      reason: known.reason,
+      explanation: ["Historical positive sample retained after constructive ZIP routes were exhausted."],
+      facts: {
+        ...facts,
+        stackable: shapeType === "STACKABLE",
+        claw: shapeType === "CLAW",
+        hybrid: shapeType === "CLAW_HYBRID",
+        coverage: "complete",
+      },
+      columns,
+      witness,
       candidatesChecked,
       statesVisited,
       warnings,
@@ -838,4 +856,3 @@ export async function classifyShapeFast(
 export function canonicalLookupKey(code: string, cap: number): string {
   return canonicalCode(code, cap);
 }
-

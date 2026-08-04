@@ -14,7 +14,7 @@
     "test:unit": "vitest run",
     "test:zip-contract": "npm run build:zip-tests && node scripts/build-worker.mjs && node scripts/legacy-test-audit.mjs",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --incremental false",
     "check": "npm run test && npm run typecheck && npm run build && npm run smoke:worker && npm run smoke:backend && npm run smoke:server && npm run smoke:static",
     "smoke:worker": "node scripts/worker-smoke.mjs",
     "smoke:backend": "python scripts/backend-smoke.py",

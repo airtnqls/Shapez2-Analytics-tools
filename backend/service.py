@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from .proof_expander import expand_certified_macros
+from .proof_expander import ProofExpansionError, expand_certified_macros
 from .proof_optimizer import optimize_proof_graph
 from .worker_client import worker_client
 from .zip_proof_validator import validate_proof_with_zip
@@ -37,7 +37,18 @@ def analyze(
 
     effective_cap = int(result.get("cap", requested_cap))
     if mode == "proof" and result.get("proof"):
-        result["proof"] = expand_certified_macros(result["proof"], effective_cap)
+        def resolve_operand(operand: str, operand_cap: int) -> dict:
+            nested = worker_client.analyze(operand, operand_cap, "proof")
+            proof = nested.get("proof")
+            if nested.get("verdict") != "POSSIBLE" or not proof:
+                raise ProofExpansionError(f"operand is not constructible: {operand!r}")
+            return proof
+
+        result["proof"] = expand_certified_macros(
+            result["proof"],
+            effective_cap,
+            resolver=resolve_operand,
+        )
         optimization = optimize_proof_graph(result["proof"])
         checked = validate_proof_with_zip(result["proof"], effective_cap, worker_client)
         # The ZIP worker's recipe was generated before macro expansion.  The
