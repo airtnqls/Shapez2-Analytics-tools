@@ -1,0 +1,76 @@
+name: Recover verified TMAM v105 transfer
+on:
+  push:
+    branches: [deploy/tmam-v105-finish]
+    paths: [.github/workflows/tmam-recover-v105.yml]
+permissions:
+  contents: read
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover complete hash-verified files only
+        run: |
+          python3 - <<'PY'
+          import ast,base64,hashlib,json,lzma,pathlib,re,urllib.request
+          root=pathlib.Path('.deploy/tmam')
+          tree=ast.parse((root/'bootstrap.py').read_text())
+          meta=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='META' for t in n.targets))
+          sha=lambda b:hashlib.sha256(b).hexdigest()
+          parts=[]
+          for entry in meta['sources']:
+              req=urllib.request.Request('https://tmam-web.netlify.app/'+entry['path'],headers={'User-Agent':'TMAM-v105-recovery','Accept-Encoding':'identity'})
+              with urllib.request.urlopen(req,timeout=90) as r:b=r.read(20000000)
+              assert sha(b)==entry['sha256'],entry['path']
+              if entry['path']=='studio/index.html':b=re.sub(rb'(<script[^>]*type="application/json"[^>]*>).*?(</script>)',rb'\1\2',b,flags=re.S)
+              parts.append(b)
+          base=b'\n'.join(parts);assert sha(base)==meta['base_sha256']
+          encoded=''.join(p.read_text().strip() for p in sorted((root/'payload').glob('*.b64')))
+          packed=base64.b64decode(encoded,validate=True)
+          dec=lzma.LZMADecompressor(memlimit=256*1024*1024)
+          data=dec.decompress(packed,max_length=128*1024*1024)
+          assert data[:8]==b'TMAMPCH1'
+          pos=8
+          def integer():
+              global pos
+              n=0;s=0
+              while True:
+                  if pos>=len(data):raise EOFError()
+                  b=data[pos];pos+=1;n|=(b&127)<<s
+                  if b<128:return n
+                  s+=7
+                  if s>=64:raise ValueError('oversize integer')
+          def take(n):
+              global pos
+              if n<0 or pos+n>len(data):raise EOFError()
+              b=data[pos:pos+n];pos+=n;return b
+          count=integer();out=pathlib.Path('recovered');out.mkdir()
+          recovered=[]
+          for _ in range(count):
+              try:
+                  path=take(integer()).decode();p=pathlib.PurePosixPath(path)
+                  assert not p.is_absolute() and '..' not in p.parts
+                  size=integer();expected=take(32).hex();length=integer();end=pos+length
+                  if end>len(data):raise EOFError()
+                  result=bytearray()
+                  while pos<end:
+                      op=take(1)[0]
+                      if op==0:result.extend(take(integer()))
+                      elif op==1:
+                          start=integer();amount=integer();assert start+amount<=len(base);result.extend(base[start:start+amount])
+                      else:raise ValueError('invalid opcode')
+                  assert pos==end and len(result)==size and sha(result)==expected,path
+                  dest=out/path;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(result)
+                  recovered.append({'path':path,'bytes':size,'sha256':expected})
+              except EOFError:break
+          summary={'expected_files':count,'recovered':recovered,'compressed_bytes':len(packed),'decompressed_bytes':len(data),'complete_stream':dec.eof}
+          (out/'RECOVERY.json').write_text(json.dumps(summary,indent=2))
+          print(json.dumps(summary,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tmam-v105-recovered-files
+          path: recovered/
+          retention-days: 3
