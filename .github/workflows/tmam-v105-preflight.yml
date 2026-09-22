@@ -1,0 +1,44 @@
+name: TMAM v105 deployment preflight
+on:
+  push:
+    branches: ['deploy/tmam-v105']
+    paths: ['.github/workflows/tmam-v105-preflight.yml']
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check public sources from the deployment runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.error, json, os
+          urls = [
+            'https://tmam-web.netlify.app/',
+            'https://tmam-web.netlify.app/assets/manifest.json',
+            'https://tmam-web.netlify.app/data/manifest-v100.json',
+            'https://tmam-web.netlify.app/assets/family_manifest.json',
+            'https://api.github.com/repos/airtnqls/Shapez2-Analytics-tools/pages',
+          ]
+          for url in urls:
+            headers={'User-Agent':'TMAM-v105-deployment-preflight'}
+            if url.startswith('https://api.github.com/'):
+              headers.update(Authorization='Bearer '+os.environ['GH_TOKEN'],Accept='application/vnd.github+json')
+            try:
+              with urllib.request.urlopen(urllib.request.Request(url,headers=headers),timeout=30) as r:
+                body=r.read(2000000)
+                item={'url':url,'status':r.status,'bytes':len(body),'type':r.headers.get('Content-Type')}
+                try:
+                  obj=json.loads(body)
+                  item['json']=obj if len(body)<70000 else list(obj)
+                except (ValueError,TypeError):
+                  item['preview']=body[:700].decode('utf-8','replace')
+                print(json.dumps(item,ensure_ascii=True),flush=True)
+            except urllib.error.HTTPError as e:
+              print(json.dumps({'url':url,'status':e.code,'body':e.read(600).decode('utf-8','replace')}),flush=True)
+            except Exception as e:
+              print(json.dumps({'url':url,'error':type(e).__name__,'message':str(e)}),flush=True)
+          PY
