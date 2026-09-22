@@ -1,0 +1,10 @@
+{
+  "schema": "tmam.deploy.handoff.v1",
+  "run_id": "35794788464",
+  "site_id": "f0f9cc84-52ab-4bd0-9f39-0c10c8573886",
+  "public_key": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAj16HsLoQY6K04K8ryLTF\n7QjbFPSkx9Pl3wCv3fNEwDibI5NVMvxS+tZhfLUuk7/RKMJaV1Je2L2w7h5xKPVv\nPZJx9kRvAo+i6kesw8YGkLDIm6C0kfMtPPWqEnJ/QJVcdVA821V5Uhsi3PvwyJVW\nmHoPwX1l+LnTE9PPKK01WBJOvrU6ERAR6UrNAXD8sVR00lI0pGa9mlf58aqGNNpz\n5Don2lFSoKyk/90MnTmEvFEXnhYqFFuAIer/jXRiyYNFx3+K9jxQ7aKqJ0dbXD58\n01c5id5ofiAyvAnpETAdLrPb3Pu+TpREMyWzmTFtToSqxUUiMkNyvnuDbMPQmqXy\nh+V6TzI6uZXEtFBYFuNK04doyZq+Uedbaylx70hV4ZRYgJXtQPVpLVHSj+G4X6M+\nQ1LcIAfXbYHeqWHoQi02+PARxmdwwjiLMcETI9rmWMRqLpphVDijRX739ogihn5/\nQD6CNOmjAM+QFo3Uz2UqpxTnv3dW++vjxg95PHAOEWNxAgMBAAE=\n-----END PUBLIC KEY-----\n",
+  "challenge": "LcXm/vVMtp3vlTAnAoChZXTKCO0R5siI",
+  "created_at": 1790117690,
+  "expires_at": 1790118590,
+  "release_sha256": "6c5b33eab4c18fcd231cf797a51cc5da23148318306d2d234a721928d54601fa"
+}
