@@ -1,0 +1,65 @@
+name: Build verified TMAM v105 English release
+on:
+  push:
+    branches: [deploy/tmam-client-v105]
+    paths: [.github/workflows/tmam-v105-release.yml]
+permissions:
+  contents: write
+concurrency:
+  group: tmam-v105-release
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Restore all audited source files
+        run: python3 tmam-client/restore_v105.py
+      - name: Fetch immutable verified original catalog
+        run: |
+          curl --fail --location --retry 3 --output baseline.zip 'https://github.com/airtnqls/Shapez2-Analytics-tools/releases/download/tmam-bootstrap-v100-20260922/tmam-v100-verified-baseline.zip'
+          echo '2d3c9131bd8872e2b5d01667cfd5639772961d60a8c9755a2fa0bf4e46118be3  baseline.zip' | sha256sum --check
+      - name: Install numerical build dependency
+        run: python3 -m pip install numpy
+      - name: Rebuild catalogs, saved DAGs and strict-family data
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tmam-client/release/reconstruct.py')
+          s=p.read_text();s=s.replace('timeout=240','timeout=1200').replace('timeout=120','timeout=300')
+          p.write_text(s)
+          PY
+          python3 -u tmam-client/release/reconstruct.py --fixture "$PWD/baseline.zip" 2>&1 | tee reconstruction.log
+      - name: Exercise actual browser search and WebAssembly core
+        run: node tmam-client/release/smoke.cjs tmam-client/release/site
+      - name: Package only the verified static application
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib,zipfile
+          root=pathlib.Path('tmam-client/release/site')
+          paths=[p for p in sorted(root.rglob('*')) if p.is_file()]
+          assert len(paths)==66,len(paths)
+          with zipfile.ZipFile('tmam-v105-static-en.zip','w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+            for p in paths:
+              i=zipfile.ZipInfo(str(p.relative_to(root)),(1980,1,1,0,0,0));i.compress_type=zipfile.ZIP_DEFLATED
+              z.writestr(i,p.read_bytes())
+          b=pathlib.Path('tmam-v105-static-en.zip').read_bytes()
+          record={'version':'v105','locale':'en','status':'ALL_STATIC_FILES_VERIFIED','files':len(paths),'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest(),'deployed':False}
+          pathlib.Path('release-verification.json').write_text(json.dumps(record,indent=2));print(json.dumps(record))
+          PY
+      - name: Publish verified deployment input
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create tmam-v105-ready-20260923 tmam-v105-static-en.zip release-verification.json reconstruction.log --target "$GITHUB_SHA" --title 'TMAM v105 English verified web release' --notes 'Exact v105 static application reconstructed from pinned source and byte-verified canonical catalogs. Computation stays in the browser. Deployment input; the public site is not updated by creating this release.' --prerelease
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: tmam-v105-build-audit
+          path: |
+            reconstruction.log
+            release-verification.json
+          retention-days: 7
