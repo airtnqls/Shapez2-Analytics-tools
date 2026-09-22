@@ -1,0 +1,28 @@
+name: TMAM deployment connectivity
+on:
+  push:
+    branches: [deploy/tmam-client-v105]
+    paths: [.github/workflows/tmam-publish.yml]
+permissions:
+  contents: read
+jobs:
+  connectivity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify approved public deployment endpoints
+        shell: python
+        run: |
+          import urllib.request, json, hashlib
+          for url in [
+              'https://tmam-web.netlify.app/assets/manifest.json',
+              'https://netlify-mcp.netlify.app/',
+              'https://registry.npmjs.org/@netlify%2fmcp']:
+              try:
+                  with urllib.request.urlopen(url, timeout=20) as r:
+                      body = r.read(2000000)
+                      print(json.dumps({'url':url,'status':r.status,'bytes':len(body),'sha256':hashlib.sha256(body).hexdigest()}))
+              except Exception as e:
+                  print(json.dumps({'url':url,'error':str(e)}))
+                  if url.endswith('manifest.json'):
+                      raise
