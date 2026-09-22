@@ -1,0 +1,40 @@
+name: Audit live TMAM v105 HTTPS
+on:
+  push:
+    branches: [deploy/tmam-client-v105]
+    paths: [.github/workflows/tmam-v105-https-audit.yml, tmam-client/verify_https_v105.py]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install browser dependencies
+        run: |
+          python3 -m pip install requests playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Verify actual production downloads and browser behavior
+        run: python3 -u tmam-client/verify_https_v105.py
+      - name: Independent agent-browser inspection
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p live-audit
+          npx -y agent-browser install
+          npx -y agent-browser open https://tmam-web.netlify.app/
+          npx -y agent-browser snapshot -i > live-audit/agent-browser-snapshot.txt
+          npx -y agent-browser screenshot live-audit/agent-browser.png
+          npx -y agent-browser close
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: tmam-v105-live-https-audit
+          path: live-audit/
+          retention-days: 14
