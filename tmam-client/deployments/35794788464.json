@@ -1,0 +1,14 @@
+{
+  "version": "v105",
+  "locale": "en",
+  "site_id": "f0f9cc84-52ab-4bd0-9f39-0c10c8573886",
+  "deploy_id": "6ab30797e4c6ab653b5905ef",
+  "build_id": "6ab30796e4c6ab653b5905ed",
+  "source_sha256": "6c5b33eab4c18fcd231cf797a51cc5da23148318306d2d234a721928d54601fa",
+  "files": 66,
+  "run_id": "35794788464",
+  "state": "ready",
+  "url": "https://tmam-web.netlify.app",
+  "published_at": "2026-09-22T22:56:37.600Z",
+  "context": "production"
+}
