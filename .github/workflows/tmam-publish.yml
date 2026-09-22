@@ -36,7 +36,9 @@ jobs:
           def copy_part(item):
               path, part = item
               data = get(path)
-              assert hashlib.sha256(data).hexdigest() == part['sha256'], path
+              raw = gzip.decompress(data)
+              assert hashlib.sha256(raw).hexdigest() == part['sha256'], path
+              assert len(raw) == part['bytes'], path
               assert len(data) == part['download_bytes'], path
               target = out/path; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(data)
               return len(data)
