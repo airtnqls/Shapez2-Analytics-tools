@@ -1,0 +1,39 @@
+name: TMAM deployment payload recovery
+on:
+  push:
+    branches: [deploy/tmam-client-v105]
+    paths: [.github/workflows/tmam-transfer-audit.yml]
+permissions:
+  contents: read
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover uploaded deployment parts
+        run: |
+          python - <<'PY'
+          import pathlib,zipfile,json,base64,zlib,hashlib
+          root=pathlib.Path('tmam-client/payload')
+          parts=sorted(root.glob('part-*.b64'))
+          info={'parts':[{'name':p.name,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in parts]}
+          raw=base64.b64decode(''.join(p.read_text().strip() for p in parts))
+          info['decoded_bytes']=len(raw)
+          info['first_bytes_hex']=raw[:32].hex()
+          for name,wbits in [('zlib',15),('gzip',31),('raw',-15)]:
+            try:
+              d=zlib.decompressobj(wbits); output=d.decompress(raw)
+              info[name]={'eof':d.eof,'bytes':len(output),'prefix':output[:500].decode('utf-8','replace')}
+            except Exception as e: info[name]={'error':str(e)}
+          pathlib.Path('payload-audit.json').write_text(json.dumps(info,indent=2))
+          with zipfile.ZipFile('recovered-payload.zip','w',zipfile.ZIP_DEFLATED) as z:
+            for p in parts:z.write(p,p.name)
+            z.write('payload-audit.json')
+          print(json.dumps(info,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tmam-recovered-payload
+          path: recovered-payload.zip
+          retention-days: 3
