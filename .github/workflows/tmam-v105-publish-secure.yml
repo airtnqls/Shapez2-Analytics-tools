@@ -1,0 +1,46 @@
+name: Publish TMAM v105 production and verify HTTPS
+on:
+  push:
+    branches: [deploy/tmam-client-v105]
+    paths: [.github/workflows/tmam-v105-publish-secure.yml]
+permissions:
+  contents: write
+concurrency:
+  group: tmam-production-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install deploy and real browser verification dependencies
+        run: |
+          python3 -m pip install cryptography requests playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Publish exact release with one-use encrypted authorization
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -u tmam-client/deploy_secure.py
+      - name: Verify actual HTTPS application and interactions
+        run: python3 -u tmam-client/verify_live.py
+      - name: Independent browser opening and screenshot
+        run: |
+          npx -y agent-browser install
+          npx -y agent-browser open https://tmam-web.netlify.app/
+          npx -y agent-browser snapshot -i > live-audit/agent-browser-snapshot.txt
+          npx -y agent-browser screenshot live-audit/agent-browser.png
+          npx -y agent-browser close
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: tmam-v105-production-verification
+          path: |
+            deployment-result.json
+            live-audit/
+          retention-days: 14
