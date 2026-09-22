@@ -12,6 +12,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -22,14 +25,18 @@ jobs:
         run: |
           curl --fail --location --retry 3 --output baseline.zip 'https://github.com/airtnqls/Shapez2-Analytics-tools/releases/download/tmam-bootstrap-v100-20260922/tmam-v100-verified-baseline.zip'
           echo '2d3c9131bd8872e2b5d01667cfd5639772961d60a8c9755a2fa0bf4e46118be3  baseline.zip' | sha256sum --check
-      - name: Install numerical build dependency
-        run: python3 -m pip install numpy
+      - name: Install explicit build dependencies
+        run: |
+          python3 -m pip install numpy
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libboost-dev
       - name: Rebuild catalogs, saved DAGs and strict-family data
         run: |
+          set -o pipefail
           python3 - <<'PY'
           from pathlib import Path
           p=Path('tmam-client/release/reconstruct.py')
-          s=p.read_text();s=s.replace('timeout=240','timeout=1200').replace('timeout=120','timeout=300')
+          s=p.read_text();s=s.replace('timeout=120)','timeout=300)').replace('timeout=240)','timeout=1200)')
           p.write_text(s)
           PY
           python3 -u tmam-client/release/reconstruct.py --fixture "$PWD/baseline.zip" 2>&1 | tee reconstruction.log
@@ -40,6 +47,9 @@ jobs:
           python3 - <<'PY'
           import hashlib,json,pathlib,zipfile
           root=pathlib.Path('tmam-client/release/site')
+          manifest=json.loads((root/'integrity.json').read_text())
+          for name,meta in manifest['files'].items():
+            b=(root/name).read_bytes();assert len(b)==meta['bytes'] and hashlib.sha256(b).hexdigest()==meta['sha256'],name
           paths=[p for p in sorted(root.rglob('*')) if p.is_file()]
           assert len(paths)==66,len(paths)
           with zipfile.ZipFile('tmam-v105-static-en.zip','w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
