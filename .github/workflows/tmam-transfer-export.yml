@@ -1,0 +1,43 @@
+name: Export TMAM deployment transfer sources
+on:
+  push:
+    branches: [deploy/tmam-v105-finish]
+    paths: [.github/workflows/tmam-transfer-export.yml]
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: transfer-a
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: deploy/tmam-client-v105
+          path: transfer-b
+          persist-credentials: false
+      - name: Archive only public deployment sources
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,zipfile
+          files=[]
+          with zipfile.ZipFile('tmam-transfer-sources.zip','w',zipfile.ZIP_DEFLATED) as z:
+            for folder in [Path('transfer-a/.deploy/tmam'),Path('transfer-b/tmam-client')]:
+              for p in sorted(folder.rglob('*')):
+                if p.is_file():
+                  b=p.read_bytes();z.writestr(str(p),b)
+                  files.append({'path':str(p),'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()})
+          Path('transfer-files.json').write_text(json.dumps(files,indent=2))
+          print(json.dumps({'files':len(files),'bytes':sum(x['bytes'] for x in files)}))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tmam-transfer-sources
+          path: |
+            tmam-transfer-sources.zip
+            transfer-files.json
+          retention-days: 3
