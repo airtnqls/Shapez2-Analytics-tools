@@ -1,0 +1,93 @@
+name: Collect TMAM editorial sources and original wiki icons
+on:
+  push:
+    branches: [deploy/tmam-v107-story]
+    paths: [.github/workflows/tmam-v107-sources.yml]
+permissions:
+  contents: read
+jobs:
+  sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Install HTML reader
+        run: python3 -m pip install requests beautifulsoup4
+      - name: Read linked series and wiki images
+        run: |
+          python3 -u - <<'PY'
+          import requests,json,hashlib,pathlib,time,re,urllib.parse
+          from bs4 import BeautifulSoup
+          root=pathlib.Path('editorial-sources');root.mkdir()
+          s=requests.Session();s.headers['User-Agent']='TMAM-Research-Blog/1.0 (source attribution and educational illustrations)'
+          ledger={'dc':[],'wiki':[],'images':[],'errors':[]}
+          def get(url):
+            r=s.get(url,timeout=40);r.raise_for_status();return r
+          seeds=['https://gall.dcinside.com/mgallery/board/view/?id=shapez2&no=307','https://gall.dcinside.com/mgallery/board/view/?id=shapez2&no=266']
+          queue=seeds[:];seen=set()
+          while queue and len(seen)<20:
+            url=queue.pop(0);num=urllib.parse.parse_qs(urllib.parse.urlparse(url).query).get('no',[''])[0]
+            if num in seen:continue
+            seen.add(num)
+            try:
+              r=get(url);r.encoding='utf-8';soup=BeautifulSoup(r.text,'html.parser')
+              title=soup.select_one('.title_subject');title=title.get_text(' ',strip=True) if title else soup.title.get_text()
+              body=soup.select_one('.write_div')
+              if not body:raise RuntimeError('no article body')
+              links=[]
+              for a in soup.find_all('a',href=True):
+                label=a.get_text(' ',strip=True);href=urllib.parse.urljoin(url,a['href'])
+                if ('Zero to TMAM' in label or '제로부터 TMAM' in label) and 'no=' in href:
+                  links.append({'title':label,'url':href});queue.append(href)
+              images=[]
+              for i,img in enumerate(body.find_all('img')):
+                src=img.get('data-original') or img.get('src') or ''
+                if not src or src.startswith('data:'):continue
+                src=urllib.parse.urljoin(url,src)
+                try:
+                  im=s.get(src,headers={'Referer':url},timeout=30);im.raise_for_status()
+                  if not im.headers.get('Content-Type','').startswith('image/'):continue
+                  ext='.png' if im.content.startswith(b'\x89PNG') else '.jpg'
+                  p=root/'dc-images'/f'{num}-{i:02}{ext}';p.parent.mkdir(exist_ok=True);p.write_bytes(im.content)
+                  images.append({'url':src,'path':str(p.relative_to(root)),'bytes':len(im.content)})
+                except Exception as e:ledger['errors'].append({'url':src,'error':str(e)[:200]})
+              text=body.get_text('\n',strip=True)
+              (root/f'dc-{num}.txt').write_text(title+'\n'+url+'\n\n'+text)
+              (root/f'dc-{num}.html').write_text(str(body))
+              ledger['dc'].append({'title':title,'url':url,'file':f'dc-{num}.txt','chars':len(text),'series_links':links,'images':images})
+              print('DC',num,title,len(text),len(images),flush=True)
+            except Exception as e:ledger['errors'].append({'url':url,'error':str(e)[:200]});print('DC error',url,type(e).__name__,flush=True)
+          pages=['Cutter','Rotator','Stacker','Swapper','Pin_Pusher','Crystal_Generator','Belt','Painter','Shape_Analyzer','Simulated_Machines','Shapes','Shape_Patterns','Make_Anything_Machine']
+          grabbed=set()
+          for page in pages:
+            url='https://shapez2.wiki.gg/wiki/'+page
+            try:
+              r=get(url);soup=BeautifulSoup(r.text,'html.parser');body=soup.select_one('.mw-parser-output')
+              if body is None:raise RuntimeError('no wiki article body')
+              (root/f'wiki-{page}.txt').write_text(body.get_text('\n',strip=True))
+              imgs=[]
+              for img in body.find_all('img'):
+                src=urllib.parse.urljoin(url,img.get('src',''));alt=img.get('alt','')
+                if not src or '/images/' not in src or src in grabbed:continue
+                if any(x in src.lower() for x in ['logo','discord','poweredby','edit-icon']):continue
+                if len(imgs)>=30:break
+                try:
+                  rr=get(src)
+                  if not rr.headers.get('Content-Type','').startswith('image/'):continue
+                  name=urllib.parse.unquote(src.rsplit('/',1)[-1]);name=re.sub(r'[^A-Za-z0-9_.-]','_',name)
+                  path=root/'wiki-images'/name;path.parent.mkdir(exist_ok=True)
+                  path.write_bytes(rr.content);grabbed.add(src)
+                  entry={'page':page,'page_url':url,'image_url':src,'file':str(path.relative_to(root)),'alt':alt,'bytes':len(rr.content),'sha256':hashlib.sha256(rr.content).hexdigest()}
+                  imgs.append(entry);ledger['images'].append(entry)
+                except Exception as e:ledger['errors'].append({'url':src,'error':str(e)[:200]})
+              ledger['wiki'].append({'page':page,'url':url,'images':len(imgs),'file':f'wiki-{page}.txt'})
+              print('WIKI',page,len(imgs),flush=True)
+            except Exception as e:ledger['errors'].append({'url':url,'error':str(e)[:200]});print('WIKI error',page,type(e).__name__,flush=True)
+          (root/'sources.json').write_text(json.dumps(ledger,ensure_ascii=False,indent=2))
+          print(json.dumps({'dc':len(ledger['dc']),'wiki':len(ledger['wiki']),'images':len(ledger['images']),'errors':len(ledger['errors'])}))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: tmam-v107-editorial-sources
+          path: editorial-sources/
+          retention-days: 3
