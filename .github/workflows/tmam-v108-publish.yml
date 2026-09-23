@@ -1,0 +1,137 @@
+name: Publish verified TMAM v108 and audit production
+on:
+  push:
+    branches: [deploy/tmam-journal-v108]
+    paths: [.github/workflows/tmam-v108-publish.yml]
+permissions:
+  contents: write
+concurrency:
+  group: tmam-production-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Reconstruct exact v108 from verified v105 plus audited delta
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --output v105.zip 'https://github.com/airtnqls/Shapez2-Analytics-tools/releases/download/tmam-v105-ready-20260923/tmam-v105-static-en.zip'
+          echo '6c5b33eab4c18fcd231cf797a51cc5da23148318306d2d234a721928d54601fa  v105.zip' | sha256sum --check
+          echo '94fd2fa7038a0b9a2ef44bd9aa7b43b8057ef50da74d72148c41d504ba6c0fed  tmam-story/v108-delta.tar.xz' | sha256sum --check
+          python3 - <<'PY'
+          import hashlib,json,pathlib,tarfile,zipfile
+          root=pathlib.Path('site');root.mkdir()
+          with zipfile.ZipFile('v105.zip') as z:
+              for n in z.namelist():
+                  p=pathlib.PurePosixPath(n);assert not p.is_absolute() and '..' not in p.parts
+                  if n.endswith('/'):continue
+                  d=root/p;d.parent.mkdir(parents=True,exist_ok=True);d.write_bytes(z.read(n))
+          with tarfile.open('tmam-story/v108-delta.tar.xz','r:xz') as t:
+              members=t.getmembers()
+              for m in members:
+                  p=pathlib.PurePosixPath(m.name);assert not p.is_absolute() and '..' not in p.parts
+                  assert m.isfile()
+              t.extractall(root,filter='data')
+          release=json.loads((root/'release.json').read_text())
+          assert release['version']=='v108' and release['blog']['topics']==50 and set(release['blog']['locales'])=={'ko','en'}
+          manifest=json.loads((root/'integrity.json').read_text())
+          assert manifest['version']=='v108'
+          for n,meta in manifest['files'].items():
+              b=(root/n).read_bytes()
+              assert len(b)==meta['bytes'] and hashlib.sha256(b).hexdigest()==meta['sha256'],n
+          files=[p for p in root.rglob('*') if p.is_file()]
+          assert len(files)==294,len(files)
+          print(json.dumps({'version':'v108','files':len(files),'manifest_files':len(manifest['files']),'topics':release['blog']['topics']}))
+          PY
+      - name: Package verified static application
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib,zipfile
+          root=pathlib.Path('site')
+          with zipfile.ZipFile('tmam-v108-static.zip','w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              for p in sorted(root.rglob('*')):
+                  if p.is_file():
+                      info=zipfile.ZipInfo(str(p.relative_to(root)),(1980,1,1,0,0,0))
+                      info.compress_type=zipfile.ZIP_DEFLATED
+                      z.writestr(info,p.read_bytes())
+          b=pathlib.Path('tmam-v108-static.zip').read_bytes()
+          pathlib.Path('v108-build.json').write_text(json.dumps({'version':'v108','files':294,'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()},indent=2))
+          print(pathlib.Path('v108-build.json').read_text())
+          PY
+      - name: Install one-use deploy dependencies
+        run: python3 -m pip install requests cryptography
+      - name: Publish to existing authorized Netlify site
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TMAM_ZIP: tmam-v108-static.zip
+        run: python3 -u tmam-story/deploy_v108.py
+      - name: Install Chromium verification
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Audit actual public HTTPS
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,requests,time
+          from playwright.sync_api import sync_playwright
+          base='https://tmam-web.netlify.app/'
+          out={'version':'v108','checks':[],'errors':[]}
+          def ck(name,ok):
+              out['checks'].append({'name':name,'pass':bool(ok)})
+              if not ok:raise AssertionError(name)
+          for _ in range(30):
+              try:
+                  r=requests.get(base+'release.json',timeout=20)
+                  if r.ok and r.json().get('version')=='v108':break
+              except Exception:pass
+              time.sleep(2)
+          release=requests.get(base+'release.json',timeout=30).json()
+          ck('public release is v108',release.get('version')=='v108')
+          ck('50 bilingual topics published',release.get('blog',{}).get('topics')==50 and set(release['blog']['locales'])=={'ko','en'})
+          with sync_playwright() as pw:
+              b=pw.chromium.launch(headless=True)
+              p=b.new_page(viewport={'width':1440,'height':1000})
+              p.on('pageerror',lambda e:out['errors'].append(str(e)))
+              resp=p.goto(base,wait_until='networkidle',timeout=60000)
+              ck('root loads',resp.status==200)
+              ck('Blog navigation exists',p.locator('a[href*="blog"],button').filter(has_text='Blog').count()>0)
+              blog=p.goto(base+'blog/ko/index.html',wait_until='networkidle',timeout=60000)
+              ck('Korean blog loads',blog.status==200 and 'TMAM' in p.locator('body').inner_text())
+              ck('50 scene cards present',p.locator('[data-episode],.episode-card,.story-card').count()>=50 or p.locator('a[href*=".html"]').count()>=50)
+              first=p.goto(base+'blog/ko/01-anything.html',wait_until='networkidle',timeout=60000)
+              ck('first Korean story loads',first.status==200)
+              ck('interactive controls exist',p.locator('button').count()>0)
+              en=p.goto(base+'blog/en/01-anything.html',wait_until='networkidle',timeout=60000)
+              ck('English story loads',en.status==200)
+              p.goto(base,wait_until='networkidle',timeout=60000)
+              p.select_option('#cap','3');p.fill('#pattern','c');p.click('#searchBtn')
+              deadline=time.time()+60
+              while time.time()<deadline:
+                  if p.evaluate('TMAM_WEB.getCurrent()?.value === "486775"'):break
+                  time.sleep(.15)
+              ck('existing cap3 search preserved',p.evaluate('TMAM_WEB.getCurrent()?.value')=='486775')
+              p.set_viewport_size({'width':390,'height':844})
+              ck('mobile has no horizontal overflow',p.evaluate('document.documentElement.scrollWidth<=innerWidth+1'))
+              p.screenshot(path='v108-live.png')
+              b.close()
+          ck('no uncaught page errors',not out['errors'])
+          pathlib.Path('v108-live-audit.json').write_text(json.dumps(out,ensure_ascii=False,indent=2))
+          print(json.dumps(out,ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: tmam-v108-production-audit
+          path: |
+            deployment-v108.json
+            v108-build.json
+            v108-live-audit.json
+            v108-live.png
+          retention-days: 14
