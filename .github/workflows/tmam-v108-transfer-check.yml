@@ -1,0 +1,49 @@
+name: Verify existing TMAM v108 transfer
+on:
+  push:
+    branches: [deploy/tmam-journal-v108]
+    paths: [.github/workflows/tmam-v108-transfer-check.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install zstandard
+      - name: Test all plausible stream endings
+        run: |
+          python3 - <<'PY'
+          import pathlib,base64,hashlib,json,zstandard as zstd
+          root=pathlib.Path('tmam-story/v108')
+          common=[root/f'part-{i:02}.b64' for i in range(13)]
+          variants={
+            '13_only': common+[root/'part-13.b64'],
+            '13b_only': common+[root/'part-13b.b64'],
+            '13_then_13b': common+[root/'part-13.b64',root/'part-13b.b64'],
+          }
+          out={}
+          for name,parts in variants.items():
+            try:
+              b=base64.b64decode(''.join(p.read_text().strip() for p in parts),validate=True)
+              d=zstd.ZstdDecompressor().decompress(b,max_output_size=16*1024*1024)
+              rec={'ok':True,'packed_bytes':len(b),'packed_sha256':hashlib.sha256(b).hexdigest(),
+                   'unpacked_bytes':len(d),'unpacked_sha256':hashlib.sha256(d).hexdigest(),
+                   'prefix':d[:80].decode('utf-8','replace')}
+              try:
+                j=json.loads(d);rec['json_type']=type(j).__name__;rec['json_items']=len(j)
+              except Exception as e:rec['json_error']=str(e)
+            except Exception as e:
+              rec={'ok':False,'error':type(e).__name__+': '+str(e)}
+            out[name]=rec
+          pathlib.Path('transfer-check.json').write_text(json.dumps(out,indent=2))
+          print(json.dumps(out,indent=2))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tmam-v108-transfer-check
+          path: transfer-check.json
+          retention-days: 3
