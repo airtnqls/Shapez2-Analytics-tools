@@ -1,0 +1,55 @@
+name: TMAM original wiki assets
+on:
+  push:
+    branches: [deploy/tmam-journal-v108]
+    paths: [.github/workflows/tmam-v108-assets.yml]
+permissions:
+  contents: read
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: python3 -m pip install requests beautifulsoup4 pillow
+      - name: Fetch exact artwork linked by wiki and original article diagrams
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageOps,ImageDraw
+          import requests,urllib.parse,json,hashlib,io
+          from bs4 import BeautifulSoup
+          out=Path('artwork');out.mkdir();(out/'icons').mkdir()
+          s=requests.Session();s.headers['User-Agent']='Mozilla/5.0 (TMAM educational source verification)'
+          targets={'CUT':('Cutter','Cutter-500.png','CutterIcon.png'),'STACK':('Stacker','Stacker-500.png','StackerDefaultIcon.png'),'ROTATE':('Rotator','Rotator-500.png','RotatorIcon.png'),'GENERATE':('Crystal_Generator','Crystal-Generator-500.png','CrystalGeneratorIcon.png'),'PIN_PUSH':('Pin_Pusher','Pin-Pusher-500.png','PinPusherIcon.png'),'SWAP':('Swapper','Swapper-500.png','HalvesSwapperIcon.png'),'SIGNAL':('Shape_Analyzer','Simulated-Machines-GIF-500.gif','VirtualAnalyzerIcon.png')}
+          entries=[]
+          for key,(page,alt,name) in targets.items():
+            u='https://shapez2.wiki.gg/wiki/'+page;r=s.get(u,timeout=40);r.raise_for_status();soup=BeautifulSoup(r.text,'html.parser')
+            im=next(i for i in soup.select('.mw-parser-output img') if i.get('alt')==alt)
+            source=urllib.parse.urljoin(u,im['src']);b=s.get(source,timeout=40);b.raise_for_status()
+            image=Image.open(io.BytesIO(b.content)).convert('RGBA')
+            # SIGNAL is a documented still from the wiki simulated-machine illustration.
+            image.thumbnail((180,180),Image.Resampling.LANCZOS);f=out/'icons'/name;image.save(f,optimize=True)
+            entries.append({'key':key,'file':name,'page':u,'image_url':source,'original_sha256':hashlib.sha256(b.content).hexdigest(),'sha256':hashlib.sha256(f.read_bytes()).hexdigest(),'width':image.width,'height':image.height,'transformation':'resize to max180 PNG; GIF uses its first frame','credit':'Shapez 2 / tobspr Games; illustration sourced from Shapez 2 Wiki','kind':'wiki in-game building illustration'})
+          (out/'ICONS.json').write_text(json.dumps(entries,ensure_ascii=False,indent=2))
+          for num in [295,296,300,302,307,308,266]:
+            u='https://gall.dcinside.com/mgallery/board/view/?id=shapez2&no='+str(num);r=s.get(u,timeout=40);r.raise_for_status();soup=BeautifulSoup(r.text,'html.parser');body=soup.select_one('.write_div');images=[]
+            for i,im in enumerate(body.select('img')):
+              src=im.get('data-original') or im.get('data-src') or im.get('src','')
+              if 'loading' in src or 'googleusercontent' in src:continue
+              try:
+                r=s.get(urllib.parse.urljoin(u,src),headers={'Referer':u},timeout=30);r.raise_for_status();pic=Image.open(io.BytesIO(r.content)).convert('RGB')
+                if pic.width<50 or pic.height<50:continue
+                images.append((i,ImageOps.contain(pic,(400,290))))
+              except Exception:pass
+            if images:
+              canvas=Image.new('RGB',(820,330*((len(images)+1)//2)),(238,238,238));d=ImageDraw.Draw(canvas)
+              for j,(i,pic) in enumerate(images):
+                x=(j%2)*410;y=(j//2)*330;canvas.paste(pic,(x,y+25));d.text((x+5,y+4),f'Post {num} / image {i+1}',fill=(0,0,0))
+              canvas.save(out/f'dc-{num}-contact.jpg',quality=84)
+          print(json.dumps({'wiki_icons':len(entries),'series_contact_sheets':len(list(out.glob('dc-*')))}))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tmam-v108-wiki-artwork
+          path: artwork/
+          retention-days: 3
