@@ -1,0 +1,17 @@
+name: Inspect TMAM v108 delta hash
+on:
+  push:
+    branches: [deploy/tmam-journal-v108]
+    paths: [.github/workflows/tmam-v108-delta-hash.yml]
+permissions:
+  contents: read
+jobs:
+  hash:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - run: |
+          stat -c '%s' tmam-story/v108-delta.tar.xz
+          sha256sum tmam-story/v108-delta.tar.xz
+          xz -t tmam-story/v108-delta.tar.xz
