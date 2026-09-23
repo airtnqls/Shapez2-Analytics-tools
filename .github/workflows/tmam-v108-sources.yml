@@ -1,0 +1,68 @@
+name: TMAM journal source and game icon audit
+on:
+  push:
+    branches: [deploy/tmam-journal-v108]
+    paths: [.github/workflows/tmam-v108-sources.yml]
+permissions:
+  contents: read
+jobs:
+  sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install parser
+        run: python3 -m pip install requests beautifulsoup4
+      - name: Read public source articles and obtain original game icons
+        run: |
+          python3 - <<'PY'
+          import requests,pathlib,json,hashlib,urllib.parse,time
+          from bs4 import BeautifulSoup
+          out=pathlib.Path('source-audit');out.mkdir();(out/'icons').mkdir()
+          s=requests.Session();s.headers['User-Agent']='Mozilla/5.0 (compatible; TMAM educational source verification)'
+          log={'articles':[],'wiki':[],'icons':[]}
+          for n in [295,296,300,302,307,308,266]:
+            u='https://gall.dcinside.com/mgallery/board/view/?id=shapez2&no='+str(n)
+            rec={'number':n,'url':u}
+            try:
+              r=s.get(u,timeout=45);rec['http']=r.status_code
+              soup=BeautifulSoup(r.text,'html.parser');body=soup.select_one('.write_div')
+              if body is not None:
+                text=body.get_text('\n',strip=True);rec['chars']=len(text)
+                (out/f'dc-{n}.txt').write_text(text)
+                rec['images']=[urllib.parse.urljoin(u,x.get('src') or x.get('data-src','')) for x in body.select('img')]
+                rec['links']=[{'text':a.get_text(' ',strip=True),'url':urllib.parse.urljoin(u,a.get('href',''))} for a in body.select('a[href]')]
+                rec['status']='body_read'
+              else:rec['status']='body_unavailable'
+            except Exception as e:rec['error']=str(e)
+            log['articles'].append(rec)
+          targets={'CUT':('Cutter','CutterIcon.png'),'STACK':('Stacker','StackerDefaultIcon.png'),'ROTATE':('Rotator','RotatorIcon.png'),'GENERATE':('Crystal_Generator','CrystalGeneratorIcon.png'),'PIN_PUSH':('Pin_Pusher','PinPusherIcon.png'),'SWAP':('Swapper','HalvesSwapperIcon.png'),'SIGNAL':('Shape_Analyzer','VirtualAnalyzerIcon.png')}
+          for key,(page,filename) in targets.items():
+            url='https://shapez2.wiki.gg/wiki/'+page;rec={'key':key,'page':url,'target_filename':filename}
+            try:
+              r=s.get(url,timeout=40);rec['http']=r.status_code;soup=BeautifulSoup(r.text,'html.parser')
+              body=soup.select_one('.mw-parser-output')
+              if body:
+                (out/('wiki-'+page+'.txt')).write_text(body.get_text('\n',strip=True))
+                candidates=[]
+                for im in body.select('img'):
+                  src=im.get('src') or im.get('data-src','');alt=im.get('alt','')
+                  candidates.append({'url':urllib.parse.urljoin(url,src),'alt':alt,'width':im.get('width'),'height':im.get('height')})
+                rec['images']=candidates
+                named=[x for x in candidates if 'Icon' in x['url'] or 'icon' in x['url']]
+                chosen=next((x for x in named if key=='SWAP' and 'Swapper' in x['url']),None) or next((x for x in named if filename.split('Icon')[0].lower() in x['url'].lower()),None)
+                if chosen is None and named:chosen=named[0]
+                if chosen:
+                  rr=s.get(chosen['url'],timeout=40)
+                  if rr.status_code==200 and rr.content.startswith(b'\x89PNG'):
+                    (out/'icons'/filename).write_bytes(rr.content)
+                    log['icons'].append({'key':key,'filename':filename,'origin':'wiki','page':url,'url':chosen['url'],'sha256':hashlib.sha256(rr.content).hexdigest(),'bytes':len(rr.content)})
+            except Exception as e:rec['error']=str(e)
+            log['wiki'].append(rec)
+          (out/'SOURCES.json').write_text(json.dumps(log,indent=2,ensure_ascii=False))
+          print(json.dumps({'articles':[(x['number'],x.get('status'),x.get('chars')) for x in log['articles']],'wiki':[(x['key'],x.get('http')) for x in log['wiki']],'icons':log['icons']},ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tmam-v108-source-audit
+          path: source-audit/
+          retention-days: 3
