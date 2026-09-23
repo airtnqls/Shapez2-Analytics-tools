@@ -1,0 +1,35 @@
+name: Inspect existing TMAM editorial transfer
+on:
+  push:
+    branches: [deploy/tmam-journal-v108]
+    paths: [.github/workflows/tmam-v108-reuse.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: deploy/tmam-v107-story
+          persist-credentials: false
+      - name: Inspect compressed stream without running it
+        run: |
+          python3 - <<'PY'
+          import pathlib,base64,lzma,json,hashlib,zipfile
+          p=pathlib.Path('tmam-story/v107');text=''.join(x.read_text().strip() for x in sorted(p.glob('part-*.b64')))
+          b=base64.b64decode(text);d=lzma.LZMADecompressor();out=d.decompress(b)
+          summary={'compressed_bytes':len(b),'decompressed_bytes':len(out),'complete':d.eof,'sha256':hashlib.sha256(b).hexdigest()}
+          print(json.dumps(summary))
+          pathlib.Path('inspection.json').write_text(json.dumps(summary))
+          pathlib.Path('existing-v107.xz').write_bytes(b);pathlib.Path('existing-v107.partial').write_bytes(out)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tmam-v107-existing-transfer
+          path: |
+            existing-v107.xz
+            existing-v107.partial
+            inspection.json
+          retention-days: 3
