@@ -1,0 +1,54 @@
+name: Repair TMAM v108 source transfer boundaries
+on:
+  push:
+    branches: [deploy/tmam-journal-v108]
+    paths: [.github/workflows/tmam-v108-repair-transfer.yml]
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - run: python3 -m pip install zstandard
+      - name: Search only plausible two-character boundary repairs
+        run: |
+          python3 - <<'PY'
+          import pathlib,base64,hashlib,json,itertools,zstandard as zstd
+          root=pathlib.Path('tmam-story/v108')
+          parts={i:(root/f'part-{i:02}.b64').read_text().strip() for i in range(13)}
+          tails={'13':(root/'part-13.b64').read_text().strip(),'13b':(root/'part-13b.b64').read_text().strip()}
+          results=[]
+          # Only 08,11,12 are length 12002 instead of 12000. Remove exactly
+          # two chars from either edge, the only plausible boundary corruption.
+          for choices in itertools.product(('head','tail'),repeat=3):
+            p=parts.copy()
+            for idx,where in zip((8,11,12),choices):
+              p[idx]=p[idx][2:] if where=='head' else p[idx][:-2]
+            for tailname,tail in tails.items():
+              text=''.join(p[i] for i in range(13))+tail
+              try:
+                raw=base64.b64decode(text,validate=True)
+                d=zstd.ZstdDecompressor().decompress(raw,max_output_size=32*1024*1024)
+                rec={'choices':choices,'tail':tailname,'packed':len(raw),'packed_sha':hashlib.sha256(raw).hexdigest(),
+                     'unpacked':len(d),'unpacked_sha':hashlib.sha256(d).hexdigest(),'prefix':d[:100].decode('utf-8','replace')}
+                try:
+                  j=json.loads(d);rec['json']=True;rec['items']=len(j) if hasattr(j,'__len__') else None
+                except Exception as e:rec['json']=False;rec['json_error']=str(e)
+                pathlib.Path('repaired-v108-source.bin').write_bytes(d)
+                results.append(rec)
+              except Exception:
+                pass
+          pathlib.Path('repair.json').write_text(json.dumps(results,indent=2))
+          print(json.dumps(results,indent=2))
+          assert results,'no boundary repair produced a complete zstd stream'
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tmam-v108-repaired-source
+          path: |
+            repair.json
+            repaired-v108-source.bin
+          retention-days: 3
